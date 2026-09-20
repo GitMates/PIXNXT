@@ -16,7 +16,20 @@ function formatPersonCount(count) {
   return value.toLocaleString();
 }
 
-function IndexingFacesStatus() {
+function IndexingFacesStatus({ onStart, canStart }) {
+  if (canStart && onStart) {
+    return (
+      <button
+        type="button"
+        className="cdpw-people__status cdpw-people__status--action"
+        onClick={() => onStart()}
+        title="Index faces in this delivery"
+      >
+        <RefreshCw size={14} aria-hidden />
+        <span className="cdpw-people__status-copy">Index faces</span>
+      </button>
+    );
+  }
   return (
     <span className="cdpw-people__status cdpw-people__status--analyzing" role="status" aria-live="polite">
       <AppSpinner size="sm" label="Indexing faces" />
@@ -177,7 +190,7 @@ export function CollectionPeopleStrip({
   };
 
   return (
-    <section className="cdpw-people" aria-label="People in this delivery">
+    <section className="cdpw-people" aria-label="People in this set">
       <span className="cdpw-people__label">People</span>
 
       <div className={cn('cdpw-people__strip', expanded && 'cdpw-people__strip--expanded')}>
@@ -192,7 +205,7 @@ export function CollectionPeopleStrip({
                 tableMissing
                   ? 'Photo AI tables are missing'
                   : indexedCount === 0
-                    ? 'Upload photos first — faces are indexed automatically'
+                    ? 'Upload photos, then click Index faces'
                     : selfiePreview
                       ? 'Change selfie'
                       : 'Upload a selfie to find matching photos'
@@ -250,58 +263,63 @@ export function CollectionPeopleStrip({
             const isDeleteTarget = deleteTarget?.id === person.id;
             return (
               <div key={person.id} className="cdpw-person">
-                <button
-                  type="button"
+                <div
                   className={cn('cdpw-person__btn', active && 'cdpw-person__btn--active')}
-                  onClick={() => onSelectPerson?.(person.id)}
-                  aria-pressed={active}
                 >
-                  <span
-                    ref={isDeleteTarget ? deleteAnchorRef : null}
-                    className="cdpw-person__avatar-wrap"
+                  <button
+                    type="button"
+                    className="cdpw-person__select"
+                    onClick={() => onSelectPerson?.(person.id)}
+                    aria-pressed={active}
+                    aria-label={`Filter by ${displayPersonLabel(person.label)}`}
                   >
-                    <PersonFaceAvatar
-                      imageUrl={person.imageUrl}
-                      boundingBox={person.boundingBox}
-                      avatarSource={person.avatarSource}
-                      size={AVATAR_SIZE}
-                      variant="strip"
-                    />
-                    <span className="cdpw-person__count">{formatPersonCount(person.count)}</span>
-                    {active && onDeletePerson ? (
-                      <span
-                        className="cdpw-person__remove"
-                        role="button"
-                        tabIndex={0}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setDeleteTarget((current) =>
-                            current?.id === person.id ? null : person
-                          );
-                        }}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter' || e.key === ' ') {
-                            e.preventDefault();
+                    <span
+                      ref={isDeleteTarget ? deleteAnchorRef : null}
+                      className="cdpw-person__avatar-wrap"
+                    >
+                      <PersonFaceAvatar
+                        imageUrl={person.imageUrl}
+                        boundingBox={person.boundingBox}
+                        avatarSource={person.avatarSource}
+                        size={AVATAR_SIZE}
+                        variant="strip"
+                      />
+                      <span className="cdpw-person__count">{formatPersonCount(person.count)}</span>
+                      {active && onDeletePerson ? (
+                        <span
+                          className="cdpw-person__remove"
+                          role="button"
+                          tabIndex={0}
+                          onClick={(e) => {
                             e.stopPropagation();
                             setDeleteTarget((current) =>
                               current?.id === person.id ? null : person
                             );
-                          }
-                        }}
-                        aria-label={`Remove ${displayPersonLabel(person.label)}`}
-                        aria-expanded={isDeleteTarget}
-                      >
-                        <X size={12} strokeWidth={2.25} />
-                      </span>
-                    ) : null}
-                  </span>
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              setDeleteTarget((current) =>
+                                current?.id === person.id ? null : person
+                              );
+                            }
+                          }}
+                          aria-label={`Remove ${displayPersonLabel(person.label)}`}
+                          aria-expanded={isDeleteTarget}
+                        >
+                          <X size={12} strokeWidth={2.25} />
+                        </span>
+                      ) : null}
+                    </span>
+                  </button>
                   <PersonLabelEditor
                     className="cdpw-person__name"
                     label={person.label}
                     editable={Boolean(onRenamePerson)}
                     onSave={(name) => onRenamePerson?.(person.id, name)}
                   />
-                </button>
+                </div>
               </div>
             );
           })}
@@ -337,9 +355,15 @@ export function CollectionPeopleStrip({
             <button
               type="button"
               className="cdpw-person__overflow cdpw-person__overflow--reanalyze"
-              aria-label="Re-analyze faces in this delivery"
+              aria-label="Index faces in this delivery"
               disabled={analyzing || tableMissing}
-              title="Index faces again"
+              title={
+                analyzing
+                  ? 'Indexing in progress'
+                  : indexedCount === 0
+                    ? 'Index faces in this delivery'
+                    : 'Index new photos / refresh people'
+              }
               onClick={() => onReanalyze?.()}
             >
               {analyzing ? (
@@ -354,13 +378,19 @@ export function CollectionPeopleStrip({
         {!loadingPeople && analyzing ? <IndexingFacesStatus /> : null}
 
         {!loadingPeople && !analyzing && shown.length === 0 && !selfiePreview ? (
-          <span className="cdpw-people__status">
-            {tableMissing
-              ? 'Photo AI tables missing — run migrations'
-              : indexedCount === 0
-                ? 'Upload photos — faces are indexed automatically'
+          tableMissing ? (
+            <span className="cdpw-people__status">
+              Photo AI tables missing — run migrations
+            </span>
+          ) : onReanalyze && !tableMissing ? (
+            <IndexingFacesStatus canStart onStart={() => onReanalyze?.()} />
+          ) : (
+            <span className="cdpw-people__status">
+              {indexedCount === 0
+                ? 'Upload photos, then index faces'
                 : 'No people found yet'}
-          </span>
+            </span>
+          )
         ) : null}
       </div>
 
@@ -382,7 +412,7 @@ export function CollectionPeopleStrip({
         ) : null}
         {!canSearch && !tableMissing && indexedCount === 0 && onSelfieSearch ? (
           <p className="cdpw-people__selfie-status cdpw-people__selfie-status--muted">
-            <Upload size={12} aria-hidden /> Add media to index faces
+            <Upload size={12} aria-hidden /> Add media, then click Index faces
           </p>
         ) : null}
       </div>

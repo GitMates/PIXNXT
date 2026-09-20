@@ -15,6 +15,7 @@ import {
     listAlbumNotificationsForAlbum,
     NOTIFICATION_REFRESH_EVENTS,
     markAllAlbumProofItemsSeen,
+    markNotificationItemSeen,
 } from '../../services/albumNotifications';
 import { isCommentAudioAttachment } from './albumCommentAttachments';
 import { resolveFilmstripVisual, FilmstripThumb } from './AlbumSpreadFilmstrip';
@@ -76,40 +77,78 @@ export default function AlbumEditorNotifications({
         [album?.grid_size]
     );
     const spreadAspect = pageAspect * 2;
-    const spreadOpts = useMemo(() => getAlbumSpreadOptions(album), [album]);
+    const spreadOpts = useMemo(
+        () => getAlbumSpreadOptions(album),
+        // getAlbumSpreadOptions only reads layout flags; avoid re-creating on
+        // every parent render when the album object identity changes.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+        [album?.id, album?.has_covers, album?.blank_covers, album?.grid_layout, album?.page_count]
+    );
+
+    // Latest album for async refresh without rebinding `refresh` on every render.
+    const albumRef = useRef(album);
+    albumRef.current = album;
+    const refreshSeqRef = useRef(0);
+    const mountedRef = useRef(true);
+    useEffect(() => {
+        mountedRef.current = true;
+        return () => {
+            mountedRef.current = false;
+        };
+    }, []);
 
     const updatePanelPosition = useCallback(() => {
         if (!triggerRef.current) return;
         setPanelStyle(computePanelStyle(triggerRef.current.getBoundingClientRect()));
     }, []);
 
-    const refresh = useCallback(async () => {
-        if (!album?.id) {
-            setItems([]);
+    const refresh = useCallback(async ({ silent = false } = {}) => {
+        const current = albumRef.current;
+        if (!current?.id) {
+            if (mountedRef.current) setItems([]);
             return;
         }
-        setLoading(true);
-        try {
-            const next = await listAlbumNotificationsForAlbum(album);
-            setItems(next);
-        } catch {
-            setItems([]);
-        } finally {
-            setLoading(false);
+        const seq = (refreshSeqRef.current += 1);
+        // Don't blank the cached list with a spinner on background refreshes;
+        // only show the loader for the initial load when we have no items yet.
+        let didShowLoader = false;
+        if (!silent) {
+            didShowLoader = true;
+            if (mountedRef.current) setLoading(true);
         }
-    }, [album]);
+        try {
+            const next = await listAlbumNotificationsForAlbum(current);
+            if (mountedRef.current && seq === refreshSeqRef.current) {
+                setItems(next);
+            }
+        } catch {
+            if (mountedRef.current && seq === refreshSeqRef.current) {
+                setItems([]);
+            }
+        } finally {
+            if (mountedRef.current && seq === refreshSeqRef.current && didShowLoader) {
+                setLoading(false);
+            }
+        }
+    }, []);
 
     useEffect(() => {
         refresh();
-    }, [refresh]);
+    }, [refresh, album?.id]);
 
     useEffect(() => {
+        let debounceId = null;
         const onRefresh = (e) => {
             if (e.detail?.albumId && e.detail.albumId !== album?.id) return;
-            refresh();
+            // Burst of seen-events (pins + swaps + comments) from one view
+            // should trigger a single background refresh, not N spinners.
+            if (debounceId) window.clearTimeout(debounceId);
+            debounceId = window.setTimeout(() => {
+                refresh({ silent: true });
+            }, 300);
         };
         const onVisibility = () => {
-            if (document.visibilityState === 'visible') refresh();
+            if (document.visibilityState === 'visible') refresh({ silent: true });
         };
 
         NOTIFICATION_REFRESH_EVENTS.forEach((eventName) => {
@@ -117,6 +156,7 @@ export default function AlbumEditorNotifications({
         });
         document.addEventListener('visibilitychange', onVisibility);
         return () => {
+            if (debounceId) window.clearTimeout(debounceId);
             NOTIFICATION_REFRESH_EVENTS.forEach((eventName) => {
                 window.removeEventListener(eventName, onRefresh);
             });
@@ -137,7 +177,7 @@ export default function AlbumEditorNotifications({
             window.removeEventListener('resize', onLayoutChange);
             window.removeEventListener('scroll', onLayoutChange, true);
         };
-    }, [open, updatePanelPosition, items.length, loading]);
+    }, [open, updatePanelPosition]);
 
     useEffect(() => {
         if (!open) return undefined;
@@ -182,6 +222,18 @@ export default function AlbumEditorNotifications({
     };
 
     const handleSelect = (item) => {
+        // Viewing the comment in the sidebar counts as seen, so the
+        // notification badge drops immediately (e.g. 7 -> 5 after
+        // opening spread 2's comments when spread 7 still has 5).
+        try {
+            markNotificationItemSeen(item);
+        } catch {
+            /* ignore */
+        }
+        // Optimistically drop the badge without waiting for the refresh event.
+        setItems((prev) =>
+            prev.map((row) => (row.id === item.id ? { ...row, isUnread: false } : row))
+        );
         setOpen(false);
         const page = getNotificationPage(item, album);
         const panel = getNotificationPanel(item);
@@ -261,7 +313,7 @@ export default function AlbumEditorNotifications({
             </div>
 
             <div className="ae-notifications-scroll">
-                {loading ? (
+                {loading && items.length === 0 ? (
                     <AppLoader label="Loading" variant="dropdown" className="ae-notifications-empty app-loader" />
                 ) : filteredItems.length === 0 ? (
                     <div className="ae-notifications-empty">No notifications</div>
@@ -286,6 +338,8 @@ export default function AlbumEditorNotifications({
 
                                 const isAudioComment = item.comment && isCommentAudioAttachment(item.comment);
                                 const isDone = isNotificationMarkedDone(item);
+                                // Keep the type icon when done; done state is shown via
+                                // the done-mark + DONE label (avoids two check circles).
                                 let iconClass = 'comment';
                                 let iconElement = <MessageSquare size={14} />;
                                 if (item.type === 'swap') {
@@ -297,9 +351,6 @@ export default function AlbumEditorNotifications({
                                 } else if (isAudioComment) {
                                     iconClass = 'audio';
                                     iconElement = <Mic size={14} />;
-                                } else if (isDone) {
-                                    iconClass = 'tick';
-                                    iconElement = <Check size={14} />;
                                 }
 
                                 return (

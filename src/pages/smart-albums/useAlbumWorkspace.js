@@ -26,6 +26,8 @@ import {
     migrateWholeSpreadPhotoOffRightPage,
     removeCollectionItemsOnDeletedSpread,
     unlinkSharedCoverAndInnerPlacement,
+    reconcileCoverWrapPlacements,
+    syncCoverWrapRoleFromSpread,
 } from '../../components/smart-albums/albumPagePhotos';
 import {
     migrateInsideCoverSpreadTransform,
@@ -135,7 +137,7 @@ export function useAlbumWorkspace() {
                         migrateInsideCoverSpreadTransform(albumId);
                         migratePreBackHalfSpreadToLeftPage(albumId, pages, data);
                         migrateEndHalfSpreadToLeftPage(albumId, pages, data);
-                        unlinkSharedCoverAndInnerPlacement(albumId, data);
+                        reconcileCoverWrapPlacements(albumId, data);
                     }
                     if (albumSpreadOpts.hasCovers) {
                         const { left: endLeft } = getEndSpreadPageIndices(pages);

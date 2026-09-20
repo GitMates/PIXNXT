@@ -48,6 +48,9 @@ export interface PrivacySettingsProps {
   profile?: any;
   collectionPassword: string;
   setCollectionPassword: (val: string) => void;
+  /** Password is on in DB but plaintext isn't available to show yet. */
+  guestPasswordLocked?: boolean;
+  onClearGuestPassword?: () => void;
   showOnShowcase: boolean;
   setShowOnShowcase: (val: boolean) => void;
   clientExclusiveAccess: boolean;
@@ -345,6 +348,8 @@ export const PrivacySettings: React.FC<PrivacySettingsProps> = ({
   profile,
   collectionPassword,
   setCollectionPassword,
+  guestPasswordLocked = false,
+  onClearGuestPassword,
   clientExclusiveAccess,
   setClientExclusiveAccess,
   clientPrivatePassword,
@@ -460,7 +465,7 @@ export const PrivacySettings: React.FC<PrivacySettingsProps> = ({
 
   const shareUrl = getCollectionShareUrl(collectionUrl, profile);
   const shareHostPath = displayHostPath(shareUrl);
-  const passwordOn = Boolean(collectionPassword);
+  const passwordOn = Boolean(collectionPassword) || guestPasswordLocked;
   const studioName = profile?.business_name || profile?.display_name || 'Your studio';
   const eventLabel = formatShortDate(collection?.event_date);
   const coverUrl = collection?.cover_url || '';
@@ -473,7 +478,13 @@ export const PrivacySettings: React.FC<PrivacySettingsProps> = ({
   const qrThumb = registrationUrl ? getQrCodeImageUrl(registrationUrl, 72) : '';
 
   const togglePassword = (next: boolean) => {
-    setCollectionPassword(next ? suggestPassword(collectionUrl) : '');
+    if (next) {
+      setCollectionPassword(suggestPassword(collectionUrl));
+    } else if (onClearGuestPassword) {
+      onClearGuestPassword();
+    } else {
+      setCollectionPassword('');
+    }
     if (!next) setRevealPassword(false);
   };
 
@@ -594,10 +605,16 @@ export const PrivacySettings: React.FC<PrivacySettingsProps> = ({
   };
 
   const passwordSummary = passwordOn ? (
-    <>
-      Closed. Visitors type <strong>{collectionPassword}</strong> before they see anything — except guests
-      arriving through a QR registration, who are let straight in.
-    </>
+    collectionPassword ? (
+      <>
+        Closed. Visitors type <strong>{collectionPassword}</strong> before they see anything — except guests
+        arriving through a QR registration, who are let straight in.
+      </>
+    ) : (
+      <>
+        Closed. Generate or enter a password to share it again — the previous one still works until you change it.
+      </>
+    )
   ) : (
     <>
       Open. <strong>Anyone with the link</strong> can view it.
@@ -645,7 +662,7 @@ export const PrivacySettings: React.FC<PrivacySettingsProps> = ({
     <div className="cd-basics-msg">
       <p>Your photographs{eventLabel ? ` from ${eventLabel}` : ''} are ready.</p>
       <p className="cd-basics-msg__link">{shareHostPath}</p>
-      {passwordOn && includePassword ? (
+      {passwordOn && includePassword && collectionPassword ? (
         <p>Password to view: <strong>{collectionPassword}</strong></p>
       ) : null}
       {downloadPin && includePin && pinValue ? (
@@ -721,13 +738,19 @@ export const PrivacySettings: React.FC<PrivacySettingsProps> = ({
                   <div className="cd-dl-card">
                     <div className="cd-dl-row" style={{ flexDirection: 'column', alignItems: 'stretch', gap: 10 }}>
                       <span className="cd-basics-label">Password</span>
-                      <div className="cd-basics-input-row">
+                      <form
+                        className="cd-basics-input-row"
+                        onSubmit={(e) => e.preventDefault()}
+                        autoComplete="off"
+                      >
                         <input
                           type={revealPassword ? 'text' : 'password'}
                           className="cd-basics-input"
                           value={collectionPassword}
                           onChange={(e) => setCollectionPassword(e.target.value)}
-                          autoComplete="off"
+                          placeholder={guestPasswordLocked ? 'Generate a new password to view & share it' : undefined}
+                          autoComplete="new-password"
+                          name="gallery-guest-password"
                         />
                         <button
                           type="button"
@@ -737,7 +760,7 @@ export const PrivacySettings: React.FC<PrivacySettingsProps> = ({
                         >
                           <EyeIcon off={revealPassword} />
                         </button>
-                        <button type="button" className="cd-basics-btn" onClick={copyPassword}>
+                        <button type="button" className="cd-basics-btn" onClick={copyPassword} disabled={!collectionPassword}>
                           {copied ? 'Copied' : 'Copy'}
                         </button>
                         <button
@@ -750,7 +773,7 @@ export const PrivacySettings: React.FC<PrivacySettingsProps> = ({
                         >
                           Generate
                         </button>
-                      </div>
+                      </form>
                       <p className="cd-basics-hint">Changing it locks out anyone still using the old one.</p>
                     </div>
                     <Row

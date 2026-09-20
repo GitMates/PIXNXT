@@ -22,21 +22,26 @@ function segmentCacheKey(src, layout, side, transform, width, height) {
     return `${src}|${side}|${layoutKey}|${t.x},${t.y},${t.scaleX},${t.scaleY}|${width}x${height}`;
 }
 
-/** Horizontal slice + object-fit cover — same logic as 3D cover preview. */
+/** Horizontal slice + object-fit cover — same logic as 3D cover preview.
+ *  Returns false when nothing was drawn (empty bounds) so callers can fall back.
+ */
 export function drawWrapSegment(ctx, img, texW, texH, layout, side, transform) {
     const emptyColor = isSpineStretchWrapSide(side) ? '#e4e7ec' : '#ffffff';
     ctx.fillStyle = emptyColor;
     ctx.fillRect(0, 0, texW, texH);
-    if (!img || !layout || !side) return;
+    if (!img || !layout || !side) return false;
 
     const { start: imgFracStart, end: imgFracEnd } = resolveWrapSegmentBounds(layout, side);
 
+
     const segW = imgFracEnd - imgFracStart;
-    if (segW <= 0) return;
+    if (!(segW > 0.0001)) return false;
 
     const sx = imgFracStart * img.width;
     const sw = segW * img.width;
     const sh = img.height;
+    if (!(sw > 0.5) || !(sh > 0.5)) return false;
+
     const panelAspect = texW / texH;
     const segAspect = sw / sh;
     const t = normalizePhotoTransform(transform);
@@ -49,7 +54,7 @@ export function drawWrapSegment(ctx, img, texW, texH, layout, side, transform) {
     if (isSpineStretchWrapSide(side)) {
         ctx.drawImage(img, sx, 0, sw, sh, 0, 0, texW, texH);
         ctx.restore();
-        return;
+        return true;
     }
 
     let dw;
@@ -69,6 +74,7 @@ export function drawWrapSegment(ctx, img, texW, texH, layout, side, transform) {
     }
     ctx.drawImage(img, sx, 0, sw, sh, dx, dy, dw, dh);
     ctx.restore();
+    return true;
 }
 
 /**
@@ -115,7 +121,18 @@ export async function renderWrapSegmentDataUrl(
         canvas.width = Math.round(width);
         canvas.height = Math.round(height);
         const ctx = canvas.getContext('2d');
-        drawWrapSegment(ctx, drawSrc, canvas.width, canvas.height, layout, side, transform);
+        const painted = drawWrapSegment(
+            ctx,
+            drawSrc,
+            canvas.width,
+            canvas.height,
+            layout,
+            side,
+            transform
+        );
+        // Empty segment bounds used to return a white JPEG and lock the UI
+        // on blank covers — fall through to CSS / <img> instead.
+        if (!painted) return null;
         // JPEG is much faster than PNG for large cover panels.
         const url = canvas.toDataURL('image/jpeg', 0.82);
         dataUrlCache.set(key, url);

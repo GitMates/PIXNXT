@@ -13,6 +13,7 @@ export function GlobalUploadShell() {
   const navigate = useNavigate();
   const {
     state,
+    notice,
     destinationLabel,
     minimize,
     expand,
@@ -28,6 +29,7 @@ export function GlobalUploadShell() {
     uploadTargetSetId,
     getUploadTarget,
     retryFailed,
+    dismissNotice,
   } = useUploadQueueContext();
 
   const counts = useMemo(() => uploadTabCounts(state.files), [state.files]);
@@ -43,7 +45,7 @@ export function GlobalUploadShell() {
     [state.files, inProgress]
   );
 
-  if (!state.isOpen) return null;
+  if (!state.isOpen && !notice) return null;
 
   const handleViewCompleted = () => {
     const target = getUploadTarget();
@@ -93,21 +95,51 @@ export function GlobalUploadShell() {
   };
 
   return (
-    <UploadManager
-      state={state}
-      destinationLabel={destinationLabel || 'Delivery'}
-      isPaused={state.isPaused}
-      onMinimize={minimize}
-      onExpand={expand}
-      onClose={closeWidget}
-      onDismiss={isAllComplete ? dismiss : undefined}
-      onPause={pause}
-      onResume={resume}
-      onCancel={cancel}
-      onTabChange={setActiveTab}
-      onToggleDetails={toggleDetails}
-      onViewCompleted={handleViewCompleted}
-      onRetry={retryFailed}
-    />
+    <>
+      {notice ? (
+        <div className="cd-modal-overlay" onClick={dismissNotice}>
+          <div
+            className="cd-modal cd-modal-sm"
+            role="dialog"
+            aria-modal="true"
+            aria-label={notice.title}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="cd-modal-header">
+              <h3 className="cd-modal-title">{notice.title}</h3>
+              <button type="button" className="cd-modal-close" onClick={dismissNotice} aria-label="Close">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+              </button>
+            </div>
+            <div className="cd-modal-body">
+              <p className="cd-modal-text">{notice.message}</p>
+            </div>
+            <div className="cd-modal-footer">
+              <button type="button" className="cd-btn-primary" onClick={dismissNotice} autoFocus>
+                OK
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+      {state.isOpen ? (
+        <UploadManager
+          state={state}
+          destinationLabel={destinationLabel || 'Delivery'}
+          isPaused={state.isPaused}
+          onMinimize={minimize}
+          onExpand={expand}
+          onClose={closeWidget}
+          onDismiss={isAllComplete ? dismiss : undefined}
+          onPause={pause}
+          onResume={resume}
+          onCancel={cancel}
+          onTabChange={setActiveTab}
+          onToggleDetails={toggleDetails}
+          onViewCompleted={handleViewCompleted}
+          onRetry={retryFailed}
+        />
+      ) : null}
+    </>
   );
 }

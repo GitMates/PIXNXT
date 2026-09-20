@@ -410,7 +410,6 @@ const AlbumBook = ({
             window.removeEventListener(SWAP_MARKS_PEEK_CHANGED_EVENT, onSeen);
         };
     }, [album?.id]);
-    const { left: leftNum, right: rightNum } = getSpreadPages(spreadIndex, totalPages, spreadOpts);
 
     const innerSpreadCount = useMemo(
         () => getInnerSpreadCount(totalPages, spreadOpts),
@@ -582,11 +581,6 @@ const AlbumBook = ({
         spreadOpts,
         totalPages,
     ]);
-
-    const pageRangeLabel = useMemo(() => {
-        if (rightNum < totalPages) return `${leftNum}–${rightNum}`;
-        return String(leftNum);
-    }, [leftNum, rightNum, totalPages]);
 
     useEffect(() => {
         userNavigatedRef.current = false;
@@ -862,6 +856,93 @@ const AlbumBook = ({
         },
         [needActionSpreadIndices, spreadIndex, spreadOpts, totalPages, goToPage]
     );
+
+    const [gotoOpen, setGotoOpen] = useState(false);
+    const [gotoValue, setGotoValue] = useState('');
+    const [gotoPopupPos, setGotoPopupPos] = useState(null);
+    const gotoWrapRef = useRef(null);
+    const gotoInputRef = useRef(null);
+    const gotoTriggerRef = useRef(null);
+
+    const isOnInnerSpread = useMemo(() => {
+        if (!spreadOpts.hasCovers) return true;
+        if (spreadIndex <= 0) return false;
+        return !isEndHalfSpreadIndex(spreadIndex, totalPages, spreadOpts);
+    }, [spreadIndex, totalPages, spreadOpts]);
+
+    const currentInnerNumber = useMemo(() => {
+        if (!isOnInnerSpread) return '';
+        return String(spreadOpts.hasCovers ? spreadIndex : spreadIndex + 1);
+    }, [isOnInnerSpread, spreadIndex, spreadOpts]);
+
+    const updateGotoPopupPos = useCallback(() => {
+        const el = gotoTriggerRef.current;
+        if (!el) return;
+        const rect = el.getBoundingClientRect();
+        setGotoPopupPos({
+            bottom: Math.max(8, window.innerHeight - rect.top + 10),
+            right: Math.max(8, window.innerWidth - rect.right),
+        });
+    }, []);
+
+    const openGoto = useCallback(() => {
+        setGotoValue(currentInnerNumber || '1');
+        updateGotoPopupPos();
+        setGotoOpen(true);
+    }, [currentInnerNumber, updateGotoPopupPos]);
+
+    const closeGoto = useCallback(() => {
+        setGotoOpen(false);
+        setGotoPopupPos(null);
+    }, []);
+
+    const gotoSpreadNumber = useCallback(
+        (raw) => {
+            const n = parseInt(String(raw).trim(), 10);
+            if (!Number.isFinite(n)) return;
+            const clamped = Math.min(Math.max(n, 1), Math.max(1, innerSpreadCount));
+            const target = spreadOpts.hasCovers ? clamped : clamped - 1;
+            goToPage(spreadIndexToPage(target, { ...spreadOpts, totalPages }));
+            closeGoto();
+        },
+        [innerSpreadCount, spreadOpts, totalPages, goToPage, closeGoto]
+    );
+
+    const gotoCover = useCallback(() => {
+        goToPage(spreadIndexToPage(0, { ...spreadOpts, totalPages }));
+        closeGoto();
+    }, [spreadOpts, totalPages, goToPage, closeGoto]);
+
+    const gotoEnd = useCallback(() => {
+        const endSpreadIndex = Math.max(0, totalSpreads - 1);
+        goToPage(spreadIndexToPage(endSpreadIndex, { ...spreadOpts, totalPages }));
+        closeGoto();
+    }, [totalSpreads, spreadOpts, totalPages, goToPage, closeGoto]);
+
+    useEffect(() => {
+        if (!gotoOpen) return undefined;
+        gotoInputRef.current?.focus();
+        gotoInputRef.current?.select();
+        const onPointerDown = (e) => {
+            if (gotoWrapRef.current?.contains(e.target)) return;
+            if (e.target?.closest?.('.ab-goto-popup')) return;
+            closeGoto();
+        };
+        const onKeyDown = (e) => {
+            if (e.key === 'Escape') closeGoto();
+        };
+        const onReposition = () => updateGotoPopupPos();
+        document.addEventListener('pointerdown', onPointerDown, true);
+        document.addEventListener('keydown', onKeyDown, true);
+        window.addEventListener('resize', onReposition);
+        window.addEventListener('scroll', onReposition, true);
+        return () => {
+            document.removeEventListener('pointerdown', onPointerDown, true);
+            document.removeEventListener('keydown', onKeyDown, true);
+            window.removeEventListener('resize', onReposition);
+            window.removeEventListener('scroll', onReposition, true);
+        };
+    }, [gotoOpen, closeGoto, updateGotoPopupPos]);
 
     const canDragOverviewSpreads = Boolean(editable && onReorderOverviewSpread && !pageCountBusy);
 
@@ -2290,22 +2371,6 @@ const AlbumBook = ({
                                 <rect x="16" y="16" width="8" height="8" rx="1.2" stroke="currentColor" strokeWidth="1.8" />
                             </svg>
                         </button>
-                        {spreadOpts.hasCovers &&
-                            isEndHalfSpreadIndex(spreadIndex, totalPages, spreadOpts) && (
-                            <button
-                                type="button"
-                                className="ab-control-text-btn"
-                                aria-label="Back to front cover"
-                                title="Back to front cover"
-                                onClick={() =>
-                                    goToPage(
-                                        spreadIndexToPage(0, { ...spreadOpts, totalPages })
-                                    )
-                                }
-                            >
-                                Back to front cover
-                            </button>
-                        )}
                     </div>
                     <span className="ab-spread-controls-divider" aria-hidden />
                     {!previewMode ? (
@@ -2340,22 +2405,111 @@ const AlbumBook = ({
                             <span className="ab-spread-controls-divider" aria-hidden />
                         </>
                     ) : null}
-                    <span
-                        className={`ab-page-counter${
-                            (spreadOpts.hasCovers && spreadIndex <= 0) ||
-                            isEndHalfSpreadIndex(spreadIndex, totalPages, spreadOpts)
-                                ? ' ab-page-counter--named'
-                                : ''
-                        }${toolbarCounterWide ? ' ab-page-counter--wide' : ''}`}
-                        title={
-                            (spreadOpts.hasCovers && spreadIndex <= 0) ||
-                            isEndHalfSpreadIndex(spreadIndex, totalPages, spreadOpts)
-                                ? counterLabel
-                                : `Pages ${pageRangeLabel}`
-                        }
-                    >
-                        {counterLabel}
-                    </span>
+                    <div className={`ab-goto-wrap${gotoOpen ? ' ab-goto-wrap--open' : ''}`} ref={gotoWrapRef}>
+                        <button
+                            type="button"
+                            ref={gotoTriggerRef}
+                            className={`ab-page-counter ab-page-counter--button${
+                                (spreadOpts.hasCovers && spreadIndex <= 0) ||
+                                isEndHalfSpreadIndex(spreadIndex, totalPages, spreadOpts)
+                                    ? ' ab-page-counter--named'
+                                    : ''
+                            }${toolbarCounterWide ? ' ab-page-counter--wide' : ''}${
+                                gotoOpen ? ' ab-page-counter--open' : ''
+                            }`}
+                            title="Go to spread"
+                            aria-haspopup="dialog"
+                            aria-expanded={gotoOpen}
+                            aria-label={`Current spread ${counterLabel}. Open go to spread.`}
+                            onClick={() => (gotoOpen ? closeGoto() : openGoto())}
+                        >
+                            <span className="ab-page-counter-label">{counterLabel}</span>
+                            <svg
+                                className="ab-page-counter-chevron"
+                                width="12"
+                                height="12"
+                                viewBox="0 0 12 12"
+                                fill="none"
+                                aria-hidden
+                            >
+                                <path
+                                    d="M3 7.5L6 4.5L9 7.5"
+                                    stroke="currentColor"
+                                    strokeWidth="1.6"
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                />
+                            </svg>
+                        </button>
+                        {gotoOpen &&
+                            gotoPopupPos &&
+                            createPortal(
+                                <div
+                                    className="ab-goto-popup"
+                                    role="dialog"
+                                    aria-label="Go to spread"
+                                    style={{
+                                        position: 'fixed',
+                                        bottom: gotoPopupPos.bottom,
+                                        right: gotoPopupPos.right,
+                                    }}
+                                >
+                                    <div className="ab-goto-title">GO TO SPREAD</div>
+                                    {innerSpreadCount >= 1 && (
+                                        <form
+                                            className="ab-goto-form"
+                                            onSubmit={(e) => {
+                                                e.preventDefault();
+                                                gotoSpreadNumber(gotoValue);
+                                            }}
+                                        >
+                                            <input
+                                                ref={gotoInputRef}
+                                                className="ab-goto-input"
+                                                value={gotoValue}
+                                                inputMode="numeric"
+                                                autoComplete="off"
+                                                aria-label={`Spread number, 1 to ${innerSpreadCount}`}
+                                                placeholder="1"
+                                                onChange={(e) =>
+                                                    setGotoValue(e.target.value.replace(/[^0-9]/g, ''))
+                                                }
+                                            />
+                                            <span className="ab-goto-of">of {innerSpreadCount}</span>
+                                            <button type="submit" className="ab-goto-go">
+                                                Go
+                                            </button>
+                                        </form>
+                                    )}
+                                    {spreadOpts.hasCovers && (
+                                        <>
+                                            <div className="ab-goto-divider" aria-hidden />
+                                            <div className="ab-goto-row">
+                                                <span className="ab-goto-row-label">Cover</span>
+                                                <button
+                                                    type="button"
+                                                    className="ab-goto-pill"
+                                                    onClick={gotoCover}
+                                                >
+                                                    Home
+                                                </button>
+                                            </div>
+                                            <div className="ab-goto-row">
+                                                <span className="ab-goto-row-label">Back cover</span>
+                                                <button
+                                                    type="button"
+                                                    className="ab-goto-pill"
+                                                    onClick={gotoEnd}
+                                                >
+                                                    End
+                                                </button>
+                                            </div>
+                                        </>
+                                    )}
+                                </div>,
+                                document.body
+                            )}
+                    </div>
                 </div>
                 {currentSpreadComments?.length > 0 && (
                     <div className="ab-spread-comments-bar">

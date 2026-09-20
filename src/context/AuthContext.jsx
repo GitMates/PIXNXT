@@ -57,10 +57,12 @@ export const AuthProvider = ({ children }) => {
   }, [applyAuthState]);
 
   useEffect(() => {
-    // Initialize session and user state
+    let cancelled = false;
+
     const initializeAuth = async () => {
       try {
         const resolved = await resolveInitialAuthSession();
+        if (cancelled) return;
         applyAuthState(resolved);
         if (resolved.user) {
           void ensurePhotographerProfile(resolved.user).catch((err) => {
@@ -73,10 +75,12 @@ export const AuthProvider = ({ children }) => {
           });
         }
       } catch (error) {
-        console.error('Auth initialization error:', error.message);
-        applyAuthState({ user: null, session: null });
+        if (!cancelled) {
+          console.error('Auth initialization error:', error.message);
+          applyAuthState({ user: null, session: null });
+        }
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     };
 
@@ -84,16 +88,20 @@ export const AuthProvider = ({ children }) => {
 
     const refreshIfVisible = () => {
       if (document.visibilityState !== 'visible') return;
-      void resolveAuthSession().then(applyAuthState);
+      void resolveAuthSession()
+        .then((resolved) => {
+          // Don't wipe a good session if a background refresh races and 401s
+          // (rotated cookie / Strict Mode double-mount).
+          if (!resolved?.user) return;
+          applyAuthState(resolved);
+        })
+        .catch(() => {});
     };
     document.addEventListener('visibilitychange', refreshIfVisible);
     window.addEventListener('focus', refreshIfVisible);
 
-    // Workers is the only backend: no realtime subscription — session resolves via
-    // the refresh cookie (resolveInitialAuthSession delegates to workersAuth).
-    setLoading(false);
-
     return () => {
+      cancelled = true;
       document.removeEventListener('visibilitychange', refreshIfVisible);
       window.removeEventListener('focus', refreshIfVisible);
     };

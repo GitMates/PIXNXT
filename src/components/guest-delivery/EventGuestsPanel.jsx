@@ -1,43 +1,14 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { guestDeliveryGuestsService } from '../../services/guestDeliveryGuests.service';
 import { guestDeliveryPublishService } from '../../services/guestDeliveryPublish.service';
 import { getGuestPersonalGalleryUrl } from '../../lib/guestDeliveryLinks';
 
-function digitsOnly(value) {
-  return String(value || '').replace(/\D/g, '');
-}
-
-function maskPhoneDisplay(phone) {
-  const digits = digitsOnly(phone);
-  if (!digits) return '';
-  let country = '+91';
-  let national = digits;
-  if (digits.startsWith('91') && digits.length >= 12) {
-    national = digits.slice(2);
-  } else if (String(phone).trim().startsWith('+') && !digits.startsWith('91')) {
-    const match = String(phone).trim().match(/^\+(\d{1,3})/);
-    country = match ? `+${match[1]}` : '+';
-    national = digits.slice((match?.[1] || '').length);
-  }
-  if (national.length < 4) return `${country} ${national}`;
-  return `${country} ${national.slice(0, 2)}••• ••${national.slice(-2)}`;
-}
-
-function maskEmailDisplay(email) {
-  const raw = String(email || '').trim();
-  const at = raw.indexOf('@');
-  if (at < 1) return raw;
-  const local = raw.slice(0, at);
-  const domain = raw.slice(at + 1);
-  const tld = domain.match(/(\.[a-z]{2,})$/i)?.[1] || '';
-  return `${local}@••••${tld}`;
-}
-
 function guestReach(guest) {
   if (guest.phone) {
-    return { channel: 'WhatsApp', value: maskPhoneDisplay(guest.phone) };
+    return { channel: 'WhatsApp', value: String(guest.phone).trim() };
   }
-  return { channel: 'Email', value: maskEmailDisplay(guest.email) };
+  return { channel: 'Email', value: String(guest.email || '').trim() };
 }
 
 function guestBoardState(guest) {
@@ -76,7 +47,9 @@ const EventGuestsPanel = ({
   const [loading, setLoading] = useState(true);
   const [sendingGuestId, setSendingGuestId] = useState(null);
   const [openMenuId, setOpenMenuId] = useState(null);
+  const [menuPos, setMenuPos] = useState(null);
   const menuRef = useRef(null);
+  const wrapRefs = useRef({});
   const onGuestCountChangeRef = useRef(onGuestCountChange);
   const hasLoadedRef = useRef(false);
 
@@ -108,11 +81,58 @@ const EventGuestsPanel = ({
   useEffect(() => {
     if (!openMenuId) return undefined;
     const onPointerDown = (event) => {
-      if (!menuRef.current?.contains(event.target)) setOpenMenuId(null);
+      if (menuRef.current?.contains(event.target)) return;
+      if (wrapRefs.current[openMenuId]?.contains(event.target)) return;
+      setOpenMenuId(null);
+      setMenuPos(null);
+    };
+    // The card scrolls/clips, so the open menu lives in a portal —
+    // dismiss it instead of letting it detach from its row.
+    const onScrollOrResize = () => {
+      setOpenMenuId(null);
+      setMenuPos(null);
     };
     document.addEventListener('pointerdown', onPointerDown);
-    return () => document.removeEventListener('pointerdown', onPointerDown);
+    window.addEventListener('scroll', onScrollOrResize, true);
+    window.addEventListener('resize', onScrollOrResize);
+    return () => {
+      document.removeEventListener('pointerdown', onPointerDown);
+      window.removeEventListener('scroll', onScrollOrResize, true);
+      window.removeEventListener('resize', onScrollOrResize);
+    };
   }, [openMenuId]);
+
+  const toggleMenu = useCallback((event, guest) => {
+    event.stopPropagation();
+    setOpenMenuId((id) => {
+      if (id === guest.id) {
+        setMenuPos(null);
+        return null;
+      }
+      // Position the portaled menu next to the trigger (flip up when
+      // there is no room below so it never renders clipped).
+      const rect = event.currentTarget?.getBoundingClientRect();
+      if (rect) {
+        const MENU_W = 184;
+        // Remove-only menu is one row; full menu is three rows.
+        const MENU_H = (guest.matched_photo_count || 0) > 0 ? 152 : 56;
+        const GAP = 6;
+        const PAD = 12;
+        const left = Math.min(
+          Math.max(rect.right - MENU_W, PAD),
+          Math.max(window.innerWidth - MENU_W - PAD, PAD)
+        );
+        const openUp = rect.bottom + GAP + MENU_H > window.innerHeight - PAD;
+        const top = openUp
+          ? Math.max(rect.top - MENU_H - GAP, PAD)
+          : rect.bottom + GAP;
+        setMenuPos({ top, left });
+      } else {
+        setMenuPos(null);
+      }
+      return guest.id;
+    });
+  }, []);
 
   const selfieCount = useMemo(
     () => guests.filter((guest) => Boolean(guest.selfie_url)).length,
@@ -242,52 +262,69 @@ const EventGuestsPanel = ({
                   <span className={`gd-guest-board__pill gd-guest-board__pill--${sent}`}>
                     {SENT_LABEL[sent]}
                   </span>
-                  <div className="gd-guest-board__menu-wrap" ref={openMenuId === guest.id ? menuRef : null}>
+                  <div
+                    className="gd-guest-board__menu-wrap"
+                    ref={(node) => {
+                      if (node) wrapRefs.current[guest.id] = node;
+                      else delete wrapRefs.current[guest.id];
+                    }}
+                  >
                     <button
                       type="button"
                       className="gd-guest-board__menu-btn"
                       aria-label={`Actions for ${guest.name}`}
                       aria-expanded={openMenuId === guest.id}
-                      onClick={() => setOpenMenuId((id) => (id === guest.id ? null : guest.id))}
+                      onClick={(event) => toggleMenu(event, guest)}
                     >
                       ···
                     </button>
-                    {openMenuId === guest.id ? (
-                      <div className="gd-guest-board__menu" role="menu">
-                        {matched > 0 ? (
-                          <>
-                            <button type="button" role="menuitem" onClick={() => handleCopyLink(guest)}>
-                              Copy gallery link
-                            </button>
-                            <button
-                              type="button"
-                              role="menuitem"
-                              disabled={sendingGuestId === guest.id || event.status !== 'published'}
-                              onClick={() => handleSendEmail(guest)}
-                            >
-                              {sendingGuestId === guest.id
-                                ? 'Sending…'
-                                : guest.delivery_status === 'sent'
-                                  ? 'Resend email'
-                                  : 'Send email'}
-                            </button>
-                          </>
-                        ) : null}
-                        <button
-                          type="button"
-                          role="menuitem"
-                          className="gd-guest-board__menu-danger"
-                          onClick={() => handleDelete(guest)}
-                        >
-                          Remove
-                        </button>
-                      </div>
-                    ) : null}
                   </div>
                 </div>
               );
             })}
           </div>
+          {(() => {
+            const openGuest = guests.find((guest) => guest.id === openMenuId);
+            if (!openGuest || !menuPos) return null;
+            const openMatched = openGuest.matched_photo_count || 0;
+            return createPortal(
+              <div
+                className="gd-guest-board__menu gd-guest-board__menu--fixed"
+                role="menu"
+                ref={menuRef}
+                style={{ top: menuPos.top, left: menuPos.left }}
+              >
+                {openMatched > 0 ? (
+                  <>
+                    <button type="button" role="menuitem" onClick={() => handleCopyLink(openGuest)}>
+                      Copy gallery link
+                    </button>
+                    <button
+                      type="button"
+                      role="menuitem"
+                      disabled={sendingGuestId === openGuest.id || event.status !== 'published'}
+                      onClick={() => handleSendEmail(openGuest)}
+                    >
+                      {sendingGuestId === openGuest.id
+                        ? 'Sending…'
+                        : openGuest.delivery_status === 'sent'
+                          ? 'Resend email'
+                          : 'Send email'}
+                    </button>
+                  </>
+                ) : null}
+                <button
+                  type="button"
+                  role="menuitem"
+                  className="gd-guest-board__menu-danger"
+                  onClick={() => handleDelete(openGuest)}
+                >
+                  Remove
+                </button>
+              </div>,
+              document.body
+            );
+          })()}
           <p className="gd-guest-board__footnote">
             Click any row for the full record. Everything that configures guest registration is under{' '}
             <span>Settings › Access › Guest Delivery</span>.

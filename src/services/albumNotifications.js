@@ -1,14 +1,12 @@
-import { getPhotoPins, isPhotoPinUnseen, markPhotoPinsSeen } from '../components/smart-albums/albumPhotoPins';
+import { getPhotoPins, isPhotoPinUnseen } from '../components/smart-albums/albumPhotoPins';
 import {
     getSwapMarks,
     isSwapMarkUnseen,
-    markSwapMarksSeen,
     parseSlotKey,
 } from '../components/smart-albums/albumSwapMarks';
 import {
     getCommentsSubmittedAt,
     isCommentUnseen,
-    markCommentsSeen,
     smartAlbumCommentsService,
     truncateCommentPreview,
 } from './smartAlbumComments.service';
@@ -63,9 +61,117 @@ export const MARK_DONE_NOTIFICATION_TYPES = new Set([
     NOTIFICATION_TYPES.CLIENT_REPLY,
 ]);
 
+/**
+ * Sidebar Done state is MANUAL only (the "Mark as done" buttons) and is backed
+ * by the photographer seen maps. Viewing a spread must never flip it.
+ */
 export function isNotificationMarkedDone(item) {
-    if (!item || item.isUnread) return false;
-    return MARK_DONE_NOTIFICATION_TYPES.has(item.type);
+    if (!item?.albumId) return false;
+    if (!MARK_DONE_NOTIFICATION_TYPES.has(item.type)) return false;
+    const { albumId } = item;
+    if (item.type === NOTIFICATION_TYPES.PHOTO_COMMENT) {
+        return item.pin ? !isPhotoPinUnseen(albumId, item.pin) : false;
+    }
+    if (item.type === NOTIFICATION_TYPES.SWAP) {
+        return item.mark ? !isSwapMarkUnseen(albumId, item.mark) : false;
+    }
+    return item.comment ? !isCommentUnseen(albumId, item.comment) : false;
+}
+
+/**
+ * Notification-read state (bell badge) is SEPARATE from Done.
+ * Viewing a spread's comments clears the badge for that spread but leaves
+ * the sidebar "Mark as done" buttons untouched.
+ */
+const NOTIF_READ_KEY = 'pixnxt_album_notifications_read';
+
+function readNotifRead() {
+    try {
+        const raw = localStorage.getItem(NOTIF_READ_KEY);
+        return raw ? JSON.parse(raw) : {};
+    } catch {
+        return {};
+    }
+}
+
+function writeNotifRead(data) {
+    try {
+        localStorage.setItem(NOTIF_READ_KEY, JSON.stringify(data));
+    } catch {
+        /* ignore */
+    }
+}
+
+function notifReadKey(albumId, notificationId) {
+    return `${albumId}:${notificationId}`;
+}
+
+function isNotifKeyUnread(albumId, notificationId, stamp) {
+    if (!albumId || !notificationId) return false;
+    const readAt = readNotifRead()[notifReadKey(albumId, notificationId)];
+    if (!readAt) return true;
+    if (!stamp) return false;
+    return new Date(stamp).getTime() > new Date(readAt).getTime();
+}
+
+function markNotifKeysRead(albumId, notificationIds) {
+    if (!albumId || !notificationIds?.length) return;
+    const map = readNotifRead();
+    const now = new Date().toISOString();
+    notificationIds.forEach((id) => {
+        if (id) map[notifReadKey(albumId, id)] = now;
+    });
+    writeNotifRead(map);
+    notifyNotificationsChanged();
+}
+
+/** Badge-unread for a photo pin (does NOT touch Done state). */
+export function isPinNotificationUnread(albumId, pin) {
+    if (!albumId || !pin?.id) return false;
+    return isNotifKeyUnread(albumId, `pin-${pin.id}`, pin.updatedAt || pin.createdAt);
+}
+
+/** Badge-unread for a swap mark (does NOT touch Done state). */
+export function isSwapNotificationUnread(albumId, mark) {
+    if (!albumId || !mark?.id) return false;
+    return isNotifKeyUnread(albumId, `swap-${mark.id}`, mark.createdAt);
+}
+
+/** Badge-unread for a client comment/reply (does NOT touch Done state). */
+export function isCommentNotificationUnread(albumId, comment) {
+    if (!albumId || !comment?.id) return false;
+    return isNotifKeyUnread(
+        albumId,
+        `comment-${comment.id}`,
+        comment.updated_at || comment.created_at
+    );
+}
+
+/** Clear the badge for photo pins (Done state untouched). */
+export function markPinNotificationsRead(albumId, pins) {
+    if (!albumId || !pins?.length) return;
+    markNotifKeysRead(
+        albumId,
+        pins.filter((pin) => pin?.id).map((pin) => `pin-${pin.id}`)
+    );
+}
+
+/** Clear the badge for swap marks (Done state untouched). */
+export function markSwapNotificationsRead(albumId, marks) {
+    if (!albumId || !marks?.length) return;
+    markNotifKeysRead(
+        albumId,
+        marks.filter((mark) => mark?.id).map((mark) => `swap-${mark.id}`)
+    );
+}
+
+/** Clear the badge for client comments/replies (Done state untouched). */
+export function markCommentNotificationsRead(albumId, comments) {
+    if (!albumId || !comments?.length) return;
+    markNotifKeysRead(
+        albumId,
+        comments.filter((comment) => comment?.id).map((comment) => `comment-${comment.id}`)
+    );
 }
 
 function readSubmitSeen() {
@@ -238,7 +344,7 @@ function collectSyncNotificationsForAlbum(album, dismissed) {
             pageNum: pin.pageNum,
             preview: truncateCommentPreview(pin.message || pin.label || 'New comment on photo'),
             createdAt: pin.updatedAt || pin.createdAt,
-            isUnread: isPhotoPinUnseen(albumId, pin),
+            isUnread: isPinNotificationUnread(albumId, pin),
             pin,
         });
     });
@@ -255,7 +361,7 @@ function collectSyncNotificationsForAlbum(album, dismissed) {
             pageNum: slotA.pageNum,
             preview: 'Client requested a photo swap',
             createdAt: mark.createdAt,
-            isUnread: isSwapMarkUnseen(albumId, mark),
+            isUnread: isSwapNotificationUnread(albumId, mark),
             mark,
         });
     });
@@ -342,7 +448,7 @@ async function collectCommentNotificationsForAlbum(album, dismissed) {
                         : truncateCommentPreview(comment.body || 'New comment'),
                     authorName: comment.author_name,
                     createdAt: comment.updated_at || comment.created_at,
-                    isUnread: isCommentUnseen(albumId, comment),
+                    isUnread: isCommentNotificationUnread(albumId, comment),
                     comment,
                 };
             })
@@ -392,20 +498,27 @@ export async function countPhotographerNotifications(albums) {
     return countUnreadPhotographerNotifications(albums);
 }
 
+/**
+ * Clear the badge for one notification (bell only).
+ * Never touches sidebar Done state — Done is manual via "Mark as done".
+ */
 export function markNotificationItemSeen(item) {
     if (!item?.albumId) return;
     const { albumId } = item;
 
     switch (item.type) {
         case NOTIFICATION_TYPES.PHOTO_COMMENT:
-            if (item.pin) markPhotoPinsSeen(albumId, [item.pin]);
+            if (item.pin) markPinNotificationsRead(albumId, [item.pin]);
+            else markNotifKeysRead(albumId, [item.id]);
             break;
         case NOTIFICATION_TYPES.SWAP:
-            if (item.mark) markSwapMarksSeen(albumId, [item.mark]);
+            if (item.mark) markSwapNotificationsRead(albumId, [item.mark]);
+            else markNotifKeysRead(albumId, [item.id]);
             break;
         case NOTIFICATION_TYPES.SPREAD_COMMENT:
         case NOTIFICATION_TYPES.CLIENT_REPLY:
-            if (item.comment) markCommentsSeen(albumId, [item.comment]);
+            if (item.comment) markCommentNotificationsRead(albumId, [item.comment]);
+            else markNotifKeysRead(albumId, [item.id]);
             break;
         case NOTIFICATION_TYPES.COMMENTS_SIGNED:
             markSubmitNotificationSeen(albumId);
@@ -420,6 +533,7 @@ export function markNotificationItemSeen(item) {
             markProofCommentingStartedSeen(albumId, item.createdAt);
             break;
         default:
+            markNotifKeysRead(albumId, [item.id]);
             break;
     }
     notifyNotificationsChanged();
@@ -466,16 +580,16 @@ async function collectAllNotificationIdsForAlbum(album) {
     return ids;
 }
 
-/** Mark every client proof item seen for one album (pins, swaps, comments, proof events). */
+/**
+ * Clear the badge for one album (bell only: pins, swaps, comments, proof events).
+ * Never touches sidebar Done state — Done is manual via "Mark as done".
+ */
 export async function markAllAlbumProofItemsSeen(album) {
     if (!album?.id) return;
     const albumId = album.id;
 
-    const pins = getPhotoPins(albumId);
-    if (pins.length) markPhotoPinsSeen(albumId, pins);
-
-    const marks = getSwapMarks(albumId);
-    if (marks.length) markSwapMarksSeen(albumId, marks);
+    markPinNotificationsRead(albumId, getPhotoPins(albumId));
+    markSwapNotificationsRead(albumId, getSwapMarks(albumId));
 
     if (getCommentsSubmittedAt(albumId)) markSubmitNotificationSeen(albumId);
     if (album.client_approved_at) markProofApprovedSeen(albumId, album.client_approved_at);
@@ -488,11 +602,14 @@ export async function markAllAlbumProofItemsSeen(album) {
 
     try {
         const comments = await smartAlbumCommentsService.listAlbumComments(albumId);
-        const clientComments = comments.filter((comment) => comment.author_type === 'client');
-        if (clientComments.length) markCommentsSeen(albumId, clientComments);
+        markCommentNotificationsRead(
+            albumId,
+            comments.filter((comment) => comment.author_type === 'client')
+        );
     } catch {
         /* ignore */
     }
+    notifyNotificationsChanged();
 }
 
 /** Mark all proof notifications read across every album (albums list bell). */

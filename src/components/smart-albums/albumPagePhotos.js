@@ -54,6 +54,10 @@ import {
     hydrateAlbumPreviewData,
 } from './albumPreviewData';
 import {
+    isMangledAlbumStoragePath,
+    pickBestAlbumObjectKey,
+} from './albumStoragePathHeal';
+import {
     ALBUM_PHOTOS_KEY,
     isInlineDataUrl,
     readLocalStorageJson,
@@ -91,8 +95,13 @@ function writeAll(data, preferAlbumId = null) {
 /** Persist only durable refs — never base64 data: blobs (they exhaust the ~5MB quota). */
 function lightweightPlacementUrl(url, storagePath) {
     if (storagePath) return null;
-    if (!url || isInlineDataUrl(url)) return null;
+    if (!url || isInlineDataUrl(url) || isDeadBlobUrl(url)) return null;
     return url;
+}
+
+/** blob: URLs die with the browsing session yet persist as strings — never trust one. */
+function isDeadBlobUrl(url) {
+    return typeof url === 'string' && url.startsWith('blob:');
 }
 
 function spreadStorageKey(leftPage) {
@@ -132,7 +141,7 @@ function placementFromCollectionItem(albumId, collectionItemId) {
 
 function resolveStoredPhoto(albumId, stored) {
     if (!stored) return null;
-    if (typeof stored === 'string') return stored;
+    if (typeof stored === 'string') return isDeadBlobUrl(stored) ? null : stored;
     // Prefer live collection lookup (cache-busted) so in-place file replaces show immediately.
     // Fall back to stored storagePath only when the collection item is gone.
     if (stored.collectionItemId) {
@@ -154,7 +163,7 @@ function resolveStoredPhoto(albumId, stored) {
 function resolveRemotePagePhoto(albumId, key) {
     const remote = getRemotePagePhoto(albumId, key);
     if (!remote) return null;
-    if (typeof remote === 'string') return remote;
+    if (typeof remote === 'string') return isDeadBlobUrl(remote) ? null : remote;
     if (remote.collectionItemId) {
         const live = resolveCollectionItemUrl(albumId, remote.collectionItemId);
         if (live) return live;
@@ -862,25 +871,63 @@ export function resolveSlotCollectionItemId(
 /** Tag the collection item on spread:0 so it is excluded from inner-page auto-place. */
 export function syncCoverWrapRoleFromSpread(albumId, albumMeta = null) {
     if (!albumId) return false;
-    if (albumHasBlankCovers(albumMeta)) return false;
+    // Blank-cover albums also need the role so resolveCoverImageSrc keeps showing
+    // the uploaded wrap instead of falling back to leather forever.
+    void albumMeta;
     const itemId = getSpreadPlacementCollectionItemId(albumId, 0);
     if (!itemId || collectionItemHasInnerPlacement(albumId, itemId)) return false;
     return markCollectionItemAsCoverWrap(albumId, itemId);
 }
 
 /**
+ * True when a cover placement is dedicated wrap (not also used as an inner photo).
+ * Missing collectionItemId is allowed — legacy storagePath-only wraps.
+ */
+function isUsableCoverWrapPlacement(albumId, wrapId) {
+    if (!wrapId) return true;
+    return !collectionItemHasInnerPlacement(albumId, wrapId);
+}
+
+/** First non-cover-wrap collection photo URL — used to reject list-thumb fallbacks. */
+function firstInnerCollectionPhotoUrl(albumId) {
+    if (!albumId) return null;
+    for (const item of getAlbumCollection(albumId)) {
+        if (isCoverWrapCollectionItem(item)) continue;
+        const url = resolveCollectionItemUrl(albumId, item.id);
+        if (url) return url;
+    }
+    return null;
+}
+
+/**
  * Cover wrap (spread:0) and Spread 01 must not share a collection item.
- * Blank covers: keep the inner photo and drop the wrap (leather until a dedicated cover is uploaded).
+ * Blank covers with an explicit cover-wrap role: keep the wrap, strip inners
+ * (same as book-wrap — otherwise uploaded covers vanish into leather while
+ * version history still shows the photo).
+ * Blank covers without cover-wrap role: keep the inner photo and drop the wrap.
  * Book wrap: keep the wrap and strip that item from inner pages.
  */
 export function unlinkSharedCoverAndInnerPlacement(albumId, albumMeta = null) {
     if (!albumId) return false;
 
-    if (albumMeta && albumHasCoverSpreads(albumMeta) && !albumHasBlankCovers(albumMeta)) {
-        const wrapId = getSpreadPlacementCollectionItemId(albumId, 0);
+    const wrapIdEarly = getSpreadPlacementCollectionItemId(albumId, 0);
+    const wrapIsDedicated =
+        wrapIdEarly && isCoverWrapCollectionItem(getCollectionItem(albumId, wrapIdEarly));
+
+    // Photo-cover albums, OR blank covers that already have a dedicated wrap role:
+    // keep wrap on spread:0 and remove that item from inner pages.
+    if (
+        (albumMeta && albumHasCoverSpreads(albumMeta) && !albumHasBlankCovers(albumMeta)) ||
+        wrapIsDedicated
+    ) {
+        const wrapId = wrapIdEarly || getSpreadPlacementCollectionItemId(albumId, 0);
         if (wrapId && collectionItemHasInnerPlacement(albumId, wrapId)) {
             return clearCollectionItemPlacements(albumId, wrapId, { keepSpreadLeft: 0 });
         }
+        return false;
+    }
+
+    if (!(albumMeta && albumHasBlankCovers(albumMeta))) {
         return false;
     }
 
@@ -945,6 +992,17 @@ export function unlinkSharedCoverAndInnerPlacement(albumId, albumMeta = null) {
     return changed;
 }
 
+/**
+ * Heal cover-wrap role, then unlink shared cover/inner placements.
+ * Call this instead of unlink alone so blank-cover albums keep uploaded wraps.
+ */
+export function reconcileCoverWrapPlacements(albumId, albumMeta = null) {
+    syncCoverWrapRoleFromSpread(albumId, albumMeta);
+    const changed = unlinkSharedCoverAndInnerPlacement(albumId, albumMeta);
+    syncCoverWrapRoleFromSpread(albumId, albumMeta);
+    return changed;
+}
+
 /** Remove this item from cover wrap keys only — used when it is placed on an inner spread. */
 export function clearCoverPlacementsForItem(albumId, itemId) {
     if (!albumId || !itemId) return false;
@@ -989,10 +1047,13 @@ export function resolveBookWrapSpreadSrc(album, { showSamples = false } = {}) {
 }
 
 /** Book-wrap cover image (spread:0) — right half = front, left half = back. */
-export function resolveCoverImageSrc(album, { showSamples = false } = {}) {
+function resolveCoverImageSrcFromPlacements(album, { showSamples = false } = {}) {
     const albumId = album?.id;
     const blankCovers = albumHasBlankCovers(album);
     if (albumId) {
+        // Heal missing cover-wrap role on a dedicated spread:0 placement.
+        syncCoverWrapRoleFromSpread(albumId, album);
+
         // Legacy albums may keep the cover under page key '0' (never migrated on
         // fresh origins) — check it as well as spread:0, local first then cloud.
         const onSpread =
@@ -1001,18 +1062,25 @@ export function resolveCoverImageSrc(album, { showSamples = false } = {}) {
             const wrapId =
                 getSpreadPlacementCollectionItemId(albumId, 0) ??
                 getPagePlacementCollectionItemId(albumId, 0);
-            if (wrapId && collectionItemHasInnerPlacement(albumId, wrapId)) {
+            if (!isUsableCoverWrapPlacement(albumId, wrapId)) {
                 return null;
             }
+            // Blank covers: accept dedicated wrap even if role was never stamped
+            // (version history / older uploads). Role is healed above.
             if (blankCovers) {
                 const wrapItem = wrapId ? getCollectionItem(albumId, wrapId) : null;
-                if (!(wrapItem && isCoverWrapCollectionItem(wrapItem))) return null;
+                if (
+                    wrapId &&
+                    wrapItem &&
+                    !isCoverWrapCollectionItem(wrapItem) &&
+                    collectionItemHasInnerPlacement(albumId, wrapId)
+                ) {
+                    return null;
+                }
             }
             return onSpread;
         }
-        if (blankCovers) {
-            return null;
-        }
+
         const coverWrap = getAlbumCollection(albumId).find((item) => isCoverWrapCollectionItem(item));
         if (
             coverWrap?.id &&
@@ -1021,18 +1089,80 @@ export function resolveCoverImageSrc(album, { showSamples = false } = {}) {
             const fromCoverWrap = resolveCollectionItemUrl(albumId, coverWrap.id);
             if (fromCoverWrap) return fromCoverWrap;
         }
+
         const fromSnapshot =
             deriveFrontCoverUrlFromSnapshot(getRemotePreviewData(albumId), { blankCovers }) ??
             deriveFrontCoverUrlFromSnapshot(album?.preview_data, { blankCovers });
         if (fromSnapshot) return fromSnapshot;
+
+        // Guarded album-row fallback (same rule as server ogCover.js):
+        // uploaded wraps often land in cover_image_url while blank_covers stays true.
+        // Reject when it matches the first inner photo (list/marketing thumb).
+        const listed = album?.cover_image_url || album?.preview_cover_url || null;
+        if (listed) {
+            const innerFirst = firstInnerCollectionPhotoUrl(albumId);
+            if (!innerFirst || listed !== innerFirst) return listed;
+        }
+
+        if (blankCovers) return null;
     }
     if (blankCovers) {
         return null;
     }
-    // Do not fall back to album.cover_image_url / preview_cover_url — those are
-    // list/marketing thumbs and desync the leather cover canvas from the filmstrip
-    // COVER tile (canvas shows leather/title, filmstrip shows a random photo).
     return showSamples ? getSampleImageForPage(0) : null;
+}
+
+/**
+ * Latest uploaded cover photo from version history (spreadIndex 0 newUrl).
+ * Survives placement/collection wipes — version rows persist in preview_data
+ * even when the spread:0 placement or catalog entry is lost.
+ */
+function latestCoverVersionUrl(albumId) {
+    if (!albumId) return null;
+    const rows = getRemotePreviewData(albumId)?.image_replacements;
+    if (!Array.isArray(rows)) return null;
+    const coverRows = rows.filter(
+        (row) =>
+            row &&
+            Number(row.spreadIndex) === 0 &&
+            typeof row.newUrl === 'string' &&
+            row.newUrl &&
+            !isDeadBlobUrl(row.newUrl)
+    );
+    if (!coverRows.length) return null;
+    coverRows.sort(
+        (a, b) => new Date(a.createdAt || 0).getTime() - new Date(b.createdAt || 0).getTime()
+    );
+    return coverRows[coverRows.length - 1].newUrl;
+}
+
+/**
+ * True when a cover placement still exists under spread:0 / page 0.
+ * Any stored value (id-, path- or legacy URL-based) proves a cover was
+ * placed — core resolution failing on it means broken refs, not an empty
+ * cover. Guards the version fallback so an explicit "Remove cover photos"
+ * (which clears these keys) keeps showing leather instead of history.
+ */
+function hasCoverPlacementReference(albumId) {
+    if (!albumId) return false;
+    for (const key of [spreadStorageKey(0), '0']) {
+        if (getStoredPlacement(albumId, key) != null) return true;
+    }
+    return false;
+}
+
+/**
+ * Cover image with self-heal: when placements/collection resolve to nothing
+ * usable (deleted R2 object, dead blob:, wiped catalog) but a cover was
+ * placed and version history still holds the uploaded photo, show it instead
+ * of a blank canvas.
+ */
+export function resolveCoverImageSrc(album, { showSamples = false } = {}) {
+    const direct = resolveCoverImageSrcFromPlacements(album, { showSamples });
+    if (direct) return direct;
+    const albumId = album?.id;
+    if (!albumId || !hasCoverPlacementReference(albumId)) return direct;
+    return latestCoverVersionUrl(albumId) || direct;
 }
 
 /**
@@ -1154,14 +1284,11 @@ export function getGridSlotPhoto(
         const coverSrc = spreadSrc;
         if (coverSrc && pageNum === 1) {
             const wrapId = getSpreadPlacementCollectionItemId(albumId, 0);
-            if (wrapId && collectionItemHasInnerPlacement(albumId, wrapId)) {
+            if (!isUsableCoverWrapPlacement(albumId, wrapId)) {
                 return { src: null, panoramic: null };
             }
             if (opts.blankCovers) {
-                const wrapItem = wrapId ? getCollectionItem(albumId, wrapId) : null;
-                if (!(wrapItem && isCoverWrapCollectionItem(wrapItem))) {
-                    return { src: null, panoramic: null };
-                }
+                syncCoverWrapRoleFromSpread(albumId, { blank_covers: true });
             }
             return { src: coverSrc, panoramic: 'right' };
         }
@@ -1236,6 +1363,96 @@ export function getAlbumPhotoRevision(albumId) {
     const album = readAll()[albumId];
     if (album?.__revision != null) return album.__revision;
     return getRemotePreviewData(albumId)?.revision ?? 0;
+}
+
+/**
+ * Remap cover placement + wrap collection item onto a live R2 object when the
+ * stored key 404s (deleted intermediate upload, or mangled `-jpg` vs `.jpg`).
+ */
+export async function healCoverStoragePathsFromR2(albumId, photographerId) {
+    if (!albumId || !photographerId) return false;
+    const mod = await import('./albumCollection');
+    const keys = await mod.listAlbumR2KeysForHeal(albumId, photographerId);
+    if (!keys?.length) return false;
+
+    const wrapId = getSpreadPlacementCollectionItemId(albumId, 0);
+    const wrapItem = wrapId ? getCollectionItem(albumId, wrapId) : null;
+    const hint = wrapItem?.storagePath || null;
+    const rows = getRemotePreviewData(albumId)?.image_replacements;
+    let historyPath = null;
+    if (Array.isArray(rows)) {
+        const coverRows = rows
+            .filter((row) => row && Number(row.spreadIndex) === 0 && row.newStoragePath)
+            .sort(
+                (a, b) =>
+                    new Date(a.createdAt || 0).getTime() - new Date(b.createdAt || 0).getTime()
+            );
+        if (coverRows.length) historyPath = coverRows[coverRows.length - 1].newStoragePath;
+    }
+
+    const coverKeys = keys.filter((k) => /cover/i.test(String(k).split('/').pop() || ''));
+    const pool = coverKeys.length ? coverKeys : keys;
+    const best =
+        pickBestAlbumObjectKey(pool, historyPath || hint) ||
+        pickBestAlbumObjectKey(keys, historyPath || hint);
+    if (!best) return false;
+
+    const needsHeal =
+        !hint ||
+        isMangledAlbumStoragePath(hint) ||
+        hint !== best;
+
+    if (!needsHeal) return false;
+
+    let changed = false;
+    if (wrapId && typeof mod.patchCollectionItemStoragePath === 'function') {
+        changed = mod.patchCollectionItemStoragePath(albumId, wrapId, best) || changed;
+    }
+
+    const all = readAll();
+    const album = { ...(all[albumId] || {}) };
+    const key = spreadStorageKey(0);
+    const stored = album[key];
+    if (stored && typeof stored === 'object') {
+        if (stored.storagePath !== best || (wrapId && stored.collectionItemId !== wrapId)) {
+            album[key] = {
+                ...stored,
+                ...(wrapId ? { collectionItemId: wrapId } : {}),
+                storagePath: best,
+            };
+            delete album[key].dataUrl;
+            album.__revision = (album.__revision || 0) + 1;
+            all[albumId] = album;
+            writeAll(all);
+            changed = true;
+        }
+    } else if (wrapId) {
+        album[key] = { collectionItemId: wrapId, storagePath: best };
+        album.__revision = (album.__revision || 0) + 1;
+        all[albumId] = album;
+        writeAll(all);
+        changed = true;
+    }
+
+    if (changed) {
+        const remote = getRemotePreviewData(albumId);
+        if (remote?.pages) {
+            const pages = { ...remote.pages };
+            const prev = pages[key];
+            pages[key] = {
+                ...(typeof prev === 'object' && prev ? prev : {}),
+                ...(wrapId ? { collectionItemId: wrapId } : {}),
+                storagePath: best,
+            };
+            delete pages[key].dataUrl;
+            hydrateAlbumPreviewData(albumId, {
+                ...remote,
+                pages,
+                revision: (remote.revision || 0) + 1,
+            });
+        }
+    }
+    return changed;
 }
 
 /**

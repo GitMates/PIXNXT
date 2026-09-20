@@ -15,6 +15,7 @@ import { photographerQuotaService, canUseNormalFaceRecognition } from '../servic
 import {
     filterPhotosByPerson,
     filterPhotosByIds,
+    filterPeopleForPhotos,
     peopleInPhoto,
 } from '../lib/photoAiSearch';
 import { isIndexedSnapshotFresh, maxIndexedAtFromRows } from '../lib/photoAiCacheFreshness';
@@ -584,7 +585,18 @@ const CollectionDashboard = () => {
     const [activeDownloadTab, setActiveDownloadTab] = useState('general');
 
     // Privacy State
-    const [collectionPassword, setCollectionPassword] = useState('');
+    const [collectionPassword, setCollectionPasswordState] = useState('');
+    const [guestPasswordLocked, setGuestPasswordLocked] = useState(false);
+    const setCollectionPassword = useCallback((val) => {
+        const plain = String(typeof val === 'function' ? val('') : (val ?? '')).trim();
+        setCollectionPasswordState(plain);
+        if (!collectionId) return;
+        if (plain && !/^[0-9a-f]{64}$/i.test(plain)) {
+            void import('../services/workersGallery.service').then(({ setStudioGuestPassword }) => {
+                setStudioGuestPassword(collectionId, plain);
+            }).catch(() => {});
+        }
+    }, [collectionId]);
     const [showOnShowcase, setShowOnShowcase] = useState(true);
     const [clientExclusiveAccess, setClientExclusiveAccess] = useState(false);
     const [clientPrivatePassword, setClientPrivatePassword] = useState('');
@@ -2155,10 +2167,18 @@ const CollectionDashboard = () => {
             
             // Also, if the collection has password or PIN, save those values in collection table
             if (s.collectionPassword && s.collectionPasswordValue) {
-                await galleryService.updateCollection(collectionId, {
-                    guest_password_hash: s.collectionPasswordValue
-                });
-                setCollectionPassword(s.collectionPasswordValue);
+                const plain = String(s.collectionPasswordValue).trim();
+                if (plain && !/^[0-9a-f]{64}$/i.test(plain)) {
+                    await galleryService.updateCollection(collectionId, {
+                        guest_password_hash: plain,
+                    });
+                    setCollectionPassword(plain);
+                    setGuestPasswordLocked(true);
+                    try {
+                        const { setStudioGuestPassword } = await import('../services/workersGallery.service');
+                        setStudioGuestPassword(collectionId, plain);
+                    } catch { /* ignore */ }
+                }
             }
             if (s.downloadPin && s.downloadPinValue) {
                 await galleryService.updateCollection(collectionId, {
@@ -2441,11 +2461,27 @@ const CollectionDashboard = () => {
                 setStatus(uiDeliveryStatus(data));
                 if (data.slug) setCollectionUrl(data.slug);
                 setCategoryTags(categoryTagsFromCollection(data));
-                if (data.guest_password_hash) setCollectionPassword(data.guest_password_hash);
-                else if (data.client_password_hash && !data.guest_password_hash) {
-                    setCollectionPassword(data.client_password_hash);
+                // Never put SHA digests into the password field — only restore
+                // plaintext remembered in this browser session (if any).
+                {
+                    const hasGuestHash = Boolean(data.guest_password_hash);
+                    let remembered = null;
+                    try {
+                        const { getStudioGuestPassword, isPasswordDigest } = await import('../services/workersGallery.service');
+                        remembered = getStudioGuestPassword(collectionId);
+                        if (remembered && isPasswordDigest(remembered)) remembered = null;
+                    } catch {
+                        remembered = null;
+                    }
+                    setCollectionPasswordState(remembered || '');
+                    setGuestPasswordLocked(hasGuestHash);
                 }
-                if (data.client_password_hash) setClientPrivatePassword(data.client_password_hash);
+                {
+                    const clientHash = data.client_password_hash;
+                    const looksDigest = typeof clientHash === 'string' && /^[0-9a-f]{64}$/i.test(clientHash.trim());
+                    if (clientHash && !looksDigest) setClientPrivatePassword(clientHash);
+                    else setClientPrivatePassword('');
+                }
                 if (data.client_exclusive_enabled !== undefined) setClientExclusiveAccess(data.client_exclusive_enabled);
                 if (data.allow_clients_mark_private !== undefined) setAllowClientsMarkPrivate(data.allow_clients_mark_private);
                 if (data.client_only_highlights !== undefined) setClientOnlyHighlights(data.client_only_highlights);
@@ -2804,14 +2840,25 @@ const CollectionDashboard = () => {
         return sortDashboardPhotos(filtered, sortOption);
     }, [photos, activeSetId, sortOption]);
 
+    const peopleForActiveSet = useMemo(
+        () => filterPeopleForPhotos(photoAiPeople, sortedPhotos),
+        [photoAiPeople, sortedPhotos]
+    );
+
+    const indexedCountForActiveSet = useMemo(() => {
+        if (!photoAiRows.length || !sortedPhotos.length) return 0;
+        const idSet = new Set(sortedPhotos.map((p) => String(p.id)));
+        return photoAiRows.filter((row) => idSet.has(String(row.photo_id))).length;
+    }, [photoAiRows, sortedPhotos]);
+
     const photoAiMetadataMap = useMemo(
         () => photoAiService.metadataToMap(photoAiRows),
         [photoAiRows]
     );
 
     const activePerson = useMemo(
-        () => photoAiPeople.find((p) => p.id === activePersonId) || null,
-        [photoAiPeople, activePersonId]
+        () => peopleForActiveSet.find((p) => p.id === activePersonId) || null,
+        [peopleForActiveSet, activePersonId]
     );
 
     const aiFilteredPhotos = useMemo(() => {
@@ -3178,6 +3225,18 @@ const CollectionDashboard = () => {
                     forceRecluster: false,
                     applyGuestLabels: Boolean(collection?.guest_delivery_enabled),
                 });
+                // Record the images just indexed so Face AI Normal usage moves.
+                {
+                    const pid = collection?.photographer_id || user?.id;
+                    const delta = force
+                        ? indexablePhotoCount
+                        : (Math.max(0, indexablePhotoCount - rows.length) || 1);
+                    if (pid && delta > 0) {
+                        void photographerQuotaService
+                            .recordUsage(pid, 'normalImage', delta)
+                            .catch(() => {});
+                    }
+                }
                 return { status: 'queued' };
             }
             await refreshPhotoAiMetadata();
@@ -3186,6 +3245,17 @@ const CollectionDashboard = () => {
                 forceRecluster: force,
                 applyGuestLabels: Boolean(collection?.guest_delivery_enabled),
             });
+            {
+                const pid = collection?.photographer_id || user?.id;
+                const delta = force
+                    ? indexablePhotoCount
+                    : (Math.max(0, indexablePhotoCount - rows.length) || 1);
+                if (pid && delta > 0) {
+                    void photographerQuotaService
+                        .recordUsage(pid, 'normalImage', delta)
+                        .catch(() => {});
+                }
+            }
             return { status: 'completed' };
         } catch (err) {
             console.warn('Photo AI auto-sync failed:', err);
@@ -3216,6 +3286,10 @@ const CollectionDashboard = () => {
 
     useEffect(() => {
         setPhotoSearchQuery('');
+        setActivePersonId(null);
+        setSelfieMatchPhotoIds([]);
+        setSelfieMessage('');
+        setSelfiePreview('');
     }, [activeSetId]);
 
     useEffect(() => {
@@ -3256,25 +3330,16 @@ const CollectionDashboard = () => {
     useEffect(() => {
         if (activeSidebarTab !== 'photos' || photoAiTableMissing || photoAiRows.length === 0) return;
         const guestLabels = Boolean(collection?.guest_delivery_enabled);
-        if (photoAiPeople.length === 0) {
-            // Faces already indexed but clusters still building: keep the
-            // processing status until people rows exist.
-            void (async () => {
-                await waitForClusterFresh();
-                await loadPhotoAiPeople({ silent: true, applyGuestLabels: guestLabels });
-            })();
-            return;
-        }
+        // Load cached people silently — do NOT waitForClusterFresh here.
+        // That spinner is reserved for a manual Index faces / refresh click.
         void loadPhotoAiPeople({ silent: true, applyGuestLabels: guestLabels });
     }, [
         activeSidebarTab,
         photoAiTableMissing,
         photoAiRows.length,
-        photoAiPeople.length,
         collection?.guest_delivery_enabled,
         gdEvent?.id,
         loadPhotoAiPeople,
-        waitForClusterFresh,
     ]);
 
     useEffect(() => {
@@ -3372,10 +3437,9 @@ const CollectionDashboard = () => {
         },
     });
 
-    // After the upload queue goes idle, auto-index the new photos and cluster
-    // them so people appear without a manual re-sync. (Previously this only
-    // re-read clusters for already-indexed metadata, so uploads detected
-    // nothing until the user hit "Re-analyze".)
+    // After the upload queue goes idle, refresh Photo AI metadata/people only.
+    // Face indexing must stay manual (refresh / Index faces button) — auto-sync
+    // after every upload left the "Indexing faces…" pill stuck and burned quota.
     useEffect(() => {
         const busy = uploadState.files.some(
             (f) =>
@@ -3392,11 +3456,11 @@ const CollectionDashboard = () => {
         if (!collectionId || photoAiTableMissing) return;
 
         const timer = setTimeout(() => {
-            void runPhotoAiAutoSyncRef.current?.().catch(() => {
-                // Indexing failed (e.g. quota) — fall back to cached clusters.
-                void refreshPhotoAiMetadata().then(() =>
-                    loadPhotoAiPeople({ silent: true, forceRecluster: true })
-                );
+            void (async () => {
+                await refreshPhotoAiMetadata();
+                await loadPhotoAiPeople({ silent: true, forceRecluster: false });
+            })().catch((err) => {
+                console.warn('Photo AI post-upload refresh failed:', err);
             });
         }, 3500);
         return () => clearTimeout(timer);
@@ -4167,14 +4231,33 @@ const CollectionDashboard = () => {
 
         const saveGeneralSettings = async () => {
             try {
-                const privacy = collectionPassword
+                const plain = String(collectionPassword || '').trim();
+                const isDigest = /^[0-9a-f]{64}$/i.test(plain);
+                const passwordOn = Boolean(plain && !isDigest) || guestPasswordLocked;
+                const privacy = passwordOn
                     ? 'password'
                     : (clientExclusiveAccess ? 'client_exclusive' : 'public');
-                await galleryService.updateCollection(collectionId, {
+                const patch = {
                     slug: collectionUrl,
-                    guest_password_hash: collectionPassword,
                     privacy,
-                });
+                };
+                if (!passwordOn) {
+                    patch.guest_password_hash = null;
+                    try {
+                        const { clearStudioGuestPassword } = await import('../services/workersGallery.service');
+                        clearStudioGuestPassword(collectionId);
+                    } catch { /* ignore */ }
+                } else if (plain && !isDigest) {
+                    // Server hashes plaintext; never send digests as "new" passwords.
+                    patch.guest_password_hash = plain;
+                    try {
+                        const { setStudioGuestPassword } = await import('../services/workersGallery.service');
+                        setStudioGuestPassword(collectionId, plain);
+                    } catch { /* ignore */ }
+                    setGuestPasswordLocked(true);
+                }
+                // Locked + empty field: leave existing hash untouched.
+                await galleryService.updateCollection(collectionId, patch);
             } catch (err) {
                 console.error('Error auto-saving general settings:', err);
             }
@@ -4182,24 +4265,33 @@ const CollectionDashboard = () => {
 
         const timeoutId = setTimeout(saveGeneralSettings, 1500); // Slightly longer debounce for URL
         return () => clearTimeout(timeoutId);
-    }, [collectionUrl, collectionPassword, clientExclusiveAccess, collectionId, loading]);
+    }, [collectionUrl, collectionPassword, guestPasswordLocked, clientExclusiveAccess, collectionId, loading]);
 
     // Auto-save privacy / client exclusive access
     useEffect(() => {
         if (!collectionId || loading || !settingsHydratedRef.current) return;
 
         const savePrivacySettings = async () => {
+            const plainGuest = String(collectionPassword || '').trim();
+            const guestIsDigest = /^[0-9a-f]{64}$/i.test(plainGuest);
+            const passwordOn = Boolean(plainGuest && !guestIsDigest) || guestPasswordLocked;
+            const plainClient = String(clientPrivatePassword || '').trim();
+            const clientIsDigest = /^[0-9a-f]{64}$/i.test(plainClient);
             const privacy = clientExclusiveAccess
                 ? 'client_exclusive'
-                : (collectionPassword ? 'password' : 'public');
+                : (passwordOn ? 'password' : 'public');
             const patch = {
                 client_exclusive_enabled: clientExclusiveAccess,
-                client_password_hash: clientPrivatePassword || null,
                 allow_clients_mark_private: allowClientsMarkPrivate,
                 client_only_highlights: clientOnlyHighlights,
                 show_on_showcase: showOnShowcase,
                 privacy,
             };
+            if (plainClient && !clientIsDigest) {
+                patch.client_password_hash = plainClient;
+            } else if (!plainClient) {
+                patch.client_password_hash = null;
+            }
             broadcastGalleryLive({
                 type: 'SETTINGS_UPDATED',
                 collectionId,
@@ -4227,6 +4319,7 @@ const CollectionDashboard = () => {
         collectionId,
         collectionUrl,
         collectionPassword,
+        guestPasswordLocked,
         loading,
     ]);
 
@@ -5539,7 +5632,7 @@ const CollectionDashboard = () => {
                                     }}
                                     sharingOverlaysEnabled={sharingOverlaysEnabled}
                                     onAddMedia={() => setShowUploadModal(true)}
-                                    people={photoAiPeople}
+                                    people={peopleForActiveSet}
                                     activePersonId={activePersonId}
                                     onSelectPerson={(id) => {
                                         setActivePersonId((current) => (current === id ? null : id));
@@ -5553,7 +5646,7 @@ const CollectionDashboard = () => {
                                     }}
                                     loadingPeople={photoAiLoadingPeople}
                                     analyzing={photoAiIndexing || photoAiClustering}
-                                    indexedCount={photoAiRows.length}
+                                    indexedCount={indexedCountForActiveSet}
                                     tableMissing={photoAiTableMissing}
                                     selfiePreview={selfiePreview}
                                     selfieSearching={selfieSearching}
@@ -5561,7 +5654,8 @@ const CollectionDashboard = () => {
                                     onSelfieSearch={handleSelfieSearch}
                                     onClearSelfie={handleClearSelfie}
                                     onReanalyze={() => {
-                                        void runPhotoAiAutoSync({ force: true });
+                                        // Manual only: incremental index (new photos), not a full wipe.
+                                        void runPhotoAiAutoSync({ force: false });
                                     }}
                                     onRenamePerson={handleRenamePerson}
                                     onDeletePerson={(personId) => handleTogglePersonHidden(personId, true)}
@@ -5901,6 +5995,14 @@ const CollectionDashboard = () => {
                                 onManageWatermarks={() => navigate('/settings/protection')}
                                 collectionPassword={collectionPassword}
                                 setCollectionPassword={setCollectionPassword}
+                                guestPasswordLocked={guestPasswordLocked}
+                                onClearGuestPassword={() => {
+                                    setCollectionPassword('');
+                                    setGuestPasswordLocked(false);
+                                    void import('../services/workersGallery.service').then(({ clearStudioGuestPassword }) => {
+                                        clearStudioGuestPassword(collectionId);
+                                    }).catch(() => {});
+                                }}
                                 showOnShowcase={showOnShowcase}
                                 setShowOnShowcase={setShowOnShowcase}
                                 clientExclusiveAccess={clientExclusiveAccess}

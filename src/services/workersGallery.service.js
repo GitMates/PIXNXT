@@ -360,6 +360,15 @@ function galleryPasswordKey(galleryId) {
   return `pixnxt_gallery_password_${galleryId}`;
 }
 
+/** Studio-only: remember the plaintext the photographer last set (survives reload). */
+function studioGuestPasswordKey(galleryId) {
+  return `pixnxt_studio_guest_password_${galleryId}`;
+}
+
+export function isPasswordDigest(value) {
+  return /^[0-9a-f]{64}$/i.test(String(value || '').trim());
+}
+
 export function getStoredGalleryPassword(galleryId) {
   if (!galleryId || typeof sessionStorage === 'undefined') return null;
   try {
@@ -381,6 +390,35 @@ export function setStoredGalleryPassword(galleryId, password) {
 
 export function clearStoredGalleryPassword(galleryId) {
   setStoredGalleryPassword(galleryId, null);
+}
+
+export function getStudioGuestPassword(galleryId) {
+  if (!galleryId || typeof sessionStorage === 'undefined') return null;
+  try {
+    const value = sessionStorage.getItem(studioGuestPasswordKey(galleryId));
+    if (!value || isPasswordDigest(value)) return null;
+    return value;
+  } catch {
+    return null;
+  }
+}
+
+export function setStudioGuestPassword(galleryId, password) {
+  if (!galleryId || typeof sessionStorage === 'undefined') return;
+  try {
+    const plain = String(password || '').trim();
+    if (plain && !isPasswordDigest(plain)) {
+      sessionStorage.setItem(studioGuestPasswordKey(galleryId), plain);
+    } else {
+      sessionStorage.removeItem(studioGuestPasswordKey(galleryId));
+    }
+  } catch {
+    // ignore quota errors
+  }
+}
+
+export function clearStudioGuestPassword(galleryId) {
+  setStudioGuestPassword(galleryId, null);
 }
 
 function isPasswordRequiredError(err) {

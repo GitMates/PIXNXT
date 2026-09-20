@@ -133,7 +133,11 @@ export function useCollectionDashboard(collectionId: string | null) {
         }
       });
 
-      if (collectionData.client_password_hash) setClientPrivatePassword(collectionData.client_password_hash);
+      if (collectionData.client_password || collectionData.client_password_hash) {
+        const plain = typeof collectionData.client_password === 'string' ? collectionData.client_password.trim() : '';
+        const isDigest = /^[0-9a-f]{64}$/i.test(plain);
+        setClientPrivatePassword(plain && !isDigest ? plain : '');
+      }
       if (collectionData.client_exclusive_enabled !== undefined) {
         setClientExclusiveAccess(collectionData.client_exclusive_enabled);
       }

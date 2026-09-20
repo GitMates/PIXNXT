@@ -2347,6 +2347,14 @@
     padding: 32px;
 }
 
+.cd-modal-text {
+    margin: 0;
+    font-size: 14px;
+    line-height: 1.6;
+    color: #444;
+    overflow-wrap: anywhere;
+}
+
 /* Email history (More → View email history) */
 .cd-email-history-help-btn {
     display: inline-flex;

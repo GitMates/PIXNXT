@@ -289,6 +289,29 @@ export const photographerQuotaService = {
     window.dispatchEvent(new CustomEvent(QUOTA_CHANGED_EVENT));
   },
 
+  /**
+   * Record usage after successful work (mirrors the assert-* gates).
+   * Never throws — older backends without POST /v1/me/quota/bump simply
+   * ignore it, and the meters keep their previous values.
+   */
+  async recordUsage(photographerId, counter, delta = 1) {
+    if (!photographerId || !counter) return { ok: false };
+    const step = Number.isFinite(Number(delta)) ? Math.max(0, Math.trunc(Number(delta))) : 0;
+    if (step <= 0) return { ok: true };
+    try {
+      const { apiFetch } = await import('../lib/api/client');
+      await apiFetch('/v1/me/quota/bump', {
+        method: 'POST',
+        body: { counter, delta: step },
+      });
+    } catch {
+      return { ok: false };
+    }
+    this.invalidate(photographerId);
+    this.notifyQuotaChanged();
+    return { ok: true };
+  },
+
   async fetchSnapshot(photographerId) {
     if (!photographerId) {
       return emptySnapshot();

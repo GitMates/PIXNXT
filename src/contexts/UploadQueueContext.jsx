@@ -42,14 +42,17 @@ function revokePreviews(files) {
 
 function handleStorageLimitError(message) {
   if (!message.includes('Storage limit exceeded') && !message.includes('Remaining storage space')) {
-    return;
+    return null;
   }
   let remaining = '0.00 MB';
   const match = message.match(/Remaining storage space:\s*(.*?)\.\s*This/i);
   if (match && match[1]) {
     remaining = match[1].trim();
   }
-  alert(`You have ${remaining} only. Try to upload files below this size limit.`);
+  return {
+    title: 'Storage limit reached',
+    message: `You have ${remaining} only. Try to upload files below this size limit.`,
+  };
 }
 
 function isUploadCancelled(err) {
@@ -117,6 +120,14 @@ export function UploadQueueProvider({ children }) {
   /** Last batch enqueue target (for widget label / View navigation while uploads run). */
   const lastBatchTargetRef = useRef(null);
   const pumpQueueRef = useRef(() => {});
+  /** Centered in-app notice (replaces native alert() popups). */
+  const [notice, setNotice] = useState(null);
+  const notifyNotice = useCallback((title, message) => {
+    setNotice({ title, message });
+  }, []);
+  const dismissNotice = useCallback(() => {
+    setNotice(null);
+  }, []);
 
   stateRef.current = state;
 
@@ -249,13 +260,14 @@ export function UploadQueueProvider({ children }) {
         }
         console.error('Derivative upload failed:', err);
         const message = uploadErrorMessage(err);
-        handleStorageLimitError(message);
+        const limitNotice = handleStorageLimitError(message);
+        if (limitNotice) notifyNotice(limitNotice.title, limitNotice.message);
         safePatch({ status: 'error', progress: 0, errorMessage: message });
       } finally {
         abortControllersRef.current.delete(uf.id);
       }
     },
-    [patchFile]
+    [patchFile, notifyNotice]
   );
 
   const runOriginalUpload = useCallback(
@@ -316,13 +328,14 @@ export function UploadQueueProvider({ children }) {
         }
         console.error('Original upload failed:', err);
         const message = uploadErrorMessage(err);
-        handleStorageLimitError(message);
+        const limitNotice = handleStorageLimitError(message);
+        if (limitNotice) notifyNotice(limitNotice.title, limitNotice.message);
         safePatch({ status: 'error', progress: 0, errorMessage: message });
       } finally {
         abortControllersRef.current.delete(uf.id);
       }
     },
-    [patchFile]
+    [patchFile, notifyNotice]
   );
 
   const pumpQueue = useCallback(() => {
@@ -417,7 +430,7 @@ export function UploadQueueProvider({ children }) {
       }
       const target = targetRef.current;
       if (!target?.collectionId || !target?.photographerId) {
-        alert('Open a delivery or event before uploading photos.');
+        notifyNotice('No delivery selected', 'Open a delivery or event before uploading photos.');
         return false;
       }
 
@@ -425,7 +438,8 @@ export function UploadQueueProvider({ children }) {
       const files = rawFiles.filter((f) => f.size > 0);
 
       if (rawFiles.length > 0 && files.length === 0) {
-        alert(
+        notifyNotice(
+          'Files could not be read',
           'The selected files are empty or corrupted. If you are uploading a file from another app, please save it to your computer first.'
         );
         return false;
@@ -509,15 +523,17 @@ export function UploadQueueProvider({ children }) {
       if (skipped.length > 0) {
         const preview = skipped.slice(0, 5).join(', ');
         const more = skipped.length > 5 ? ` and ${skipped.length - 5} more` : '';
-        alert(
-          `Skipped ${skipped.length} duplicate file(s) already in this delivery: ${preview}${more}`
+        notifyNotice(
+          `Skipped ${skipped.length} duplicate file${skipped.length === 1 ? '' : 's'}`,
+          `Already in this delivery: ${preview}${more}`
         );
       }
       if (accepted.length === 0 && resumable.length === 0) return false;
 
       if (resumable.length > 0) {
-        alert(
-          `Resuming ${resumable.length} upload(s): original missing in storage — uploading originals only (web & thumb already exist).`
+        notifyNotice(
+          `Resuming ${resumable.length} upload${resumable.length === 1 ? '' : 's'}`,
+          'Original missing in storage — uploading originals only (web & thumb already exist).'
         );
       }
 
@@ -656,7 +672,7 @@ export function UploadQueueProvider({ children }) {
 
       return true;
     },
-    [enqueueUpload, patchFile, destinationLabel, pumpQueue]
+    [enqueueUpload, patchFile, destinationLabel, pumpQueue, notifyNotice]
   );
 
   const pause = useCallback(() => {
@@ -821,6 +837,7 @@ export function UploadQueueProvider({ children }) {
   const value = useMemo(
     () => ({
       state,
+      notice,
       destinationLabel,
       activeCollectionId,
       uploadTargetSetId,
@@ -838,9 +855,12 @@ export function UploadQueueProvider({ children }) {
       toggleDetails,
       openCompletedUploadDetails,
       retryFailed,
+      notifyNotice,
+      dismissNotice,
     }),
     [
       state,
+      notice,
       destinationLabel,
       activeCollectionId,
       uploadTargetSetId,
@@ -858,6 +878,8 @@ export function UploadQueueProvider({ children }) {
       toggleDetails,
       openCompletedUploadDetails,
       retryFailed,
+      notifyNotice,
+      dismissNotice,
     ]
   );
 

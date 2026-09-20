@@ -7,9 +7,12 @@ import App from './App.jsx'
 import { AuthProvider } from './context/AuthContext'
 import { migrateStripInlineDataFromAlbumLocalStorage } from './lib/albumLocalStorage'
 import { installGlobalCrashHooks } from './lib/crashLogger'
+import { AppAlertHost, installAppAlert } from './components/ui/AppAlert'
 
 migrateStripInlineDataFromAlbumLocalStorage()
 installGlobalCrashHooks()
+// Native alert() → centered in-app popup (same look as other modals).
+installAppAlert()
 
 // After a deploy, an already-open tab still references chunk hashes that no
 // longer exist; the SPA fallback answers with index.html and the dynamic import
@@ -26,11 +29,13 @@ createRoot(document.getElementById('root')).render(
   <StrictMode>
     <BrowserRouter
       future={{
+        v7_startTransition: true,
         v7_relativeSplatPath: true,
       }}
     >
       <AuthProvider>
         <App />
+        <AppAlertHost />
       </AuthProvider>
     </BrowserRouter>
   </StrictMode>,

@@ -69,6 +69,7 @@ import {
     syncCollectionOrderToPlacements,
     syncCoverWrapRoleFromSpread,
     unlinkSharedCoverAndInnerPlacement,
+    reconcileCoverWrapPlacements,
     clearCoverPlacementsForItem,
 } from '../../components/smart-albums/albumPagePhotos';
 import { shiftAlbumRemotePreviewPages } from '../../components/smart-albums/albumPreviewData';
@@ -818,7 +819,7 @@ export default function AlbumEditor({
             if (migratePreBackHalfSpreadToLeftPage(albumId, totalPages, album)) {
                 changed = true;
             }
-            if (unlinkSharedCoverAndInnerPlacement(albumId, album)) {
+            if (reconcileCoverWrapPlacements(albumId, album)) {
                 clearAlbumSpineBoundsOverride(albumId);
                 changed = true;
             }
@@ -1553,7 +1554,7 @@ export default function AlbumEditor({
             beginSuppressCollectionPageGrowth();
             showToast('Uploading photo…', { variant: 'info', duration: 0 });
             try {
-                unlinkSharedCoverAndInnerPlacement(albumId, album);
+                reconcileCoverWrapPlacements(albumId, album);
                 const isCoverSlot = isCoverWrapEditorSlot(slot, album);
                 const before = await captureSlotImageBeforeReplaceAsync(
                     albumId,
@@ -1713,6 +1714,17 @@ export default function AlbumEditor({
             } catch (err) {
                 console.warn('Could not delete cover wrap from R2:', err);
             }
+        }
+
+        // Cover files are deleted from R2 above — drop their version-history
+        // rows too, otherwise the feed shows ghost thumbnails and the cover
+        // fallback could resurrect a removed photo.
+        try {
+            getImageReplacements(albumId)
+                .filter((row) => Number(row.spreadIndex) === 0)
+                .forEach((row) => removeImageReplacement(albumId, row.id));
+        } catch (err) {
+            console.warn('Could not prune cover version history:', err);
         }
 
         clearWrapSegmentCache();
@@ -2024,7 +2036,7 @@ export default function AlbumEditor({
             }
 
             try {
-                unlinkSharedCoverAndInnerPlacement(albumId, album);
+                reconcileCoverWrapPlacements(albumId, album);
                 const isCoverSlot = isCoverWrapEditorSlot(slot, album) || gridSelection?.mode === 'cover';
                 const left =
                     slot.spreadLeft ??
@@ -2600,7 +2612,7 @@ export default function AlbumEditor({
                 setGridEditSet('single');
                 setGridSelection(buildCoverSelection());
                 handleBookPageChange(0);
-                let changed = unlinkSharedCoverAndInnerPlacement(albumId, album);
+                let changed = reconcileCoverWrapPlacements(albumId, album);
                 if (changed) clearAlbumSpineBoundsOverride(albumId);
                 if (albumUsesBookWrap(album)) {
                     if (migrateFrontCoverToFullSpread(albumId)) changed = true;

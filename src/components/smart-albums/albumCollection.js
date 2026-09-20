@@ -233,12 +233,20 @@ async function uploadCollectionImage({
 
 async function uploadCollectionFile({ file, sortIndex, batchUploadTs, pathContext }) {
     const { photographerFolder, albumFolder } = pathContext;
+    const stem = safeSegment(file.name);
+    const mime = String(file.type || '').toLowerCase();
+    const ext = mime.includes('png')
+        ? 'png'
+        : mime.includes('webp')
+          ? 'webp'
+          : 'jpg';
+    // Always store a real extension — older uploads mangled `.jpg` → `-jpg` and 404'd.
     const path = [
         'users',
         photographerFolder,
         'album-proofer',
         albumFolder,
-        `${batchUploadTs}-${sortIndex + 1}-${safeSegment(file.name)}`,
+        `${batchUploadTs}-${sortIndex + 1}-${stem}.${ext}`,
     ].join('/');
     return storageService.upload(path, file);
 }
@@ -688,6 +696,34 @@ async function listR2CollectionItems(albumId, photographerId) {
         console.warn('Could not list R2 album collection:', error?.message || error);
         return [];
     }
+}
+
+/** List raw R2 object keys for an album (used to heal dead cover paths). */
+export async function listAlbumR2KeysForHeal(albumId, photographerId) {
+    const items = await listR2CollectionItems(albumId, photographerId);
+    return (items || []).map((item) => item.storagePath).filter(Boolean);
+}
+
+/** Patch a collection item's storagePath (+ public URL) in local catalog. */
+export function patchCollectionItemStoragePath(albumId, itemId, storagePath) {
+    if (!albumId || !itemId || !storagePath) return false;
+    const all = readAll();
+    const bucket = all[albumId];
+    if (!bucket?.items) return false;
+    let changed = false;
+    const items = bucket.items.map((item) => {
+        if (item.id !== itemId) return item;
+        if (item.storagePath === storagePath) return item;
+        changed = true;
+        return {
+            ...item,
+            storagePath,
+            dataUrl: storageService.getPublicUrl(storagePath),
+        };
+    });
+    if (!changed) return false;
+    persistCollectionBucket(all, albumId, { ...bucket, items });
+    return true;
 }
 
 /**
@@ -1149,9 +1185,14 @@ export function getCollectionItemDisplayUrl(item, { cacheBust = null } = {}) {
     if (!item) return null;
     let url = null;
     if (item.storagePath) {
+        // Use the stored key as-is. Candidate respelling (`.jpg` vs `-jpg` /
+        // extensionless) is only for 404 retries in r2MediaProxy — rewriting
+        // here made live mangled/extensionless objects 404 in <img> tags.
         url = storageService.getPublicUrl(item.storagePath);
-    } else {
-        url = item.dataUrl ?? null;
+    } else if (typeof item.dataUrl === 'string' && !item.dataUrl.startsWith('blob:')) {
+        // blob: URLs die with the browsing session — never hand one out as a
+        // display URL (it would render blank after reload).
+        url = item.dataUrl;
     }
     if (!url || cacheBust == null) return url;
     const token = encodeURIComponent(String(cacheBust));

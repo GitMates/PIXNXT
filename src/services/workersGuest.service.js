@@ -127,6 +127,11 @@ export async function uploadGuestPhoto({ photographerId, eventId, file, position
       position,
     },
   });
+  // Record Face AI Guest usage (mirrors the assert above). Never blocks upload.
+  if (ownerId) {
+    const { photographerQuotaService } = await import('./photographerQuota.service');
+    void photographerQuotaService.recordUsage(ownerId, 'guestImage', 1).catch(() => {});
+  }
   return data?.photo;
 }
 

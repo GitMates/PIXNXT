@@ -948,6 +948,8 @@ export const smartAlbumsService = {
       });
       removeLocalAlbum(photographer_id, data.id);
       photographerQuotaService.invalidate(photographer_id);
+      // Record creation usage (backend also live-counts creations).
+      void photographerQuotaService.recordUsage(photographer_id, 'album', 1).catch(() => {});
       photographerQuotaService.notifyQuotaChanged();
       return mapAlbumRow(data, photographer_id);
     }

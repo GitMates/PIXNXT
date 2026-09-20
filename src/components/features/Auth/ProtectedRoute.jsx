@@ -17,7 +17,15 @@ export const ProtectedRoute = ({ children }) => {
   }
 
   if (!user) {
-    // Redirect to auth page, preserving the attempted location
+    // Keep deep link across the /auth bounce (pathname alone drops ?id=).
+    try {
+      const full = `${location.pathname}${location.search || ''}${location.hash || ''}`;
+      if (full && full !== '/auth') {
+        sessionStorage.setItem('pixnxt_auth_return', full);
+      }
+    } catch {
+      /* private mode */
+    }
     return <Navigate to="/auth" state={{ from: location }} replace />;
   }
 

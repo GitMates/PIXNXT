@@ -623,6 +623,16 @@
   box-shadow: 0 10px 28px rgba(61, 51, 46, 0.08);
 }
 
+/* Portaled row menu: escapes the card's scroll/clip context. */
+.gd-guest-board__menu--fixed {
+  position: fixed;
+  right: auto;
+  top: auto;
+  z-index: 9999;
+  width: 184px;
+  margin: 0;
+}
+
 .gd-guest-board__menu button {
   display: block;
   width: 100%;

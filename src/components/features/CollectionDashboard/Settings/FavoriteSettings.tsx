@@ -4,7 +4,7 @@ import { getCollectionShareUrl } from '../../../../lib/shareCollection';
 import { buildGmailComposeUrl } from '../../../../lib/gmailComposeUrl';
 import { ManageEmailTemplatesModal } from '../../../mobile-gallery/EmailTemplateModals';
 import { FavoriteSettingsProps } from './Settings.types';
-import { Toggle, maskEmail } from './settingsCardKit';
+import { Toggle } from './settingsCardKit';
 import './BasicsSettings.css';
 import './SettingsCards.css';
 import './DownloadSettings.css';
@@ -290,7 +290,7 @@ export const FavoriteSettings: React.FC<FavoriteSettingsProps> = ({
                               ) : null}
                             </td>
                             <td className={list.email ? undefined : 'cd-dl-sel-table__muted'}>
-                              {list.email ? maskEmail(list.email) : 'not sent'}
+                              {list.email || 'not sent'}
                             </td>
                             <td className="is-num">
                               <span className="cd-dl-sel-table__chosen">

@@ -6,6 +6,8 @@ import {
     embedPlacementStorageFallbacks,
     migrateFrontCoverToFullSpread,
     overwriteLocalPagesFromRemote,
+    reconcileCoverWrapPlacements,
+    healCoverStoragePathsFromR2,
 } from '../../components/smart-albums/albumPagePhotos';
 import { loadAlbumAssetsFromCloud, overwriteLocalCollectionFromRemote } from '../../components/smart-albums/albumCollection';
 import { hydrateAlbumPreviewData, clearAlbumPreviewDataCache, normalizeAlbumForClientPreview } from '../../components/smart-albums/albumPreviewData';
@@ -173,7 +175,10 @@ export default function PublicAlbumPreview() {
         // cover photo that localhost resolves from stale editor leftovers.
         // Local-only and idempotent.
         migrateFrontCoverToFullSpread(storageAlbumId);
-    }, [album?.id, album?.preview_data]);
+        if (album?.has_covers !== false) {
+            reconcileCoverWrapPlacements(storageAlbumId, album);
+        }
+    }, [album?.id, album?.preview_data, album?.has_covers, album?.blank_covers]);
 
     // Client share links have no localStorage — hydrate collection + placements from cloud/R2.
     useEffect(() => {
@@ -190,6 +195,17 @@ export default function PublicAlbumPreview() {
                 overwriteLocalPagesFromRemote(album.id);
                 healOrphanCollectionPlacements(album.id);
                 embedPlacementStorageFallbacks(album.id);
+                if (album?.has_covers !== false) {
+                    reconcileCoverWrapPlacements(album.id, album);
+                    void healCoverStoragePathsFromR2(
+                        album.id,
+                        album.photographer_id
+                    ).then((healed) => {
+                        if (healed && !cancelled) {
+                            setPhotoRevision(getAlbumPhotoRevision(album.id) || 0);
+                        }
+                    });
+                }
                 setPhotoRevision(getAlbumPhotoRevision(album.id) || 0);
             } catch (error) {
                 console.warn('Could not hydrate public album assets:', error?.message || error);

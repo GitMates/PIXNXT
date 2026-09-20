@@ -65,11 +65,20 @@ function resolveDedicatedWrapUrl(pages, collection, { blankCovers = false } = {}
     }
     const wrapUrl = resolveStoredUrl(wrapStored, collection);
     if (wrapUrl) {
+        // Dedicated cover placement wins for both leather and photo-cover albums.
+        // Requiring role:'cover-wrap' left uploaded wraps invisible when role was never stamped.
         if (!blankCovers) return wrapUrl;
-        const wrapItem = wrapItemId ? collection.find((item) => item.id === wrapItemId) : null;
-        if (wrapItem?.role === 'cover-wrap') return wrapUrl;
+        if (!wrapItemId) return wrapUrl;
+        const wrapItem = collection.find((item) => item.id === wrapItemId);
+        if (!wrapItem || wrapItem.role === 'cover-wrap' || wrapItem.role === 'cover_wrap') {
+            return wrapUrl;
+        }
+        // Item exists, no cover-wrap role, but not on an inner page → still the cover wrap.
+        return wrapUrl;
     }
-    const wrapItem = collection.find((item) => item?.role === 'cover-wrap');
+    const wrapItem = collection.find(
+        (item) => item?.role === 'cover-wrap' || item?.role === 'cover_wrap'
+    );
     if (wrapItem?.id && !placementItemHasInnerPage(pages, wrapItem.id)) {
         return resolveStoredUrl(wrapItem, collection);
     }
@@ -134,7 +143,9 @@ export function getAlbumIdsWithLocalAssets() {
 
 function resolvePageValue(albumId, stored) {
     if (!stored) return null;
-    if (typeof stored === 'string') return stored;
+    // Never snapshot dead blob: URLs into preview_data — they 404 everywhere
+    // (including the client share link) after the session ends.
+    if (typeof stored === 'string') return stored.startsWith('blob:') ? null : stored;
     // Prefer live collection item so cover/photo replace does not re-embed a stale URL.
     if (stored.collectionItemId) {
         const item = getAlbumCollection(albumId).find((i) => i.id === stored.collectionItemId);

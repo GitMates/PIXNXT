@@ -1,15 +1,27 @@
 import { apiBase } from './api/client';
 import { R2_PUBLIC_URL } from './r2';
 import { isPlatformHost } from './customDomain';
+import { albumStoragePathCandidates, storagePathFromUrlOrPath } from '../components/smart-albums/albumStoragePathHeal';
 
 const LEGACY_PROXY_QUERY = '/api/r2-media?';
 const LEGACY_PROXY_PATH = '/api/r2-media/';
 const WORKER_MEDIA_PATH = '/v1/r2/media';
 
-/** Photographer custom domains are not on the R2 bucket CORS allowlist — route via the Worker media proxy. */
+/**
+ * Prefer the Worker media proxy for cross-origin canvas / WebGL reads.
+ * Custom domains are not on the R2 bucket CORS allowlist. Localhost / Vite
+ * also fail often: bucket policy may omit the port, and a prior non-CORS
+ * <img> cache entry for the same R2 URL blocks later crossOrigin loads.
+ */
 export function shouldPreferR2MediaProxy() {
   if (typeof window === 'undefined') return false;
-  return !isPlatformHost(window.location.hostname);
+  const host = String(window.location.hostname || '')
+    .toLowerCase()
+    .split(':')[0];
+  if (host === 'localhost' || host === '127.0.0.1' || host.endsWith('.localhost')) {
+    return true;
+  }
+  return !isPlatformHost(host);
 }
 
 /** Worker media proxy base (GET /v1/r2/media), or '' when VITE_API_URL is unavailable. */
@@ -88,8 +100,8 @@ function toProxyUrl(pathAndQuery) {
 }
 
 /**
- * Fetch URL for canvas, WebGL, audio, and other cross-origin reads on custom domains.
- * On pixnxt.in / localhost keeps direct R2 URLs (bucket CORS already allows those origins).
+ * Fetch URL for canvas, WebGL, audio, and other cross-origin reads.
+ * Proxies on custom domains and localhost; direct R2 on production platform hosts.
  */
 export function resolveCrossOriginMediaUrl(url) {
   if (!url || typeof url !== 'string') return url;
@@ -131,7 +143,13 @@ function loadCrossOriginImageOnce(url) {
   return promise;
 }
 
-/** Load an image for canvas / 3D — proxy first on custom domains, direct-first on platform. */
+/**
+ * Load an image for canvas / 3D with crossOrigin=anonymous.
+ * Always try the Worker media proxy first — that response carries ACAO and
+ * uses a different URL than display <img> tags, avoiding tainted HTTP cache
+ * entries from non-CORS loads of the same R2 object.
+ * Falls back to direct R2 + alternate key spellings (mangled `-jpg` vs `.jpg`).
+ */
 export function loadCrossOriginImage(src) {
   if (!src || typeof src !== 'string') {
     return Promise.reject(new Error('Missing image src'));
@@ -140,21 +158,38 @@ export function loadCrossOriginImage(src) {
     return loadCrossOriginImageOnce(src);
   }
 
-  if (shouldPreferR2MediaProxy()) {
-    const proxied = resolveCrossOriginMediaUrl(src);
-    return loadCrossOriginImageOnce(proxied).catch(() => {
-      if (proxied !== src) return loadCrossOriginImageOnce(src);
-      return Promise.reject(new Error('Image failed to load'));
-    });
+  const path = storagePathFromUrlOrPath(src, R2_PUBLIC_URL);
+  const pathCandidates = path ? albumStoragePathCandidates(path) : [];
+  const base = R2_PUBLIC_URL ? String(R2_PUBLIC_URL).replace(/\/+$/, '') : '';
+  const urlCandidates = [];
+  const pushUrl = (url) => {
+    if (url && !urlCandidates.includes(url)) urlCandidates.push(url);
+  };
+  pushUrl(src);
+  for (const candidate of pathCandidates) {
+    if (base) pushUrl(`${base}/${candidate}`);
   }
 
-  return loadCrossOriginImageOnce(src).catch(() => {
-    const proxied = getProxiedMediaFetchUrl(src);
-    if (!proxied || proxied === src) {
-      return Promise.reject(new Error('Image failed to load'));
+  const ordered = [];
+  const pushOrdered = (url) => {
+    if (url && !ordered.includes(url)) ordered.push(url);
+  };
+  for (const url of urlCandidates) {
+    pushOrdered(getProxiedMediaFetchUrl(url));
+    pushOrdered(url);
+  }
+
+  return (async () => {
+    let lastErr = null;
+    for (const url of ordered) {
+      try {
+        return await loadCrossOriginImageOnce(url);
+      } catch (err) {
+        lastErr = err;
+      }
     }
-    return loadCrossOriginImageOnce(proxied);
-  });
+    throw lastErr || new Error('Image failed to load');
+  })();
 }
 
 /**

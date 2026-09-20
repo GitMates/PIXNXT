@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { pickImageFiles } from '../../lib/pickImageFiles';
 import { PROOF_CELL_LABELS, PROOF_SLOT_COUNT, getSpreadLeftPageIndex } from './albumSpreadGrid';
 import {
@@ -8,7 +8,19 @@ import {
     removeSwapMark,
 } from './albumSwapMarks';
 import { isPhotoPinUnseen } from './albumPhotoPins';
-import { isCommentUnseen } from '../../services/smartAlbumComments.service';
+import {
+    COMMENTS_CHANGED_EVENT,
+    isCommentUnseen,
+    smartAlbumCommentsService,
+} from '../../services/smartAlbumComments.service';
+import {
+    isCommentNotificationUnread,
+    isPinNotificationUnread,
+    isSwapNotificationUnread,
+    markCommentNotificationsRead,
+    markPinNotificationsRead,
+    markSwapNotificationsRead,
+} from '../../services/albumNotifications';
 import EditorSpreadMessageCompose from './EditorSpreadMessageCompose';
 import SpreadVersionHistory from './SpreadVersionHistory';
 import AlbumPreviewSpreadFeed from './AlbumPreviewSpreadFeed';
@@ -286,12 +298,15 @@ export default function AlbumEditorSidebar({
     }, [spreadCommentsBySpread, currentSpreadIndex, showAllFeedback]);
 
     const visibleSpreadFeed = useMemo(() => {
+        // "All spreads" lists client feedback only (comments incl. audio /
+        // image attachments, photo pins, swaps). Photographer messages and
+        // version-history entries stay on the per-spread view.
         const feed = buildSpreadFeedbackFeed({
-            photographerMessages: visibleSentMessages,
+            photographerMessages: showAllFeedback ? [] : visibleSentMessages,
             clientMessages: visibleClientMessages,
             photoPins: visiblePhotoPins,
             swapMarks: visibleSwapMarks,
-            imageReplacements: visibleImageReplacements,
+            imageReplacements: showAllFeedback ? [] : visibleImageReplacements,
             includeSwaps: swapsEnabled,
         });
         if (!showDoneOnly) return feed;
@@ -303,9 +318,114 @@ export default function AlbumEditorSidebar({
         visibleSwapMarks,
         visibleImageReplacements,
         swapsEnabled,
+        showAllFeedback,
         showDoneOnly,
         albumId,
         proofSeenTick,
+    ]);
+
+    // Viewing comments in the sidebar clears the Activity badge for that
+    // spread (e.g. 2 on spread 2 + 5 on spread 7 = badge 7; viewing
+    // spread 2 drops it to 5) but never flips "Mark as done" — Done stays
+    // manual via the feed's done buttons.
+    // Reply-thread check runs at most once per spread view so the effect
+    // can't ping the comments API on every re-render.
+    const checkedRepliesRef = useRef(new Set());
+    const [commentsTick, setCommentsTick] = useState(0);
+    useEffect(() => {
+        if (!albumId) return undefined;
+        const bump = (e) => {
+            if (e.detail?.albumId && e.detail.albumId !== albumId) return;
+            // New/changed data may include new replies: allow one re-check.
+            // (Marking seen fires the separate seen-event, so this can't loop.)
+            [...checkedRepliesRef.current].forEach((key) => {
+                if (key.startsWith(`${albumId}:`)) checkedRepliesRef.current.delete(key);
+            });
+            setCommentsTick((t) => t + 1);
+        };
+        window.addEventListener(COMMENTS_CHANGED_EVENT, bump);
+        return () => window.removeEventListener(COMMENTS_CHANGED_EVENT, bump);
+    }, [albumId]);
+    // Stable signatures so new array identities with identical content don't
+    // reschedule the timer (which previously re-fired seen-events in a loop).
+    const clientMsgSig = (visibleClientMessages || [])
+        .map((c) => `${c.id}:${c.updated_at || c.created_at || ''}`)
+        .join(',');
+    const pinsSig = (visiblePhotoPins || [])
+        .map((p) => `${p.id}:${p.updatedAt || p.createdAt || ''}`)
+        .join(',');
+    const swapsSig = (visibleSwapMarks || [])
+        .map((m) => `${m.id}:${m.createdAt || ''}`)
+        .join(',');
+    useEffect(() => {
+        if (activePanel !== 'pin') return;
+        if (!albumId) return;
+        if (showDoneOnly) return;
+
+        // Badge-unread only. Done state (isCommentUnseen / isPhotoPinUnseen /
+        // isSwapMarkUnseen) is manual via "Mark as done" and stays untouched.
+        const unreadRoots = (visibleClientMessages || []).filter((c) =>
+            isCommentNotificationUnread(albumId, c)
+        );
+        const unreadPins = (visiblePhotoPins || []).filter((pin) =>
+            isPinNotificationUnread(albumId, pin)
+        );
+        const unreadSwaps = (visibleSwapMarks || []).filter((mark) =>
+            isSwapNotificationUnread(albumId, mark)
+        );
+        const replyCheckKey = `${albumId}:${showAllFeedback ? 'all' : currentSpreadIndex}`;
+        const needsReplyCheck = !checkedRepliesRef.current.has(replyCheckKey);
+
+        // Nothing to do: no unread rows and this spread's replies checked.
+        if (!unreadRoots.length && !unreadPins.length && !unreadSwaps.length && !needsReplyCheck) {
+            return undefined;
+        }
+
+        let cancelled = false;
+        const timer = setTimeout(async () => {
+            if (cancelled) return;
+            try {
+                if (unreadRoots.length) markCommentNotificationsRead(albumId, unreadRoots);
+                if (unreadPins.length) markPinNotificationsRead(albumId, unreadPins);
+                if (unreadSwaps.length) markSwapNotificationsRead(albumId, unreadSwaps);
+
+                // Client thread replies (parent_id) are counted in the badge
+                // but are not part of spreadCommentsBySpread (roots only).
+                if (needsReplyCheck) {
+                    checkedRepliesRef.current.add(replyCheckKey);
+                    const all = await smartAlbumCommentsService.listAlbumComments(albumId);
+                    if (cancelled) return;
+                    const unreadReplies = (all || []).filter((c) => {
+                        if (c.author_type !== 'client' || !c.parent_id) return false;
+                        if (!showAllFeedback && Number(c.spread_index) !== Number(currentSpreadIndex)) {
+                            return false;
+                        }
+                        return isCommentNotificationUnread(albumId, c);
+                    });
+                    if (unreadReplies.length) markCommentNotificationsRead(albumId, unreadReplies);
+                }
+            } catch {
+                /* ignore */
+            }
+        }, 800);
+
+        return () => {
+            cancelled = true;
+            clearTimeout(timer);
+        };
+        // Deps are id signatures, not array identities, to avoid timer churn.
+        // commentsTick re-allows one reply re-check when genuinely new data arrives.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [
+        albumId,
+        activePanel,
+        showDoneOnly,
+        showAllFeedback,
+        currentSpreadIndex,
+        commentsTick,
+        clientMsgSig,
+        pinsSig,
+        swapsSig,
     ]);
 
     const doneFeedCount = useMemo(() => {
@@ -392,8 +512,9 @@ export default function AlbumEditorSidebar({
         void workspaceRevision;
         if (!albumId) return null;
         if (currentSpreadIndex <= 0 && spreadOpts.hasCovers) {
-            const cover = resolveCoverImageSrc(album, { showSamples: false });
-            if (cover) return cover;
+            // Match live COVER canvas — never fall through to a raw override /
+            // version-history URL while the book is showing leather.
+            return resolveCoverImageSrc(album, { showSamples: false });
         }
         const { left, right } = getSpreadPages(currentSpreadIndex, totalPages, spreadOpts);
         const live =
@@ -436,6 +557,9 @@ export default function AlbumEditorSidebar({
     const spreadPanelCount = currentSpreadFeedCount;
 
     const albumFeedbackCount = useMemo(() => {
+        // "All spreads" lists client feedback only (comments incl. audio /
+        // image attachments, photo pins, swaps) — no photographer messages
+        // or version-history entries.
         const pinCount = (photoPins || []).length;
         const swapCount = swapsEnabled ? (swapMarks || []).length : 0;
         let clientCount = 0;
@@ -449,8 +573,8 @@ export default function AlbumEditorSidebar({
                 }
             });
         });
-        return pinCount + swapCount + clientCount + (imageReplacements?.length || 0);
-    }, [photoPins, swapMarks, swapsEnabled, spreadCommentsBySpread, imageReplacements]);
+        return pinCount + swapCount + clientCount;
+    }, [photoPins, swapMarks, swapsEnabled, spreadCommentsBySpread]);
 
     const currentSpreadMetaLabel = useMemo(
         () => formatBookSpreadMetaLabel(currentSpreadIndex, totalPages, spreadOpts),
@@ -594,7 +718,7 @@ export default function AlbumEditorSidebar({
                                     {feedbackFilter === 'done'
                                         ? 'No completed feedback yet.'
                                         : feedbackFilter === 'all'
-                                          ? 'No comments, swap requests, or photo changes in this album yet.'
+                                          ? 'No comments or swap requests in this album yet.'
                                           : 'No comments, swap requests, or photo changes on this spread yet.'}
                                 </p>
                             ) : (

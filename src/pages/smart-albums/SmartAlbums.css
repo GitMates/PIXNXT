@@ -595,6 +595,122 @@
   text-align: right;
 }
 
+/* Activity-style global notifications (same UI as the in-album Activity panel). */
+.sa-notifications-panel--activity {
+  width: 380px;
+  max-width: calc(100vw - 24px);
+  max-height: 520px;
+  border-radius: 16px;
+  border: 1px solid #e4e4e7;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+}
+
+.sa-notifications-panel--activity .ae-notifications-header {
+  gap: 8px;
+}
+
+.sa-notifications-clear-btn--activity {
+  margin-left: 12px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #71717a;
+}
+
+.sa-notifications-clear-btn--activity:hover {
+  color: #18181b;
+}
+
+.ae-notifications-item-album {
+  font-size: 12px;
+  font-weight: 600;
+  color: #18181b;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sa-notifications-dismiss--activity {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  align-self: stretch;
+  flex-shrink: 0;
+  border: none;
+  border-bottom: 1px solid #f4f4f5;
+  border-radius: 0;
+  background: #fff;
+  color: #a1a1aa;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.sa-notifications-dismiss--activity:hover {
+  color: #18181b;
+  background: #fafaf9;
+}
+
+.sa-notifications-activity-row {
+  display: flex;
+  align-items: stretch;
+}
+
+.sa-notifications-activity-row .ae-notifications-item {
+  flex: 1;
+  width: auto;
+  min-width: 0;
+  border-bottom: 1px solid #f4f4f5;
+}
+
+.sa-notifications-activity-row:last-child .ae-notifications-item,
+.sa-notifications-activity-row:last-child .sa-notifications-dismiss--activity {
+  border-bottom: none;
+}
+
+/* Keep title / tag / time on one clean line without overlap. */
+.sa-notifications-panel--activity .ae-notifications-item-top {
+  gap: 8px;
+}
+
+.sa-notifications-panel--activity .ae-notifications-item-title-row {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.sa-notifications-panel--activity .ae-notifications-item-title {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex-shrink: 0;
+}
+
+.sa-notifications-panel--activity .ae-notifications-item-tag {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sa-notifications-panel--activity .ae-notifications-item-meta {
+  margin-left: auto;
+}
+
+.sa-notifications-panel--activity .ae-notifications-item-content {
+  min-width: 0;
+}
+
+/* Six filter tabs fit the 380px panel without squeezing. */
+.sa-notifications-panel--activity .ae-notifications-filters {
+  flex-wrap: wrap;
+  row-gap: 6px;
+}
+
+/* Icon tint for grouped photo-message rows. */
+.ae-notifications-item-icon-container--image {
+  background: #faf5ff;
+  color: #9333ea;
+}
+
 .sa-settings-content {
   max-width: 720px;
 }

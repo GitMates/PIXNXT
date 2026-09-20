@@ -34,6 +34,27 @@ const COPY = {
   },
 };
 
+const AUTH_RETURN_KEY = 'pixnxt_auth_return';
+
+/** Restore the page the user tried to open (include ?id= query). */
+function resolvePostAuthPath(fromLocation) {
+  const fromPath = fromLocation
+    ? `${fromLocation.pathname || ''}${fromLocation.search || ''}${fromLocation.hash || ''}`
+    : '';
+  let stored = '';
+  try {
+    stored = sessionStorage.getItem(AUTH_RETURN_KEY) || '';
+    sessionStorage.removeItem(AUTH_RETURN_KEY);
+  } catch {
+    /* private mode */
+  }
+  const candidate = fromPath && fromPath !== '/auth' ? fromPath : stored;
+  if (!candidate || candidate === '/auth' || candidate.startsWith('/auth?') || candidate.startsWith('/auth/')) {
+    return '/client-gallery';
+  }
+  return candidate;
+}
+
 /**
  * AuthPage — split studio login / signup (no card).
  */
@@ -193,8 +214,7 @@ const AuthPage = () => {
       setConfirmBanner('Email confirmed! Welcome to your studio.');
     }
 
-    const from = location.state?.from?.pathname;
-    navigate(from && from !== '/auth' ? from : '/dashboard', { replace: true });
+    navigate(resolvePostAuthPath(location.state?.from), { replace: true });
   }, [user, loading, view, recoveryActive, navigate, location.state, emailConfirmed, googleCallbackBusy, workersCallbackBusy]);
 
   const handleAuthSuccess = async () => {
@@ -203,14 +223,14 @@ const AuthPage = () => {
       setRecoveryActive(false);
     }
     // Email login already refreshed context in useAuth, but re-resolve here
-    // as a safety net so /dashboard never sees a stale null user.
+    // as a safety net so ProtectedRoute never sees a stale null user.
     try {
       const resolved = await refresh?.();
       if (!resolved?.user) return;
     } catch {
       return;
     }
-    navigate('/dashboard');
+    navigate(resolvePostAuthPath(location.state?.from), { replace: true });
   };
 
   const copy = COPY[view] || COPY.login;

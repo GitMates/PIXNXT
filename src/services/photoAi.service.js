@@ -53,7 +53,7 @@ function normalizePersonRow(row) {
 
 async function attachAvatarUrls(people) {
   // Avatar photos first: the crop bbox belongs to that exact photo, and the
-  // lookup endpoint caps at 200 ids per request.
+  // lookup endpoint caps at 200 ids per request — batch beyond that.
   const idSet = new Set();
   for (const person of people) {
     if (person.avatarPhotoId) idSet.add(person.avatarPhotoId);
@@ -64,14 +64,18 @@ async function attachAvatarUrls(people) {
   const photoIds = [...idSet];
   if (!photoIds.length) return people;
 
-  // D1 returns JSON strings — normalize below.
   const { apiFetch } = await import('../lib/api/client');
-  const data = await apiFetch(`/v1/photos/by-ids?ids=${photoIds.slice(0, 200).map(encodeURIComponent).join(',')}`).catch(() => null);
-  const photos = data?.photos || [];
-
-  const photoUrlById = new Map(
-    (photos || []).map((p) => [p.id, p.web_url || p.full_url || p.thumbnail_url || null])
-  );
+  const photoUrlById = new Map();
+  const chunkSize = 200;
+  for (let i = 0; i < photoIds.length; i += chunkSize) {
+    const chunk = photoIds.slice(i, i + chunkSize);
+    const data = await apiFetch(
+      `/v1/photos/by-ids?ids=${chunk.map(encodeURIComponent).join(',')}`
+    ).catch(() => null);
+    for (const p of data?.photos || []) {
+      photoUrlById.set(p.id, p.web_url || p.full_url || p.thumbnail_url || null);
+    }
+  }
 
   return people.map((person) => {
     if (person.guestSelfieUrl || person.avatarSource === 'guest_selfie') {
@@ -82,10 +86,24 @@ async function attachAvatarUrls(people) {
       };
     }
 
-    const avatarPhotoId = person.avatarPhotoId || person.photoIds?.[0] || null;
+    const preferredIds = [
+      person.avatarPhotoId,
+      ...(person.photoIds || []),
+    ].filter(Boolean);
+    let imageUrl = person.imageUrl || null;
+    let avatarPhotoId = person.avatarPhotoId || preferredIds[0] || null;
+    for (const id of preferredIds) {
+      const url = photoUrlById.get(id);
+      if (url) {
+        imageUrl = url;
+        avatarPhotoId = id;
+        break;
+      }
+    }
     return {
       ...person,
-      imageUrl: avatarPhotoId ? photoUrlById.get(avatarPhotoId) || person.imageUrl || null : person.imageUrl || null,
+      avatarPhotoId,
+      imageUrl,
     };
   });
 }

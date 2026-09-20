@@ -16,6 +16,9 @@ import {
 
 const REFRESH_BUFFER_SEC = 60;
 
+/** Single-flight refresh so Strict Mode / focus / boot don't rotate the cookie twice. */
+let resolveSessionInflight = null;
+
 function toUser(photographer) {
   if (!photographer) return null;
   const displayName = photographer.display_name || photographer.email?.split('@')[0] || 'Photographer';
@@ -134,25 +137,36 @@ export async function signOut() {
 }
 
 export async function resolveAuthSession() {
-  const token = getAccessToken();
-  const now = Math.floor(Date.now() / 1000);
-  if (token && jwtExpiresAt(token) > now + REFRESH_BUFFER_SEC) {
-    try {
-      const photographer = await fetchMeRaw();
-      return { user: toUser(photographer), session: toSession(token, photographer) };
-    } catch {
-      // fall through to refresh
+  if (resolveSessionInflight) return resolveSessionInflight;
+
+  resolveSessionInflight = (async () => {
+    const token = getAccessToken();
+    const now = Math.floor(Date.now() / 1000);
+    if (token && jwtExpiresAt(token) > now + REFRESH_BUFFER_SEC) {
+      try {
+        const photographer = await fetchMeRaw();
+        return { user: toUser(photographer), session: toSession(token, photographer) };
+      } catch {
+        // fall through to refresh
+      }
     }
-  }
+    try {
+      // auth:false — this IS the refresh call; don't nest another /refresh on 401.
+      const data = await apiFetch('/v1/auth/refresh', { method: 'POST', auth: false });
+      if (!data?.accessToken) return { user: null, session: null };
+      setAccessToken(data.accessToken);
+      const photographer = await fetchMeRaw();
+      return { user: toUser(photographer), session: toSession(data.accessToken, photographer) };
+    } catch {
+      clearAccessToken();
+      return { user: null, session: null };
+    }
+  })();
+
   try {
-    const data = await apiFetch('/v1/auth/refresh', { method: 'POST' });
-    if (!data?.accessToken) return { user: null, session: null };
-    setAccessToken(data.accessToken);
-    const photographer = await fetchMeRaw();
-    return { user: toUser(photographer), session: toSession(data.accessToken, photographer) };
-  } catch {
-    clearAccessToken();
-    return { user: null, session: null };
+    return await resolveSessionInflight;
+  } finally {
+    resolveSessionInflight = null;
   }
 }
 

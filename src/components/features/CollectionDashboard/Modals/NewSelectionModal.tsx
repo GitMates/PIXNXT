@@ -33,14 +33,6 @@ function firstNameFromEmail(email: string) {
   return cleaned.charAt(0).toUpperCase() + cleaned.slice(1);
 }
 
-function maskEmailStars(email?: string | null) {
-  const raw = String(email || '').trim();
-  if (!raw.includes('@')) return raw;
-  const [name, domain] = raw.split('@');
-  const tld = domain.includes('.') ? domain.slice(domain.indexOf('.')) : '';
-  return `${name}@****${tld}`;
-}
-
 function defaultMessage({
   email,
   name,
@@ -141,7 +133,6 @@ export function NewSelectionModal({
   const [name, setName] = React.useState('Album');
   const [count, setCount] = React.useState('60');
   const [email, setEmail] = React.useState('');
-  const [emailFocused, setEmailFocused] = React.useState(false);
   const [description, setDescription] = React.useState<string | null>(TEMPLATES[0].description);
 
   const choose = getSelectionChooseUrl(collectionSlug, profile);
@@ -150,7 +141,6 @@ export function NewSelectionModal({
 
   React.useEffect(() => {
     if (!isOpen) return;
-    setEmailFocused(false);
     if (editingList?.id) {
       setTemplate('blank');
       setName(editingList.name || '');
@@ -295,10 +285,8 @@ export function NewSelectionModal({
               <input
                 className="nsel-input"
                 type="email"
-                value={emailFocused || !email ? email : maskEmailStars(email)}
+                value={email}
                 disabled={isEdit}
-                onFocus={() => setEmailFocused(true)}
-                onBlur={() => setEmailFocused(false)}
                 onChange={(event) => setEmail(event.target.value)}
               />
             </div>

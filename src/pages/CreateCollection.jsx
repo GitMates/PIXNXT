@@ -113,6 +113,8 @@ const CreateCollection = () => {
             await photographerQuotaService.assertCreationDeliveryQuota(user.id, 1);
 
             const newCollection = await galleryService.createCollection(collectionData);
+            // Record creation usage (backend also live-counts creations).
+            void photographerQuotaService.recordUsage(user.id, 'delivery', 1).catch(() => {});
 
             if (guestDeliveryEnabled) {
                 await guestDeliveryService.createLinkedEvent({
