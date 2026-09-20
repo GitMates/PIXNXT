@@ -244,6 +244,8 @@ function emptySnapshot() {
     album_used_count: 0,
     delivery_limit: 0,
     delivery_used_count: 0,
+    storage_limit_bytes: null,
+    storage_used_bytes: null,
   };
 }
 
@@ -278,6 +280,12 @@ function normalizeSnapshot(data) {
     album_used_count: asUsed(data?.album_used_count),
     delivery_limit: data?.delivery_limit != null ? asTriState(data.delivery_limit) : 0,
     delivery_used_count: asUsed(data?.delivery_used_count ?? data?.face_normal_delivery_used),
+    storage_limit_bytes:
+      data?.storage_limit_bytes != null && Number(data.storage_limit_bytes) > 0
+        ? Number(data.storage_limit_bytes)
+        : null,
+    storage_used_bytes:
+      data?.storage_used_bytes != null ? Math.max(0, Number(data.storage_used_bytes) || 0) : null,
   };
   return snap;
 }
@@ -312,13 +320,13 @@ export const photographerQuotaService = {
     return { ok: true };
   },
 
-  async fetchSnapshot(photographerId) {
+  async fetchSnapshot(photographerId, { force = false } = {}) {
     if (!photographerId) {
       return emptySnapshot();
     }
 
     const existing = quotaCache.get(photographerId);
-    if (existing && Date.now() - existing.time < 8000) {
+    if (!force && existing && Date.now() - existing.time < 8000) {
       return existing.data;
     }
 
@@ -331,6 +339,7 @@ export const photographerQuotaService = {
 
   invalidate(photographerId) {
     if (photographerId) quotaCache.delete(photographerId);
+    else quotaCache.clear();
   },
 
   async assertImageQuota(photographerId, addCount = 1) {

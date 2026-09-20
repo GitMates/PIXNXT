@@ -46,6 +46,23 @@ export function handlePhotographerLiveUpdate(photographerId, row) {
   }
 }
 
+/** Detect whether admin-facing limit/feature fields changed (skip no-op polls). */
+export function photographerLimitsFingerprint(row) {
+  if (!row || typeof row !== 'object') return '';
+  const keys = [
+    'storage_limit_bytes', 'storage_limit_gb', 'plan',
+    'image_limit', 'face_matching_delivery_limit',
+    'face_normal_image_limit', 'face_guest_image_limit',
+    'face_normal_delivery_limit', 'face_guest_delivery_limit',
+    'face_normal_enabled', 'face_guest_enabled', 'ai_search_enabled',
+    'album_limit', 'delivery_limit',
+    'face_normal_image_used', 'face_guest_image_used',
+    'face_normal_delivery_used', 'face_guest_delivery_used',
+    'album_used_count', 'delivery_used_count', 'storage_used_bytes',
+  ];
+  return keys.map((k) => `${k}:${row[k] ?? ''}`).join('|');
+}
+
 /** Tell other tabs on this browser that a photographer's limits changed. */
 export function broadcastPhotographerLimitsChanged(photographerId) {
   if (!photographerId) return;
@@ -109,10 +126,11 @@ export function onPhotographerLimitsBroadcast(photographerIdOrNull, callback) {
   };
 }
 
-function subscribePhotographers(filter, callback, { galleryId = null, pollMs = 30000 } = {}) {
+function subscribePhotographers(filter, callback, { galleryId = null, pollMs = 5000 } = {}) {
   if (typeof callback !== 'function') return () => {};
   // Workers-only backend: use SSE (GET /v1/public/gallery/:id/events → gallery-updated)
-  // with a polling fallback at the previous interval; otherwise poll the profile.
+  // with a polling fallback; otherwise poll the merged profile (includes quotas)
+  // every few seconds so admin limit edits show in the studio without a reload.
   let stopped = false;
   let stopSse = () => {};
   let pollTimer = null;
@@ -146,7 +164,9 @@ function subscribePhotographers(filter, callback, { galleryId = null, pollMs = 3
   } catch {
     // SSE optional — polling covers it
   }
-  pollTimer = setInterval(refresh, pollMs);
+  // Immediate poll so the first admin change is not delayed by pollMs.
+  void refresh();
+  pollTimer = setInterval(refresh, Math.max(3000, Number(pollMs) || 5000));
   return () => {
     stopped = true;
     try {

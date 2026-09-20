@@ -1,8 +1,11 @@
+import { formatStorageBytes } from '../utils/formatStorageBytes';
+
 const inFlightByUser = new Map();
 
 export const STORAGE_CHANGED_EVENT = 'pixnxt-storage-changed';
 
 const GB = 1024 * 1024 * 1024;
+const MB = 1024 * 1024;
 
 /** Plan cap used by the global sidebar storage meter. */
 export function getStorageLimitBytes(profile) {
@@ -17,19 +20,33 @@ export function getStorageLimitBytes(profile) {
   return 10 * GB;
 }
 
-function formatGb(bytes) {
-  const gb = Math.max(0, Number(bytes) / GB);
+/** Compact label piece for one side of the storage meter. */
+function formatMeterPart(bytes, { asGbUnit = false } = {}) {
+  const n = Math.max(0, Number(bytes) || 0);
+  if (n <= 0) return asGbUnit ? '0' : '0';
+  if (n < GB) {
+    if (n < MB) return formatStorageBytes(n).replace(/ /g, '');
+    const mb = n / MB;
+    if (mb >= 100) return `${Math.round(mb)} MB`;
+    return `${mb.toFixed(mb >= 10 ? 1 : 1).replace(/\.0$/, '')} MB`;
+  }
+  const gb = n / GB;
   if (gb >= 10) return `${Math.round(gb)}`;
-  if (gb >= 1) return gb.toFixed(1).replace(/\.0$/, '');
-  if (gb < 0.05) return '0';
-  return gb.toFixed(1);
+  return gb.toFixed(1).replace(/\.0$/, '');
 }
 
-/** Sidebar meter label, e.g. "0.4 / 1 GB". */
+/** Sidebar meter label, e.g. "42 MB / 1 GB" or "1.2 / 5 GB". */
 export function formatStorageMeter(used, max) {
-  const usedBytes = Number(used) || 0;
+  const usedBytes = Math.max(0, Number(used) || 0);
   const maxBytes = Number(max) > 0 ? Number(max) : GB;
-  return `${formatGb(usedBytes)} / ${formatGb(maxBytes)} GB`;
+  const usedLabel = formatMeterPart(usedBytes);
+  const maxLabel = formatMeterPart(maxBytes);
+  if (maxBytes >= GB) {
+    // "42 MB / 1 GB" when under 1 GB used; "1.2 / 5 GB" when both in GB.
+    if (usedBytes > 0 && usedBytes < GB) return `${usedLabel} / ${maxLabel} GB`;
+    return `${usedLabel} / ${maxLabel} GB`;
+  }
+  return `${usedLabel} / ${maxLabel}`;
 }
 
 function cacheStorageBytes(userId, bytes) {
@@ -67,7 +84,11 @@ export const userStorageService = {
     const run = (async () => {
       const { apiFetch } = await import('../lib/api/client');
       const data = await apiFetch('/v1/me/storage').catch(() => null);
-      const finalTotalBytes = Number(data?.totalBytes) || 0;
+      if (!data || data.totalBytes == null) {
+        // Keep last known cache on failure — never overwrite with 0.
+        return userStorageService.getCachedStorageBytes(user.id);
+      }
+      const finalTotalBytes = Math.max(0, Number(data.totalBytes) || 0);
       cacheStorageBytes(user.id, finalTotalBytes);
       return finalTotalBytes;
     })().finally(() => {

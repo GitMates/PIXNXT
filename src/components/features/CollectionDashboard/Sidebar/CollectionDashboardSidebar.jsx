@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
   ChevronRight,
@@ -14,6 +14,13 @@ import { useAuth } from '../../../../hooks/useAuth';
 import { getUserDisplayLabel, getUserInitial } from '../../../../lib/userInitials';
 import { userStorageService, getStorageLimitBytes, formatStorageMeter, STORAGE_CHANGED_EVENT } from '../../../../services/userStorage.service';
 import { photographerQuotaService, QUOTA_CHANGED_EVENT } from '../../../../services/photographerQuota.service';
+import {
+  handlePhotographerLiveUpdate,
+  onPhotographerLimitsBroadcast,
+  photographerLimitsFingerprint,
+  subscribePhotographerRow,
+} from '../../../../lib/photographerLiveSync';
+import { syncUploadDefaultsToLocalStorage } from '../../../../lib/uploadDefaults';
 import { AccountQuotaMeters } from '../../../ui/AccountQuotaMeters';
 import { navigateToAccount } from '../../../../lib/accountBackNav';
 import { SidebarCoverUpload } from '../CoverSettings/SidebarCoverUpload';
@@ -228,6 +235,7 @@ export function CollectionDashboardSidebar({
     userStorageService.getCachedStorageBytes(user?.id)
   );
   const [quotaSnapshot, setQuotaSnapshot] = useState(null);
+  const limitsFpRef = useRef('');
 
   useEffect(() => {
     if (!user?.id) return undefined;
@@ -235,33 +243,88 @@ export function CollectionDashboardSidebar({
       const cached = localStorage.getItem(`photographer_profile_${user.id}`);
       if (cached) {
         const parsed = JSON.parse(cached);
-        setProfile((prev) => (prev?.id === parsed?.id ? prev : parsed));
+        setProfile((prev) => (prev?.id === parsed?.id ? { ...prev, ...parsed } : parsed));
+        limitsFpRef.current = photographerLimitsFingerprint(parsed);
       }
     } catch {
       /* ignore */
     }
 
-    const refreshUsage = () => {
+    const refreshUsage = ({ force = false } = {}) => {
       userStorageService.invalidateCachedStorage(user.id);
       photographerQuotaService.invalidate(user.id);
-      userStorageService.calculateUserStorageBytes(user, profile).then((bytes) => {
+      userStorageService.calculateUserStorageBytes(user).then((bytes) => {
         if (typeof bytes === 'number' && bytes >= 0) setStorageBytes(bytes);
       });
-      photographerQuotaService.fetchSnapshot(user.id).then((snap) => setQuotaSnapshot(snap)).catch(() => {});
+      photographerQuotaService
+        .fetchSnapshot(user.id, { force })
+        .then((snap) => {
+          setQuotaSnapshot(snap);
+          if (snap?.storage_limit_bytes > 0) {
+            setProfile((prev) => {
+              if (!prev) return { storage_limit_bytes: snap.storage_limit_bytes };
+              if (Number(prev.storage_limit_bytes) === Number(snap.storage_limit_bytes)) return prev;
+              const next = { ...prev, storage_limit_bytes: snap.storage_limit_bytes };
+              try {
+                localStorage.setItem(`photographer_profile_${user.id}`, JSON.stringify(next));
+              } catch {
+                /* ignore */
+              }
+              return next;
+            });
+          }
+        })
+        .catch(() => {});
     };
 
-    refreshUsage();
-    window.addEventListener(STORAGE_CHANGED_EVENT, refreshUsage);
-    window.addEventListener(QUOTA_CHANGED_EVENT, refreshUsage);
+    refreshUsage({ force: true });
+    const onUsage = () => refreshUsage({ force: true });
+    window.addEventListener(STORAGE_CHANGED_EVENT, onUsage);
+    window.addEventListener(QUOTA_CHANGED_EVENT, onUsage);
     return () => {
-      window.removeEventListener(STORAGE_CHANGED_EVENT, refreshUsage);
-      window.removeEventListener(QUOTA_CHANGED_EVENT, refreshUsage);
+      window.removeEventListener(STORAGE_CHANGED_EVENT, onUsage);
+      window.removeEventListener(QUOTA_CHANGED_EVENT, onUsage);
     };
-  }, [user?.id, profile?.storage_used_bytes]);
+  }, [user?.id]);
 
-  const maxBytes = useMemo(() => getStorageLimitBytes(profile), [profile]);
+  // Admin → studio: limits/features apply without reload (poll + same-browser broadcast).
+  useEffect(() => {
+    if (!user?.id) return undefined;
+    const applyRow = (row) => {
+      if (row && typeof row === 'object') {
+        const fp = photographerLimitsFingerprint(row);
+        setProfile((prev) => {
+          const next = { ...(prev || {}), ...row };
+          try {
+            localStorage.setItem(`photographer_profile_${user.id}`, JSON.stringify(next));
+            syncUploadDefaultsToLocalStorage(next);
+          } catch {
+            /* ignore */
+          }
+          return next;
+        });
+        if (fp && fp !== limitsFpRef.current) {
+          limitsFpRef.current = fp;
+          handlePhotographerLiveUpdate(user.id, row);
+        }
+        return;
+      }
+      handlePhotographerLiveUpdate(user.id);
+    };
+    const offRow = subscribePhotographerRow(user.id, applyRow);
+    const offBroadcast = onPhotographerLimitsBroadcast(user.id, () => handlePhotographerLiveUpdate(user.id));
+    return () => {
+      offRow();
+      offBroadcast();
+    };
+  }, [user?.id]);
+  const maxBytes = useMemo(() => {
+    const fromSnap = Number(quotaSnapshot?.storage_limit_bytes);
+    if (fromSnap > 0) return fromSnap;
+    return getStorageLimitBytes(profile);
+  }, [profile, quotaSnapshot?.storage_limit_bytes]);
 
-  const usedBytes = storageBytes ?? profile?.storage_used_bytes ?? 0;
+  const usedBytes = storageBytes ?? quotaSnapshot?.storage_used_bytes ?? profile?.storage_used_bytes ?? 0;
   const storagePct = Math.min(100, maxBytes > 0 ? (usedBytes / maxBytes) * 100 : 0);
 
   const settingsBadge = (tabId) => {

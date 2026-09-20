@@ -25,6 +25,7 @@ import { photographerQuotaService, QUOTA_CHANGED_EVENT } from '../services/photo
 import {
     handlePhotographerLiveUpdate,
     onPhotographerLimitsBroadcast,
+    photographerLimitsFingerprint,
     subscribePhotographerRow,
 } from '../lib/photographerLiveSync';
 import { AccountQuotaMeters } from './ui/AccountQuotaMeters';
@@ -127,6 +128,7 @@ const SidebarLayout = ({
         return userStorageService.getCachedStorageBytes(user?.id);
     });
     const [quotaSnapshot, setQuotaSnapshot] = useState(null);
+    const limitsFpRef = useRef('');
 
     // AI search master switch (admin): OFF hides the Library nav entry.
     // Default ON (!== false) so legacy profiles and pre-migration DBs keep Library.
@@ -185,11 +187,11 @@ const SidebarLayout = ({
     useEffect(() => {
         if (!user?.id) return;
 
-        const refreshUsage = () => {
+        const refreshUsage = ({ force = false } = {}) => {
             userStorageService.invalidateCachedStorage(user.id);
             photographerQuotaService.invalidate(user.id);
             userStorageService
-                .calculateUserStorageBytes(user, profile)
+                .calculateUserStorageBytes(user)
                 .then((bytes) => {
                     if (typeof bytes === 'number' && bytes >= 0) {
                         setRealStorageBytes(bytes);
@@ -197,34 +199,59 @@ const SidebarLayout = ({
                 })
                 .catch((err) => console.error('Error calculating real storage:', err));
             photographerQuotaService
-                .fetchSnapshot(user.id)
-                .then((snap) => setQuotaSnapshot(snap))
+                .fetchSnapshot(user.id, { force })
+                .then((snap) => {
+                    setQuotaSnapshot(snap);
+                    if (snap?.storage_limit_bytes > 0) {
+                        setProfile((prev) => {
+                            if (!prev) return { storage_limit_bytes: snap.storage_limit_bytes };
+                            if (Number(prev.storage_limit_bytes) === Number(snap.storage_limit_bytes)) return prev;
+                            const next = { ...prev, storage_limit_bytes: snap.storage_limit_bytes };
+                            try {
+                                localStorage.setItem(`photographer_profile_${user.id}`, JSON.stringify(next));
+                            } catch {
+                                /* ignore */
+                            }
+                            return next;
+                        });
+                    }
+                })
                 .catch((err) => console.error('Error loading account quotas:', err));
         };
 
-        refreshUsage();
-        window.addEventListener(STORAGE_CHANGED_EVENT, refreshUsage);
-        window.addEventListener(QUOTA_CHANGED_EVENT, refreshUsage);
+        refreshUsage({ force: true });
+        const onUsage = () => refreshUsage({ force: true });
+        window.addEventListener(STORAGE_CHANGED_EVENT, onUsage);
+        window.addEventListener(QUOTA_CHANGED_EVENT, onUsage);
         return () => {
-            window.removeEventListener(STORAGE_CHANGED_EVENT, refreshUsage);
-            window.removeEventListener(QUOTA_CHANGED_EVENT, refreshUsage);
+            window.removeEventListener(STORAGE_CHANGED_EVENT, onUsage);
+            window.removeEventListener(QUOTA_CHANGED_EVENT, onUsage);
         };
-    }, [user?.id, profile?.storage_used_bytes]);
+    }, [user?.id]);
 
     // Instant admin -> photographer sync: when the admin changes limits or
     // features on this photographer's row, update profile + quotas at once
-    // (Realtime from any admin + same-browser broadcast, no reload needed).
+    // (poll + same-browser broadcast, no reload needed).
     useEffect(() => {
         if (!user?.id) return;
         const applyRow = (row) => {
             if (row && typeof row === 'object') {
-                setProfile(row);
-                try {
-                    localStorage.setItem(`photographer_profile_${user.id}`, JSON.stringify(row));
-                    syncUploadDefaultsToLocalStorage(row);
-                } catch {
-                    /* ignore quota */
+                const fp = photographerLimitsFingerprint(row);
+                setProfile((prev) => {
+                    const next = { ...(prev || {}), ...row };
+                    try {
+                        localStorage.setItem(`photographer_profile_${user.id}`, JSON.stringify(next));
+                        syncUploadDefaultsToLocalStorage(next);
+                    } catch {
+                        /* ignore */
+                    }
+                    return next;
+                });
+                if (fp && fp !== limitsFpRef.current) {
+                    limitsFpRef.current = fp;
+                    handlePhotographerLiveUpdate(user.id, row);
                 }
+                return;
             }
             handlePhotographerLiveUpdate(user.id);
         };
@@ -236,8 +263,12 @@ const SidebarLayout = ({
         };
     }, [user?.id]);
 
-    const usedBytes = realStorageBytes ?? profile?.storage_used_bytes ?? 0;
-    const maxBytes = getStorageLimitBytes(profile);
+    const usedBytes = realStorageBytes ?? quotaSnapshot?.storage_used_bytes ?? profile?.storage_used_bytes ?? 0;
+    const maxBytes = (() => {
+        const fromSnap = Number(quotaSnapshot?.storage_limit_bytes);
+        if (fromSnap > 0) return fromSnap;
+        return getStorageLimitBytes(profile);
+    })();
     const storagePct = Math.min(100, maxBytes > 0 ? (usedBytes / maxBytes) * 100 : 0);
 
     useEffect(() => {

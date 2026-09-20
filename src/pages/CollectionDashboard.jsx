@@ -3226,6 +3226,7 @@ const CollectionDashboard = () => {
                     applyGuestLabels: Boolean(collection?.guest_delivery_enabled),
                 });
                 // Record the images just indexed so Face AI Normal usage moves.
+                // Also bump face-match delivery usage once this collection is indexed.
                 {
                     const pid = collection?.photographer_id || user?.id;
                     const delta = force
@@ -3235,6 +3236,11 @@ const CollectionDashboard = () => {
                         void photographerQuotaService
                             .recordUsage(pid, 'normalImage', delta)
                             .catch(() => {});
+                        if (rows.length === 0 || force) {
+                            void photographerQuotaService
+                                .recordUsage(pid, 'normalDelivery', 1)
+                                .catch(() => {});
+                        }
                     }
                 }
                 return { status: 'queued' };
@@ -3254,6 +3260,11 @@ const CollectionDashboard = () => {
                     void photographerQuotaService
                         .recordUsage(pid, 'normalImage', delta)
                         .catch(() => {});
+                    if (rows.length === 0 || force) {
+                        void photographerQuotaService
+                            .recordUsage(pid, 'normalDelivery', 1)
+                            .catch(() => {});
+                    }
                 }
             }
             return { status: 'completed' };
