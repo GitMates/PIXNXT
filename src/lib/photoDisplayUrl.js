@@ -30,6 +30,31 @@ export function isRawMedia(photo) {
   return urlLooksLikeRawFile(photo.full_url || photo.web_url || photo.original_storage_path || '');
 }
 
+/**
+ * Browser-paintable URL for face-crop avatars (CSS background / img).
+ * Prefer web/thumb derivatives — never pick RAW/HEIC full_url first.
+ */
+export function getFaceAvatarDisplayUrl(photo) {
+  if (!photo) return '';
+  if (typeof photo === 'string') return resolveMediaUrl(photo) || '';
+  const prefer = [photo.thumbnail_url, photo.web_url, photo.watermarked_url];
+  for (const raw of prefer) {
+    const url = resolveMediaUrl(raw);
+    if (url && isBrowserDisplayableImageUrl(url)) return url;
+  }
+  if (!isRawMedia(photo)) {
+    const full = resolveMediaUrl(photo.full_url);
+    if (full && isBrowserDisplayableImageUrl(full)) return full;
+  }
+  const rawPreview = getRawPreviewUrl(photo);
+  if (rawPreview) return rawPreview;
+  for (const raw of prefer) {
+    const url = resolveMediaUrl(raw);
+    if (url) return url;
+  }
+  return '';
+}
+
 /** JPEG/PNG preview stored separately from the original RAW file. */
 export function getRawPreviewUrl(photo) {
   if (!photo) return '';

@@ -80,7 +80,8 @@ async function attachAvatarUrls(people) {
   if (!photoIds.length) return people;
 
   const { apiFetch } = await import('../lib/api/client');
-  const photoUrlById = new Map();
+  const { getFaceAvatarDisplayUrl, resolveMediaUrl } = await import('../lib/photoDisplayUrl');
+  const photoById = new Map();
   const chunkSize = 200;
   for (let i = 0; i < photoIds.length; i += chunkSize) {
     const chunk = photoIds.slice(i, i + chunkSize);
@@ -88,7 +89,7 @@ async function attachAvatarUrls(people) {
       `/v1/photos/by-ids?ids=${chunk.map(encodeURIComponent).join(',')}`
     ).catch(() => null);
     for (const p of data?.photos || []) {
-      photoUrlById.set(p.id, p.web_url || p.full_url || p.thumbnail_url || null);
+      photoById.set(String(p.id), p);
     }
   }
 
@@ -107,18 +108,32 @@ async function attachAvatarUrls(people) {
     ].filter(Boolean);
     let imageUrl = person.imageUrl || null;
     let avatarPhotoId = person.avatarPhotoId || preferredIds[0] || null;
+    let boundingBox = person.boundingBox || null;
+    const originalAvatarId = person.avatarPhotoId || null;
+
     for (const id of preferredIds) {
-      const url = photoUrlById.get(id);
+      const photo = photoById.get(String(id));
+      const url = photo ? getFaceAvatarDisplayUrl(photo) : null;
       if (url) {
         imageUrl = url;
         avatarPhotoId = id;
+        // Bbox was computed for the preferred avatar photo only — clear on fallback.
+        if (originalAvatarId && String(id) !== String(originalAvatarId)) {
+          boundingBox = null;
+        }
         break;
       }
     }
+
+    if (imageUrl && typeof imageUrl === 'string') {
+      imageUrl = resolveMediaUrl(imageUrl) || imageUrl;
+    }
+
     return {
       ...person,
       avatarPhotoId,
       imageUrl,
+      boundingBox,
     };
   });
 }

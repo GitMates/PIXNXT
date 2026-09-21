@@ -90,7 +90,7 @@ import {
   SALES_CAMPAIGNS_STORAGE_KEY,
   SALES_CAMPAIGNS_UPDATED_EVENT,
 } from '../../lib/salesCampaignBanner';
-import { filterPhotosByIds } from '../../lib/photoAiSearch';
+import { filterPhotosByIds, filterPeopleForPhotos, rebindPeopleAvatarsFromPhotos } from '../../lib/photoAiSearch';
 import { useGalleryPeople } from '../../hooks/useGalleryPeople';
 import { useAuth } from '../../hooks/useAuth';
 import { GalleryPeopleStrip } from '../../components/features/Gallery/GalleryPeopleStrip/GalleryPeopleStrip';
@@ -1829,6 +1829,16 @@ const GalleryView = () => {
       : source.filter((p) => !p.set_id);
   }, [collection, activeSetId, isFavoriteListMode, favoriteListPhotos, isClientViewer]);
 
+  /** People strip: only people in client-visible photos, avatars rebound to web/thumb URLs. */
+  const peopleForGalleryStrip = useMemo(() => {
+    if (!collection) return [];
+    const visiblePhotos = (collection.photos || []).filter(
+      (p) => isClientViewer || !p.is_private
+    );
+    const scoped = filterPeopleForPhotos(galleryPeople.people, visiblePhotos);
+    return rebindPeopleAvatarsFromPhotos(scoped, visiblePhotos);
+  }, [collection, galleryPeople.people, isClientViewer]);
+
   const visibleSets = useMemo(() => {
     if (!collection?.sets) return [];
     return filterSetsForViewer(collection.sets, collection, isClientViewer);
@@ -2717,7 +2727,7 @@ const GalleryView = () => {
           {!isFavoriteListMode ? (
             <GalleryPeopleStrip
               variant="gallery"
-              people={galleryPeople.people}
+              people={peopleForGalleryStrip}
               loading={galleryPeople.loading}
               activePersonId={galleryPeople.activePersonId}
               selfieSearching={galleryPeople.selfieSearching}

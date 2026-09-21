@@ -160,6 +160,42 @@ function resolveStoredPhoto(albumId, stored) {
     return null;
 }
 
+/** True when a placement string/object can resolve to a visible photo. */
+function placementResolves(albumId, stored) {
+    if (stored == null) return false;
+    if (typeof stored === 'string') return Boolean(stored.trim()) && !isDeadBlobUrl(stored);
+    if (typeof stored !== 'object') return false;
+    return Boolean(resolveStoredPhoto(albumId, stored));
+}
+
+/**
+ * Detach a placement from a collection item while keeping a displayable photo
+ * (storagePath / dataUrl). Used when cover wrap must not share an item id with
+ * Spread 01 — wipe would blank the inside-cover page.
+ */
+function snapshotDetachedPlacement(albumId, stored) {
+    if (stored == null) return null;
+    if (typeof stored === 'string') {
+        return isDeadBlobUrl(stored) ? null : stored;
+    }
+    if (typeof stored !== 'object') return null;
+    const item = stored.collectionItemId
+        ? getCollectionItem(albumId, stored.collectionItemId) ??
+          getRemoteCollectionItem(albumId, stored.collectionItemId)
+        : null;
+    const storagePath = stored.storagePath || item?.storagePath || null;
+    const dataUrl =
+        stored.dataUrl ||
+        item?.dataUrl ||
+        (!storagePath ? resolveStoredPhoto(albumId, stored) : null) ||
+        null;
+    if (!storagePath && !dataUrl) return null;
+    return {
+        ...(storagePath ? { storagePath } : {}),
+        ...(dataUrl && !storagePath ? { dataUrl } : {}),
+    };
+}
+
 function resolveRemotePagePhoto(albumId, key) {
     const remote = getRemotePagePhoto(albumId, key);
     if (!remote) return null;
@@ -915,14 +951,18 @@ export function unlinkSharedCoverAndInnerPlacement(albumId, albumMeta = null) {
         wrapIdEarly && isCoverWrapCollectionItem(getCollectionItem(albumId, wrapIdEarly));
 
     // Photo-cover albums, OR blank covers that already have a dedicated wrap role:
-    // keep wrap on spread:0 and remove that item from inner pages.
+    // keep wrap on spread:0 and detach that item from inner pages (snapshot so
+    // Spread 01 / other inners keep showing the photo without sharing the wrap id).
     if (
         (albumMeta && albumHasCoverSpreads(albumMeta) && !albumHasBlankCovers(albumMeta)) ||
         wrapIsDedicated
     ) {
         const wrapId = wrapIdEarly || getSpreadPlacementCollectionItemId(albumId, 0);
         if (wrapId && collectionItemHasInnerPlacement(albumId, wrapId)) {
-            return clearCollectionItemPlacements(albumId, wrapId, { keepSpreadLeft: 0 });
+            return clearCollectionItemPlacements(albumId, wrapId, {
+                keepSpreadLeft: 0,
+                detachAsSnapshot: true,
+            });
         }
         return false;
     }
@@ -1169,6 +1209,7 @@ export function resolveCoverImageSrc(album, { showSamples = false } = {}) {
  * Inside-cover spread must use page 3 only (right half; page 2 stays blank).
  * Moves legacy spread:1 / spread:2 / page-2 placements to page 3 — including
  * whole-spread albums that wrongly stored a panoramic on spread:2.
+ * Never drops a usable source when page 3 is missing or broken (would blank Spread 01).
  */
 export function migrateInsideCoverSpreadToPageTwo(albumId, totalPages, albumMeta = null) {
     if (!albumId || totalPages == null || totalPages < 4) return false;
@@ -1184,7 +1225,10 @@ export function migrateInsideCoverSpreadToPageTwo(albumId, totalPages, albumMeta
     const pageTwoStored = album['2'];
     const source = spreadStored ?? pageTwoStored;
     if (source == null) return false;
-    if (album['3'] != null && album['3'] === source) {
+
+    const page3Ok = placementResolves(albumId, album['3']);
+    const sourceOk = placementResolves(albumId, source);
+    if (album['3'] != null && album['3'] === source && page3Ok) {
         // Still clear the left/spread keys so page 2 cannot resurrect a photo.
         const next = { ...album };
         delete next['2'];
@@ -1197,7 +1241,11 @@ export function migrateInsideCoverSpreadToPageTwo(albumId, totalPages, albumMeta
     }
 
     const next = { ...album };
-    if (next['3'] == null) {
+    // Copy source onto page 3 when empty OR when existing page 3 does not resolve
+    // but the legacy left/spread placement does (broken stub must not win).
+    if (!page3Ok && sourceOk) {
+        next['3'] = source;
+    } else if (next['3'] == null && source != null) {
         next['3'] = source;
     }
     delete next['2'];
@@ -1216,7 +1264,8 @@ export function getInsideCoverRightPhotoSrc(albumId, { showSamples = false } = {
     if (pageSrc) return pageSrc;
     const legacyPage = getPagePhotoOverride(albumId, 2);
     if (legacyPage) return legacyPage;
-    const spreadSrc = getSpreadPhotoOverride(albumId, 2);
+    const spreadSrc =
+        getSpreadPhotoOverride(albumId, 2) || getSpreadPhotoOverride(albumId, 1);
     if (spreadSrc) return spreadSrc;
     return showSamples ? getSampleImageForPage(3) : null;
 }
@@ -1266,12 +1315,8 @@ export function getGridSlotPhoto(
         if (pageNum <= 2) {
             return { src: null, panoramic: null };
         }
-        const pageSrc =
-            getPagePhotoOverride(albumId, 3) ?? getPagePhotoOverride(albumId, pageNum);
-        if (pageSrc) return { src: pageSrc, panoramic: null };
-        // Legacy: show the old panoramic only on the right page, never both halves.
-        const spreadSrc = getSpreadPhotoOverride(albumId, spreadLeftPage);
-        if (spreadSrc) return { src: spreadSrc, panoramic: null };
+        const insideSrc = getInsideCoverRightPhotoSrc(albumId, { showSamples: false });
+        if (insideSrc) return { src: insideSrc, panoramic: null };
         return { src: null, panoramic: null };
     }
     const spreadSrc = getSpreadPhotoOverride(albumId, spreadLeftPage);
@@ -1342,11 +1387,7 @@ export function hasGridSlotPhoto(
     }
     if (totalPages != null && isInsideCoverSpreadLeft(spreadLeftPage, totalPages, opts)) {
         if (pageNum <= 2) return false;
-        return Boolean(
-            getPagePhotoOverride(albumId, 3) ||
-                getPagePhotoOverride(albumId, pageNum) ||
-                getSpreadPhotoOverride(albumId, spreadLeftPage)
-        );
+        return Boolean(getInsideCoverRightPhotoSrc(albumId, { showSamples: false }));
     }
     if (opts.hasCovers && spreadLeftPage === 0) {
         if (isCoverInsidePage(pageNum, totalPages, opts)) return false;
@@ -1861,8 +1902,16 @@ export function clearPagePhoto(albumId, pageNum) {
     return writeAll(all);
 }
 
-/** Remove a collection item from all page/spread slots except an optional cover spread. */
-export function clearCollectionItemPlacements(albumId, collectionItemId, { keepSpreadLeft = null } = {}) {
+/**
+ * Remove a collection item from all page/spread slots except an optional cover spread.
+ * With detachAsSnapshot, replace inner slots with storagePath/dataUrl-only placements
+ * so images stay visible without sharing the wrap collectionItemId.
+ */
+export function clearCollectionItemPlacements(
+    albumId,
+    collectionItemId,
+    { keepSpreadLeft = null, detachAsSnapshot = false } = {}
+) {
     if (!albumId || !collectionItemId) return false;
     const all = readAll();
     const album = all[albumId];
@@ -1872,6 +1921,7 @@ export function clearCollectionItemPlacements(albumId, collectionItemId, { keepS
         keepSpreadLeft != null ? spreadStorageKey(keepSpreadLeft) : null;
     const next = { ...album };
     let changed = false;
+    const touchedKeys = [];
 
     for (const key of Object.keys(next)) {
         if (key === '__revision') continue;
@@ -1880,14 +1930,50 @@ export function clearCollectionItemPlacements(albumId, collectionItemId, { keepS
             continue;
         }
         if (keepSpreadKey && key === keepSpreadKey) continue;
+        if (detachAsSnapshot) {
+            const snap = snapshotDetachedPlacement(albumId, stored);
+            if (snap) {
+                next[key] = snap;
+                touchedKeys.push(key);
+                changed = true;
+                continue;
+            }
+        }
         delete next[key];
+        touchedKeys.push(key);
         changed = true;
     }
 
     if (!changed) return false;
     next.__revision = (next.__revision || 0) + 1;
     all[albumId] = next;
-    return writeAll(all);
+    const ok = writeAll(all);
+    if (!ok) return false;
+
+    const remote = getRemotePreviewData(albumId);
+    if (remote?.pages && touchedKeys.length) {
+        const pages = { ...remote.pages };
+        let remoteChanged = false;
+        for (const key of touchedKeys) {
+            if (Object.prototype.hasOwnProperty.call(next, key)) {
+                if (pages[key] !== next[key]) {
+                    pages[key] = next[key];
+                    remoteChanged = true;
+                }
+            } else if (key in pages) {
+                delete pages[key];
+                remoteChanged = true;
+            }
+        }
+        if (remoteChanged) {
+            hydrateAlbumPreviewData(albumId, {
+                ...remote,
+                pages,
+                revision: (remote.revision || 0) + 1,
+            });
+        }
+    }
+    return true;
 }
 
 /** Storage keys removed when deleting one spread (left page + count pages). */

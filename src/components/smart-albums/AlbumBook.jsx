@@ -4,6 +4,7 @@ import HTMLFlipBook from 'react-pageflip';
 import AlbumFlipPage from './AlbumFlipPage';
 import {
     getGridSlotPhoto,
+    getInsideCoverRightPhotoSrc,
     getPagePhotoOverride,
     getSpreadPhotoOverride,
     resolveCoverImageSrc,
@@ -22,6 +23,7 @@ import {
     isDraggableOverviewSpread,
     isEndHalfSpreadIndex,
     isInsideCoverLeftPage,
+    isInsideCoverRightPage,
     isInsideCoverSpreadLeft,
     isPreBackHalfSpreadIndex,
     isPreBackHalfSpreadRightPage,
@@ -142,6 +144,9 @@ function getOverviewPageImage(album, pageNum, totalPages, showSamples) {
     if (isPreBackHalfSpreadRightPage(pageNum, totalPages, spreadOpts)) return null;
     if (pageNum === 0 && spreadOpts.hasCovers) {
         return resolveCoverImageSrc(album, { showSamples });
+    }
+    if (isInsideCoverRightPage(pageNum, totalPages, spreadOpts)) {
+        return getInsideCoverRightPhotoSrc(albumId, { showSamples });
     }
     const directSrc = getPagePhotoOverride(albumId, pageNum);
     if (directSrc) return directSrc;

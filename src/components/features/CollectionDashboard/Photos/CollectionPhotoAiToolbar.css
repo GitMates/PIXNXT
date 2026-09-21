@@ -339,7 +339,7 @@
   position: relative;
   border-radius: 50%;
   overflow: hidden;
-  background: #e8e8e8;
+  background-color: #e8e8e8;
   flex-shrink: 0;
 }
 

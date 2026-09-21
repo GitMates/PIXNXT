@@ -149,7 +149,7 @@
   border-radius: 50%;
   overflow: hidden;
   flex-shrink: 0;
-  background: #e8e8e8;
+  background-color: #e8e8e8;
   border: 1px solid color-mix(in srgb, var(--gallery-text, #1a1a1a) 10%, transparent);
 }
 

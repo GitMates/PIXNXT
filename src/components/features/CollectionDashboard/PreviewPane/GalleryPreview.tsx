@@ -29,7 +29,7 @@ import { smoothScrollToElement, smoothScrollToTop } from '../../../../lib/smooth
 import { getPhotoFullDisplayUrl } from '../../../../lib/photoDisplayUrl';
 import { getThumbnailSizeColumnCount } from '../../../../lib/masonryColumnDistribution';
 import { normalizeFontId, normalizePaletteId } from '../../../../lib/normalizeDesignTokens';
-import { filterPhotosByIds, filterPeopleForPhotos } from '../../../../lib/photoAiSearch';
+import { filterPhotosByIds, filterPeopleForPhotos, rebindPeopleAvatarsFromPhotos } from '../../../../lib/photoAiSearch';
 import { useGalleryPeople } from '../../../../hooks/useGalleryPeople';
 import {
   SALES_CAMPAIGNS_STORAGE_KEY,
@@ -288,10 +288,10 @@ export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
     renamePerson: renameGalleryPerson,
   } = galleryPeople;
 
-  const peopleForActiveSet = useMemo(
-    () => filterPeopleForPhotos(galleryPeopleList, photosForActiveSet),
-    [galleryPeopleList, photosForActiveSet]
-  );
+  const peopleForActiveSet = useMemo(() => {
+    const scoped = filterPeopleForPhotos(galleryPeopleList, photosForActiveSet);
+    return rebindPeopleAvatarsFromPhotos(scoped, photosForActiveSet);
+  }, [galleryPeopleList, photosForActiveSet]);
 
   useEffect(() => {
     clearGalleryPeopleFilter();

@@ -1,3 +1,5 @@
+import { getFaceAvatarDisplayUrl, resolveMediaUrl } from './photoDisplayUrl';
+
 /** Normalize search query for gallery photo AI search */
 export function normalizePhotoSearchQuery(query) {
   return String(query ?? '').trim().toLowerCase();
@@ -215,6 +217,61 @@ export function filterPeopleForPhotos(people, photos) {
       };
     })
     .filter(Boolean);
+}
+
+/**
+ * Rebind people avatars onto displayable URLs from an already-loaded photo list
+ * (public gallery / share). Fixes grey circles when by-ids picked RAW/HEIC or a
+ * private/missing avatar photo, and when bbox no longer matches the image.
+ */
+export function rebindPeopleAvatarsFromPhotos(people, photos) {
+  if (!people?.length) return people || [];
+  if (!photos?.length) return people;
+
+  const byId = new Map();
+  for (const photo of photos) {
+    if (photo?.id != null) byId.set(String(photo.id), photo);
+  }
+
+  return people.map((person) => {
+    if (person.guestSelfieUrl || person.avatarSource === 'guest_selfie') {
+      return person;
+    }
+
+    const tryPhoto = (photo, keepBbox) => {
+      const url = getFaceAvatarDisplayUrl(photo);
+      if (!url) return null;
+      return {
+        ...person,
+        avatarPhotoId: photo.id,
+        imageUrl: url,
+        boundingBox: keepBbox ? person.boundingBox || null : null,
+      };
+    };
+
+    const preferred = person.avatarPhotoId
+      ? byId.get(String(person.avatarPhotoId))
+      : null;
+    if (preferred) {
+      const rebound = tryPhoto(preferred, true);
+      if (rebound) return rebound;
+    }
+
+    for (const id of person.photoIds || []) {
+      const photo = byId.get(String(id));
+      if (!photo) continue;
+      const keepBbox = String(id) === String(person.avatarPhotoId);
+      const rebound = tryPhoto(photo, keepBbox);
+      if (rebound) return rebound;
+    }
+
+    // Absolute imageUrl already present — keep; otherwise leave for empty avatar.
+    if (person.imageUrl) {
+      const resolved = resolveMediaUrl(person.imageUrl);
+      if (resolved) return { ...person, imageUrl: resolved };
+    }
+    return person;
+  });
 }
 
 /** Filter photos that contain any face from a clustered person */
