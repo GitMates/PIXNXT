@@ -124,16 +124,20 @@ export function LibrarySearchBar({
             <div className="pl-search-section">
               <p className="pl-search-section-label">AI keywords</p>
               <div className="pl-search-chips">
-                {labelSuggestions.map((label) => (
+                {labelSuggestions.map((label) => {
+                  const text = typeof label === 'string' ? label : String(label?.name ?? label?.Name ?? '');
+                  if (!text) return null;
+                  return (
                   <button
-                    key={label}
+                    key={text}
                     type="button"
-                    className={`pl-search-chip${query.toLowerCase() === label.toLowerCase() ? ' pl-search-chip--active' : ''}`}
-                    onClick={() => handleChipClick(label)}
+                    className={`pl-search-chip${query.toLowerCase() === text.toLowerCase() ? ' pl-search-chip--active' : ''}`}
+                    onClick={() => handleChipClick(text)}
                   >
-                    {label}
+                    {text}
                   </button>
-                ))}
+                  );
+                })}
               </div>
             </div>
           )}

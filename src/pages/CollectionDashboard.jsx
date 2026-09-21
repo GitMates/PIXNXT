@@ -3204,22 +3204,46 @@ const CollectionDashboard = () => {
             // Guest Delivery galleries use Face AI Guest quotas (face matching);
             // plain deliveries use Face AI Normal (Find People).
             const isGuestFace = Boolean(collection?.guest_delivery_enabled);
+            const unindexedCount = Math.max(0, indexablePhotoCount - rows.length);
+            const countWanted = force ? indexablePhotoCount : (unindexedCount || 1);
+            // Cap the sync to remaining Face AI image slots so e.g. 20 photos
+            // with a limit of 10 processes 10 instead of failing the whole run.
+            let syncLimit = Math.min(500, Math.max(1, countWanted));
+            let imagesToBill = syncLimit;
+            let quotaCapped = false;
+            let quotaLimitLabel = '';
             if (photographerId) {
-                const unindexedCount = Math.max(0, indexablePhotoCount - rows.length);
-                const countToCheck = force ? indexablePhotoCount : (unindexedCount || 1);
-                // Quota errors must reach the caller (modal) — do not swallow.
-                if (isGuestFace) {
-                    await photographerQuotaService.assertGuestImageQuota(photographerId, countToCheck);
-                    // Guest face-match delivery slot is consumed on guest publish.
-                } else {
-                    await photographerQuotaService.assertNormalImageQuota(photographerId, countToCheck);
-                    // First Face AI index on this delivery also consumes a face-match delivery slot.
-                    if (rows.length === 0) {
-                        await photographerQuotaService.assertNormalDeliveryQuota(photographerId, 1);
-                    }
+                // Force reindex wipes this collection's metadata first — credit
+                // those slots back so an over-limit gallery (e.g. 14/10) can
+                // re-run and land exactly on the limit instead of hard-blocking.
+                const creditBack = force ? rows.length : 0;
+                const allocation = await photographerQuotaService.allocateFaceImageSlots(
+                    photographerId,
+                    isGuestFace ? 'guest' : 'normal',
+                    countWanted,
+                    { creditBack },
+                );
+                syncLimit = Math.min(500, Math.max(1, allocation.allowed));
+                imagesToBill = syncLimit;
+                quotaCapped = Boolean(allocation.capped);
+                quotaLimitLabel = allocation.limit > 0 ? String(allocation.limit) : '';
+                if (quotaCapped) {
+                    const kindLabel = isGuestFace ? 'Face matching' : 'Find People';
+                    alert(
+                        `${kindLabel} is limited to ${quotaLimitLabel} images.\n\n`
+                        + `Only ${syncLimit} of ${countWanted} photos will be processed.\n`
+                        + `Ask an admin to raise the limit to process the rest.`,
+                    );
+                }
+                if (!isGuestFace && rows.length === 0) {
+                    // First Face AI index on a normal delivery also consumes a face-match delivery slot.
+                    await photographerQuotaService.assertNormalDeliveryQuota(photographerId, 1);
                 }
             }
-            const syncResult = await photoAiService.syncCollection(collectionId, 500, {
+            const targetIndexed = force
+                ? Math.min(indexablePhotoCount, syncLimit)
+                : Math.min(indexablePhotoCount, rows.length + syncLimit);
+            const syncResult = await photoAiService.syncCollection(collectionId, syncLimit, {
                 forceReindex: force,
             });
             // Backend queues chunked indexing (202 { queued: true }) and
@@ -3240,12 +3264,12 @@ const CollectionDashboard = () => {
                         if (current.tableMissing) break;
                         latest = current.rows || latest;
                         setPhotoAiRows(latest);
-                        // Done when we caught up to all gallery images AND the
-                        // queue's auto-recluster finished (otherwise the first
+                        // Done when we caught up to the quota-capped target AND
+                        // the queue's auto-recluster finished (otherwise the first
                         // people read races the clustering pass and the panel
                         // shows "no faces detected yet" until a manual resync).
                         if (
-                            latest.length >= indexablePhotoCount &&
+                            latest.length >= targetIndexed &&
                             latest.length > 0 &&
                             isIndexedSnapshotFresh(current.state, latest.length, maxIndexedAtFromRows(latest))
                         ) {
@@ -3263,7 +3287,10 @@ const CollectionDashboard = () => {
                                 latest = next;
                                 if (
                                     stalled &&
-                                    isIndexedSnapshotFresh(confirm.state, next.length, maxIndexedAtFromRows(next))
+                                    (
+                                        latest.length >= targetIndexed
+                                        || isIndexedSnapshotFresh(confirm.state, next.length, maxIndexedAtFromRows(next))
+                                    )
                                 ) {
                                     break;
                                 }
@@ -3290,11 +3317,8 @@ const CollectionDashboard = () => {
                 // Guest face-match delivery slots are bumped on guest publish, not here.
                 {
                     const pid = collection?.photographer_id || user?.id;
-                    const delta = force
-                        ? indexablePhotoCount
-                        : (Math.max(0, indexablePhotoCount - rows.length) || 1);
+                    const delta = imagesToBill;
                     if (pid && delta > 0) {
-                        const isGuestFace = Boolean(collection?.guest_delivery_enabled);
                         if (isGuestFace) {
                             void photographerQuotaService
                                 .recordUsage(pid, 'guestImage', delta)
@@ -3321,11 +3345,8 @@ const CollectionDashboard = () => {
             });
             {
                 const pid = collection?.photographer_id || user?.id;
-                const delta = force
-                    ? indexablePhotoCount
-                    : (Math.max(0, indexablePhotoCount - rows.length) || 1);
+                const delta = imagesToBill;
                 if (pid && delta > 0) {
-                    const isGuestFace = Boolean(collection?.guest_delivery_enabled);
                     if (isGuestFace) {
                         void photographerQuotaService
                             .recordUsage(pid, 'guestImage', delta)
@@ -5215,7 +5236,30 @@ const CollectionDashboard = () => {
                             setShowGdPublishedPopup(false);
                             setShowMoreDropdown(false);
                             setShowPresetsSubmenu(false);
-                            setShowFaceRecogniseModal(true);
+                            // Warn when Face matching / Find People is already at its image cap.
+                            const pid = collection?.photographer_id || user?.id;
+                            if (pid) {
+                                const isGuestFace = Boolean(collection?.guest_delivery_enabled);
+                                void photographerQuotaService.fetchSnapshot(pid).then((snap) => {
+                                    const used = Number(
+                                        isGuestFace ? snap.face_guest_image_used : snap.face_normal_image_used,
+                                    ) || 0;
+                                    const limit = Number(
+                                        isGuestFace ? snap.face_guest_image_limit : snap.face_normal_image_limit,
+                                    );
+                                    if (limit > 0 && used >= limit) {
+                                        const kind = isGuestFace ? 'Face matching' : 'Find People';
+                                        alert(
+                                            `${kind} is at its limit (${used.toLocaleString()} / ${limit.toLocaleString()}).\n\n`
+                                            + `Re-running will process at most ${limit.toLocaleString()} images.\n`
+                                            + `Ask an admin to raise this limit in Quotas & Limits to index more.`,
+                                        );
+                                    }
+                                    setShowFaceRecogniseModal(true);
+                                }).catch(() => setShowFaceRecogniseModal(true));
+                            } else {
+                                setShowFaceRecogniseModal(true);
+                            }
                         }}
                     >
                         <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><circle cx="12" cy="12" r="3"/></svg>
@@ -5741,7 +5785,9 @@ const CollectionDashboard = () => {
                                     onClearSelfie={handleClearSelfie}
                                     onReanalyze={() => {
                                         // Manual only: incremental index (new photos), not a full wipe.
-                                        void runPhotoAiAutoSync({ force: false });
+                                        void runPhotoAiAutoSync({ force: false }).catch((err) => {
+                                            alert(err?.message || 'Face recognition failed. Please try again.');
+                                        });
                                     }}
                                     onRenamePerson={handleRenamePerson}
                                     onDeletePerson={(personId) => handleTogglePersonHidden(personId, true)}
@@ -6986,7 +7032,9 @@ const CollectionDashboard = () => {
                                 </div>
                             </div>
                             <p style={{ margin: 0, fontSize: '14px', color: '#4a453f', lineHeight: 1.55 }}>
-                                Ready to run face recognition for <strong>{collection?.name || 'this delivery'}</strong>. This will index faces across all {indexablePhotoCount} photos and cluster matching people automatically.
+                                Ready to run face recognition for <strong>{collection?.name || 'this delivery'}</strong>.
+                                {' '}This will index faces across your photos and cluster matching people automatically.
+                                {' '}If a Face matching / Find People image limit applies, only up to that many photos will be processed.
                             </p>
                             {photoAiIndexing && (
                                 <div style={{ marginTop: '16px', padding: '10px 14px', backgroundColor: '#fcf8f2', borderRadius: '6px', border: '1px solid #f0e6d6', display: 'flex', alignItems: 'center', gap: '10px', fontSize: '13px', color: '#a05828' }}>

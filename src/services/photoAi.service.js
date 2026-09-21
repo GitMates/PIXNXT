@@ -27,10 +27,25 @@ function parseJsonArray(value) {
   }
 }
 
-/** D1 stores labels/faces as JSON text; normalize to arrays. */
+/** Resolve a Rekognition label entry to a plain name string. */
+function labelEntryName(label) {
+  if (label == null) return '';
+  if (typeof label === 'string') return label.trim();
+  if (typeof label === 'object') {
+    const name = label.name ?? label.Name ?? label.label ?? label.Label;
+    if (typeof name === 'string') return name.trim();
+  }
+  return '';
+}
+
+/** D1 stores labels/faces as JSON text; normalize to arrays of plain names / faces. */
 function normalizeMetadataRow(row) {
   if (!row) return row;
-  return { ...row, labels: parseJsonArray(row.labels), faces: parseJsonArray(row.faces) };
+  const rawLabels = parseJsonArray(row.labels);
+  // Match legacy indexer (server/photoAi/indexPhoto.js): labels are name strings.
+  // Workers historically stored `{ name, confidence }` objects — coerce both.
+  const labels = rawLabels.map(labelEntryName).filter(Boolean);
+  return { ...row, labels, faces: parseJsonArray(row.faces) };
 }
 
 function normalizePersonRow(row) {

@@ -190,15 +190,15 @@ function quotaError(kind, used, limit) {
   if (kind === 'normal-image' || kind === 'image') {
     return new Error(
       remaining < 1
-        ? `Normal delivery face image limit reached (${asUsed(used).toLocaleString()} / ${asLimit(limit).toLocaleString()} images). Ask an admin to raise your normal delivery limit.`
-        : `Normal delivery face image limit exceeded. You can process ${remaining.toLocaleString()} more image${remaining === 1 ? '' : 's'}.`
+        ? `Find People image limit reached (${asUsed(used).toLocaleString()} / ${asLimit(limit).toLocaleString()}). Ask an admin to raise your limit, or re-run Find People to keep only up to the limit.`
+        : `Find People image limit exceeded. You can process ${remaining.toLocaleString()} more image${remaining === 1 ? '' : 's'}.`
     );
   }
   if (kind === 'guest-image') {
     return new Error(
       remaining < 1
-        ? `Guest delivery face image limit reached (${asUsed(used).toLocaleString()} / ${asLimit(limit).toLocaleString()} images). Ask an admin to raise your guest delivery limit.`
-        : `Guest delivery face image limit exceeded. You can process ${remaining.toLocaleString()} more image${remaining === 1 ? '' : 's'}.`
+        ? `Face matching image limit reached (${asUsed(used).toLocaleString()} / ${asLimit(limit).toLocaleString()}). Ask an admin to raise your limit, or re-run Find People — only up to ${asLimit(limit).toLocaleString()} images will be processed.`
+        : `Face matching image limit exceeded. You can process ${remaining.toLocaleString()} more image${remaining === 1 ? '' : 's'}.`
     );
   }
   if (kind === 'normal-face') {
@@ -374,6 +374,47 @@ export const photographerQuotaService = {
     const next = snapshot.face_guest_image_used + Math.max(0, addCount);
     if (next > limit) throw quotaError('guest-image', snapshot.face_guest_image_used, limit);
     return snapshot;
+  },
+
+  /**
+   * Soft-allocate Face AI image slots: when the gallery has more photos than
+   * remaining quota, return how many we can still process instead of failing
+   * the whole sync (e.g. 20 photos + limit 10 → allowed 10).
+   * Throws only when nothing can be processed (disabled / at cap).
+   *
+   * @param {object} [opts]
+   * @param {number} [opts.creditBack=0] — photos about to be wiped (force
+   *   reindex) so their slots count as free before allocating.
+   */
+  async allocateFaceImageSlots(photographerId, kind, requestedCount = 1, opts = {}) {
+    const snapshot = await this.fetchSnapshot(photographerId);
+    const isGuest = kind === 'guest';
+    const enabled = isGuest
+      ? isFlagEnabled(snapshot.face_guest_enabled, true)
+      : isFlagEnabled(snapshot.face_normal_enabled, true);
+    const limit = isGuest ? snapshot.face_guest_image_limit : snapshot.face_normal_image_limit;
+    const rawUsed = isGuest ? snapshot.face_guest_image_used : snapshot.face_normal_image_used;
+    const creditBack = Math.max(0, Math.floor(Number(opts.creditBack) || 0));
+    const used = Math.max(0, Number(rawUsed) - creditBack);
+    const errKind = isGuest ? 'guest-image' : 'normal-image';
+    const want = Math.max(0, Math.floor(Number(requestedCount) || 0));
+    if (!enabled) throw quotaError(errKind, rawUsed, -1);
+    if (limit === -1) throw quotaError(errKind, rawUsed, -1);
+    if (limit <= 0) {
+      return { allowed: want, remaining: Infinity, snapshot, capped: false, limit: 0, used };
+    }
+    const remaining = Math.max(0, Number(limit) - used);
+    if (remaining <= 0) throw quotaError(errKind, rawUsed, limit);
+    const allowed = Math.min(want || remaining, remaining);
+    if (allowed <= 0) throw quotaError(errKind, rawUsed, limit);
+    return {
+      allowed,
+      remaining,
+      snapshot,
+      capped: want > remaining,
+      limit: Number(limit),
+      used,
+    };
   },
 
   async assertFaceMatchingDeliveryQuota(photographerId, addCount = 1) {

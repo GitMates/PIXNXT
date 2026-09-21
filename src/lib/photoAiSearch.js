@@ -4,6 +4,21 @@ export function normalizePhotoSearchQuery(query) {
 }
 
 /**
+ * Rekognition / D1 labels may be plain strings (legacy Supabase indexer) or
+ * objects `{ name, confidence, categories }` (Workers detectLabels). Always
+ * resolve to a display/search name — never String(object) → "[object Object]".
+ */
+export function labelName(label) {
+  if (label == null) return '';
+  if (typeof label === 'string') return label.trim();
+  if (typeof label === 'object') {
+    const name = label.name ?? label.Name ?? label.label ?? label.Label;
+    if (typeof name === 'string') return name.trim();
+  }
+  return '';
+}
+
+/**
  * Concept groups for AI search. AWS Rekognition rarely returns the generic
  * word a user types (e.g. "food") — it returns specific labels like "Meal",
  * "Dish", "Plate", "Curry". Expand the query so common concepts match.
@@ -138,9 +153,9 @@ export function filterPhotosByAiSearch(photos, metadataByPhotoId, query) {
 
     const filename = String(photo.filename || '').toLowerCase();
     const collectionName = String(photo.collection?.name || '').toLowerCase();
-    const labels = (metadataByPhotoId?.[photo.id]?.labels || []).map((l) =>
-      String(l).toLowerCase()
-    );
+    const labels = (metadataByPhotoId?.[photo.id]?.labels || [])
+      .map((l) => labelName(l).toLowerCase())
+      .filter(Boolean);
 
     for (const variant of variants) {
       if (!variant) continue;
@@ -277,12 +292,17 @@ export function collectLabelSuggestions(metadataRows, limit = 12) {
   const counts = new Map();
   for (const row of metadataRows || []) {
     for (const label of row.labels || []) {
-      const key = String(label);
-      counts.set(key, (counts.get(key) || 0) + 1);
+      const key = labelName(label);
+      if (!key) continue;
+      // Count case-insensitively but keep the first-seen casing for the chip.
+      const fold = key.toLowerCase();
+      const prev = counts.get(fold);
+      if (prev) prev.count += 1;
+      else counts.set(fold, { label: key, count: 1 });
     }
   }
-  return Array.from(counts.entries())
-    .sort((a, b) => b[1] - a[1])
+  return Array.from(counts.values())
+    .sort((a, b) => b.count - a.count)
     .slice(0, limit)
-    .map(([label]) => label);
+    .map((entry) => entry.label);
 }

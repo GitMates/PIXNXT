@@ -85,12 +85,36 @@
   background: #b3261e;
 }
 
+.aqm-row--at-limit,
+.aqm-row--over {
+  cursor: pointer;
+}
+
+.aqm-row--at-limit:hover .aqm-row__meta,
+.aqm-row--over:hover .aqm-row__meta {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.aqm-row__meta--at-limit {
+  color: #8a5a00;
+  font-weight: 600;
+}
+
+.aqm-row__fill--at-limit {
+  background: #1a1a1a;
+}
+
 .cdsb-storage .aqm-row__meta--over {
   color: #b3261e;
 }
 
 .cdsb-storage .aqm-row__fill--over {
   background: #b3261e;
+}
+
+.cdsb-storage .aqm-row__meta--at-limit {
+  color: #8a5a00;
 }
 
 .cdsb-storage .aqm-row + .aqm-row {

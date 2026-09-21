@@ -74,12 +74,16 @@ export function AccountQuotaMeters({
   const toRow = (key, label, used, limit) => {
     const u = Number(used) || 0;
     const cap = Number(limit);
+    const over = cap > 0 && u > cap;
+    const atLimit = cap > 0 && u >= cap && !over;
+    const base = formatCountMeter(used, limit);
     return {
       key,
       label,
-      meta: formatCountMeter(used, limit),
+      meta: over ? `${base} · over` : atLimit ? `${base} · at limit` : base,
       pct: quotaPercent(used, limit),
-      over: cap > 0 && u > cap,
+      over,
+      atLimit,
     };
   };
 
@@ -121,19 +125,49 @@ export function AccountQuotaMeters({
 
       {(!collapsible || expanded) &&
         detailRows.map((row) => (
-          <div key={row.key} className={`aqm-row${row.over ? ' aqm-row--over' : ''}`}>
+          <div
+            key={row.key}
+            role={row.over || row.atLimit ? 'button' : undefined}
+            tabIndex={row.over || row.atLimit ? 0 : undefined}
+            className={`aqm-row${row.over ? ' aqm-row--over' : ''}${row.atLimit ? ' aqm-row--at-limit' : ''}`}
+            onClick={() => {
+              if (row.over) {
+                alert(
+                  `${row.label} is over its limit (${row.meta}).\n\n`
+                  + `Ask an admin to raise this limit in Quotas & Limits, or free usage before continuing.`,
+                );
+              } else if (row.atLimit) {
+                alert(
+                  `${row.label} is at its limit (${row.meta}).\n\n`
+                  + `Ask an admin to raise this limit in Quotas & Limits to use more.`,
+                );
+              }
+            }}
+            onKeyDown={(e) => {
+              if ((e.key === 'Enter' || e.key === ' ') && (row.over || row.atLimit)) {
+                e.preventDefault();
+                e.currentTarget.click();
+              }
+            }}
+          >
             <div className="aqm-row__head">
               <span className="aqm-row__label">{row.label}</span>
               <span
-                className={`aqm-row__meta${row.over ? ' aqm-row__meta--over' : ''}`}
-                title={row.over ? 'Over limit — usage exceeds the cap set by the admin' : undefined}
+                className={`aqm-row__meta${row.over ? ' aqm-row__meta--over' : ''}${row.atLimit ? ' aqm-row__meta--at-limit' : ''}`}
+                title={
+                  row.over
+                    ? 'Over limit — click for details'
+                    : row.atLimit
+                      ? 'At limit — click for details'
+                      : undefined
+                }
               >
-                {row.meta}{row.over ? ' · over' : ''}
+                {row.meta}
               </span>
             </div>
             <div className="aqm-row__bar">
               <div
-                className={`aqm-row__fill${row.over ? ' aqm-row__fill--over' : ''}`}
+                className={`aqm-row__fill${row.over ? ' aqm-row__fill--over' : ''}${row.atLimit ? ' aqm-row__fill--at-limit' : ''}`}
                 style={{ width: `${row.pct}%` }}
               />
             </div>

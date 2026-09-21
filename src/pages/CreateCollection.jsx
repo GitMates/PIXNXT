@@ -129,7 +129,11 @@ const CreateCollection = () => {
             navigate(`/deliveries/manage?id=${newCollection.id}`);
         } catch (err) {
             console.error('Error creating collection:', err);
-            setError(err.message || 'Failed to create delivery. Please try again.');
+            const message = err.message || 'Failed to create delivery. Please try again.';
+            setError(message);
+            if (/limit|quota|disabled|exceeded|reached/i.test(message)) {
+                alert(message);
+            }
         } finally {
             setIsSubmitting(false);
         }
