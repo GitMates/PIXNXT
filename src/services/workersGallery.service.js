@@ -291,6 +291,7 @@ export async function duplicateCollection(sourceCollectionId, photographerId) {
         exifTakenAt: photo.exif_taken_at,
         exifCamera: photo.exif_camera,
         exifLens: photo.exif_lens,
+        exifDetails: photo.exif_details,
       },
     });
   }
@@ -562,6 +563,9 @@ export async function duplicateSet({ collectionId, photographerId, name, descrip
         webStoragePath: p.web_storage_path ?? null,
         watermarkedStoragePath: p.watermarked_storage_path ?? null,
         exifTakenAt: p.exif_taken_at ?? null,
+        exifCamera: p.exif_camera ?? null,
+        exifLens: p.exif_lens ?? null,
+        exifDetails: p.exif_details ?? null,
         isStarred: p.is_starred ? 1 : 0,
         isPrivate: p.is_private ? 1 : 0,
       },

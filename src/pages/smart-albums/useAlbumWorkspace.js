@@ -16,23 +16,12 @@ import {
     capturePreBackPlacement,
     restoreEndCoverPlacement,
     restorePreBackPlacement,
-    migrateInsideCoverSpreadToPageTwo,
-    migrateEndHalfSpreadToLeftPage,
-    migratePreBackHalfSpreadToLeftPage,
-    migrateBackCoverUsesBookWrap,
-    migrateFrontCoverToFullSpread,
-    migrateMiskeyedInnerSpreadPhotos,
-    migrateWholeSpreadPagePhotosToSpreadKeys,
-    migrateWholeSpreadPhotoOffRightPage,
     removeCollectionItemsOnDeletedSpread,
     unlinkSharedCoverAndInnerPlacement,
     reconcileCoverWrapPlacements,
     syncCoverWrapRoleFromSpread,
 } from '../../components/smart-albums/albumPagePhotos';
-import {
-    migrateInsideCoverSpreadTransform,
-    migrateMiskeyedInnerSpreadTransforms,
-} from '../../components/smart-albums/albumPageTransforms';
+import { runAlbumPlacementMigrations } from '../../components/smart-albums/albumPlacementMigrations';
 import {
     getAlbumSpreadOptions,
     getEndSpreadPageIndices,
@@ -121,28 +110,7 @@ export function useAlbumWorkspace() {
                     }
                     mergeRemotePreviewPagesIntoLocal(albumId);
                     const pages = data?.page_count || 21;
-                    const albumSpreadOpts = getAlbumSpreadOptions(data);
-                    migrateEndHalfSpreadToLeftPage(albumId, pages, data);
-                    migrateMiskeyedInnerSpreadPhotos(albumId, pages, data);
-                    migrateWholeSpreadPhotoOffRightPage(albumId, data);
-                    if (!albumSpreadOpts.hasCovers) {
-                        migrateWholeSpreadPagePhotosToSpreadKeys(albumId, pages, data);
-                    }
-                    if (albumSpreadOpts.hasCovers) {
-                        migrateFrontCoverToFullSpread(albumId);
-                        if (data?.blank_covers !== true) {
-                            migrateBackCoverUsesBookWrap(albumId, pages, data);
-                        }
-                        migrateInsideCoverSpreadToPageTwo(albumId, pages, data);
-                        migrateInsideCoverSpreadTransform(albumId);
-                        migratePreBackHalfSpreadToLeftPage(albumId, pages, data);
-                        migrateEndHalfSpreadToLeftPage(albumId, pages, data);
-                        reconcileCoverWrapPlacements(albumId, data);
-                    }
-                    if (albumSpreadOpts.hasCovers) {
-                        const { left: endLeft } = getEndSpreadPageIndices(pages);
-                        migrateMiskeyedInnerSpreadTransforms(albumId, endLeft);
-                    }
+                    runAlbumPlacementMigrations(albumId, data, pages);
                     loadedAlbumIdRef.current = albumId;
                     setAlbum(data);
                 }

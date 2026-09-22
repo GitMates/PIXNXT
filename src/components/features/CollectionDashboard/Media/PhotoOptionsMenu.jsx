@@ -15,6 +15,7 @@ export function PhotoOptionsMenu({
   onCopyFilename,
   onToggleHidden,
   onDownloadOriginal,
+  onShowDetails,
   onOpen,
   onWhoIsInThis,
   onRemove,
@@ -57,16 +58,16 @@ export function PhotoOptionsMenu({
           </button>
         ) : null}
         <button type="button" className="cd-pom-item" role="menuitem" onClick={() => onMoveToSet?.(photo)}>
-          Move to another set...
+          Move to another set
         </button>
         {!isVideo ? (
           <button type="button" className="cd-pom-item" role="menuitem" onClick={() => onReplace?.(photo)}>
-            Replace image...
+            Replace image
           </button>
         ) : null}
         {!isVideo ? (
           <button type="button" className="cd-pom-item" role="menuitem" onClick={() => onRename?.(photo)}>
-            Rename...
+            Rename
           </button>
         ) : null}
         <button
@@ -86,6 +87,14 @@ export function PhotoOptionsMenu({
         </button>
         <button type="button" className="cd-pom-item" role="menuitem" onClick={() => onDownloadOriginal?.(photo)}>
           Download the original
+        </button>
+        <button
+          type="button"
+          className="cd-pom-item"
+          role="menuitem"
+          onClick={() => onShowDetails?.(photo)}
+        >
+          Details
         </button>
       </div>
 

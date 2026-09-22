@@ -121,8 +121,8 @@ export function planAllowsRaw(plan) {
   return p === 'plus' || p === 'pro' || p === 'ultimate';
 }
 
-/** Whether RAW uploads are allowed for this photographer (setting + plan). */
+/** Whether RAW uploads are allowed for this photographer (setting only). */
 export function isRawUploadEnabled(profile) {
-  const { rawPhotoSupport } = resolveUploadDefaults(profile);
-  return rawPhotoSupport && planAllowsRaw(profile?.plan);
+    const { rawPhotoSupport } = resolveUploadDefaults(profile);
+    return rawPhotoSupport;
 }

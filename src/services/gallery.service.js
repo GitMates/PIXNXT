@@ -4,9 +4,7 @@ const workersGallery = () => import('./workersGallery.service');
 /** Photo-row writes (Workers backend; snake_case in, row out). */
 async function dbInsertPhotoRow(row) {
   const { apiFetch } = await import('../lib/api/client');
-  const data = await apiFetch(`/v1/galleries/${row.collection_id}/photos`, {
-    method: 'POST',
-    body: {
+  const body = {
       filename: row.filename,
       mimeType: row.mime_type,
       sizeBytes: row.size_bytes ?? 0,
@@ -27,10 +25,35 @@ async function dbInsertPhotoRow(row) {
       exifTakenAt: row.exif_taken_at ?? null,
       exifCamera: row.exif_camera ?? null,
       exifLens: row.exif_lens ?? null,
-    },
-  });
+      exifDetails: row.exif_details ?? null,
+  };
+  let data;
+  try {
+    data = await apiFetch(`/v1/galleries/${row.collection_id}/photos`, {
+      method: 'POST',
+      body,
+    });
+  } catch (err) {
+    // Older D1 clones may lack exif_* columns — still insert the photo.
+    const msg = String(err?.message || err || '');
+    if (/exif_camera|exif_lens|exif_details|no such column/i.test(msg) && (body.exifCamera || body.exifLens || body.exifDetails)) {
+      data = await apiFetch(`/v1/galleries/${row.collection_id}/photos`, {
+        method: 'POST',
+        body: { ...body, exifCamera: null, exifLens: null, exifDetails: null, exifTakenAt: body.exifTakenAt },
+      });
+    } else {
+      throw err;
+    }
+  }
   if (!data?.photo) throw new Error('Photo database insert failed');
-  return data.photo;
+  // Keep client-extracted camera label even if the API row omitted the column.
+  return {
+    ...data.photo,
+    exif_camera: data.photo.exif_camera ?? data.photo.exifCamera ?? row.exif_camera ?? null,
+    exif_lens: data.photo.exif_lens ?? data.photo.exifLens ?? row.exif_lens ?? null,
+    exif_details: data.photo.exif_details ?? data.photo.exifDetails ?? row.exif_details ?? null,
+    exif_taken_at: data.photo.exif_taken_at ?? data.photo.exifTakenAt ?? row.exif_taken_at ?? null,
+  };
 }
 
 /** Photo-row patch (Workers backend; throws with details). */
@@ -41,6 +64,11 @@ async function dbUpdatePhotoRow(id, patch) {
   return data.photo;
 }
 import { getImageDimensionsFast } from '../lib/imageDimensions';
+import {
+  extractImageDetails,
+  exifDetailsToPatch,
+  photoExifCameraLabel,
+} from '../lib/exifCamera';
 import { getFileMime, isVideoMime, getUploadMediaType } from '../lib/fileMime';
 import { compressImageForUpload, compressImageVariants } from '../lib/prepareUploadFile';
 import { isRawImageFile } from '../lib/rawImageFormats';
@@ -494,6 +522,10 @@ export const galleryService = {
     const isRaw = isRawImageFile(file);
     const mediaType = getUploadMediaType(file);
 
+    // Camera badge + Details (e.g. "Sony ILCE-7M3"): EXIF parses concurrently
+    // with the derivative pipeline so it never slows uploads. Never throws.
+    const exifDetailsTask = !isVideo ? extractImageDetails(file) : null;
+
     let webFile = null;
     let thumbFile = null;
     let dimensions = { width: null, height: null };
@@ -574,6 +606,10 @@ export const galleryService = {
       thumbUrl = thumbFile ? prepResults[webFile ? 1 : 0]?.url : null;
     }
 
+    const parsedExif = exifDetailsTask ? await exifDetailsTask.catch(() => null) : null;
+    const exifPatch = exifDetailsToPatch(parsedExif) || {};
+    const exifCamera = exifPatch.exifCamera || null;
+
     const photoData = await dbInsertPhotoRow({
       collection_id: collectionId,
       photographer_id: photographerId,
@@ -591,6 +627,10 @@ export const galleryService = {
       media_type: mediaType,
       position: index,
       status: 'ready',
+      exif_camera: exifCamera,
+      exif_lens: exifPatch.exifLens || null,
+      exif_taken_at: exifPatch.exifTakenAt || null,
+      exif_details: exifPatch.exifDetails || null,
     });
 
     if (onInserted) {
@@ -617,6 +657,108 @@ export const galleryService = {
         photoData,
       },
     };
+  },
+
+  /**
+   * Download a photo's original bytes for EXIF reads. Web/thumb variants are
+   * EXIF-stripped, so only the original carries camera tags. Prefer
+   * `original_storage_path` over `full_url` — for some JPEG uploads full_url
+   * can point at a re-encoded derivative. Goes through the Worker media proxy
+   * first (direct R2 URLs are not CORS-readable on localhost/custom domains).
+   * Returns null when unavailable; never throws.
+   */
+  async fetchPhotoOriginalBlob(photo) {
+    try {
+      const fromPath = photo?.original_storage_path
+        ? storageService.getPublicUrl(photo.original_storage_path)
+        : null;
+      const candidates = [];
+      // Prefer the true original (keeps Make/Model on ARW/CR2/NEF and unstripped JPEG).
+      if (fromPath) candidates.push(fromPath);
+      if (photo?.full_url && photo.full_url !== fromPath) candidates.push(photo.full_url);
+      if (!candidates.length) return null;
+      const { getProxiedMediaFetchUrl } = await import('../lib/r2MediaProxy');
+      const urls = [];
+      for (const direct of candidates) {
+        const proxied = getProxiedMediaFetchUrl(direct);
+        urls.push(proxied);
+        if (proxied !== direct) urls.push(direct);
+      }
+      for (const url of urls) {
+        try {
+          const res = await fetch(url);
+          if (!res.ok) continue;
+          const blob = await res.blob();
+          if (blob?.size > 12) return blob;
+        } catch {
+          /* try next candidate */
+        }
+      }
+      return null;
+    } catch {
+      return null;
+    }
+  },
+
+  /**
+   * One-time backfill: photos uploaded before EXIF camera extraction existed
+   * have no `exif_camera` row value, so Camera badges stay empty for them.
+   * Parses each original and PATCHes camera + full Details JSON — persisted,
+   * so this runs at most once per photo ever. Skips videos and huge files.
+   */
+  async backfillExifCameraLabels(photos, { concurrency = 2, onPhoto = null, onFinished = null, shouldCancel = null } = {}) {
+    const MAX_BYTES = 120 * 1024 * 1024;
+    const queue = (photos || []).filter(
+      (p) =>
+        p?.id &&
+        !photoExifCameraLabel(p) &&
+        p.media_type !== 'video' &&
+        (p.full_url || p.original_storage_path) &&
+        !(Number(p.size_bytes) > MAX_BYTES)
+    );
+    if (!queue.length) return [];
+
+    const done = [];
+    const workers = Array.from({ length: Math.min(concurrency, queue.length) }, async () => {
+      while (queue.length > 0) {
+        if (shouldCancel?.()) return;
+        const photo = queue.shift();
+        let attempted = false;
+        try {
+          const blob = await this.fetchPhotoOriginalBlob(photo);
+          if (!blob) {
+            // Original not on R2 yet — do not mark attempted so a later pass can retry.
+            continue;
+          }
+          attempted = true;
+          if (shouldCancel?.()) return;
+          const details = await extractImageDetails(blob);
+          const patch = exifDetailsToPatch(details);
+          if (!patch?.exifCamera) continue;
+          // API expects camelCase (DERIVATIVE_MAP); snake_case also works via sanitize.
+          const updated = await dbUpdatePhotoRow(photo.id, patch).catch(() => null);
+          const finalLabel = photoExifCameraLabel(updated) || patch.exifCamera;
+          done.push({
+            id: photo.id,
+            exif_camera: finalLabel,
+            exif_details: patch.exifDetails,
+            exif_lens: patch.exifLens,
+            exif_taken_at: patch.exifTakenAt,
+          });
+          onPhoto?.(photo.id, finalLabel, {
+            exif_details: patch.exifDetails,
+            exif_lens: patch.exifLens,
+            exif_taken_at: patch.exifTakenAt,
+          });
+        } catch {
+          attempted = true;
+        } finally {
+          onFinished?.(photo.id, { attempted });
+        }
+      }
+    });
+    await Promise.all(workers);
+    return done;
   },
 
   /**
@@ -947,6 +1089,9 @@ export const galleryService = {
     const isRaw = isRawImageFile(file);
     const mediaType = getUploadMediaType(file);
 
+    // Keep the camera badge + Details in sync when the file is replaced.
+    const exifDetailsTask = !isVideo ? extractImageDetails(file) : null;
+
     let webFile = null;
     let thumbFile = null;
     let dimensions = { width: null, height: null };
@@ -1027,6 +1172,9 @@ export const galleryService = {
       thumbUrl = thumbFile ? uploadResults[2]?.url : publicUrl;
     }
 
+    const parsedExif = exifDetailsTask ? await exifDetailsTask.catch(() => null) : null;
+    const exifPatch = exifDetailsToPatch(parsedExif) || {};
+
     const photoData = await dbUpdatePhotoRow(photoId, {
       filename: file.name,
       full_url: publicUrl,
@@ -1040,6 +1188,7 @@ export const galleryService = {
       height: dimensions.height,
       media_type: mediaType,
       status: 'ready',
+      ...(exifPatch.exifCamera ? exifPatch : { exifCamera: null }),
     });
     if (!photoData) {
       throw new Error('Photo database update failed');

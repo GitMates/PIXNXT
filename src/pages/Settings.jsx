@@ -7,7 +7,6 @@ import { clientGalleryEmailTemplatesService } from '../services/clientGalleryEma
 import {
     resolveUploadDefaults,
     syncUploadDefaultsToLocalStorage,
-    planAllowsRaw,
 } from '../lib/uploadDefaults';
 import {
     resolveGuestDeliveryDefaults,
@@ -1859,7 +1858,6 @@ const PreferencesTab = ({ profile, updateProfile }) => {
     );
     const [saveStatus, setSaveStatus] = useState('');
     const [saving, setSaving] = useState(false);
-    const rawAllowed = planAllowsRaw(profile?.plan);
 
     useEffect(() => {
         const next = resolveUploadDefaults(profile);
@@ -1898,10 +1896,6 @@ const PreferencesTab = ({ profile, updateProfile }) => {
 
     const handleRawToggle = async () => {
         if (saving) return;
-        if (!rawAllowed && !rawToggle) {
-            alert('Accept RAW files is available on Studio (Plus) and Pro plans.');
-            return;
-        }
         const next = !rawToggle;
         const prev = rawToggle;
         setRawToggle(next);
@@ -1969,25 +1963,18 @@ const PreferencesTab = ({ profile, updateProfile }) => {
                     <div className="ud-file-text">
                         <div className="ud-file-title-row">
                             <span className="ud-file-label">Accept RAW files</span>
-                            <span className="ud-studio-badge">STUDIO</span>
                         </div>
                         <p className="ud-file-desc">
-                            Include RAW files alongside JPEGs in a delivery. Available on Studio and Pro.
-                            {!rawAllowed && !rawToggle && (
-                                <span style={{ display: 'block', marginTop: 4, color: '#94783e' }}>
-                                    Upgrade to Studio or Pro to enable this.
-                                </span>
-                            )}
+                            Include RAW files alongside JPEGs in a delivery.
                         </p>
                     </div>
                     <button
                         type="button"
                         className={`settings-toggle ${rawToggle ? 'settings-toggle--on' : ''}`}
                         onClick={handleRawToggle}
-                        disabled={saving || (!rawAllowed && !rawToggle)}
+                        disabled={saving}
                         aria-pressed={rawToggle}
                         aria-label="Accept RAW files"
-                        aria-disabled={!rawAllowed && !rawToggle}
                     >
                         <span className="settings-toggle-thumb" />
                     </button>

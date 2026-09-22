@@ -9,6 +9,7 @@ import {
     reconcileCoverWrapPlacements,
     healCoverStoragePathsFromR2,
 } from '../../components/smart-albums/albumPagePhotos';
+import { runAlbumPlacementMigrations } from '../../components/smart-albums/albumPlacementMigrations';
 import { loadAlbumAssetsFromCloud, overwriteLocalCollectionFromRemote } from '../../components/smart-albums/albumCollection';
 import { hydrateAlbumPreviewData, clearAlbumPreviewDataCache, normalizeAlbumForClientPreview } from '../../components/smart-albums/albumPreviewData';
 import AlbumPreviewAccessGate from '../../components/smart-albums/AlbumPreviewAccessGate';
@@ -17,6 +18,9 @@ import {
     ALBUM_PROOFER_SETTINGS_CHANGED_EVENT,
     smartAlbumProoferSettingsService,
 } from '../../services/smartAlbumProoferSettings.service';
+import {
+    ALBUM_PAGES_REMOTE_SYNCED_EVENT,
+} from '../../components/smart-albums/useAlbumFeedbackRealtime';
 import AlbumPreview from './AlbumPreview';
 import { getAlbumSpreadOptions } from '../../components/smart-albums/albumSpreadUtils';
 import { isClientShareLinkLive } from '../../lib/shareSmartAlbum';
@@ -175,6 +179,11 @@ export default function PublicAlbumPreview() {
         // cover photo that localhost resolves from stale editor leftovers.
         // Local-only and idempotent.
         migrateFrontCoverToFullSpread(storageAlbumId);
+        runAlbumPlacementMigrations(
+            storageAlbumId,
+            album,
+            album.page_count || 21
+        );
         if (album?.has_covers !== false) {
             reconcileCoverWrapPlacements(storageAlbumId, album);
         }
@@ -195,6 +204,7 @@ export default function PublicAlbumPreview() {
                 overwriteLocalPagesFromRemote(album.id);
                 healOrphanCollectionPlacements(album.id);
                 embedPlacementStorageFallbacks(album.id);
+                runAlbumPlacementMigrations(album.id, album, album.page_count || 21);
                 if (album?.has_covers !== false) {
                     reconcileCoverWrapPlacements(album.id, album);
                     void healCoverStoragePathsFromR2(
@@ -206,7 +216,7 @@ export default function PublicAlbumPreview() {
                         }
                     });
                 }
-                setPhotoRevision(getAlbumPhotoRevision(album.id) || 0);
+                setPhotoRevision(getAlbumPhotoRevision(album.id) || Date.now());
             } catch (error) {
                 console.warn('Could not hydrate public album assets:', error?.message || error);
             }
@@ -227,6 +237,19 @@ export default function PublicAlbumPreview() {
     useEffect(() => {
         if (album?.id) setPhotoRevision(getAlbumPhotoRevision(album.id) || 0);
     }, [album?.id, album?.preview_data]);
+
+    // Live "New version" sync (custom domain): pages overwritten in realtime hook —
+    // bump revision so the flipbook remounts with the cloud layout without a reload.
+    useEffect(() => {
+        const storageAlbumId = album?.id;
+        if (!storageAlbumId) return undefined;
+        const onRemotePagesSynced = (e) => {
+            if (e.detail?.albumId && e.detail.albumId !== storageAlbumId) return;
+            setPhotoRevision(getAlbumPhotoRevision(storageAlbumId) || Date.now());
+        };
+        window.addEventListener(ALBUM_PAGES_REMOTE_SYNCED_EVENT, onRemotePagesSynced);
+        return () => window.removeEventListener(ALBUM_PAGES_REMOTE_SYNCED_EVENT, onRemotePagesSynced);
+    }, [album?.id]);
 
     const totalPages = album?.page_count || 21;
     const spreadOpts = getAlbumSpreadOptions(album);

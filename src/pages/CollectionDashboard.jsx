@@ -28,6 +28,9 @@ import { CollectionPhotosWorkspaceHeader } from '../components/features/Collecti
 import '../components/features/CollectionDashboard/Photos/CollectionPhotosWorkspaceHeader.css';
 import { PhotoOptionsMenu } from '../components/features/CollectionDashboard/Media/PhotoOptionsMenu';
 import '../components/features/CollectionDashboard/Media/PhotoOptionsMenu.css';
+import { photoExifCameraLabel } from '../lib/exifCamera';
+import { PhotoDetailsModal } from '../components/features/CollectionDashboard/Media/PhotoDetailsModal';
+import '../components/features/CollectionDashboard/Media/PhotoDetailsModal.css';
 import { useAuth } from '../hooks/useAuth';
 import { DesignTab } from '../components/features/CollectionDashboard/DesignTab';
 import '../components/features/CollectionDashboard/DesignTab/DesignWorkspace.css';
@@ -264,6 +267,49 @@ const CollectionDashboard = () => {
     const [showCameraBadges, setShowCameraBadges] = useState(
         () => localStorage.getItem('cd_show_camera_badges') === '1'
     );
+    // One-time backfill of camera models for photos uploaded before EXIF
+    // extraction existed. Runs only while Camera badges are on; persisted to
+    // the DB row, so each photo is processed at most once ever.
+    const exifBackfillAttemptedRef = useRef(null);
+    if (!exifBackfillAttemptedRef.current) exifBackfillAttemptedRef.current = new Set();
+    useEffect(() => {
+        if (!showCameraBadges || !photos?.length) return undefined;
+        const missing = photos.filter(
+            (p) =>
+                p?.id &&
+                !photoExifCameraLabel(p) &&
+                p.media_type !== 'video' &&
+                (p.full_url || p.original_storage_path) &&
+                !exifBackfillAttemptedRef.current.has(p.id)
+        );
+        if (!missing.length) return undefined;
+        missing.forEach((p) => exifBackfillAttemptedRef.current.add(p.id));
+        let cancelled = false;
+        void galleryService
+            .backfillExifCameraLabels(missing, {
+                shouldCancel: () => cancelled,
+                onPhoto: (id, label, extra = {}) => {
+                    if (cancelled) return;
+                    setPhotos((prev) =>
+                        prev.map((p) =>
+                            p.id === id
+                                ? {
+                                      ...p,
+                                      exif_camera: label,
+                                      ...(extra.exif_details != null ? { exif_details: extra.exif_details } : {}),
+                                      ...(extra.exif_lens != null ? { exif_lens: extra.exif_lens } : {}),
+                                      ...(extra.exif_taken_at != null ? { exif_taken_at: extra.exif_taken_at } : {}),
+                                  }
+                                : p
+                        )
+                    );
+                },
+            })
+            .catch(() => null);
+        return () => {
+            cancelled = true;
+        };
+    }, [showCameraBadges, photos]);
     const [showUnmatchedPeople, setShowUnmatchedPeople] = useState(false);
     const [showClientFavorited, setShowClientFavorited] = useState(
         () => localStorage.getItem('cd_show_client_favorited') === '1'
@@ -276,6 +322,7 @@ const CollectionDashboard = () => {
     const [showMoreDropdown, setShowMoreDropdown] = useState(false);
     const [showFaceRecogniseModal, setShowFaceRecogniseModal] = useState(false);
     const [photoMenu, setPhotoMenu] = useState(null);
+    const [detailsPhoto, setDetailsPhoto] = useState(null);
     const [showRenameModal, setShowRenameModal] = useState(false);
     const [showMoveModal, setShowMoveModal] = useState(false);
     const [showQuickShareModal, setShowQuickShareModal] = useState(false);
@@ -5818,6 +5865,7 @@ const CollectionDashboard = () => {
                                             const cols = gridSize === 'large' ? 4 : 6;
                                             const menuAlignLeft = index % cols >= Math.ceil(cols / 2);
                                             const isPending = Boolean(photo._uploadPending);
+                                            const cameraLabel = photoExifCameraLabel(photo);
                                             return (
                                             <div
                                                 className={`cd-photo-card ${selectedPhotos.includes(photo.id) ? 'selected' : ''} ${photoMenu === photo.id ? 'cd-photo-card--menu-open' : ''} ${photo.is_starred ? 'cd-photo-card--starred' : ''} ${photo.is_private ? 'cd-photo-card--hidden' : ''} ${isPending ? 'cd-photo-card--pending' : ''}${isDragging ? ' cd-photo-card--sort-dragging' : ''}`}
@@ -5833,9 +5881,9 @@ const CollectionDashboard = () => {
                                                             index={index}
                                                             containInCell
                                                         />
-                                                        {showCameraBadges && photo.exif_camera ? (
+                                                        {showCameraBadges && cameraLabel ? (
                                                             <span className="cd-photo-overlay-badge cd-photo-overlay-badge--camera">
-                                                                {photo.exif_camera}
+                                                                {cameraLabel}
                                                             </span>
                                                         ) : null}
                                                         {showClientFavorited && clientFavoritedPhotoIds.has(photo.id) ? (
@@ -6379,6 +6427,10 @@ const CollectionDashboard = () => {
                                         closePhotoMenu();
                                         void handleDownloadPhoto(p);
                                     }}
+                                    onShowDetails={(p) => {
+                                        closePhotoMenu();
+                                        setDetailsPhoto(p);
+                                    }}
                                     onOpen={(p) => {
                                         closePhotoMenu();
                                         const idx = sortedPhotos.findIndex((item) => item.id === p.id);
@@ -6395,6 +6447,44 @@ const CollectionDashboard = () => {
                         );
                     })()}
 
+                    {detailsPhoto ? (
+                        <PhotoDetailsModal
+                            photo={detailsPhoto}
+                            onClose={() => setDetailsPhoto(null)}
+                            onCameraLabel={(id, label, extra = {}) => {
+                                setPhotos((prev) =>
+                                    prev.map((p) =>
+                                        p.id === id
+                                            ? {
+                                                  ...p,
+                                                  exif_camera: label,
+                                                  ...(extra.exif_details != null
+                                                      ? { exif_details: extra.exif_details }
+                                                      : {}),
+                                                  ...(extra.exif_lens != null
+                                                      ? { exif_lens: extra.exif_lens }
+                                                      : {}),
+                                                  ...(extra.exif_taken_at != null
+                                                      ? { exif_taken_at: extra.exif_taken_at }
+                                                      : {}),
+                                              }
+                                            : p
+                                    )
+                                );
+                                setDetailsPhoto((prev) =>
+                                    prev?.id === id
+                                        ? {
+                                              ...prev,
+                                              exif_camera: label,
+                                              ...(extra.exif_details != null
+                                                  ? { exif_details: extra.exif_details }
+                                                  : {}),
+                                          }
+                                        : prev
+                                );
+                            }}
+                        />
+                    ) : null}
                 </div>
                 {/* Add Media Modal */}
                 {

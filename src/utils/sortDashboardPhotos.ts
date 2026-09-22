@@ -46,7 +46,7 @@ function shuffleInPlace<T>(arr: T[]): void {
 }
 
 function cameraName(p: Photo): string {
-  return (p.exif_camera || "").trim().toLowerCase();
+  return (p.exif_camera || p.exifCamera || "").trim().toLowerCase();
 }
 
 function starredRank(p: Photo): number {

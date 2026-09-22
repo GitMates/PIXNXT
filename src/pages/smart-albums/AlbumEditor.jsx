@@ -50,10 +50,7 @@ import {
     migrateBackCoverUsesBookWrap,
     migrateEndHalfSpreadToLeftPage,
     migrateFrontCoverToFullSpread,
-    migrateInsideCoverSpreadToPageTwo,
     migratePreBackHalfSpreadToLeftPage,
-    migrateWholeSpreadPagePhotosToSpreadKeys,
-    migrateWholeSpreadPhotoOffRightPage,
     pageHasPlacedPhoto,
     placeCollectionItemOnPages,
     reorderOverviewSpreads,
@@ -72,6 +69,7 @@ import {
     reconcileCoverWrapPlacements,
     clearCoverPlacementsForItem,
 } from '../../components/smart-albums/albumPagePhotos';
+import { runAlbumPlacementMigrations } from '../../components/smart-albums/albumPlacementMigrations';
 import { shiftAlbumRemotePreviewPages } from '../../components/smart-albums/albumPreviewData';
 import { shiftAlbumPhotoPins } from '../../components/smart-albums/albumPhotoPins';
 import { isImageFile, isPdfFile, probeImageFile } from '../../lib/pdfToImages';
@@ -88,8 +86,8 @@ import AlbumSpreadSlotMenu from '../../components/smart-albums/AlbumSpreadSlotMe
 import {
     clearAlbumTransforms,
     getTransformRevision,
-    migrateInsideCoverSpreadTransform,
-    migrateMiskeyedInnerSpreadTransforms,
+    setSpreadPhotoTransform,
+    setPagePhotoTransform,
 } from '../../components/smart-albums/albumPageTransforms';
 import {
     canDeleteSpreadAtSpreadIndex,
@@ -478,6 +476,50 @@ export default function AlbumEditor({
     }, [albumId, onPhotosUploaded]);
     bumpWorkspaceRef.current = bumpWorkspace;
 
+    /**
+     * Remount HTMLFlipBook after a photo replace. bumpWorkspace updates
+     * layoutRevision (pages children) after the first epoch remount; with
+     * renderOnlyPageLengthChange that leaves the pre-replace leaf frozen
+     * (blank canvas / bottom strip) until reload. A deferred second epoch
+     * remount loads the new placement. Also reset pan/zoom for that spread.
+     */
+    const remountFlipbookAfterPhotoChange = useCallback(
+        (spreadLeft = null) => {
+            if (albumId != null && spreadLeft != null) {
+                setSpreadPhotoTransform(albumId, spreadLeft, {
+                    x: 0,
+                    y: 0,
+                    scaleX: 1,
+                    scaleY: 1,
+                });
+                setPagePhotoTransform(albumId, spreadLeft, {
+                    x: 0,
+                    y: 0,
+                    scaleX: 1,
+                    scaleY: 1,
+                });
+                const right = Math.min(spreadLeft + 1, Math.max(0, (totalPages || 1) - 1));
+                if (right !== spreadLeft) {
+                    setPagePhotoTransform(albumId, right, {
+                        x: 0,
+                        y: 0,
+                        scaleX: 1,
+                        scaleY: 1,
+                    });
+                }
+            }
+            setPhotoContentEpoch((n) => n + 1);
+            bumpWorkspace();
+            requestAnimationFrame(() => {
+                requestAnimationFrame(() => {
+                    setPhotoContentEpoch((n) => n + 1);
+                    bumpWorkspaceRef.current?.();
+                });
+            });
+        },
+        [albumId, bumpWorkspace, totalPages]
+    );
+
     /** Defer refresh so portaled menus unmount before the flipbook updates (avoids React DOM conflicts). */
     const scheduleWorkspaceRefresh = useCallback(() => {
         requestAnimationFrame(() => {
@@ -792,46 +834,14 @@ export default function AlbumEditor({
             skipPhotoMigrationsRef.current -= 1;
             return undefined;
         }
-        let changed = false;
-        const wholeSpreadAlbum = isWholeSpreadLayout(album?.grid_layout);
-        if (migrateEndHalfSpreadToLeftPage(albumId, totalPages, album)) changed = true;
-        if (migrateWholeSpreadPhotoOffRightPage(albumId, album)) changed = true;
-        if (wholeSpreadAlbum) {
-            if (migrateWholeSpreadPagePhotosToSpreadKeys(albumId, totalPages, album)) {
-                changed = true;
-            }
-        } else if (!spreadOpts.hasCovers) {
-            if (migrateWholeSpreadPagePhotosToSpreadKeys(albumId, totalPages, album)) {
-                changed = true;
-            }
-        }
-        if (spreadOpts.hasCovers) {
-            if (migrateFrontCoverToFullSpread(albumId)) changed = true;
-            if (albumUsesBookWrap(album) && migrateBackCoverUsesBookWrap(albumId, totalPages, album)) {
-                changed = true;
-            }
-            if (migrateInsideCoverSpreadToPageTwo(albumId, totalPages, album)) {
-                changed = true;
-            }
-            if (migrateInsideCoverSpreadTransform(albumId)) {
-                changed = true;
-            }
-            if (migratePreBackHalfSpreadToLeftPage(albumId, totalPages, album)) {
-                changed = true;
-            }
-            if (reconcileCoverWrapPlacements(albumId, album)) {
-                clearAlbumSpineBoundsOverride(albumId);
-                changed = true;
-            }
-            const { left: endLeft } = getEndSpreadPageIndices(totalPages);
-            if (migrateMiskeyedInnerSpreadTransforms(albumId, endLeft)) changed = true;
-        }
+        const changed = runAlbumPlacementMigrations(albumId, album, totalPages);
         if (!changed) return undefined;
         const timer = window.setTimeout(() => {
+            setPhotoContentEpoch((n) => n + 1);
             bumpWorkspaceRef.current?.();
         }, 0);
         return () => window.clearTimeout(timer);
-    }, [albumId, album?.grid_layout, totalPages, spreadOpts.hasCovers]);
+    }, [albumId, totalPages, spreadOpts.hasCovers, album?.has_covers, album?.grid_layout, album?.blank_covers]);
 
     /** Align spread slots with collection order (1st upload → first slot). Runs once per album + after create. */
     useEffect(() => {
@@ -956,6 +966,14 @@ export default function AlbumEditor({
             if (cancelled || !result.loaded) return;
             const healed = healOrphanCollectionPlacements(albumId);
             const embedded = embedPlacementStorageFallbacks(albumId);
+            // Re-run cover / inside-cover migrations AFTER cloud merge — otherwise
+            // remounting the flipbook freezes the first-paint cover-wrap leaf on
+            // Spread 01 until a hard reload.
+            const migrated = runAlbumPlacementMigrations(
+                albumId,
+                album,
+                totalPages || album?.page_count || 21
+            );
             // Persist recovered R2 catalog so other devices / reloads keep showing photos.
             if (result.recoveredFromR2 || healed || embedded || result.merged) {
                 try {
@@ -964,10 +982,14 @@ export default function AlbumEditor({
                     console.warn('Could not persist recovered album assets:', err?.message || err);
                 }
             }
+            if (cancelled) return;
             setCollectionRevision(getAlbumCollectionRevision(albumId));
             onPhotosUploaded?.();
             setTransformRevision(getTransformRevision(albumId));
-            if (healed || embedded || result.recoveredFromR2) {
+            // Always remount after hydrate+migrate so renderOnlyPageLengthChange
+            // cannot keep a stale wrap leaf.
+            setPhotoContentEpoch((n) => n + 1);
+            if (result.merged || healed || embedded || result.recoveredFromR2 || migrated) {
                 scheduleWorkspaceRefresh();
                 bumpWorkspaceRef.current?.();
             }
@@ -1365,10 +1387,14 @@ export default function AlbumEditor({
                 return;
             }
             setImageReplacements(getImageReplacements(albumId));
-            // Remount flipbook immediately (same as New version uploads) so the
-            // restored spread paints at once instead of showing cached pages.
-            setPhotoContentEpoch((n) => n + 1);
-            bumpWorkspace();
+            // Remount flipbook after restore — defeat renderOnlyPageLengthChange freeze.
+            const restoreLeft =
+                Number.isFinite(Number(row?.spreadLeft))
+                    ? Number(row.spreadLeft)
+                    : Number.isFinite(Number(row?.spreadIndex))
+                      ? spreadIndexToPage(Number(row.spreadIndex), { ...spreadOpts, totalPages })
+                      : null;
+            remountFlipbookAfterPhotoChange(restoreLeft);
             // Push restored placements + pruned history to preview_data, otherwise
             // the client share link keeps showing the pre-restore spread while only
             // the feed card propagates (persistReplacementsToDatabase writes just
@@ -1382,7 +1408,15 @@ export default function AlbumEditor({
             }
             showToast(`Restored v${result.version}.`, { variant: 'success', duration: 3000 });
         },
-        [album, albumId, bumpWorkspace, showToast, spreadOpts, totalPages, user?.id]
+        [
+            album,
+            albumId,
+            remountFlipbookAfterPhotoChange,
+            showToast,
+            spreadOpts,
+            totalPages,
+            user?.id,
+        ]
     );
 
     const handleSlotActivate = useCallback(
@@ -1571,8 +1605,10 @@ export default function AlbumEditor({
                 }
                 if (placeCollectionItemOnSlot(slot, replacementItem.id, before)) {
                     // Version history is recorded inside placeCollectionItemOnSlot when `before` is set.
-                    scheduleWorkspaceRefresh();
-                    setPhotoContentEpoch((n) => n + 1);
+                    const replaceLeft =
+                        slot.spreadLeft ??
+                        getSpreadLeftForBookPage(slot.pageNum, totalPages, spreadOpts);
+                    remountFlipbookAfterPhotoChange(replaceLeft);
                     if (isCoverSlot) {
                         // Drop any orphaned cover-wrap items left behind by older upload paths.
                         const keepId = replacementItem.id;
@@ -1629,9 +1665,10 @@ export default function AlbumEditor({
             beginSuppressCollectionPageGrowth,
             endSuppressCollectionPageGrowth,
             placeCollectionItemOnSlot,
+            remountFlipbookAfterPhotoChange,
             resolveSpreadReplacementItem,
-            scheduleWorkspaceRefresh,
             showToast,
+            spreadOpts,
             totalPages,
             keepCoverEditorActive,
             user?.id,
@@ -2106,9 +2143,13 @@ export default function AlbumEditor({
                         });
                     }
                     setCollectionRevision(getAlbumCollectionRevision(albumId));
-                    // Remount flipbook immediately (layoutRevision includes this tick).
-                    setPhotoContentEpoch((n) => n + 1);
-                    bumpWorkspace();
+                    // Remount after paint settles — otherwise renderOnlyPageLengthChange
+                    // keeps the pre-replace leaf (blank / bottom strip) until reload.
+                    remountFlipbookAfterPhotoChange(left);
+                    if (asNewVersion && gridSelection?.mode !== 'cover') {
+                        setGridEditSet('whole');
+                        setGridSelection(buildSpreadSelection(left));
+                    }
                     if (user?.id && (asNewVersion || isCoverSlot)) {
                         try {
                             await smartAlbumsService.syncAlbumPreviewData(user.id, albumId);
@@ -2164,6 +2205,7 @@ export default function AlbumEditor({
             beginSuppressCollectionPageGrowth,
             bookPage,
             bumpWorkspace,
+            remountFlipbookAfterPhotoChange,
             endSuppressCollectionPageGrowth,
             gridEditSet,
             gridSelection,

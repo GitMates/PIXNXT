@@ -9,6 +9,7 @@ import {
   listStudioNotifications,
   markAllStudioNotificationsRead,
   STUDIO_NOTIFICATION_REFRESH_EVENTS,
+  STUDIO_NOTIFICATION_SOURCES,
 } from '../../services/studioNotifications';
 import './StudioNotifications.css';
 
@@ -25,7 +26,7 @@ function clampPanelPosition(triggerRect) {
   return { top, left };
 }
 
-export default function StudioNotifications({ userId, variant = 'default' }) {
+export default function StudioNotifications({ userId, variant = 'default', sources = null }) {
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const [items, setItems] = useState([]);
@@ -36,18 +37,35 @@ export default function StudioNotifications({ userId, variant = 'default' }) {
   const [panelPos, setPanelPos] = useState(null);
   const rootRef = useRef(null);
 
-  const unreadCount = useMemo(() => items.filter((item) => item.isUnread).length, [items]);
+  // Optional scope (e.g. Deliveries bell shows delivery sources only).
+  const sourceSet = useMemo(
+    () => (sources?.length ? new Set(sources) : null),
+    [sources],
+  );
+  const visibleItems = useMemo(
+    () => (sourceSet ? items.filter((item) => sourceSet.has(item.source)) : items),
+    [items, sourceSet],
+  );
+
+  const unreadCount = useMemo(() => visibleItems.filter((item) => item.isUnread).length, [visibleItems]);
 
   const sections = useMemo(
-    () => groupStudioNotificationSections(items),
-    [items],
+    () => groupStudioNotificationSections(visibleItems),
+    [visibleItems],
   );
 
   const hasNotifications = sections.some((section) => section.items.length > 0);
 
   const notificationState = useMemo(
-    () => ({ items, albums, clientGalleryItems }),
-    [items, albums, clientGalleryItems],
+    () => ({
+      items: visibleItems,
+      albums: !sourceSet || sourceSet.has(STUDIO_NOTIFICATION_SOURCES.SMART_ALBUM) ? albums : [],
+      clientGalleryItems:
+        !sourceSet || sourceSet.has(STUDIO_NOTIFICATION_SOURCES.CLIENT_GALLERY)
+          ? clientGalleryItems
+          : [],
+    }),
+    [visibleItems, albums, clientGalleryItems, sourceSet],
   );
 
   const updatePanelPosition = useCallback(() => {
@@ -157,13 +175,25 @@ export default function StudioNotifications({ userId, variant = 'default' }) {
   const handleMarkAllRead = async (e) => {
     e.stopPropagation();
     await markAllStudioNotificationsRead(notificationState);
-    setItems((prev) => prev.map((row) => ({ ...row, isUnread: false })));
+    // Only clear the badge for the scope this bell displays.
+    if (sourceSet) {
+      setItems((prev) =>
+        prev.map((row) => (sourceSet.has(row.source) ? { ...row, isUnread: false } : row)),
+      );
+    } else {
+      setItems((prev) => prev.map((row) => ({ ...row, isUnread: false })));
+    }
   };
 
   const handleClearAll = async (e) => {
     e.stopPropagation();
     await clearAllStudioNotifications(notificationState);
-    setItems([]);
+    // Only remove the scope this bell displays.
+    if (sourceSet) {
+      setItems((prev) => prev.filter((row) => !sourceSet.has(row.source)));
+    } else {
+      setItems([]);
+    }
     setOpen(false);
   };
 
@@ -223,7 +253,7 @@ export default function StudioNotifications({ userId, variant = 'default' }) {
                       {unreadCount} new
                     </span>
                   ) : null}
-                  {items.length > 0 ? (
+                  {visibleItems.length > 0 ? (
                     <button
                       type="button"
                       className="sd-notifications-clear-btn"

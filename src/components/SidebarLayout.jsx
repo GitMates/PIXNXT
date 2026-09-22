@@ -55,6 +55,7 @@ const SidebarLayout = ({
     headerActions = null,
     shellClassName = '',
     navCounts = null,
+    notificationSources = null,
 }) => {
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const [showAppDropdown, setShowAppDropdown] = useState(false);
@@ -509,7 +510,7 @@ const SidebarLayout = ({
     );
 
     const defaultNotifications = (
-        <StudioNotifications userId={user?.id} variant="sidebar" />
+        <StudioNotifications userId={user?.id} variant="sidebar" sources={notificationSources} />
     );
 
     const renderNavButton = (item) => {

@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import { AppLoader } from '../components/ui/AppLoading';
 import SidebarLayout from '../components/SidebarLayout';
+import { STUDIO_NOTIFICATION_SOURCES } from '../services/studioNotifications';
 import { cn } from '../lib/utils';
 import { useAuth } from '../hooks/useAuth';
 import { galleryService } from '../services/gallery.service';
@@ -664,7 +665,12 @@ const ClientGallery = () => {
     };
 
     return (
-        <SidebarLayout>
+        <SidebarLayout
+            notificationSources={[
+                STUDIO_NOTIFICATION_SOURCES.CLIENT_GALLERY,
+                STUDIO_NOTIFICATION_SOURCES.GUEST_DELIVERY,
+            ]}
+        >
             <main className="cg-style-2 dl-page">
                 <div className="mx-auto w-full max-w-[92rem] px-4 pt-10 sm:px-8 sm:pt-12 pb-16">
                     <div className="dl-header flex items-start justify-between gap-4">

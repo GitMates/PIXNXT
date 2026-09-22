@@ -275,8 +275,8 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
         spreadOpts.hasCovers || album?.has_covers === true
             ? { ...spreadOpts, hasCovers: true, showCover: true }
             : spreadOpts;
-    const gridOpts = { ...spreadOpts, totalPages };
-    const { right: lastSpreadRight } = getLastSpreadInfo(totalPages, spreadOpts);
+    const gridOpts = { ...coverLayoutOpts, totalPages };
+    const { right: lastSpreadRight } = getLastSpreadInfo(totalPages, coverLayoutOpts);
     const wholeSpread = placementMode === 'whole';
     const isWholeSpreadAlbum = wholeSpread || isWholeSpreadLayout(album?.grid_layout);
     const rightPageHasPhoto = pageHasVisiblePhoto(
@@ -286,13 +286,13 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
         totalPages,
         showSamples,
         isWholeSpreadAlbum,
-        spreadOpts
+        coverLayoutOpts
     );
     const endSpreadRole = getEndSpreadPageRole(pageNum, totalPages, {
-        ...spreadOpts,
+        ...coverLayoutOpts,
         rightPageHasPhoto,
     });
-    const preBackSpreadRole = getPreBackSpreadPageRole(pageNum, totalPages, spreadOpts);
+    const preBackSpreadRole = getPreBackSpreadPageRole(pageNum, totalPages, coverLayoutOpts);
     const spreadLeftForPage = getSpreadLeftPageIndex(pageNum, gridOpts);
     const labelForPin = (pinPageNum, cellId, whole = false) =>
         getSlotLabel(pinPageNum, cellId, whole, totalPages, album);
@@ -300,10 +300,10 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
     const isPreBackHalfPage =
         preBackSpreadRole === 'half-left' ||
         preBackSpreadRole === 'half-blank' ||
-        isPreBackHalfSpreadRightPage(pageNum, totalPages, spreadOpts);
+        isPreBackHalfSpreadRightPage(pageNum, totalPages, coverLayoutOpts);
     const useHalfSpreadLayout =
         isPreBackHalfPage || !isWholeSpreadAlbum || !spreadWholePhoto;
-    const endHalfLeftPage = isEndHalfSpreadLeftPage(spreadLeftForPage, totalPages, spreadOpts);
+    const endHalfLeftPage = isEndHalfSpreadLeftPage(spreadLeftForPage, totalPages, coverLayoutOpts);
     const useLeftGrid = isProofLeftGridPage(pageNum, gridOpts) && !endHalfLeftPage;
     const useRightGrid = isProofRightGridPage(pageNum, gridOpts);
     const src = getPageImageSrc(album, pageNum, showSamples, coverLayoutOpts);
@@ -312,7 +312,7 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
     // Pre-back right is always disabled — even if a whole-spread photo was stored on this spread.
     if (
         preBackSpreadRole === 'half-blank' ||
-        isPreBackHalfSpreadRightPage(pageNum, totalPages, spreadOpts)
+        isPreBackHalfSpreadRightPage(pageNum, totalPages, coverLayoutOpts)
     ) {
         return (
             <div
@@ -406,7 +406,7 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
         (livePinMarkMode || liveSpotActionPicker) && liveGetPinsForSlot
             ? liveGetPinsForSlot(1, 0, 0)
             : [];
-    const isBackCoverPage = endSpreadRole === 'half-left' && spreadOpts.hasCovers;
+    const isBackCoverPage = endSpreadRole === 'half-left' && coverLayoutOpts.hasCovers;
     const isEndCoverPage = isBackCoverPage && !editable && !spreadEdit;
     const showLeatherBackCover =
         album?.blank_covers === true && !src && isBackCoverPage;
@@ -440,7 +440,7 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
     const canActivateSlot = editable && !spreadEdit && Boolean(liveOnSlotActivate);
     const HalfSpreadWrapTag = canActivateSlot ? 'button' : 'div';
 
-    const isInsideCoverRight = isInsideCoverRightPage(pageNum, totalPages, spreadOpts);
+    const isInsideCoverRight = isInsideCoverRightPage(pageNum, totalPages, coverLayoutOpts);
     const insideCoverPhotoSrc = isInsideCoverRight
         ? getInsideCoverRightPhotoSrc(albumId, { showSamples })
         : null;
