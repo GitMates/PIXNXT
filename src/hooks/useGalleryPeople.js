@@ -16,7 +16,9 @@ export function useGalleryPeople(collectionId, { enabled = true, isPublic = true
     if (!collectionId || !enabled) return;
     setLoading(true);
     try {
-      const { people: rows } = await photoAiService.getPeopleFromDb(collectionId);
+      const { people: rows } = await photoAiService.getPeopleForGallery(collectionId, {
+        isPublic,
+      });
       setPeople(Array.isArray(rows) ? rows : []);
     } catch (err) {
       console.warn('[useGalleryPeople] load failed:', err?.message || err);
@@ -24,7 +26,7 @@ export function useGalleryPeople(collectionId, { enabled = true, isPublic = true
     } finally {
       setLoading(false);
     }
-  }, [collectionId, enabled]);
+  }, [collectionId, enabled, isPublic]);
 
   useEffect(() => {
     if (!collectionId || !enabled) {

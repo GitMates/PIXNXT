@@ -1829,15 +1829,21 @@ const GalleryView = () => {
       : source.filter((p) => !p.set_id);
   }, [collection, activeSetId, isFavoriteListMode, favoriteListPhotos, isClientViewer]);
 
-  /** People strip: only people in client-visible photos, avatars rebound to web/thumb URLs. */
+  /** People strip for the active set only (Highlights / named tab) — same as Preview. */
   const peopleForGalleryStrip = useMemo(() => {
     if (!collection) return [];
-    const visiblePhotos = (collection.photos || []).filter(
-      (p) => isClientViewer || !p.is_private
-    );
-    const scoped = filterPeopleForPhotos(galleryPeople.people, visiblePhotos);
-    return rebindPeopleAvatarsFromPhotos(scoped, visiblePhotos);
-  }, [collection, galleryPeople.people, isClientViewer]);
+    const scoped = filterPeopleForPhotos(galleryPeople.people, photosForActiveSet);
+    return rebindPeopleAvatarsFromPhotos(scoped, photosForActiveSet);
+  }, [collection, galleryPeople.people, photosForActiveSet]);
+
+  const activePersonInSet = useMemo(
+    () => peopleForGalleryStrip.find((person) => person.id === galleryPeople.activePersonId) || null,
+    [peopleForGalleryStrip, galleryPeople.activePersonId]
+  );
+
+  useEffect(() => {
+    galleryPeople.clearFilter();
+  }, [activeSetId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const visibleSets = useMemo(() => {
     if (!collection?.sets) return [];
@@ -1901,15 +1907,15 @@ const GalleryView = () => {
     if (galleryPeople.selfieMatchPhotoIds.length) {
       return filterPhotosByIds(filteredPhotosBase, galleryPeople.selfieMatchPhotoIds);
     }
-    if (galleryPeople.activePerson) {
-      const photoIds = galleryPeople.activePerson.photoIds || [];
+    if (activePersonInSet) {
+      const photoIds = activePersonInSet.photoIds || [];
       if (photoIds.length) return filterPhotosByIds(filteredPhotosBase, photoIds);
       // A person with no matched photos yet (e.g. a registered guest whose
       // face match is pending) must show an empty grid, not the whole gallery.
       return [];
     }
     return filteredPhotosBase;
-  }, [filteredPhotosBase, galleryPeople.selfieMatchPhotoIds, galleryPeople.activePerson]);
+  }, [filteredPhotosBase, galleryPeople.selfieMatchPhotoIds, activePersonInSet]);
 
   const { videos: galleryVideos, photos: galleryStills } = useMemo(
     () => partitionGalleryMedia(photosAfterPeopleFilter),

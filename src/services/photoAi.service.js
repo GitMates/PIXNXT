@@ -237,6 +237,59 @@ export const photoAiService = {
     return { people: withUrls, tableMissing: false };
   },
 
+  /**
+   * Public People strip for share / custom-domain / anonymous Preview.
+   * Uses published-gallery endpoint (password-aware). Avatars are rebound
+   * from the already-loaded photo list on the client — no owner JWT needed.
+   */
+  async getPeoplePublic(collectionId) {
+    if (!collectionId) return { people: [], tableMissing: false };
+
+    const { apiFetch } = await import('../lib/api/client');
+    let password = null;
+    try {
+      const { getStoredGalleryPassword } = await import('./workersGallery.service');
+      password = getStoredGalleryPassword(collectionId);
+    } catch {
+      password = null;
+    }
+    const qs = password
+      ? `?password=${encodeURIComponent(password)}`
+      : '';
+    const data = await apiFetch(`/v1/public/gallery/${encodeURIComponent(collectionId)}/people${qs}`);
+    const people = ((data?.people || []).map(normalizePersonRow)).map((row) => ({
+      id: row.cluster_key || row.id,
+      faceIds: row.face_ids || [],
+      photoIds: row.photo_ids || [],
+      label: row.label,
+      count: (row.photo_ids || []).length,
+      imageUrl: null,
+      boundingBox: row.avatar_bounding_box || null,
+      avatarPhotoId: row.avatar_photo_id || null,
+      isHidden: Boolean(row.is_hidden),
+    }));
+    return { people, tableMissing: false };
+  },
+
+  /** Load people for a gallery surface — public path when `isPublic`, else owner. */
+  async getPeopleForGallery(collectionId, { isPublic = false, includeHidden = false } = {}) {
+    if (!collectionId) return { people: [], tableMissing: false };
+    if (isPublic) {
+      try {
+        return await this.getPeoplePublic(collectionId);
+      } catch (err) {
+        // Owner Preview / signed-in share: fall back to authed people.
+        console.warn('[photoAi] public people failed, trying owner path:', err?.message || err);
+        try {
+          return await this.getPeopleFromDb(collectionId, { includeHidden });
+        } catch {
+          return { people: [], tableMissing: false };
+        }
+      }
+    }
+    return this.getPeopleFromDb(collectionId, { includeHidden });
+  },
+
   async setPersonHidden(collectionId, personId, hidden) {
     if (!collectionId || !personId) {
       throw new Error('Missing delivery or person.');

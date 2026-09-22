@@ -59,20 +59,6 @@ function formatAddedOn(value) {
     return `${pad(d.getDate())}-${pad(d.getMonth() + 1)}-${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
-/** Truncate a storage path the way Windows truncates long file locations. */
-function fileLocationLabel(photo) {
-    const path =
-        photo?.original_storage_path ||
-        photo?.originalStoragePath ||
-        photo?.full_url ||
-        photo?.fullUrl ||
-        '';
-    if (!path) return 'In delivery storage';
-    const text = String(path);
-    if (text.length <= 42) return text;
-    return `${text.slice(0, 28)}…${text.slice(-10)}`;
-}
-
 /**
  * Windows-style properties pane for one delivery photo: file facts from the
  * row plus shooting details from stored `exif_details` (or parsed on demand).
@@ -165,7 +151,6 @@ export function PhotoDetailsModal({ photo, onClose, onCameraLabel }) {
                 ? formatStorageBytes(photo.size_bytes ?? photo.sizeBytes)
                 : '',
         ],
-        ['File location', fileLocationLabel(photo)],
         [
             'Date modified',
             formatAddedOn(photo.updated_at || photo.updatedAt || photo.created_at || photo.createdAt),

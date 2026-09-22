@@ -22,6 +22,7 @@ import {
     filterPhotosByIds,
     filterPeopleForPhotos,
     peopleInPhoto,
+    rebindPeopleAvatarsFromPhotos,
 } from '../lib/photoAiSearch';
 import { isIndexedSnapshotFresh, maxIndexedAtFromRows } from '../lib/photoAiCacheFreshness';
 import { CollectionPhotosWorkspaceHeader } from '../components/features/CollectionDashboard/Photos/CollectionPhotosWorkspaceHeader';
@@ -2936,10 +2937,10 @@ const CollectionDashboard = () => {
         return sortDashboardPhotos(filtered, sortOption);
     }, [photos, activeSetId, sortOption]);
 
-    const peopleForActiveSet = useMemo(
-        () => filterPeopleForPhotos(photoAiPeople, sortedPhotos),
-        [photoAiPeople, sortedPhotos]
-    );
+    const peopleForActiveSet = useMemo(() => {
+        const scoped = filterPeopleForPhotos(photoAiPeople, sortedPhotos);
+        return rebindPeopleAvatarsFromPhotos(scoped, sortedPhotos);
+    }, [photoAiPeople, sortedPhotos]);
 
     const indexedCountForActiveSet = useMemo(() => {
         if (!photoAiRows.length || !sortedPhotos.length) return 0;
