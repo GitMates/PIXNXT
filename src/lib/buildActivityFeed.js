@@ -47,10 +47,45 @@ function moneyLabel(amount) {
   }
 }
 
+function rowMeta(row) {
+  const raw = row?.metadata;
+  if (!raw) return {};
+  if (typeof raw === 'object') return raw;
+  try {
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === 'object' ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+function rowEmail(row) {
+  const direct = row?.email || row?.visitor_email || row?.visitorEmail;
+  if (direct && String(direct).trim()) return String(direct).trim();
+  const meta = rowMeta(row);
+  const fromMeta = meta?.email;
+  if (fromMeta && String(fromMeta).trim() && String(fromMeta).toLowerCase() !== 'visitor') {
+    return String(fromMeta).trim();
+  }
+  return direct ? String(direct).trim() : null;
+}
+
+function rowDate(row) {
+  return row?.date || row?.created_at || row?.createdAt || null;
+}
+
+function rowInnerMeta(row) {
+  const meta = rowMeta(row);
+  if (meta && typeof meta.metadata === 'object' && meta.metadata !== null) return meta.metadata;
+  return meta;
+}
+
 function downloadCopy(row) {
-  const count = Number(row.photoCount);
-  const sizeLabel = row.resolution ? String(row.resolution).toLowerCase() : null;
-  const setLabel = row.setName || null;
+  const inner = rowInnerMeta(row);
+  const count = Number(row.photoCount ?? inner?.photoCount ?? 0);
+  const resolutionRaw = row.resolution ?? inner?.resolution ?? null;
+  const sizeLabel = resolutionRaw ? String(resolutionRaw).toLowerCase() : null;
+  const setLabel = row.setName || inner?.setName || null;
   if (row.type === 'gallery') {
     const hasCount = Number.isFinite(count) && count > 0;
     return {
@@ -184,14 +219,17 @@ export function buildActivityFeedItems({
   const items = [];
 
   for (const row of downloadActivity || []) {
-    const at = row.date || row.created_at;
+    const at = rowDate(row);
     if (!at) continue;
+    const inner = rowInnerMeta(row);
+    const type = row.type || inner?.type || 'gallery';
+    const filename = row.filename || inner?.filename || null;
     items.push({
       id: `download-${row.id}`,
       filter: 'downloads',
       badge: 'Download',
-      actor: row.email || 'Visitor',
-      ...downloadCopy(row),
+      actor: rowEmail(row) || 'Visitor',
+      ...downloadCopy({ ...row, type, filename }),
       at,
       source: { kind: 'download', row },
     });
@@ -244,15 +282,16 @@ export function buildActivityFeedItems({
   }
 
   for (const row of emailRegistrationActivity || []) {
-    const key = String(row.email || row.id).toLowerCase();
+    const email = rowEmail(row);
+    const key = String(email || row.id).toLowerCase();
     if (guestKeys.has(key)) continue;
-    const at = row.date || row.created_at;
+    const at = rowDate(row);
     if (!at) continue;
     items.push({
       id: `guest-email-${row.id}`,
       filter: 'guests',
       badge: 'Guest',
-      actor: row.email || 'Guest',
+      actor: email || 'Guest',
       ...guestCopy(row),
       at,
       source: { kind: 'guest-email', row },
@@ -260,13 +299,13 @@ export function buildActivityFeedItems({
   }
 
   for (const row of galleryOpenActivity || []) {
-    const at = row.date || row.created_at;
+    const at = rowDate(row);
     if (!at) continue;
     items.push({
       id: `open-${row.id}`,
       filter: 'opens',
       badge: 'Opened',
-      actor: maskActivityEmail(row.email || 'Visitor'),
+      actor: maskActivityEmail(rowEmail(row) || 'Visitor'),
       ...openCopy(row),
       at,
       source: { kind: 'open', row },
@@ -286,9 +325,10 @@ export function filterActivityFeedItems(items, filter) {
 }
 
 export function activitySubTabToFeedFilter(subTab) {
-  if (subTab === 'download') return 'downloads';
-  if (subTab === 'favorite') return 'selections';
-  if (subTab === 'store') return 'orders';
-  if (subTab === 'email') return 'guests';
+  if (subTab === 'download' || subTab === 'downloads') return 'downloads';
+  if (subTab === 'favorite' || subTab === 'favorites' || subTab === 'selections' || subTab === 'selection') return 'selections';
+  if (subTab === 'store' || subTab === 'orders' || subTab === 'order') return 'orders';
+  if (subTab === 'email' || subTab === 'guests' || subTab === 'guest') return 'guests';
+  if (subTab === 'open' || subTab === 'opens' || subTab === 'views') return 'opens';
   return 'everything';
 }

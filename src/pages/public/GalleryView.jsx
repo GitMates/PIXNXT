@@ -1485,6 +1485,27 @@ const GalleryView = () => {
           cacheSlideshowEnabled(resolved.id, urlSlideshow);
         }
         setCollection(applyPreviewQueryToCollection(resolved));
+        // Record one gallery_view per browser session so the delivery
+        // Activity → Opens tab fills in. Skipped for the owner's own
+        // preview so self-checks don't inflate visitor stats.
+        if (resolved.id && !ownerBypass) {
+          try {
+            const flag = `pixnxt_gallery_view_logged_${resolved.id}`;
+            if (!sessionStorage.getItem(flag)) {
+              sessionStorage.setItem(flag, '1');
+              const savedEmail = readGalleryRegistration(resolved.id)?.email || '';
+              const validEmail = savedEmail && savedEmail.includes('@') ? savedEmail : undefined;
+              void galleryService
+                .logActivity(resolved.id, 'gallery_view', {
+                  visitorEmail: validEmail,
+                  metadata: { source: 'Social / Gallery' },
+                })
+                .catch(() => {});
+            }
+          } catch {
+            /* activity is best-effort */
+          }
+        }
         if (
           resolved.id &&
           Object.prototype.hasOwnProperty.call(resolved, 'slideshow_enabled')

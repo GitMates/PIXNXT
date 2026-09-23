@@ -800,9 +800,55 @@ export async function getSessionDefaultFavoriteList(sessionId) {
 
 // ---------- activity ----------
 
+function parseActivityMetadata(row) {
+  const raw = row?.metadata;
+  if (!raw) return {};
+  if (typeof raw === 'object') return raw;
+  try {
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === 'object' ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+function activityEmailOf(row, meta) {
+  const direct = row?.email || row?.visitor_email || row?.visitorEmail;
+  if (direct && String(direct).trim() && String(direct).toLowerCase() !== 'visitor') return String(direct).trim();
+  const fromMeta = meta?.email;
+  if (fromMeta && String(fromMeta).trim() && String(fromMeta).toLowerCase() !== 'visitor') return String(fromMeta).trim();
+  return direct ? String(direct).trim() : null;
+}
+
+function activityDateOf(row) {
+  return row?.date || row?.created_at || row?.createdAt || null;
+}
+
+/** Unwrap the double-nested metadata logActivity produces ({email, metadata:{...}}). */
+function innerActivityMeta(meta) {
+  if (meta && typeof meta.metadata === 'object' && meta.metadata !== null) return meta.metadata;
+  return meta;
+}
+
+function normalizeDownloadRow(row) {
+  const meta = parseActivityMetadata(row);
+  const inner = innerActivityMeta(meta);
+  const resolutionRaw = row?.resolution ?? inner?.resolution ?? meta?.resolution ?? null;
+  return {
+    ...row,
+    email: activityEmailOf(row, meta) || 'Visitor',
+    date: activityDateOf(row),
+    photoCount: Number(inner?.photoCount ?? meta?.photoCount ?? 0) || 0,
+    resolution: typeof resolutionRaw === 'string' ? resolutionRaw.toLowerCase() : resolutionRaw,
+    filename: inner?.filename ?? meta?.filename ?? row?.filename ?? null,
+    type: inner?.type ?? meta?.type ?? row?.type ?? 'gallery',
+    setName: inner?.setName ?? meta?.setName ?? row?.setName ?? null,
+  };
+}
+
 export async function getDownloadActivity(collectionId) {
   const data = await apiFetch(`/v1/engage/activity?collectionId=${encodeURIComponent(collectionId)}&type=download&limit=500`).catch(() => null);
-  return data?.activity || [];
+  return (data?.activity || []).map(normalizeDownloadRow);
 }
 
 export async function deleteActivity(activityId) {
@@ -810,11 +856,14 @@ export async function deleteActivity(activityId) {
 }
 
 export async function logActivity(collectionId, eventType, data = {}) {
-  const { sessionId, photoId, visitorEmail, resolution, ...metadata } = data || {};
+  const { sessionId, photoId, visitorEmail, email, resolution, ...metadata } = data || {};
+  const looksLikeEmail = (v) => typeof v === 'string' && v.includes('@') && v.length <= 255;
+  const resolvedEmail = looksLikeEmail(visitorEmail) ? visitorEmail.trim().toLowerCase()
+    : looksLikeEmail(email) ? email.trim().toLowerCase() : null;
   await apiFetch('/v1/engage/activity', {
     method: 'POST',
     auth: false,
-    body: { collectionId, eventType, sessionId: sessionId ?? null, photoId: photoId ?? null, visitorEmail: visitorEmail ?? null, resolution: resolution ?? null, metadata },
+    body: { collectionId, eventType, sessionId: sessionId ?? null, photoId: photoId ?? null, visitorEmail: resolvedEmail, resolution: resolution ?? null, metadata },
   });
 }
 
@@ -849,12 +898,34 @@ export async function getPinUsageCount(collectionId) {  const data = await apiFe
 
 export async function getEmailRegistrationActivity(collectionId) {
   const data = await apiFetch(`/v1/engage/activity?collectionId=${encodeURIComponent(collectionId)}&type=email_register&limit=500`).catch(() => null);
-  return data?.activity || [];
+  return (data?.activity || []).map((row) => {
+    const meta = parseActivityMetadata(row);
+    return { ...row, email: activityEmailOf(row, meta) || 'Guest', date: activityDateOf(row) };
+  });
 }
 
 export async function getGalleryOpenActivity(collectionId) {
   const data = await apiFetch(`/v1/engage/activity?collectionId=${encodeURIComponent(collectionId)}&type=gallery_view&limit=500`).catch(() => null);
-  return data?.activity || [];
+  const rows = (data?.activity || []).map((row) => {
+    const meta = parseActivityMetadata(row);
+    return { ...row, email: activityEmailOf(row, meta) || 'Visitor', date: activityDateOf(row) };
+  });
+  // Aggregate repeat opens per visitor so the feed can show "3rd visit".
+  const byVisitor = new Map();
+  for (const row of rows) {
+    const key = String(row.session_id || row.sessionId || row.email || 'visitor').toLowerCase();
+    const entry = byVisitor.get(key);
+    if (!entry) {
+      byVisitor.set(key, { ...row, visitCount: 1 });
+    } else {
+      entry.visitCount += 1;
+      if (String(row.date || '') > String(entry.date || '')) {
+        entry.date = row.date;
+        entry.id = row.id;
+      }
+    }
+  }
+  return [...byVisitor.values()];
 }
 
 export async function getActivityCounts(collectionId) {
