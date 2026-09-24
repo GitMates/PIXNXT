@@ -369,6 +369,14 @@ export default function AlbumEditor({
     const [workspaceTick, setWorkspaceTick] = useState(0);
     /** Remount flipbook when spread photo bytes change (page-flip ignores child updates). */
     const [photoContentEpoch, setPhotoContentEpoch] = useState(0);
+    /**
+     * Show the flipbook as soon as album meta is present. Cloud hydrate may
+     * refresh placements in place; remount only when placements actually change
+     * after the book is already painted (avoids reload blink).
+     */
+    const [flipbookReady, setFlipbookReady] = useState(true);
+    const flipbookWasReadyRef = useRef(false);
+    const hydrateGenerationRef = useRef(0);
     const [pickerOpen, setPickerOpen] = useState(false);
     const [pageCountBusy, setPageCountBusy] = useState(false);
     const [showShareMenu, setShowShareMenu] = useState(false);
@@ -837,8 +845,13 @@ export default function AlbumEditor({
         const changed = runAlbumPlacementMigrations(albumId, album, totalPages);
         if (!changed) return undefined;
         const timer = window.setTimeout(() => {
-            setPhotoContentEpoch((n) => n + 1);
+            // Prefer in-place refresh via context. Remount only if the flipbook
+            // is already on screen and migrations changed placements — avoids a
+            // blank blink when migrations run during the deferred first mount.
             bumpWorkspaceRef.current?.();
+            if (flipbookWasReadyRef.current) {
+                setPhotoContentEpoch((n) => n + 1);
+            }
         }, 0);
         return () => window.clearTimeout(timer);
     }, [albumId, totalPages, spreadOpts.hasCovers, album?.has_covers, album?.grid_layout, album?.blank_covers]);
@@ -958,12 +971,28 @@ export default function AlbumEditor({
     // Marking all seen on tab open prevents the highlight from ever appearing.
 
     useEffect(() => {
+        flipbookWasReadyRef.current = false;
+        setPhotoContentEpoch(0);
+        hydrateGenerationRef.current += 1;
+        setFlipbookReady(Boolean(albumId));
+    }, [albumId]);
+
+    useEffect(() => {
         if (!albumId || !user?.id) return undefined;
 
         let cancelled = false;
+        const generation = hydrateGenerationRef.current;
+
         (async () => {
             const result = await loadAlbumAssetsFromCloud(albumId, user.id);
-            if (cancelled || !result.loaded) return;
+            if (cancelled || generation !== hydrateGenerationRef.current) return;
+
+            if (!result.loaded) {
+                setFlipbookReady(true);
+                flipbookWasReadyRef.current = true;
+                return;
+            }
+
             const healed = healOrphanCollectionPlacements(albumId);
             const embedded = embedPlacementStorageFallbacks(albumId);
             // Re-run cover / inside-cover migrations AFTER cloud merge — otherwise
@@ -982,16 +1011,31 @@ export default function AlbumEditor({
                     console.warn('Could not persist recovered album assets:', err?.message || err);
                 }
             }
-            if (cancelled) return;
+            if (cancelled || generation !== hydrateGenerationRef.current) return;
+
             setCollectionRevision(getAlbumCollectionRevision(albumId));
             onPhotosUploaded?.();
             setTransformRevision(getTransformRevision(albumId));
-            // Always remount after hydrate+migrate so renderOnlyPageLengthChange
-            // cannot keep a stale wrap leaf.
-            setPhotoContentEpoch((n) => n + 1);
-            if (result.merged || healed || embedded || result.recoveredFromR2 || migrated) {
+
+            const alreadyShowing = flipbookWasReadyRef.current;
+            const placementsChanged =
+                Boolean(result.merged) ||
+                Boolean(healed) ||
+                Boolean(embedded) ||
+                Boolean(result.recoveredFromR2) ||
+                Boolean(migrated);
+
+            setFlipbookReady(true);
+            flipbookWasReadyRef.current = true;
+
+            if (placementsChanged) {
                 scheduleWorkspaceRefresh();
                 bumpWorkspaceRef.current?.();
+            }
+            // Remount only when the book was already painted AND placements
+            // actually changed. Routine reloads must not blank the spread.
+            if (alreadyShowing && placementsChanged) {
+                setPhotoContentEpoch((n) => n + 1);
             }
         })();
 
@@ -1001,6 +1045,11 @@ export default function AlbumEditor({
         // Load once per album session; avoid re-fetch loops from callback identity changes.
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [albumId, user?.id]);
+
+    // First paint: mark the book as live once AlbumBook has been allowed to mount.
+    useEffect(() => {
+        if (flipbookReady) flipbookWasReadyRef.current = true;
+    }, [flipbookReady]);
 
     useEffect(() => {
         if (!showShareMenu) return undefined;
@@ -1071,6 +1120,15 @@ export default function AlbumEditor({
             }
         }
     }, [searchParams, album]);
+
+    useEffect(() => {
+        const share = searchParams.get('share');
+        if (share !== 'link' && share !== '1') return;
+        setShowShareMenu(true);
+        const next = new URLSearchParams(searchParams);
+        next.delete('share');
+        setSearchParams(next, { replace: true });
+    }, [searchParams, setSearchParams]);
 
     useEffect(() => {
         setBookPage((prev) => {
@@ -2741,6 +2799,7 @@ export default function AlbumEditor({
                         bookPage={bookPage}
                         activePanel={activePanel}
                         onSelectNotification={handleNotificationSelect}
+                        onAlbumUpdate={onAlbumUpdate}
                     />
                     <button
                         type="button"
@@ -2838,7 +2897,7 @@ export default function AlbumEditor({
                                 showSpine={showCoverSpine}
                                 onShowSpineChange={setShowCoverSpine}
                             />
-                        ) : (
+                        ) : flipbookReady ? (
                             <AlbumBook
                                 key={albumId}
                                 album={albumForBook}
@@ -2872,6 +2931,8 @@ export default function AlbumEditor({
                                 pinMarkMode
                                 proofToolsHover={false}
                             />
+                        ) : (
+                            <div className="ae-canvas-stage-loading" aria-busy="true" />
                         )}
                     </div>
                     {!coverEditMode ? (

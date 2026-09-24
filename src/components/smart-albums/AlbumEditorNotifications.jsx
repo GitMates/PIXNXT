@@ -21,6 +21,8 @@ import { isCommentAudioAttachment } from './albumCommentAttachments';
 import { resolveFilmstripVisual, FilmstripThumb } from './AlbumSpreadFilmstrip';
 import { parseGridSizeAspect } from './albumGridSize';
 import { AppLoader } from '../ui/AppLoading';
+import { apiBase, getAccessToken } from '../../lib/api/client';
+import { smartAlbumsService } from '../../services/smartAlbums.service';
 
 function getNotificationLocationLabel(item, album, totalPages) {
     const spreadOpts = { ...getAlbumSpreadOptions(album), totalPages };
@@ -59,6 +61,7 @@ export default function AlbumEditorNotifications({
     bookPage = 0,
     activePanel = null,
     onSelectNotification,
+    onAlbumUpdate,
 }) {
     const [open, setOpen] = useState(false);
     const [items, setItems] = useState([]);
@@ -136,6 +139,40 @@ export default function AlbumEditorNotifications({
         refresh();
     }, [refresh, album?.id]);
 
+    // Re-pull the album row (approval / submit stamps live on it) and then
+    // rebuild the items. Coalesces bursts so SSE + visibility can't stampede.
+    const albumRefreshInflightRef = useRef(null);
+    const lastAlbumRefreshAtRef = useRef(0);
+    const refreshAlbumRow = useCallback(async () => {
+        const current = albumRef.current;
+        if (!current?.id) {
+            refresh({ silent: true });
+            return;
+        }
+        if (albumRefreshInflightRef.current) return albumRefreshInflightRef.current;
+        if (Date.now() - lastAlbumRefreshAtRef.current < 5000) {
+            refresh({ silent: true });
+            return Promise.resolve();
+        }
+        const task = (async () => {
+            try {
+                const photographerId = current.photographer_id;
+                if (photographerId) {
+                    const fresh = await smartAlbumsService.getAlbum(photographerId, current.id);
+                    if (fresh && mountedRef.current) onAlbumUpdate?.(fresh);
+                }
+            } catch {
+                /* keep the cached album; items refresh below still runs */
+            } finally {
+                lastAlbumRefreshAtRef.current = Date.now();
+                albumRefreshInflightRef.current = null;
+            }
+            if (mountedRef.current) refresh({ silent: true });
+        })();
+        albumRefreshInflightRef.current = task;
+        return task;
+    }, [refresh, onAlbumUpdate]);
+
     useEffect(() => {
         let debounceId = null;
         const onRefresh = (e) => {
@@ -148,7 +185,7 @@ export default function AlbumEditorNotifications({
             }, 300);
         };
         const onVisibility = () => {
-            if (document.visibilityState === 'visible') refresh({ silent: true });
+            if (document.visibilityState === 'visible') void refreshAlbumRow();
         };
 
         NOTIFICATION_REFRESH_EVENTS.forEach((eventName) => {
@@ -162,7 +199,68 @@ export default function AlbumEditorNotifications({
             });
             document.removeEventListener('visibilitychange', onVisibility);
         };
-    }, [album?.id, refresh]);
+    }, [album?.id, refresh, refreshAlbumRow]);
+
+    // Live proof events (client approves / submits from their own device).
+    // The backend SSE closes after ~60s, so reconnect with backoff.
+    useEffect(() => {
+        const albumId = album?.id;
+        if (!albumId || typeof EventSource === 'undefined') return undefined;
+        let source = null;
+        let retryId = null;
+        let disposed = false;
+        const connect = () => {
+            if (disposed) return;
+            let token = null;
+            try {
+                token = getAccessToken();
+            } catch {
+                token = null;
+            }
+            if (!token) return;
+            let url = '';
+            try {
+                url = `${apiBase()}/v1/proofer/albums/${encodeURIComponent(albumId)}/events?access_token=${encodeURIComponent(token)}`;
+            } catch {
+                return;
+            }
+            try {
+                source = new EventSource(url);
+            } catch {
+                return;
+            }
+            const onUpdate = () => {
+                void refreshAlbumRow();
+            };
+            source.addEventListener('feedback-updated', onUpdate);
+            source.addEventListener('hello', () => {});
+            source.onerror = () => {
+                try {
+                    source?.close();
+                } catch {
+                    /* ignore */
+                }
+                source = null;
+                if (!disposed && !retryId) {
+                    retryId = window.setTimeout(() => {
+                        retryId = null;
+                        connect();
+                    }, 3000);
+                }
+            };
+        };
+        connect();
+        return () => {
+            disposed = true;
+            if (retryId) window.clearTimeout(retryId);
+            try {
+                source?.close();
+            } catch {
+                /* ignore */
+            }
+            source = null;
+        };
+    }, [album?.id, refreshAlbumRow]);
 
     useLayoutEffect(() => {
         if (!open) {
@@ -345,7 +443,10 @@ export default function AlbumEditorNotifications({
                                 if (item.type === 'swap') {
                                     iconClass = 'swap';
                                     iconElement = <ArrowLeftRight size={14} />;
-                                } else if (item.type === 'changes_submitted' || item.type === 'album_approved') {
+                                } else if (item.type === 'album_approved') {
+                                    iconClass = 'approved';
+                                    iconElement = <Check size={14} strokeWidth={2.5} />;
+                                } else if (item.type === 'changes_submitted') {
                                     iconClass = 'tick';
                                     iconElement = <Check size={14} />;
                                 } else if (isAudioComment) {
@@ -359,7 +460,9 @@ export default function AlbumEditorNotifications({
                                             type="button"
                                             className={`ae-notifications-item${
                                                 item.isUnread ? ' ae-notifications-item--unread' : ''
-                                            }${isDone ? ' ae-notifications-item--done' : ''}`}
+                                            }${isDone ? ' ae-notifications-item--done' : ''}${
+                                                item.type === 'album_approved' ? ' ae-notifications-item--approved' : ''
+                                            }`}
                                             role="menuitem"
                                             onClick={() => handleSelect(item)}
                                         >

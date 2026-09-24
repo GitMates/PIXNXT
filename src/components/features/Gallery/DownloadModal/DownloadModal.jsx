@@ -24,6 +24,12 @@ import {
   isDigitalDownloadEnabled,
   resolveLegacyDigitalPrices,
 } from '@/lib/storePackages';
+import {
+  hasEmailAllowlist,
+  parseEmailAllowlist,
+  resolveDownloadContactMode,
+  LARGE_DOWNLOAD_BYTES,
+} from '@/lib/downloadAccess';
 import './DownloadModal.css';
 
 const LARGE_ZIP_BYTES = 4 * 1024 ** 3;
@@ -369,8 +375,13 @@ export const DownloadModal = ({
   useEffect(() => {
     if (isOpen && collection) {
       const knownEmail = knownGalleryVisitorEmail(collection?.id, visitorEmail);
+      const contactMode = resolveDownloadContactMode(collection);
+      const estBytes = (photos || []).reduce((sum, p) => sum + (Number(p?.size_bytes) || 0), 0);
+      const contactNeedsEmail =
+        contactMode === 'every' || (contactMode === 'large' && estBytes >= LARGE_DOWNLOAD_BYTES);
       const needsEmailField =
-        (!!collection?.email_capture_enabled || !!collection?.restrict_to_emails) && !knownEmail;
+        (!!collection?.email_capture_enabled || hasEmailAllowlist(collection?.restrict_to_emails) || contactNeedsEmail)
+        && !knownEmail;
       const isSingle = !!initialPhoto;
       const pinRequiredForSingle = collection?.require_pin_for_single_photo !== false;
       const hasPin = collectionHasDownloadPin(collection);
@@ -487,7 +498,13 @@ export const DownloadModal = ({
     const knownEmail = knownGalleryVisitorEmail(collection?.id, visitorEmail || email);
     const resolvedEmail = (email.trim() || knownEmail).trim();
 
-    if ((collection?.email_capture_enabled || collection?.restrict_to_emails) && !resolvedEmail.includes('@')) {
+    const contactMode = resolveDownloadContactMode(collection);
+    const needsContact =
+      !!collection?.email_capture_enabled
+      || hasEmailAllowlist(collection?.restrict_to_emails)
+      || contactMode === 'every'
+      || (contactMode === 'large' && selectionSummary.bytes >= LARGE_DOWNLOAD_BYTES);
+    if (needsContact && !resolvedEmail.includes('@')) {
       setError('Please enter your email address.');
       return;
     }
@@ -514,8 +531,8 @@ export const DownloadModal = ({
     }
 
     // Check email restriction
-    if (collection?.restrict_to_emails) {
-      const allowedEmails = collection.restrict_to_emails.split(',').map(e => e.trim().toLowerCase());
+    if (hasEmailAllowlist(collection?.restrict_to_emails)) {
+      const allowedEmails = parseEmailAllowlist(collection.restrict_to_emails);
       if (!allowedEmails.includes(resolvedEmail.toLowerCase())) {
         setError('Your email is not authorized to download this delivery.');
         return;
@@ -719,6 +736,13 @@ export const DownloadModal = ({
           throw new Error('This film is watch-only for this delivery.');
         }
         photosToDownload = photosToDownload.filter((p) => p?.media_type !== 'video');
+      } else if (
+        collection?.single_film_download === false
+        && whatScope === 'single'
+        && photosToDownload.length === 1
+        && photosToDownload[0]?.media_type === 'video'
+      ) {
+        throw new Error('Single films cannot be downloaded on their own for this delivery.');
       }
 
       if (photosToDownload.length === 0) {
@@ -959,7 +983,13 @@ export const DownloadModal = ({
   if (!isOpen) return null;
 
   const knownEmail = knownGalleryVisitorEmail(collection?.id, visitorEmail || email);
-  const needsEmail = (!!collection?.email_capture_enabled || !!collection?.restrict_to_emails) && !knownEmail;
+  const contactMode = resolveDownloadContactMode(collection);
+  const contactNeedsEmail =
+    contactMode === 'every'
+    || (contactMode === 'large' && selectionSummary.bytes >= LARGE_DOWNLOAD_BYTES);
+  const needsEmail =
+    (!!collection?.email_capture_enabled || hasEmailAllowlist(collection?.restrict_to_emails) || contactNeedsEmail)
+    && !knownEmail;
   const hasPin = collectionHasDownloadPin(collection);
   const pinRequiredForSingle = collection?.require_pin_for_single_photo !== false;
   const needsPin = hasPin && (!initialPhoto || pinRequiredForSingle);

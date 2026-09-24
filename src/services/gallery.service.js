@@ -1568,8 +1568,8 @@ export const galleryService = {
   /**
    * Send a selection-list invite email to a client (photographer dashboard).
    */
-  async sendSelectionListEmail({ collectionSlug, recipientEmail, subject, message, chooseUrl }) {
-    return (await workersGallery()).sendSelectionListEmail({ collectionSlug, recipientEmail, subject, message, chooseUrl });
+  async sendSelectionListEmail({ collectionSlug, recipientEmail, subject, message, chooseUrl, listId }) {
+    return (await workersGallery()).sendSelectionListEmail({ collectionSlug, recipientEmail, subject, message, chooseUrl, listId });
   },
 
   /**

@@ -15,6 +15,10 @@ import { DownloadModal } from '../../components/features/Gallery/DownloadModal/D
 import { ShareCollectionModal } from '../../components/features/Gallery/ShareCollectionModal/ShareCollectionModal';
 import { downloadSinglePhotoFile } from '../../lib/downloadPhoto';
 import { getCollectionShareUrl } from '../../lib/shareCollection';
+import {
+  hasEmailAllowlist,
+  resolveDownloadContactMode,
+} from '../../lib/downloadAccess';
 import { formatCoverDate } from '../../lib/formatCoverDate.js';
 import { getCollectionFocal, getCollectionFocals, stripMediaUrlHash } from '../../lib/focalPoint';
 import {
@@ -81,6 +85,8 @@ import {
   SLIDESHOW_CHANGED_EVENT,
   withResolvedSlideshowEnabled,
 } from '../../lib/collectionFeatureFlags';
+import { galleryHtmlLang, galleryUiStrings } from '../../lib/galleryUiStrings';
+import { GalleryWalkthrough } from '../../components/features/Gallery/GalleryWalkthrough';
 import {
   BannerBouquetSvg,
   formatBannerPlaceholders,
@@ -427,8 +433,18 @@ const GalleryView = () => {
 
   useEffect(() => {
     async function loadActiveProducts() {
+      if (!collection?.id || collection.store_enabled !== true) {
+        setActiveProducts([]);
+        return;
+      }
       try {
         const { apiFetch } = await import('../../lib/api/client');
+        const catalog = await apiFetch(`/v1/store/gallery/${encodeURIComponent(collection.id)}`, { auth: false }).catch(() => null);
+        if (catalog?.products?.length) {
+          setActiveProducts(catalog.products);
+          return;
+        }
+        // Fallback: global printstore catalog (legacy shopper products).
         const data = await apiFetch('/v1/printstore/products', { auth: false });
         if (data?.products) setActiveProducts(data.products);
       } catch (err) {
@@ -436,7 +452,14 @@ const GalleryView = () => {
       }
     }
     loadActiveProducts();
-  }, []);
+  }, [collection?.id, collection?.store_enabled, collection?.price_sheet_id, collection?.print_markup_percent]);
+
+  useEffect(() => {
+    if (!collection?.id || collection.store_enabled !== true) return;
+    if (searchParams.get('printLab') === '1' || searchParams.get('shop') === '1') {
+      setShowPrintLabModal(true);
+    }
+  }, [collection?.id, collection?.store_enabled, searchParams]);
 
   useEffect(() => {
     if (email) {
@@ -827,7 +850,8 @@ const GalleryView = () => {
 
   const selectionListId =
     activeFavoriteList?.id || pickListParam || getPickListId() || listId || null;
-  const favoritesLocked = Boolean(activeFavoriteList?.submitted_at);
+  const favoritesLocked =
+    Boolean(activeFavoriteList?.submitted_at) && collection?.selection_lock_on_submit !== false;
   const favoriteLightboxLabel = useMemo(() => {
     if (!sessionId) return null;
     const name = activeFavoriteList?.name || 'My Favorites';
@@ -908,7 +932,7 @@ const GalleryView = () => {
         setPasswordError('Incorrect password. Please try again.');
         return;
       }
-      setStoredGalleryPassword(collection.id, entered);
+      setStoredGalleryPassword(collection.id, entered, collection.password_reprompt_days);
       setLoading(true);
       const fresh = await galleryService.getCollectionBySlug(slug, { password: entered });
       if (fresh) {
@@ -1271,9 +1295,17 @@ const GalleryView = () => {
         alert('This film is watch-only for this delivery.');
         return;
       }
+      if (photo?.media_type === 'video' && collection?.single_film_download === false) {
+        alert('Single films cannot be downloaded on their own for this delivery.');
+        return;
+      }
 
       const savedEmail = knownGalleryVisitorEmail(collection.id, email);
-      const needsEmail = (!!collection?.email_capture_enabled || !!collection?.restrict_to_emails) && !savedEmail;
+      const contactMode = resolveDownloadContactMode(collection);
+      const contactNeedsEmail = contactMode === 'every' || contactMode === 'large';
+      const needsEmail =
+        (!!collection?.email_capture_enabled || hasEmailAllowlist(collection?.restrict_to_emails) || contactNeedsEmail)
+        && !savedEmail;
 
       // When PIN is ON, require it for single photo downloads too
       const pinRequiredForSingle = collection?.require_pin_for_single_photo !== false;
@@ -1440,19 +1472,29 @@ const GalleryView = () => {
   const navigationStyle = normalizeNavigationStyle(effectiveSettings.nav_style);
   const isGalleryDark = effectiveSettings.color_palette === 'dark';
 
+  const downloadsMasterOn = isCollectionFeatureEnabled(collection?.downloads_enabled);
   const showGalleryDownload =
-    (isCollectionFeatureEnabled(collection?.downloads_enabled) &&
-      isCollectionFeatureEnabled(collection?.gallery_download_enabled)) ||
-    isPaidDigitalDownloadOn;
+    downloadsMasterOn &&
+    (isCollectionFeatureEnabled(collection?.gallery_download_enabled) || isPaidDigitalDownloadOn);
   const showGalleryShare = isCollectionFeatureEnabled(collection?.social_sharing_enabled);
   const showGallerySlideshow = isSlideshowEnabledForCollection(collection);
+  const galleryAssistOn = collection?.gallery_assist === true;
+  const uiStrings = galleryUiStrings(collection?.language);
   const showSinglePhotoDownload =
-    (isCollectionFeatureEnabled(collection?.downloads_enabled) &&
-      isCollectionFeatureEnabled(collection?.single_photo_download_enabled)) ||
-    isPaidDigitalDownloadOn;
+    downloadsMasterOn &&
+    (isCollectionFeatureEnabled(collection?.single_photo_download_enabled) || isPaidDigitalDownloadOn);
 
   const shareUrl = getCollectionShareUrl(slug, photographer);
   const shareTitle = collection?.name || 'Delivery';
+
+  useEffect(() => {
+    if (!collection?.language) return undefined;
+    const prev = document.documentElement.lang;
+    document.documentElement.lang = galleryHtmlLang(collection.language);
+    return () => {
+      document.documentElement.lang = prev || 'en';
+    };
+  }, [collection?.language]);
 
   useEffect(() => {
     const fetchGallery = async () => {
@@ -1681,6 +1723,36 @@ const GalleryView = () => {
           prev
             ? { ...prev, social_sharing_enabled: patch.social_sharing_enabled }
             : prev
+        );
+      }
+      if (patch?.gallery_assist !== undefined) {
+        setCollection((prev) =>
+          prev ? { ...prev, gallery_assist: patch.gallery_assist } : prev
+        );
+      }
+      if (patch?.language !== undefined) {
+        setCollection((prev) =>
+          prev ? { ...prev, language: patch.language } : prev
+        );
+      }
+      if (patch?.store_enabled !== undefined) {
+        setCollection((prev) =>
+          prev ? { ...prev, store_enabled: patch.store_enabled } : prev
+        );
+      }
+      if (patch?.guest_prints_enabled !== undefined) {
+        setCollection((prev) =>
+          prev ? { ...prev, guest_prints_enabled: patch.guest_prints_enabled } : prev
+        );
+      }
+      if (patch?.price_sheet_id !== undefined) {
+        setCollection((prev) =>
+          prev ? { ...prev, price_sheet_id: patch.price_sheet_id } : prev
+        );
+      }
+      if (patch?.print_markup_percent !== undefined) {
+        setCollection((prev) =>
+          prev ? { ...prev, print_markup_percent: patch.print_markup_percent } : prev
         );
       }
     };
@@ -2088,17 +2160,44 @@ const GalleryView = () => {
     [collection, isClientViewer]
   );
 
-  const handleClientLoginSuccess = useCallback(() => {
+  const handleClientLoginSuccess = useCallback(async (enteredPassword) => {
     if (!collection?.id) return;
     setClientSessionActive(collection.id, true);
     setIsClientViewer(true);
     setShowClientLogin(false);
-  }, [collection?.id]);
+    const plain = String(enteredPassword || '').trim();
+    if (plain) {
+      try {
+        const { setStoredGalleryPassword } = await import('../../services/workersGallery.service');
+        setStoredGalleryPassword(collection.id, plain, collection.password_reprompt_days);
+      } catch { /* ignore */ }
+      try {
+        const data = await galleryService.getCollectionBySlug(collection.slug, {
+          password: plain,
+          collectionId: null,
+        });
+        if (data?.photos) {
+          setCollection((prev) => (prev ? {
+            ...prev,
+            photos: data.photos,
+            sets: data.sets || prev.sets,
+          } : prev));
+        }
+      } catch (err) {
+        console.warn('Could not reload private sets after client login:', err);
+      }
+    }
+  }, [collection?.id, collection?.slug, collection?.password_reprompt_days]);
 
   const handleClientSignOut = useCallback(() => {
     if (!collection?.id) return;
     setClientSessionActive(collection.id, false);
     setIsClientViewer(false);
+    try {
+      import('../../services/workersGallery.service').then(({ clearStoredGalleryPassword }) => {
+        clearStoredGalleryPassword(collection.id);
+      }).catch(() => {});
+    } catch { /* ignore */ }
     if (!canViewHighlights(collection, false) && !activeSetId) {
       const firstPublic = filterSetsForViewer(collection.sets || [], collection, false)[0];
       if (firstPublic) setActiveSetId(firstPublic.id);
@@ -2695,16 +2794,19 @@ const GalleryView = () => {
             showDownload={showGalleryDownload}
             showShare={showGalleryShare}
             showSlideshow={showGallerySlideshow}
-            showShop={collection?.store_enabled !== false}
+            showShop={collection?.store_enabled === true}
             favoritedCount={favoritedPhotos.length}
             isDownloadingAll={isDownloadingAll}
-            downloadLabel={isDownloadingAll ? `${downloadProgress.done} / ${downloadProgress.total}` : 'Download'}
+            downloadLabel={isDownloadingAll ? `${downloadProgress.done} / ${downloadProgress.total}` : uiStrings.download}
+            favoritesLabel={uiStrings.favorites}
+            shareLabel={uiStrings.share}
+            slideshowLabel={uiStrings.slideshow}
             onFavoriteClick={handleFavoriteHeaderClick}
             onDownloadClick={handleDownloadClick}
             onShareClick={() => setShowShareModal(true)}
             onSlideshowClick={handleStartSlideshow}
             onShopClick={handleShopHeaderClick}
-            showPrintLab={collection?.store_enabled !== false}
+            showPrintLab={collection?.store_enabled === true}
             onPrintLabClick={() => setShowPrintLabModal(true)}
             showBuyGallery={vaultPlan?.vault_enabled === true && !vaultPurchasedState}
             buyGalleryLabel="Buy Link"
@@ -2797,7 +2899,7 @@ const GalleryView = () => {
               isPaidDownload: isPaidDigitalDownloadOn,
               showFavorite: collection?.favorites_enabled !== false,
               showShare: showGalleryShare,
-              showShop: collection?.store_enabled !== false,
+              showShop: collection?.store_enabled === true,
               onShop: handleShopClick,
               favoritedPhotoIds: favoritedPhotos,
               customRowHeight: galleryCustomRowHeight,
@@ -2975,12 +3077,13 @@ const GalleryView = () => {
         isPaidDownload={isPaidDigitalDownloadOn}
         showFavorite={collection?.favorites_enabled !== false}
         showShare={showGalleryShare}
-        showShop={collection?.store_enabled !== false}
+        showShop={collection?.store_enabled === true}
         isFavorited={(() => {
           const id = normalizeFavoritePhotoId(filteredPhotos[lightboxIndex]?.id);
           return !!id && favoritedPhotos.includes(id);
         })()}
         favoriteOverlayLabel={favoriteLightboxLabel || undefined}
+        filmPlayback={collection?.film_playback === 'highest' ? 'highest' : 'adapt'}
         themeClassName={cn(
           `theme-${effectiveSettings.color_palette}`,
           `font-${effectiveSettings.font_family}`
@@ -4271,6 +4374,15 @@ const GalleryView = () => {
           </div>
         )}
       </AnimatePresence>
+
+      <GalleryWalkthrough
+        collectionId={collection?.id}
+        enabled={galleryAssistOn}
+        language={collection?.language}
+        showFavorites={collection?.favorites_enabled !== false}
+        showDownload={showGalleryDownload}
+        showShare={showGalleryShare}
+      />
     </div>
   );
 };

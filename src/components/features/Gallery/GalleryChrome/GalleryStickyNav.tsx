@@ -31,6 +31,9 @@ export interface GalleryStickyNavProps {
   favoritedCount?: number;
   isDownloadingAll?: boolean;
   downloadLabel?: string;
+  favoritesLabel?: string;
+  shareLabel?: string;
+  slideshowLabel?: string;
   onFavoriteClick?: () => void;
   onDownloadClick?: () => void;
   onShareClick?: () => void;
@@ -78,6 +81,9 @@ export const GalleryStickyNav: React.FC<GalleryStickyNavProps> = ({
   favoritedCount = 0,
   isDownloadingAll = false,
   downloadLabel = 'Download',
+  favoritesLabel = 'Favorites',
+  shareLabel = 'Share',
+  slideshowLabel = 'Slideshow',
   onFavoriteClick,
   onDownloadClick,
   onShareClick,
@@ -308,11 +314,11 @@ export const GalleryStickyNav: React.FC<GalleryStickyNavProps> = ({
               className="relative flex shrink-0 items-center gap-1 transition-opacity hover:opacity-50"
               onClick={onFavoriteClick}
               style={{ color: 'var(--gallery-text)' }}
-              title="Favorites"
+              title={favoritesLabel}
             >
               <Heart size={iconSize} className="stroke-[2.25]" />
               <span className={actionLabelClass(isCompact ? 'text-[6px] font-semibold uppercase tracking-wider' : 'text-[10px] font-semibold uppercase tracking-wider')}>
-                Favorites
+                {favoritesLabel}
               </span>
               {favoritedCount > 0 && (
                 <span
@@ -364,11 +370,11 @@ export const GalleryStickyNav: React.FC<GalleryStickyNavProps> = ({
               className="flex shrink-0 items-center gap-1 transition-opacity hover:opacity-50"
               onClick={onShareClick}
               style={{ color: 'var(--gallery-text)' }}
-              title="Share"
+              title={shareLabel}
             >
               <Share2 size={iconSize} className="stroke-[2.25]" />
               <span className={actionLabelClass(isCompact ? 'text-[6px] font-semibold uppercase tracking-wider' : 'text-[10px] font-semibold uppercase tracking-wider')}>
-                Share
+                {shareLabel}
               </span>
             </button>
           )}
@@ -394,11 +400,11 @@ export const GalleryStickyNav: React.FC<GalleryStickyNavProps> = ({
               className="flex shrink-0 items-center gap-1 transition-opacity hover:opacity-50"
               onClick={onSlideshowClick}
               style={{ color: 'var(--gallery-text)' }}
-              title="Slideshow"
+              title={slideshowLabel}
             >
               <Play size={iconSize} className="stroke-[2.25]" />
               <span className={actionLabelClass(isCompact ? 'text-[6px] font-semibold uppercase tracking-wider' : 'text-[10px] font-semibold uppercase tracking-wider')}>
-                Slideshow
+                {slideshowLabel}
               </span>
             </button>
           )}

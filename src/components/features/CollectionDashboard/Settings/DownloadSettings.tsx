@@ -643,7 +643,12 @@ export const DownloadSettings: React.FC<DownloadSettingsProps> = ({
                             className="cd-dl-pin__box"
                             inputMode="numeric"
                             maxLength={7}
-                            value={pinValue.replace(/\D/g, '').slice(0, 4).split('').join(' ')}
+                            value={
+                              pinValue
+                                ? pinValue.replace(/\D/g, '').slice(0, 4).split('').join(' ')
+                                : ''
+                            }
+                            placeholder={downloadPin && !pinValue ? 'PIN is set — type to change' : '····'}
                             onChange={(e) => setPinValue(e.target.value.replace(/\D/g, '').slice(0, 4))}
                             onBlur={() => commitPin(pinValue)}
                             onKeyDown={(e) => {
@@ -653,7 +658,7 @@ export const DownloadSettings: React.FC<DownloadSettingsProps> = ({
                               }
                             }}
                           />
-                          <button type="button" className="cd-dl-textbtn" onClick={() => void copyPin()}>
+                          <button type="button" className="cd-dl-textbtn" onClick={() => void copyPin()} disabled={!pinValue}>
                             {copied ? 'Copied' : 'Copy'}
                           </button>
                           <button type="button" className="cd-dl-textbtn" onClick={generatePin}>

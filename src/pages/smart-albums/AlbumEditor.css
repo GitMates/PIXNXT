@@ -368,6 +368,21 @@
   color: #16a34a;
 }
 
+/* Album approval: solid bronze accent (matches the unread dot / brand tone)
+   so it stands out from the green submitted tick and the pastel type icons. */
+.ae-notifications-item-icon-container--approved {
+  background: #ab6229;
+  color: #ffffff;
+}
+
+.ae-notifications-item--approved {
+  background: #fdf6ee;
+}
+
+.ae-notifications-item--approved:hover {
+  background: #faefe1;
+}
+
 .ae-notifications-item-icon-container--swap {
   background: #fff7ed;
   color: #ea580c;
@@ -2301,6 +2316,12 @@
   border-radius: 0;
   box-shadow: none;
   padding: 4px 0 0;
+}
+
+.ae-canvas-stage-loading {
+  flex: 1;
+  min-height: 300px;
+  width: 100%;
 }
 
 .ae-canvas-stage .ab-root {

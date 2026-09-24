@@ -81,10 +81,35 @@ export function DeliverySharePublishPanel({
   }, [shareUrl, showToast]);
 
   const runShareChannel = useCallback(
-    (channelId) => {
+    async (channelId) => {
       if (!shareUrl) return;
+      if (channelId === 'qr') {
+        setShareChannel('qr');
+        return;
+      }
+      let password = '';
+      let pin = '';
+      try {
+        const { getStudioGuestPassword } = await import('../../../../services/workersGallery.service');
+        if (collection?.id) password = getStudioGuestPassword(collection.id) || '';
+      } catch { /* ignore */ }
+      // PIN plaintext is not retained after save — only include when still in session state via collection._studioPin
+      pin = String(collection?._studioPin || '').trim();
+      const eventDate = collection?.event_date
+        ? new Date(collection.event_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
+        : '';
+      const { buildDeliveryShareMessage } = await import('../../../../lib/shareCollection');
+      const body = buildDeliveryShareMessage({
+        url: shareUrl,
+        brandName: profile?.business_name || profile?.display_name || '',
+        eventDateLabel: eventDate,
+        password,
+        pin,
+        includePassword: collection?.share_include_password !== false,
+        includePin: collection?.share_include_pin !== false && Boolean(pin),
+      });
       if (channelId === 'whatsapp') {
-        openWhatsAppShare(shareUrl, title);
+        openWhatsAppShare(shareUrl, title, { body });
         return;
       }
       if (channelId === 'email') {
@@ -92,14 +117,10 @@ export function DeliverySharePublishPanel({
           onShareByEmail();
           return;
         }
-        openShareByEmail(shareUrl, title);
-        return;
-      }
-      if (channelId === 'qr') {
-        setShareChannel('qr');
+        openShareByEmail(shareUrl, title, { body });
       }
     },
-    [shareUrl, title, handleCopyLink, onShareByEmail]
+    [shareUrl, title, onShareByEmail, collection, profile]
   );
 
   const handlePublishAndShare = async () => {

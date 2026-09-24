@@ -31,6 +31,15 @@ export function createDefaultEmailTemplates() {
       category: 'delivery-sharing'
     },
     {
+      id: 'default-album-proof',
+      name: 'Album Proof Ready',
+      subject: 'Album proof ready — {delivery.name}',
+      body: `Hi,\n\nYour album proof for {delivery.name} is ready to review. Click the View Album button to open your personalized proof.\n\nTap any spread to leave a comment or ask for a photo swap. When you're happy, you can approve from the same link.\n\nCheers,\nYour Name`,
+      created_at: new Date().toISOString(),
+      isSystem: true,
+      category: 'album-sharing'
+    },
+    {
       id: 'default-auto-expiry',
       name: 'Auto Expiry Reminder',
       subject: 'The gallery {delivery.name} is about to expire',

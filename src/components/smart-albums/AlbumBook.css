@@ -489,24 +489,46 @@
 .ab-html-flipbook--fixed {
   flex-shrink: 0;
   max-width: none !important;
+  box-sizing: border-box !important;
+  max-height: none;
 }
 
 .ab-html-flipbook.stf__parent {
   overflow: visible !important;
+  box-sizing: border-box !important;
 }
 
 .ab-html-flipbook .stf__wrapper {
   overflow: visible !important;
+  width: 100% !important;
+  height: 100% !important;
+  max-height: 100% !important;
+  padding-bottom: 0 !important;
+  box-sizing: border-box !important;
 }
 
 .ab-html-flipbook .stf__block {
   overflow: visible !important;
+  width: 100% !important;
+  height: 100% !important;
+  max-height: 100% !important;
+  box-sizing: border-box !important;
 }
 
 .ab-html-flipbook .stf__item {
   overflow: visible !important;
   backface-visibility: hidden;
   -webkit-backface-visibility: hidden;
+}
+
+/*
+ * page-flip adds class "--simple" on idle pages. In CSS that name MUST be
+ * escaped (.\--simple) — unescaped .--simple is invalid and the rule never
+ * matched, which is why reload kept showing white canvas + bottom strip.
+ */
+.ab-html-flipbook--fixed .stf__item.\--simple,
+.ab-html-flipbook--fixed .stf__item[class*='--simple'] {
+  top: 0 !important;
 }
 
 .ab-flip-escape--flipping .ab-html-flipbook,

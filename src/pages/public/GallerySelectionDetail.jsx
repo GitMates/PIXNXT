@@ -173,7 +173,8 @@ export default function GallerySelectionDetail() {
   }, [galleryGridSettings.size]);
 
   const isSubmitted = Boolean(list?.submitted_at);
-  const isLocked = isSubmitted;
+  const isLocked = isSubmitted && collection?.selection_lock_on_submit !== false;
+  const notesAllowed = collection?.favorites_allow_comments !== false;
 
   // Download honors the delivery's download settings — same as the main gallery.
   const downloadsAllowed = isCollectionFeatureEnabled(collection?.downloads_enabled);
@@ -203,18 +204,20 @@ export default function GallerySelectionDetail() {
     try {
       setIsSubmitting(true);
       await galleryService.submitFavoriteList(listId, sessionId);
-      try {
-        await galleryService.notifyPhotographerFavoriteSubmit({
-          listId,
-          sessionId,
-          siteOrigin: window.location.origin,
-          clientMessage: clientNote,
-        });
-      } catch (emailErr) {
-        console.error('Photographer notification email failed:', emailErr);
-        alert(
-          'Your selection was saved, but we could not email your photographer. They can still see it in Favorite Activity.'
-        );
+      if (collection.selection_notify_on_submit !== false) {
+        try {
+          await galleryService.notifyPhotographerFavoriteSubmit({
+            listId,
+            sessionId,
+            siteOrigin: window.location.origin,
+            clientMessage: notesAllowed ? clientNote : undefined,
+          });
+        } catch (emailErr) {
+          console.error('Photographer notification email failed:', emailErr);
+          alert(
+            'Your selection was saved, but we could not email your photographer. They can still see it in Favorite Activity.'
+          );
+        }
       }
       sessionStorage.removeItem(`pixnxt_fav_pick_list_${collection.id}`);
       localStorage.removeItem(noteStorageKey(listId));
@@ -486,7 +489,7 @@ export default function GallerySelectionDetail() {
             )}
 
             {/* Main Action Button */}
-            {!isLocked ? (
+            {!isSubmitted ? (
               <button
                 type="button"
                 className="selection-detail__send-btn"
@@ -498,7 +501,7 @@ export default function GallerySelectionDetail() {
             ) : (
               <span className="selection-detail__locked-badge">
                 <Lock size={11} strokeWidth={2} aria-hidden />
-                Sent, locked
+                {isLocked ? 'Sent, locked' : 'Sent'}
               </span>
             )}
           </div>
@@ -506,7 +509,7 @@ export default function GallerySelectionDetail() {
       </div>
 
       <div className="selection-detail__shell">
-        {!isLocked ? (
+        {!isLocked && notesAllowed ? (
           <div className="selection-detail__note">
             <div className="selection-detail__note-box">
               <div className="selection-detail__note-head">

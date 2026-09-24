@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Ban, Copy, Eye, EyeOff, Mail } from 'lucide-react';
 import { smartAlbumsService } from '../../services/smartAlbums.service';
 import { galleryService } from '../../services/gallery.service';
@@ -10,7 +11,6 @@ import {
 } from '../../services/smartAlbumProoferSettings.service';
 import { countClientRootComments, getClientReviewerIdentity, smartAlbumCommentsService } from '../../services/smartAlbumComments.service';
 import { mergeAlbumProofTimestamps } from './albumProofStatus';
-import { buildGmailComposeUrl } from '../../lib/gmailComposeUrl';
 import { AppLoader } from '../ui/AppLoading';
 import { readSharePausedAt, writeSharePausedAt } from '../../lib/albumSharePause';
 import { formatRelativeTime } from '../../lib/relativeTime';
@@ -172,6 +172,7 @@ export default function AlbumSharePublishMenu({
     onAlbumUpdated,
     showToast,
 }) {
+    const navigate = useNavigate();
     const albumId = album?.id;
     const rootRef = useRef(null);
     const saveTimerRef = useRef(null);
@@ -496,8 +497,7 @@ export default function AlbumSharePublishMenu({
             </>
         ) : shareChannel === 'email' ? (
             <>
-                Opens your email with this ready to send.{' '}
-                <strong>You</strong> press send — nothing goes out automatically.
+                Opens the email composer with a live preview — edit, then press Send.
             </>
         ) : (
             'Copies the current share message to your clipboard.'
@@ -544,13 +544,9 @@ export default function AlbumSharePublishMenu({
             return;
         }
         if (channelId === 'email') {
-            window.open(
-                buildGmailComposeUrl(text, {
-                    subject: `${album?.name || 'Album'} proof`,
-                }),
-                '_blank',
-                'noopener,noreferrer'
-            );
+            if (!albumId) return;
+            onOpenChange?.(false);
+            navigate(`/album-proofer/share?id=${encodeURIComponent(albumId)}`);
             return;
         }
         void handleCopyShareMessage();
@@ -702,6 +698,10 @@ export default function AlbumSharePublishMenu({
                                 active ? ' ae-share-channel--active' : ''
                             }${active && channel.id === 'whatsapp' ? ' ae-share-channel--wa' : ''}`}
                             onClick={() => {
+                                if (channel.id === 'email') {
+                                    runShareChannel('email');
+                                    return;
+                                }
                                 if (shareChannel === channel.id) {
                                     runShareChannel(channel.id);
                                     return;

@@ -49,6 +49,7 @@ export interface FavoriteActivityDetailModalProps {
   /** Closes details popup, then opens the edit form modal */
   onEditList: (detail: FavoriteListDetail) => void;
   onReopenList: (detail: FavoriteListDetail) => void | Promise<void>;
+  selectionLockOnSubmit?: boolean;
   handleDownloadAllFavoriteList: (listId: string | number) => void;
   handleExportFavoriteList: (listId: string | number, name?: string) => void;
   handleLightroomCopyList: (listId: string | number) => void;
@@ -77,6 +78,7 @@ export function FavoriteActivityDetailModal({
   setActiveActivityMenu,
   onEditList,
   onReopenList,
+  selectionLockOnSubmit,
   handleDownloadAllFavoriteList,
   handleExportFavoriteList,
   handleLightroomCopyList,
@@ -143,7 +145,8 @@ export function FavoriteActivityDetailModal({
         .replace(',', '')}`
     : '—';
 
-  const isLocked = Boolean(detail.submitted_at);
+  const isSubmitted = Boolean(detail.submitted_at);
+  const isLocked = isSubmitted && selectionLockOnSubmit !== false;
 
   return (
     <AnimatePresence>
@@ -269,7 +272,7 @@ export function FavoriteActivityDetailModal({
           </div>
 
           <div className="favorite-detail-drawer__footer">
-            {isLocked ? (
+            {isSubmitted ? (
               <button
                 type="button"
                 className="favorite-detail-footer-secondary"

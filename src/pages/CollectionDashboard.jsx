@@ -691,6 +691,7 @@ const CollectionDashboard = () => {
     const [showOnShowcase, setShowOnShowcase] = useState(true);
     const [clientExclusiveAccess, setClientExclusiveAccess] = useState(false);
     const [clientPrivatePassword, setClientPrivatePassword] = useState('');
+    const [clientPasswordLocked, setClientPasswordLocked] = useState(false);
     const [allowClientsMarkPrivate, setAllowClientsMarkPrivate] = useState(false);
     const [clientOnlyHighlights, setClientOnlyHighlights] = useState(false);
 
@@ -801,7 +802,7 @@ const CollectionDashboard = () => {
                 const session = await galleryService.createOrGetSession(collectionId, email, {
                     ensureDefaultFavoriteList: false,
                 });
-                await galleryService.createFavoriteList(collectionId, session.id, name, {
+                const created = await galleryService.createFavoriteList(collectionId, session.id, name, {
                     maxSelection: maxSel,
                     description: descTrim || undefined,
                 });
@@ -813,6 +814,7 @@ const CollectionDashboard = () => {
                             subject: `Your list: ${name}`,
                             message: payload.message || '',
                             chooseUrl: payload.chooseUrl || '',
+                            listId: created?.id,
                             siteOrigin: getClientFacingOrigin(profile),
                         });
                         showToast('Selection created and email sent.', 'success');
@@ -2111,21 +2113,32 @@ const CollectionDashboard = () => {
         try {
             setSaving(true);
             const reminderData = {
-                collection_id: collectionId,
+                collectionId,
                 timing: expiryEmailTiming || '7 days before auto expiry date',
-                to_email: expiryEmailTo || '',
+                toEmail: expiryEmailTo || null,
                 subject: expiryEmailSubject || 'The gallery {delivery.name} is about to expire',
-                body: expiryEmailBody || 'Hi,\n\nThe gallery {delivery.name} will expire in {days.prior} on {expiry.date}.',
-                include_pin: !!expiryEmailIncludePin,
-                send_copy: expiryEmailSendCopy !== false,
-                activity_lists: Array.isArray(expiryEmailLists) ? expiryEmailLists : [],
-                whatsapp_enabled: !!whatsappEnabled,
-                whatsapp_body: whatsappBody || '',
-                to_whatsapp: toWhatsapp || '',
+                body: expiryEmailBody || 'Closing soon — download anything you want to keep',
+                includePin: !!expiryEmailIncludePin,
+                sendCopy: expiryEmailSendCopy !== false,
+                activityLists: Array.isArray(expiryEmailLists) ? expiryEmailLists : [],
+                whatsappEnabled: !!whatsappEnabled,
+                whatsappBody: whatsappBody || null,
+                toWhatsapp: toWhatsapp || null,
             };
 
             if (editingReminderId) {
-                await galleryService.updateCollectionReminder(editingReminderId, reminderData);
+                await galleryService.updateCollectionReminder(editingReminderId, {
+                    timing: reminderData.timing,
+                    to_email: reminderData.toEmail,
+                    subject: reminderData.subject,
+                    body: reminderData.body,
+                    include_pin: reminderData.includePin,
+                    send_copy: reminderData.sendCopy,
+                    activity_lists: reminderData.activityLists,
+                    whatsapp_enabled: reminderData.whatsappEnabled,
+                    whatsapp_body: reminderData.whatsappBody,
+                    to_whatsapp: reminderData.toWhatsapp,
+                });
                 setToastMessage('Expiry reminder email updated!');
             } else {
                 await galleryService.createCollectionReminder(reminderData);
@@ -2574,10 +2587,17 @@ const CollectionDashboard = () => {
                     setGuestPasswordLocked(hasGuestHash);
                 }
                 {
-                    const clientHash = data.client_password_hash;
-                    const looksDigest = typeof clientHash === 'string' && /^[0-9a-f]{64}$/i.test(clientHash.trim());
-                    if (clientHash && !looksDigest) setClientPrivatePassword(clientHash);
-                    else setClientPrivatePassword('');
+                    const hasClientHash = Boolean(data.client_password_hash || data.has_client_password);
+                    let rememberedClient = null;
+                    try {
+                        const { getStudioClientPassword, isPasswordDigest } = await import('../services/workersGallery.service');
+                        rememberedClient = getStudioClientPassword(collectionId);
+                        if (rememberedClient && isPasswordDigest(rememberedClient)) rememberedClient = null;
+                    } catch {
+                        rememberedClient = null;
+                    }
+                    setClientPrivatePassword(rememberedClient || '');
+                    setClientPasswordLocked(hasClientHash);
                 }
                 if (data.client_exclusive_enabled !== undefined) setClientExclusiveAccess(data.client_exclusive_enabled);
                 if (data.allow_clients_mark_private !== undefined) setAllowClientsMarkPrivate(data.allow_clients_mark_private);
@@ -2631,16 +2651,15 @@ const CollectionDashboard = () => {
                 }
                 const dbPin = data.download_pin_hash;
                 setDownloadPin(!!dbPin);
+                // Never put the hash into the PIN input — autosave would corrupt it
+                // into a new 4-digit PIN and lock clients out.
+                setPinValue('');
                 if (dbPin) {
-                    setPinValue(String(dbPin));
                     setRequirePinForSinglePhoto(true);
+                } else if (data.require_pin_for_single_photo !== undefined) {
+                    setRequirePinForSinglePhoto(data.require_pin_for_single_photo);
                 } else {
-                    setPinValue('');
-                    if (data.require_pin_for_single_photo !== undefined) {
-                        setRequirePinForSinglePhoto(data.require_pin_for_single_photo);
-                    } else {
-                        setRequirePinForSinglePhoto(false);
-                    }
+                    setRequirePinForSinglePhoto(false);
                 }
                 
                 if (data.email_capture_enabled !== undefined) setEmailRegistration(data.email_capture_enabled);
@@ -2657,7 +2676,12 @@ const CollectionDashboard = () => {
                 
                 // Initialize advanced settings
                 if (data.download_limit_gallery) setDownloadLimit(data.download_limit_gallery.toString());
-                if (data.restrict_to_emails) setRestrictToEmails(data.restrict_to_emails);
+                if (data.restrict_to_emails) {
+                    const raw = data.restrict_to_emails;
+                    setRestrictToEmails(
+                        Array.isArray(raw) ? raw.filter(Boolean).join(', ') : String(raw)
+                    );
+                }
                 if (data.selected_download_sets) {
                     let nextDownloadSets = data.selected_download_sets;
                     const namedSets = (data.sets || []).filter((s) => s.name?.toLowerCase() !== 'highlights');
@@ -4380,7 +4404,7 @@ const CollectionDashboard = () => {
         return () => channel.close();
     }, [collectionId]);
 
-    // Auto-save general settings
+    // Auto-save general settings (slug + guest password only — privacy lives in Access autosave)
     useEffect(() => {
         if (!collectionId || loading || !settingsHydratedRef.current) return;
 
@@ -4389,12 +4413,8 @@ const CollectionDashboard = () => {
                 const plain = String(collectionPassword || '').trim();
                 const isDigest = /^[0-9a-f]{64}$/i.test(plain);
                 const passwordOn = Boolean(plain && !isDigest) || guestPasswordLocked;
-                const privacy = passwordOn
-                    ? 'password'
-                    : (clientExclusiveAccess ? 'client_exclusive' : 'public');
                 const patch = {
                     slug: collectionUrl,
-                    privacy,
                 };
                 if (!passwordOn) {
                     patch.guest_password_hash = null;
@@ -4420,7 +4440,7 @@ const CollectionDashboard = () => {
 
         const timeoutId = setTimeout(saveGeneralSettings, 1500); // Slightly longer debounce for URL
         return () => clearTimeout(timeoutId);
-    }, [collectionUrl, collectionPassword, guestPasswordLocked, clientExclusiveAccess, collectionId, loading]);
+    }, [collectionUrl, collectionPassword, guestPasswordLocked, collectionId, loading]);
 
     // Auto-save privacy / client exclusive access
     useEffect(() => {
@@ -4444,9 +4464,19 @@ const CollectionDashboard = () => {
             };
             if (plainClient && !clientIsDigest) {
                 patch.client_password_hash = plainClient;
-            } else if (!plainClient) {
+                try {
+                    const { setStudioClientPassword } = await import('../services/workersGallery.service');
+                    setStudioClientPassword(collectionId, plainClient);
+                } catch { /* ignore */ }
+                setClientPasswordLocked(true);
+            } else if (!plainClient && !clientPasswordLocked) {
                 patch.client_password_hash = null;
+                try {
+                    const { clearStudioClientPassword } = await import('../services/workersGallery.service');
+                    clearStudioClientPassword(collectionId);
+                } catch { /* ignore */ }
             }
+            // Locked + empty field: leave existing client hash untouched.
             broadcastGalleryLive({
                 type: 'SETTINGS_UPDATED',
                 collectionId,
@@ -4468,6 +4498,7 @@ const CollectionDashboard = () => {
     }, [
         clientExclusiveAccess,
         clientPrivatePassword,
+        clientPasswordLocked,
         allowClientsMarkPrivate,
         clientOnlyHighlights,
         showOnShowcase,
@@ -4680,8 +4711,13 @@ const CollectionDashboard = () => {
 
         const pinOn = overrides.downloadPin !== undefined ? overrides.downloadPin : downloadPin;
         const pin = overrides.pinValue !== undefined ? overrides.pinValue : pinValue;
-        const pinHash = pinOn && pin ? String(pin).replace(/\D/g, '').slice(0, 4) || null : null;
-        if (pinOn && (!pinHash || pinHash.length !== 4)) return;
+        const pinDigits = pin ? String(pin).replace(/\D/g, '').slice(0, 4) : '';
+        const looksLikeHash = typeof pin === 'string' && /^[0-9a-f]{64}$/i.test(String(pin).trim());
+        const freshPin = pinOn && pinDigits.length === 4 && !looksLikeHash ? pinDigits : null;
+        // Turning PIN on without a fresh code: wait for Generate / typed PIN.
+        if (pinOn && !freshPin && overrides.downloadPin === true && overrides.pinValue === undefined) {
+            return;
+        }
 
         const limitRaw = downloadLimit ? parseInt(String(downloadLimit), 10) : null;
         const pinLimitRaw = pinUsageLimit ? parseInt(String(pinUsageLimit), 10) : null;
@@ -4696,13 +4732,19 @@ const CollectionDashboard = () => {
                 .filter((s) => s === 'web' || s === 'full' || s === 'original'),
             video_downloads_enabled: (photoDownloadSizes || []).includes('video'),
             video_download_resolution: collection?.video_download_resolution ?? '1080p',
-            download_pin_hash: pinHash,
             email_capture_enabled: emailRegistration,
             download_limit_gallery: Number.isFinite(limitRaw) ? limitRaw : null,
             restrict_to_emails: restrictToEmails?.trim() ? restrictToEmails.trim() : null,
             selected_download_sets: selectedDownloadSets?.length ? selectedDownloadSets : null,
             pin_usage_limit: Number.isFinite(pinLimitRaw) ? pinLimitRaw : null,
         };
+        // Only write PIN when clearing or when a fresh 4-digit code is provided —
+        // never re-save a hash truncated to digits (that locked clients out).
+        if (!pinOn) {
+            patch.download_pin_hash = null;
+        } else if (freshPin) {
+            patch.download_pin_hash = freshPin;
+        }
 
         const signature = JSON.stringify(patch);
         if (signature === downloadSettingsSaveSigRef.current && !Object.keys(overrides).length) {
@@ -4730,8 +4772,10 @@ const CollectionDashboard = () => {
                             updated.video_downloads_enabled ?? patch.video_downloads_enabled,
                         video_download_resolution:
                             updated.video_download_resolution ?? patch.video_download_resolution,
-                        download_pin_hash: updated.download_pin_hash ?? patch.download_pin_hash,
-                        download_pin: updated.download_pin_hash ?? patch.download_pin_hash,
+                        download_pin_hash:
+                            updated.download_pin_hash ?? patch.download_pin_hash ?? prev.download_pin_hash,
+                        download_pin:
+                            updated.download_pin_hash ?? patch.download_pin_hash ?? prev.download_pin_hash ?? prev.download_pin,
                         email_capture_enabled:
                             updated.email_capture_enabled ?? patch.email_capture_enabled,
                         download_limit_gallery:
@@ -4854,7 +4898,7 @@ const CollectionDashboard = () => {
             const patch = {
                 social_sharing_enabled: socialSharing,
                 gallery_assist: galleryAssist,
-                ...(slideshowColumnReadyRef.current ? { slideshow_enabled: slideshow } : {}),
+                slideshow_enabled: slideshow,
             };
 
             broadcastGalleryLive({
@@ -4928,6 +4972,7 @@ const CollectionDashboard = () => {
                 guest_prints_enabled: collection?.guest_prints_enabled !== false,
                 print_markup_percent:
                     collection?.print_markup_percent != null ? collection.print_markup_percent : 40,
+                price_sheet_id: collection?.price_sheet_id ?? null,
             };
             broadcastGalleryLive({
                 type: 'SETTINGS_UPDATED',
@@ -4947,7 +4992,7 @@ const CollectionDashboard = () => {
 
         const timeoutId = setTimeout(saveShopSettings, 400);
         return () => clearTimeout(timeoutId);
-    }, [storeEnabled, collection?.guest_prints_enabled, collection?.print_markup_percent, collectionId, collectionUrl, loading]);
+    }, [storeEnabled, collection?.guest_prints_enabled, collection?.print_markup_percent, collection?.price_sheet_id, collectionId, collectionUrl, loading]);
 
     // Derived values
     const backTo = deliveryStudioBackPath({
@@ -5500,7 +5545,7 @@ const CollectionDashboard = () => {
                         {showShareDropdown && (
                             <DeliverySharePublishPanel
                                 open={showShareDropdown}
-                                collection={collection}
+                                collection={collection ? { ...collection, _studioPin: pinValue || undefined } : collection}
                                 collectionSlug={collectionUrl}
                                 profile={profile}
                                 status={status}
@@ -6157,6 +6202,8 @@ const CollectionDashboard = () => {
                                 categoryTagsSaving={categoryTagsSaving}
                                 showGeneralAdditionalOptions={showGeneralAdditionalOptions}
                                 setShowGeneralAdditionalOptions={setShowGeneralAdditionalOptions}
+                                showOnShowcase={showOnShowcase}
+                                setShowOnShowcase={setShowOnShowcase}
                             />
                         )}
                         {activeSidebarTab === 'settings' && activeSettingsTab === 'privacy' && (
@@ -6268,6 +6315,7 @@ const CollectionDashboard = () => {
                                 favoriteLists={sortedFavoriteActivity}
                                 onReviewList={handleReviewFavoriteList}
                                 onEditList={openEditFavoriteListModal}
+                                onRefreshLists={fetchFavoriteActivity}
                                 setShowCreateFavoriteListModal={setShowCreateFavoriteListModal}
                                 setActiveSidebarTab={setActiveSidebarTab}
                                 setActiveActivitySubTab={setActiveActivitySubTab}

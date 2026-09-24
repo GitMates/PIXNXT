@@ -366,24 +366,60 @@ function studioGuestPasswordKey(galleryId) {
   return `pixnxt_studio_guest_password_${galleryId}`;
 }
 
+function studioClientPasswordKey(galleryId) {
+  return `pixnxt_studio_client_password_${galleryId}`;
+}
+
+/** Visitor unlock with optional TTL (password_reprompt_days). */
+function galleryUnlockMetaKey(galleryId) {
+  return `pixnxt_gallery_unlock_meta_${galleryId}`;
+}
+
 export function isPasswordDigest(value) {
   return /^[0-9a-f]{64}$/i.test(String(value || '').trim());
 }
 
-export function getStoredGalleryPassword(galleryId) {
+export function getStoredGalleryPassword(galleryId, repromptDays = 0) {
   if (!galleryId || typeof sessionStorage === 'undefined') return null;
   try {
-    return sessionStorage.getItem(galleryPasswordKey(galleryId)) || null;
+    const password = sessionStorage.getItem(galleryPasswordKey(galleryId)) || null;
+    if (!password) return null;
+    const days = Number(repromptDays) || 0;
+    if (days > 0 && typeof localStorage !== 'undefined') {
+      const raw = localStorage.getItem(galleryUnlockMetaKey(galleryId));
+      if (raw) {
+        const meta = JSON.parse(raw);
+        const unlockedAt = Number(meta?.unlockedAt) || 0;
+        const ttlMs = days * 86_400_000;
+        if (unlockedAt && Date.now() - unlockedAt > ttlMs) {
+          clearStoredGalleryPassword(galleryId);
+          return null;
+        }
+      }
+    }
+    return password;
   } catch {
     return null;
   }
 }
 
-export function setStoredGalleryPassword(galleryId, password) {
+export function setStoredGalleryPassword(galleryId, password, repromptDays = 0) {
   if (!galleryId || typeof sessionStorage === 'undefined') return;
   try {
-    if (password) sessionStorage.setItem(galleryPasswordKey(galleryId), String(password));
-    else sessionStorage.removeItem(galleryPasswordKey(galleryId));
+    if (password) {
+      sessionStorage.setItem(galleryPasswordKey(galleryId), String(password));
+      if (typeof localStorage !== 'undefined') {
+        localStorage.setItem(
+          galleryUnlockMetaKey(galleryId),
+          JSON.stringify({ unlockedAt: Date.now(), repromptDays: Number(repromptDays) || 0 }),
+        );
+      }
+    } else {
+      sessionStorage.removeItem(galleryPasswordKey(galleryId));
+      if (typeof localStorage !== 'undefined') {
+        localStorage.removeItem(galleryUnlockMetaKey(galleryId));
+      }
+    }
   } catch {
     // ignore quota errors
   }
@@ -422,6 +458,35 @@ export function clearStudioGuestPassword(galleryId) {
   setStudioGuestPassword(galleryId, null);
 }
 
+export function getStudioClientPassword(galleryId) {
+  if (!galleryId || typeof sessionStorage === 'undefined') return null;
+  try {
+    const value = sessionStorage.getItem(studioClientPasswordKey(galleryId));
+    if (!value || isPasswordDigest(value)) return null;
+    return value;
+  } catch {
+    return null;
+  }
+}
+
+export function setStudioClientPassword(galleryId, password) {
+  if (!galleryId || typeof sessionStorage === 'undefined') return;
+  try {
+    const plain = String(password || '').trim();
+    if (plain && !isPasswordDigest(plain)) {
+      sessionStorage.setItem(studioClientPasswordKey(galleryId), plain);
+    } else {
+      sessionStorage.removeItem(studioClientPasswordKey(galleryId));
+    }
+  } catch {
+    // ignore quota errors
+  }
+}
+
+export function clearStudioClientPassword(galleryId) {
+  setStudioClientPassword(galleryId, null);
+}
+
 function isPasswordRequiredError(err) {
   return Boolean(err) && (err.status === 403 || err.statusCode === 403);
 }
@@ -441,7 +506,7 @@ export async function getCollectionBySlug(slug, options = {}) {
   const gallery = data?.gallery;
   if (!gallery) return null;
   const explicitPassword = options.password ?? null;
-  const storedPassword = getStoredGalleryPassword(gallery.id);
+  const storedPassword = getStoredGalleryPassword(gallery.id, gallery.password_reprompt_days);
   const urlPassword = typeof window !== 'undefined'
     ? new URLSearchParams(window.location.search).get('password')
     : null;
@@ -472,7 +537,9 @@ export async function getCollectionBySlug(slug, options = {}) {
   gallery.photos = [...((photosRes && photosRes.photos) || [])].sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
   gallery.sets = [...((setsRes && setsRes.sets) || [])].sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
   gallery.needsPassword = needsPassword && (photosForbidden || setsForbidden);
-  if (password && !photosForbidden) setStoredGalleryPassword(gallery.id, password);
+  if (password && !photosForbidden) {
+    setStoredGalleryPassword(gallery.id, password, gallery.password_reprompt_days);
+  }
   return gallery;
 }
 
@@ -868,8 +935,9 @@ export async function logActivity(collectionId, eventType, data = {}) {
 }
 
 export async function getDownloadCount(collectionId) {
-  const data = await apiFetch(`/v1/engage/activity?collectionId=${encodeURIComponent(collectionId)}&type=download&limit=1`).catch(() => null);
-  return data?.counts?.download ?? 0;
+  if (!collectionId) return 0;
+  const data = await apiFetch(`/v1/public/gallery/${encodeURIComponent(collectionId)}/download-stats`, { auth: false }).catch(() => null);
+  return Number(data?.downloadCount) || 0;
 }
 
 /** Background digital-package cart sync. */
@@ -883,17 +951,10 @@ export async function syncDigitalCartItem(sessionId, { productType, name, unitPr
   return data;
 }
 
-export async function getPinUsageCount(collectionId) {  const data = await apiFetch(`/v1/engage/activity?collectionId=${encodeURIComponent(collectionId)}&type=password_attempt&limit=2000`).catch(() => null);
-  return (data?.activity || []).filter(
-    (row) => {
-      try {
-        const meta = typeof row.metadata === 'string' ? JSON.parse(row.metadata) : row.metadata;
-        return meta?.success === true && meta?.type === 'download_pin';
-      } catch {
-        return false;
-      }
-    },
-  ).length;
+export async function getPinUsageCount(collectionId) {
+  if (!collectionId) return 0;
+  const data = await apiFetch(`/v1/public/gallery/${encodeURIComponent(collectionId)}/download-stats`, { auth: false }).catch(() => null);
+  return Number(data?.pinSuccessCount) || 0;
 }
 
 export async function getEmailRegistrationActivity(collectionId) {
@@ -956,11 +1017,17 @@ export async function deleteCollectionReminder(id) {
 
 export async function ensureCollectionReminder(collectionId, patch = {}) {
   const existing = await getCollectionReminders(collectionId);
+  const defaults = {
+    collectionId,
+    timing: '7 days before auto expiry date',
+    subject: 'Gallery expiring soon',
+    body: 'Closing soon — download anything you want to keep',
+  };
   if (existing.length > 0) {
     if (Object.keys(patch).length === 0) return existing[0];
     return updateCollectionReminder(existing[0].id, patch);
   }
-  return createCollectionReminder({ collectionId, timing: '7 days before auto expiry date', subject: 'Gallery expiring soon', body: '', ...patch });
+  return createCollectionReminder({ ...defaults, ...patch, collectionId });
 }
 
 export async function shareCollectionByEmail({ collectionSlug, collectionId, recipientEmail, senderEmail, personalMessage, subject }) {
@@ -971,10 +1038,17 @@ export async function shareCollectionByEmail({ collectionSlug, collectionId, rec
   return data;
 }
 
-export async function sendSelectionListEmail({ collectionSlug, recipientEmail, subject, message, chooseUrl }) {
+export async function sendSelectionListEmail({ collectionSlug, recipientEmail, subject, message, chooseUrl, listId }) {
   const data = await apiFetch('/v1/emails/selection', {
     method: 'POST',
-    body: { collectionSlug, recipientEmail, subject: subject ?? null, message, chooseUrl: chooseUrl ?? null },
+    body: {
+      collectionSlug,
+      recipientEmail,
+      subject: subject ?? null,
+      message,
+      chooseUrl: chooseUrl ?? null,
+      listId: listId ?? null,
+    },
   });
   return data;
 }

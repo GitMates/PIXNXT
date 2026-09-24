@@ -1,17 +1,10 @@
 import React from 'react';
+import { apiFetch } from '../../../../lib/api/client';
 import { persistDeliverySettings } from '../../../../lib/deliverySettingsSync';
 import { StoreSettingsProps } from './Settings.types';
 import { Toggle } from './settingsCardKit';
 import './BasicsSettings.css';
 import './DownloadSettings.css';
-
-const PRICE_LISTS = [
-  { id: 'studio', label: 'Studio default' },
-  { id: 'wedding', label: 'Wedding premium' },
-  { id: 'custom', label: 'Custom' },
-] as const;
-
-type PriceListId = (typeof PRICE_LISTS)[number]['id'];
 
 function ChevronDown() {
   return (
@@ -73,14 +66,19 @@ function RadioMenu({
   options,
   header,
   onChange,
+  emptyLabel,
 }: {
   value: string;
   options: { id: string; label: string }[];
   header: string;
   onChange: (id: string) => void;
+  emptyLabel?: string;
 }) {
   const { open, setOpen, ref } = useMenu();
-  const label = options.find((item) => item.id === value)?.label || value;
+  const label = options.find((item) => item.id === value)?.label
+    || emptyLabel
+    || value
+    || 'Studio default';
 
   return (
     <div className={`cd-dl-select${open ? ' is-open' : ''}`} ref={ref}>
@@ -98,7 +96,7 @@ function RadioMenu({
           <p className="cd-dl-pop__head">{header}</p>
           {options.map((item) => (
             <button
-              key={item.id}
+              key={item.id || 'default'}
               type="button"
               className="cd-dl-opt"
               onClick={() => {
@@ -143,19 +141,7 @@ function PercentField({
   );
 }
 
-function priceListStorageKey(collectionId: string) {
-  return `pixnxt_print_price_list_${collectionId}`;
-}
-
-function readStoredPriceList(collectionId: string): PriceListId {
-  try {
-    const stored = localStorage.getItem(priceListStorageKey(collectionId));
-    if (stored && PRICE_LISTS.some((item) => item.id === stored)) return stored as PriceListId;
-  } catch {
-    /* ignore */
-  }
-  return 'studio';
-}
+type SheetOption = { id: string; label: string };
 
 export const StoreSettings: React.FC<StoreSettingsProps> = ({
   collectionId,
@@ -168,47 +154,59 @@ export const StoreSettings: React.FC<StoreSettingsProps> = ({
   const [markup, setMarkup] = React.useState(
     collection?.print_markup_percent != null ? String(collection.print_markup_percent) : '40',
   );
-  const [priceList, setPriceList] = React.useState<PriceListId>(() => readStoredPriceList(collectionId));
+  const [sheets, setSheets] = React.useState<SheetOption[]>([]);
+  const [sheetsLoading, setSheetsLoading] = React.useState(true);
+  const [priceSheetId, setPriceSheetId] = React.useState<string>(
+    () => String(collection?.price_sheet_id || ''),
+  );
 
   React.useEffect(() => {
     setGuestPrints(collection?.guest_prints_enabled !== false);
     setMarkup(collection?.print_markup_percent != null ? String(collection.print_markup_percent) : '40');
-    const fromDb = collection?.design_options?.print_price_list_id;
-    if (fromDb && PRICE_LISTS.some((item) => item.id === fromDb)) {
-      setPriceList(fromDb as PriceListId);
-    }
+    setPriceSheetId(String(collection?.price_sheet_id || ''));
   }, [
     collection?.guest_prints_enabled,
     collection?.print_markup_percent,
-    collection?.design_options?.print_price_list_id,
+    collection?.price_sheet_id,
   ]);
 
   React.useEffect(() => {
-    setPriceList(readStoredPriceList(collectionId));
-  }, [collectionId]);
+    let cancelled = false;
+    (async () => {
+      setSheetsLoading(true);
+      try {
+        const data = await apiFetch('/v1/store/price-sheets');
+        const rows = Array.isArray(data?.sheets) ? data.sheets : [];
+        if (cancelled) return;
+        const options: SheetOption[] = [
+          { id: '', label: 'Studio default' },
+          ...rows.map((sheet: { id?: string; name?: string; is_default?: boolean }) => ({
+            id: String(sheet.id || ''),
+            label: sheet.is_default
+              ? `${sheet.name || 'Price list'} (profile default)`
+              : (sheet.name || 'Price list'),
+          })).filter((item: SheetOption) => item.id),
+        ];
+        setSheets(options);
+      } catch (err) {
+        console.error('Failed to load price sheets:', err);
+        if (!cancelled) setSheets([{ id: '', label: 'Studio default' }]);
+      } finally {
+        if (!cancelled) setSheetsLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const persist = async (patch: Record<string, unknown>) => {
     await persistDeliverySettings(collectionId, collection?.slug, patch, setCollection);
   };
 
-  const choosePriceList = (id: string) => {
-    const next = (PRICE_LISTS.some((item) => item.id === id) ? id : 'studio') as PriceListId;
-    setPriceList(next);
-    try {
-      localStorage.setItem(priceListStorageKey(collectionId), next);
-    } catch {
-      /* ignore */
-    }
-    const designOptions =
-      collection?.design_options && typeof collection.design_options === 'object'
-        ? collection.design_options
-        : {};
-    void persist({
-      design_options: {
-        ...designOptions,
-        print_price_list_id: next,
-      },
-    });
+  const choosePriceSheet = (id: string) => {
+    setPriceSheetId(id);
+    void persist({ price_sheet_id: id || null });
   };
 
   React.useEffect(() => {
@@ -223,6 +221,8 @@ export const StoreSettings: React.FC<StoreSettingsProps> = ({
       void persist({ print_markup_percent: parsed });
     }, 350);
     return () => window.clearTimeout(timeoutId);
+    // persist intentionally omitted — collectionId/slug stable for this screen
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [markup, collectionId, collection?.print_markup_percent]);
 
   const sellingSummary = storeEnabled ? (
@@ -240,6 +240,8 @@ export const StoreSettings: React.FC<StoreSettingsProps> = ({
       Prints are <strong>off</strong>. Nothing can be ordered from inside this gallery.
     </>
   );
+
+  const sheetOptions = sheets.length > 0 ? sheets : [{ id: '', label: 'Studio default' }];
 
   return (
     <div className="cd-general-settings-view cd-basics cd-dl">
@@ -275,7 +277,7 @@ export const StoreSettings: React.FC<StoreSettingsProps> = ({
             />
           </div>
 
-          <div className="cd-dl-body">
+          <div className={`cd-dl-body${storeEnabled ? '' : ' cd-dl-muted'}`}>
             <div className="cd-dl-card">
               <Row
                 title="Offer prints to guests"
@@ -293,13 +295,16 @@ export const StoreSettings: React.FC<StoreSettingsProps> = ({
               />
               <Row
                 title="Price list"
-                desc="Built once in your Profile settings and reused. This picks which applies here."
+                desc={sheetsLoading
+                  ? 'Loading your price lists…'
+                  : 'Built once in your Profile settings and reused. This picks which applies here.'}
                 control={(
                   <RadioMenu
                     header="Price list"
-                    value={priceList}
-                    options={[...PRICE_LISTS]}
-                    onChange={choosePriceList}
+                    value={priceSheetId}
+                    options={sheetOptions}
+                    emptyLabel="Studio default"
+                    onChange={choosePriceSheet}
                   />
                 )}
               />

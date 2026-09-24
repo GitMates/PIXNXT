@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import HTMLFlipBook from 'react-pageflip';
+import SafeHtmlFlipBook from './SafeHtmlFlipBook';
 import AlbumFlipPage from './AlbumFlipPage';
 import {
     getGridSlotPhoto,
@@ -93,7 +93,11 @@ import './AlbumBook.css';
 import './AlbumSwapMarks.css';
 import './AlbumPhotoPins.css';
 import { parseGridSizeAspect } from './albumGridSize';
-import { getBookDimensions, getFallbackBookDimensions } from './albumBookDimensions';
+import {
+    BOOK_STAGE_READY_MIN_PX,
+    getBookDimensions,
+    getFallbackBookDimensions,
+} from './albumBookDimensions';
 import { AlbumBookPageContext } from './AlbumBookPageContext';
 import { installSafePageFlip } from './pageFlipSafe';
 import { albumHasBlankCovers } from './albumSpreadUtils';
@@ -334,8 +338,9 @@ const AlbumBook = ({
         syncingPageRef.current = true;
         const currentFlip = api.getCurrentPageIndex();
         if (currentFlip !== targetFlip) {
+            // turnToPage alone — api.update() after turn recalculates bounds from
+            // DOM vs baked settings and can shove the leaf down (white + strip).
             api.turnToPage(targetFlip);
-            api.update();
         }
         const resolvedStorage = flipbookIndexToStoragePage(
             api.getCurrentPageIndex(),
@@ -367,14 +372,23 @@ const AlbumBook = ({
         [album?.id, album?.grid_layout, album?.grid_size, totalPages]
     );
 
+    // Pin the first good page size for this structural key. page-flip bakes
+    // width/height at construct; later React style changes + api.update() leave
+    // settings≠DOM and shove the leaf down (white canvas + photo strip).
+    const pinnedBookDimsRef = useRef(null);
+
     useEffect(() => {
         setInitialized(false);
         setStableDims(null);
         setDims(null);
+        pinnedBookDimsRef.current = null;
+        prevDimsRef.current = null;
         userNavigatedRef.current = false;
         syncingPageRef.current = true;
     }, [flipBookStructuralKey]);
 
+    // Mount key includes pinned size so a real window resize remounts cleanly
+    // via SafeHtmlFlipBook (settings match DOM). Epoch remounts for photo bytes.
     const flipBookMountKey = useMemo(
         () =>
             stableDims
@@ -643,9 +657,37 @@ const AlbumBook = ({
 
         let measureAttempts = 0;
         const maxMeasureAttempts = 64;
-        const fallbackAfterAttempts = 2;
 
-        const commitDims = (next) => {
+        const applyDims = (verified) => {
+            if (!verified?.width || !verified?.height) return;
+            const pinned = pinnedBookDimsRef.current;
+            if (pinned) {
+                const dw = Math.abs(pinned.width - verified.width);
+                const dh = Math.abs(pinned.height - verified.height);
+                // Ignore measure jitter after first paint — only accept a real resize.
+                if (dw < 48 && dh < 48) return;
+            }
+            pinnedBookDimsRef.current = verified;
+            setDims((prev) =>
+                prev && prev.width === verified.width && prev.height === verified.height
+                    ? prev
+                    : verified
+            );
+            setStableDims((prev) =>
+                prev && prev.width === verified.width && prev.height === verified.height
+                    ? prev
+                    : verified
+            );
+        };
+
+        /**
+         * Never mount HTMLFlipBook on an oversized fallback while the flex stage
+         * is still ~0px tall. That first mount + remount when real dims arrive
+         * freezes the leaf (white canvas + photo strip) under
+         * renderOnlyPageLengthChange. Match useAlbumBookLayoutDims: wait for a
+         * ready stage, fallback only after exhausting retries.
+         */
+        const commitDims = (next, { allowUnverifiedFallback = false } = {}) => {
             if (pendingDimsCommitRef.current != null) {
                 cancelAnimationFrame(pendingDimsCommitRef.current);
             }
@@ -653,27 +695,19 @@ const AlbumBook = ({
                 pendingDimsCommitRef.current = requestAnimationFrame(() => {
                     pendingDimsCommitRef.current = null;
                     const measureTarget = stageOuterRef.current ?? stageRef.current;
-                    const verified =
-                        getBookDimensions(
+                    if (!measureTarget) return;
+                    if (measureTarget.clientHeight >= BOOK_STAGE_READY_MIN_PX) {
+                        const verified = getBookDimensions(
                             measureTarget,
                             album?.grid_size,
                             album?.grid_layout
-                        ) ?? next;
-                    if (!verified) return;
-                    setDims((prev) =>
-                        prev &&
-                        prev.width === verified.width &&
-                        prev.height === verified.height
-                            ? prev
-                            : verified
-                    );
-                    setStableDims((prev) =>
-                        prev &&
-                        prev.width === verified.width &&
-                        prev.height === verified.height
-                            ? prev
-                            : verified
-                    );
+                        );
+                        if (verified) {
+                            applyDims(verified);
+                            return;
+                        }
+                    }
+                    if (allowUnverifiedFallback && next) applyDims(next);
                 });
             });
         };
@@ -683,22 +717,25 @@ const AlbumBook = ({
             if (dimsRafRef.current != null) cancelAnimationFrame(dimsRafRef.current);
             dimsRafRef.current = requestAnimationFrame(() => {
                 dimsRafRef.current = null;
-                const next = getBookDimensions(stage, album?.grid_size, album?.grid_layout);
+                const measureTarget = stageOuterRef.current ?? stageRef.current;
+                if (!measureTarget) return;
+                const next = getBookDimensions(
+                    measureTarget,
+                    album?.grid_size,
+                    album?.grid_layout
+                );
                 if (!next) {
                     measureAttempts += 1;
-                    // Mount cover ASAP on open/reload — don't wait ~1s for stage to hit 300px.
-                    if (
-                        measureAttempts === fallbackAfterAttempts ||
-                        measureAttempts >= maxMeasureAttempts
-                    ) {
+                    if (measureAttempts >= maxMeasureAttempts) {
                         const fallback = getFallbackBookDimensions(
                             rootRef.current,
                             album?.grid_size,
                             album?.grid_layout
                         );
-                        if (fallback) commitDims(fallback);
-                    }
-                    if (measureAttempts < maxMeasureAttempts) {
+                        if (fallback) {
+                            commitDims(fallback, { allowUnverifiedFallback: true });
+                        }
+                    } else {
                         dimsRafRef.current = requestAnimationFrame(update);
                     }
                     return;
@@ -713,6 +750,7 @@ const AlbumBook = ({
             update();
         });
         ro.observe(stage);
+        if (rootRef.current) ro.observe(rootRef.current);
         window.addEventListener('resize', update);
         return () => {
             ro.disconnect();
@@ -723,20 +761,6 @@ const AlbumBook = ({
             }
         };
     }, [album?.grid_size, album?.grid_layout, flipBookStructuralKey]);
-
-    useLayoutEffect(() => {
-        if (!stableDims || !initialized) return;
-        const prev = prevDimsRef.current;
-        prevDimsRef.current = stableDims;
-        if (prev && prev.width === stableDims.width && prev.height === stableDims.height) return;
-
-        const api = bookRef.current?.pageFlip?.();
-        if (!api?.getFlipController?.()) return;
-        api.update();
-        if (!userNavigatedRef.current) {
-            syncFlipbookToUrlPage();
-        }
-    }, [stableDims, initialized, syncFlipbookToUrlPage]);
 
     const bookDims = stableDims ?? dims;
 
@@ -951,10 +975,30 @@ const AlbumBook = ({
 
     const canDragOverviewSpreads = Boolean(editable && onReorderOverviewSpread && !pageCountBusy);
 
+    const overviewDeleteLeftPage = useMemo(() => {
+        const { left } = getSpreadPages(overviewTargetSpreadIndex, totalPages, spreadOpts);
+        return left;
+    }, [overviewTargetSpreadIndex, totalPages, spreadOpts]);
+
     const canDeleteOverviewSpread = useMemo(() => {
         if (!onDeleteSpread) return false;
-        return canDeleteSpreadAtLeftPage(spreadLeftPage, totalPages, spreadOpts);
-    }, [onDeleteSpread, spreadLeftPage, totalPages, spreadOpts]);
+        return canDeleteSpreadAtLeftPage(overviewDeleteLeftPage, totalPages, spreadOpts);
+    }, [onDeleteSpread, overviewDeleteLeftPage, totalPages, spreadOpts]);
+
+    const handleOverviewItemActivate = useCallback(
+        (overviewSpreadIndex) => {
+            if (overviewDidDragRef.current) {
+                overviewDidDragRef.current = false;
+                return;
+            }
+            setOverviewTargetSpreadIndex(overviewSpreadIndex);
+            goToPage(spreadIndexToPage(overviewSpreadIndex, spreadCtx));
+            if (previewMode) {
+                setOverviewOpen(false);
+            }
+        },
+        [goToPage, previewMode, spreadCtx]
+    );
 
     useEffect(() => {
         if (!overviewOpen) return;
@@ -2247,7 +2291,7 @@ const AlbumBook = ({
                 >
                     {bookDims ? (
                     <AlbumBookPageContext.Provider value={pageContextValue}>
-                    <HTMLFlipBook
+                    <SafeHtmlFlipBook
                         key={flipBookMountKey}
                         ref={bookRef}
                         className="ab-html-flipbook ab-html-flipbook--fixed"
@@ -2281,9 +2325,12 @@ const AlbumBook = ({
                             syncingPageRef.current = true;
                             setInitialized(true);
                             const api = bookRef.current?.pageFlip?.();
+                            // Patches vertical layout (top=0 for fixed size) + safe nav.
                             installSafePageFlip(api, { totalPages, spreadOpts });
                             requestAnimationFrame(() => {
                                 requestAnimationFrame(() => {
+                                    // Re-apply after page-flip's delayed ui.update paint.
+                                    installSafePageFlip(api, { totalPages, spreadOpts });
                                     syncFlipbookToUrlPage();
                                 });
                             });
@@ -2291,7 +2338,7 @@ const AlbumBook = ({
                         onUpdate={handleBookUpdate}
                     >
                         {pages}
-                    </HTMLFlipBook>
+                    </SafeHtmlFlipBook>
                     </AlbumBookPageContext.Provider>
                     ) : null}
                 </div>
@@ -2583,13 +2630,16 @@ const AlbumBook = ({
                     <div className="ab-overview-body" onClick={(e) => e.stopPropagation()}>
                     {canDragOverviewSpreads ? (
                         <p className="ab-overview-drag-hint">
-                            The first and last spreads stay fixed. Drag any spread in between to reorder.
+                            {spreadOpts.hasCovers
+                                ? 'Cover, inside cover, and back stay fixed. Drag any spread in between to reorder.'
+                                : 'Drag a spread to reorder.'}
                         </p>
                     ) : null}
                     <OverviewSortableGrid
                         itemCount={totalSpreads}
                         isDraggable={isOverviewSpreadDraggable}
                         onReorder={handleOverviewReorder}
+                        onItemActivate={handleOverviewItemActivate}
                         disabled={!canDragOverviewSpreads || pageCountBusy}
                         className={`ab-overview-grid${
                             pageCountBusy ? ' ab-overview-grid--transitioning' : ''
@@ -2618,7 +2668,6 @@ const AlbumBook = ({
                             } = visual;
                             const designedBlankLeft = Boolean(isInsideCover);
                             const designedBlankRight = Boolean(isPreBack);
-                            const targetPage = spreadIndexToPage(overviewSpreadIndex, spreadCtx);
                             const isSelected = overviewSpreadIndex === overviewTargetSpreadIndex;
                             return (
                                 <button
@@ -2632,18 +2681,6 @@ const AlbumBook = ({
                                     }${
                                         spreadDraggable ? ' ab-overview-item--draggable' : ''
                                     }`}
-                                    onClick={() => {
-                                        if (overviewDidDragRef.current) {
-                                            overviewDidDragRef.current = false;
-                                            return;
-                                        }
-                                        setOverviewTargetSpreadIndex(overviewSpreadIndex);
-                                        goToPage(targetPage);
-                                        // Preview / client link: close overview and land on the spread.
-                                        if (previewMode) {
-                                            setOverviewOpen(false);
-                                        }
-                                    }}
                                 >
                                     <span className="ab-overview-thumb ab-overview-thumb--spread">
                                         {showSpreadFull ? (
@@ -2759,7 +2796,7 @@ const AlbumBook = ({
                                     disabled={pageCountBusy}
                                     onClick={async (e) => {
                                         e.stopPropagation();
-                                        await onDeleteSpread(spreadLeftPage);
+                                        await onDeleteSpread(overviewDeleteLeftPage);
                                         setOverviewOpen(false);
                                     }}
                                 >

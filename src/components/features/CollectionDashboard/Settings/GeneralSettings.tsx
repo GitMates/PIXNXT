@@ -41,6 +41,8 @@ export interface GeneralSettingsProps {
     showGeneralAdditionalOptions: boolean;
     setShowGeneralAdditionalOptions: (val: boolean) => void;
     profile?: any;
+    showOnShowcase?: boolean;
+    setShowOnShowcase?: (val: boolean) => void;
 }
 
 const LANGUAGES = [
@@ -58,7 +60,7 @@ const REMIND_CHANNELS = [
 const REMIND_WHEN = [
     { id: '3days', label: '3 days before', timing: '3 days before auto expiry date' },
     { id: 'week', label: '1 week before', timing: '7 days before auto expiry date' },
-    { id: 'both', label: 'Both', timing: '7 days before auto expiry date' },
+    { id: 'both', label: 'Both', timing: '3 and 7 days before auto expiry date' },
 ] as const;
 
 function formatLongDate(value?: string | null) {
@@ -142,6 +144,8 @@ export const GeneralSettings: React.FC<GeneralSettingsProps> = ({
     onCategoryTagsChange,
     categoryTagsSaving = false,
     profile,
+    showOnShowcase: showOnShowcaseProp,
+    setShowOnShowcase,
 }) => {
     const [activeTab, setActiveTab] = React.useState<'link' | 'closes' | 'gallery'>('link');
     const [copied, setCopied] = React.useState(false);
@@ -159,9 +163,10 @@ export const GeneralSettings: React.FC<GeneralSettingsProps> = ({
         else setRemindChannel('email');
 
         const timings = expiryReminders.map((r) => String(r.timing || ''));
+        const hasBoth = timings.some((t) => /3\s*and\s*7|7\s*and\s*3|both/i.test(t));
         const has3 = timings.some((t) => t.startsWith('3 '));
         const has7 = timings.some((t) => t.startsWith('7 ') || t.includes('week'));
-        if (has3 && has7) setRemindWhen('both');
+        if (hasBoth || (has3 && has7)) setRemindWhen('both');
         else if (has3) setRemindWhen('3days');
         else if (has7) setRemindWhen('week');
     }, [expiryReminders]);
@@ -250,6 +255,7 @@ export const GeneralSettings: React.FC<GeneralSettingsProps> = ({
             await galleryService.ensureCollectionReminder(collectionId, {
                 timing,
                 whatsapp_enabled: whatsappEnabled,
+                send_copy: channel !== 'whatsapp',
             });
             onRemindersChange?.();
         } catch (err) {
@@ -304,7 +310,9 @@ export const GeneralSettings: React.FC<GeneralSettingsProps> = ({
                 ? 'Tamil'
                 : 'English';
 
-    const showOnShowcase = collection?.show_on_showcase !== false;
+    const showOnShowcase = showOnShowcaseProp !== undefined
+        ? showOnShowcaseProp
+        : collection?.show_on_showcase !== false;
 
     return (
         <div className="cd-general-settings-view cd-basics cd-dl">
@@ -459,7 +467,11 @@ export const GeneralSettings: React.FC<GeneralSettingsProps> = ({
                                     <div className="cd-dl-row__control">
                                         <Toggle
                                             checked={showOnShowcase}
-                                            onChange={(next) => void persistCollection({ show_on_showcase: next })}
+                                            onChange={(next) => {
+                                                setShowOnShowcase?.(next);
+                                                setCollection((prev) => (prev ? { ...prev, show_on_showcase: next } : prev));
+                                                void persistCollection({ show_on_showcase: next });
+                                            }}
                                         />
                                     </div>
                                 </div>

@@ -327,7 +327,7 @@ export function NewSelectionModal({
                 disabled={saving || revoking}
                 onClick={() => editingList && void onRevokeAccess?.(editingList)}
               >
-                {revoking ? 'Revoking…' : 'Revoke access'}
+                {revoking ? 'Reopening…' : 'Reopen selection'}
               </button>
             ) : null}
             {isEdit ? (

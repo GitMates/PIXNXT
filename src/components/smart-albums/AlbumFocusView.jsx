@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import HTMLFlipBook from 'react-pageflip';
+import SafeHtmlFlipBook from './SafeHtmlFlipBook';
 import AlbumFlipPage from './AlbumFlipPage';
 import {
     flipbookIndexToStoragePage,
@@ -11,7 +11,7 @@ import {
     pageToSpreadIndex,
     storagePageToFlipbookIndex,
 } from './albumSpreadUtils';
-import { installSafePageFlip } from './pageFlipSafe';
+import { installSafePageFlip, releasePageFlipDom } from './pageFlipSafe';
 import { closeAlbumPinPopovers } from './albumPinPopoverEvents';
 import {
     exitDocumentFullscreen,
@@ -106,6 +106,7 @@ export default function AlbumFocusView({
         document.documentElement.style.overflow = 'hidden';
         document.body.style.overflow = 'hidden';
         return () => {
+            releasePageFlipDom(bookRef.current?.pageFlip?.());
             document.documentElement.style.overflow = prevHtmlOverflow;
             document.body.style.overflow = prevBodyOverflow;
         };
@@ -315,8 +316,8 @@ export default function AlbumFocusView({
                         }${bookFlipping ? ' ab-flipbook-wrap--flipping' : ''}`}
                         style={{ width: dims.width * 2, height: dims.height }}
                     >
-                        <HTMLFlipBook
-                            key={`focus-${album?.id}-${totalPages}-${flipStartPage}-${dims.width}x${dims.height}`}
+                        <SafeHtmlFlipBook
+                            key={`focus-${album?.id}-${totalPages}-${flipStartPage}`}
                             ref={bookRef}
                             className="ab-html-flipbook ab-html-flipbook--focus"
                             style={{
@@ -364,7 +365,7 @@ export default function AlbumFocusView({
                             }}
                         >
                             {pages}
-                        </HTMLFlipBook>
+                        </SafeHtmlFlipBook>
                     </div>
                 </div>
 

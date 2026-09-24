@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 import { guestDeliveryPublishService } from '../../services/guestDeliveryPublish.service';
 import { AppLoader } from '../../components/ui/AppLoading';
 import './EventGuestGallery.css';
@@ -45,6 +45,10 @@ export default function EventGuestGallery() {
 
   const photos = gallery?.photos || [];
   const activePhoto = lightboxIndex >= 0 ? photos[lightboxIndex] : null;
+  const printsOn = Boolean(gallery?.prints?.enabled && gallery?.prints?.collectionSlug);
+  const printLabHref = printsOn
+    ? `/gallery/${encodeURIComponent(gallery.prints.collectionSlug)}?printLab=1`
+    : null;
 
   return (
     <div className="egg-page">
@@ -55,6 +59,17 @@ export default function EventGuestGallery() {
           <p className="egg-subtitle">
             Photos for {gallery.guest.name}
             {photos.length ? ` · ${photos.length} photo${photos.length === 1 ? '' : 's'}` : ''}
+          </p>
+        ) : null}
+        {printsOn && printLabHref && photos.length > 0 ? (
+          <p className="egg-subtitle" style={{ marginTop: 12 }}>
+            <Link
+              to={printLabHref}
+              className="egg-lightbox-download"
+              style={{ display: 'inline-block', textDecoration: 'none' }}
+            >
+              Take these home
+            </Link>
           </p>
         ) : null}
       </header>
@@ -92,6 +107,7 @@ export default function EventGuestGallery() {
                 aria-label={`Open ${photo.filename || 'photo'}`}
               >
                 <img src={photo.thumbnail_url || photo.full_url} alt={photo.filename || ''} loading="lazy" />
+                {printsOn ? <span className="egg-take-home-chip">Take home</span> : null}
               </button>
             ))}
           </div>
@@ -139,14 +155,26 @@ export default function EventGuestGallery() {
           >
             ›
           </button>
-          <a
-            href={activePhoto.full_url || activePhoto.thumbnail_url}
-            download={activePhoto.filename || 'photo.jpg'}
-            className="egg-lightbox-download"
-            onClick={(e) => e.stopPropagation()}
-          >
-            Download
-          </a>
+          <div className="egg-lightbox-actions">
+            <a
+              href={activePhoto.full_url || activePhoto.thumbnail_url}
+              download={activePhoto.filename || 'photo.jpg'}
+              className="egg-lightbox-download"
+              onClick={(e) => e.stopPropagation()}
+            >
+              Download
+            </a>
+            {printsOn && printLabHref ? (
+              <Link
+                to={printLabHref}
+                className="egg-lightbox-download"
+                onClick={(e) => e.stopPropagation()}
+                style={{ textDecoration: 'none' }}
+              >
+                Take these home
+              </Link>
+            ) : null}
+          </div>
         </div>
       )}
     </div>

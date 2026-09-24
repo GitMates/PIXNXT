@@ -7,7 +7,7 @@ export interface ClientExclusiveLoginModalProps {
   open: boolean;
   storedPassword: string | null | undefined;
   collectionId?: string | null;
-  onSuccess: () => void;
+  onSuccess: (password?: string) => void;
   onClose?: () => void;
 }
 
@@ -32,8 +32,9 @@ export const ClientExclusiveLoginModal: React.FC<ClientExclusiveLoginModalProps>
         const { passwordOk } = await verifyGalleryAccess(collectionId, { password });
         if (passwordOk) {
           setError('');
+          const entered = password;
           setPassword('');
-          onSuccess();
+          onSuccess(entered);
         } else {
           setError('Incorrect client password. Please try again.');
         }
@@ -47,8 +48,9 @@ export const ClientExclusiveLoginModal: React.FC<ClientExclusiveLoginModalProps>
     if (verifyClientPassword(password, storedPassword)) {
       console.log('Client Login Success!');
       setError('');
+      const entered = password;
       setPassword('');
-      onSuccess();
+      onSuccess(entered);
     } else {
       console.log('Client Login Failed!');
       setError('Incorrect client password. Please try again.');

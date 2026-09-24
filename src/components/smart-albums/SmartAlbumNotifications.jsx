@@ -556,10 +556,10 @@ export default function SmartAlbumNotifications({ userId, variant = 'default' })
                                             if (group.category === 'swaps') {
                                                 iconClass = 'swap';
                                                 iconElement = <ArrowLeftRight size={14} />;
-                                            } else if (
-                                                item.type === 'changes_submitted' ||
-                                                item.type === 'album_approved'
-                                            ) {
+                                            } else if (item.type === 'album_approved') {
+                                                iconClass = 'approved';
+                                                iconElement = <Check size={14} strokeWidth={2.5} />;
+                                            } else if (item.type === 'changes_submitted') {
                                                 iconClass = 'tick';
                                                 iconElement = <Check size={14} />;
                                             } else if (group.category === 'audio') {
@@ -581,7 +581,11 @@ export default function SmartAlbumNotifications({ userId, variant = 'default' })
                                                             group.isUnread
                                                                 ? ' ae-notifications-item--unread'
                                                                 : ''
-                                                        }${isDone ? ' ae-notifications-item--done' : ''}`}
+                                                        }${isDone ? ' ae-notifications-item--done' : ''}${
+                                                            item?.type === 'album_approved'
+                                                                ? ' ae-notifications-item--approved'
+                                                                : ''
+                                                        }`}
                                                         role="menuitem"
                                                         onClick={() => handleSelectGroup(group)}
                                                     >

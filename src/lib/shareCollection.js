@@ -66,14 +66,49 @@ export function getSelectionChooseUrl(slug, photographerProfile) {
     };
 }
 
-export function openShareByEmail(url, title = 'Photo Gallery') {
-    const body = `Hi,\n\nI'd like to share my photo gallery with you:\n${url}\n\nEnjoy!`;
+export function openShareByEmail(url, title = 'Photo Gallery', extras = {}) {
+    const body = extras.body
+      || `Hi,\n\nI'd like to share my photo gallery with you:\n${url}\n\nEnjoy!`;
     window.open(buildGmailComposeUrl(body, { subject: title }), '_blank', 'noopener,noreferrer');
 }
 
-export function openWhatsAppShare(url, title = 'Gallery') {
-    const text = `Hi,\n\nThanks again for sharing your special day with me! I had an incredible time photographing the two of you, and I am very excited to share the photos with you!\n\nClick on the link below to view your personalized gallery. Feel free to then share this gallery with your family and friends.\n\nI hope you enjoy the photos and please let me know if you have any questions. Have a great day!\n\nCheers,\nYour Name\n\nView Gallery: ${url}`;
+export function openWhatsAppShare(url, title = 'Gallery', extras = {}) {
+    const text = extras.body
+      || `Hi,\n\nThanks again for sharing your special day with me! I had an incredible time photographing the two of you, and I am very excited to share the photos with you!\n\nClick on the link below to view your personalized gallery. Feel free to then share this gallery with your family and friends.\n\nI hope you enjoy the photos and please let me know if you have any questions. Have a great day!\n\nCheers,\nYour Name\n\nView Gallery: ${url}`;
     window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank', 'noopener,noreferrer');
+}
+
+/**
+ * Build the Access → Password share preview / outbound message body.
+ * Includes password / PIN as plain text when the photographer opts in.
+ */
+export function buildDeliveryShareMessage({
+  url,
+  brandName,
+  eventDateLabel,
+  password,
+  pin,
+  includePassword = false,
+  includePin = false,
+} = {}) {
+  const lines = [
+    eventDateLabel
+      ? `Your photographs from ${eventDateLabel} are ready.`
+      : 'Your photographs are ready.',
+    '',
+    String(url || '').trim(),
+  ];
+  if (includePassword && password) {
+    lines.push('', `Password: ${password}`);
+  }
+  if (includePin && pin) {
+    if (!(includePassword && password)) lines.push('');
+    lines.push(`Download PIN: ${pin}`);
+  }
+  if (brandName) {
+    lines.push('', `— ${brandName}`);
+  }
+  return lines.filter((line, i, arr) => !(line === '' && arr[i - 1] === '')).join('\n');
 }
 
 export function getQrCodeImageUrl(url, size = 220, format = 'png') {

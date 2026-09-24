@@ -650,7 +650,7 @@ export const PrivacySettings: React.FC<PrivacySettingsProps> = ({
 
   const watermarkSummary = watermarkName ? (
     <>
-      <strong>{watermarkName}</strong> is stamped on every photograph shown and downloaded.
+      <strong>{watermarkName}</strong> is applied on downloads when studio watermark downloads is on.
     </>
   ) : (
     <>
@@ -847,7 +847,9 @@ export const PrivacySettings: React.FC<PrivacySettingsProps> = ({
                           setClientExclusiveAccess(next);
                           void persist({
                             client_exclusive_enabled: next,
-                            privacy: next ? 'client_exclusive' : 'public',
+                            privacy: next
+                              ? 'client_exclusive'
+                              : (passwordOn ? 'password' : 'public'),
                           });
                         }}
                         label="Client exclusive access"
@@ -915,7 +917,10 @@ export const PrivacySettings: React.FC<PrivacySettingsProps> = ({
                 title="Ask visitors who they are"
                 desc="A one-screen form before the gallery opens. This is what turns anonymous traffic into a contact list, and it is the only way a favourite can be attributed to a person."
                 checked={emailRegistration}
-                onChange={setEmailRegistration}
+                onChange={(next) => {
+                  setEmailRegistration(next);
+                  void persist({ email_capture_enabled: next });
+                }}
                 label="Ask visitors who they are"
               />
 
@@ -1164,7 +1169,7 @@ export const PrivacySettings: React.FC<PrivacySettingsProps> = ({
                       ))}
                     </div>
                     <p className="cd-basics-hint">
-                      Applied to photographs as the gallery shows them. Your originals are never touched.
+                      Applied when visitors download photographs (when studio watermark downloads is on). Your originals are never touched.
                     </p>
                   </div>
                   {onManageWatermarks ? (

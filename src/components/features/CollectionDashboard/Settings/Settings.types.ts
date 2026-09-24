@@ -83,6 +83,7 @@ export interface FavoriteSettingsProps {
   favoriteLists?: any[];
   onReviewList?: (list: any) => void;
   onEditList?: (list: any) => void;
+  onRefreshLists?: () => void;
   setShowCreateFavoriteListModal: (val: boolean) => void;
   setActiveSidebarTab?: (tab: string) => void;
   setActiveActivitySubTab?: (tab: string) => void;

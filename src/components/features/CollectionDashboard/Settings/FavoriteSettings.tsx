@@ -1,8 +1,7 @@
 import React from 'react';
 import { persistDeliverySettings } from '../../../../lib/deliverySettingsSync';
-import { getCollectionShareUrl } from '../../../../lib/shareCollection';
-import { buildGmailComposeUrl } from '../../../../lib/gmailComposeUrl';
-import { ManageEmailTemplatesModal } from '../../../mobile-gallery/EmailTemplateModals';
+import { getSelectionChooseUrl } from '../../../../lib/shareCollection';
+import { galleryService } from '../../../../services/gallery.service';
 import { FavoriteSettingsProps } from './Settings.types';
 import { Toggle } from './settingsCardKit';
 import './BasicsSettings.css';
@@ -17,6 +16,7 @@ type ListRow = {
   photoCount?: number;
   max_selection?: number | null;
   submitted_at?: string | null;
+  sent_at?: string | null;
   updated_at?: string | null;
   sessionId?: string | null;
 };
@@ -86,13 +86,14 @@ export const FavoriteSettings: React.FC<FavoriteSettingsProps> = ({
   favoriteLists = [],
   onReviewList,
   onEditList,
+  onRefreshLists,
   setShowCreateFavoriteListModal,
 }) => {
   const [notifyOnSubmit, setNotifyOnSubmit] = React.useState(collection?.selection_notify_on_submit !== false);
   const [lockOnSubmit, setLockOnSubmit] = React.useState(collection?.selection_lock_on_submit !== false);
   const [chaseAfterSilence, setChaseAfterSilence] = React.useState(collection?.selection_chase_enabled !== false);
   const [allowDownloadShare, setAllowDownloadShare] = React.useState(collection?.selection_allow_download_share !== false);
-  const [showTemplates, setShowTemplates] = React.useState(false);
+  const [sendingListId, setSendingListId] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     setNotifyOnSubmit(collection?.selection_notify_on_submit !== false);
@@ -110,23 +111,40 @@ export const FavoriteSettings: React.FC<FavoriteSettingsProps> = ({
     await persistDeliverySettings(collectionId, collection?.slug, patch, setCollection);
   };
 
-  const shareUrl = getCollectionShareUrl(collectionUrl, profile);
   const studioName = profile?.business_name || profile?.display_name || 'Your studio';
   const lists = favoriteLists as ListRow[];
 
-  const composeForList = (list: ListRow, kind: 'send' | 'remind') => {
+  const composeForList = async (list: ListRow, kind: 'send' | 'remind') => {
+    const to = String(list.email || '').trim();
+    if (!to.includes('@')) {
+      alert('This selection has no client email. Edit it and add one first.');
+      return;
+    }
+    const choose = getSelectionChooseUrl(collectionUrl, profile);
     const limit = list.max_selection ? ` Pick up to ${list.max_selection}.` : '';
-    const body = kind === 'send'
-      ? `Hi,\n\nYour list "${list.name}" is ready.${limit}\n\n${shareUrl}\n\nPress "I'm finished" when you are happy with your choices.\n\n— ${studioName}`
-      : `Hi,\n\nJust a nudge about the list "${list.name}".${limit} You have picked ${list.photoCount || 0} so far.\n\n${shareUrl}\n\n— ${studioName}`;
+    const message = kind === 'send'
+      ? `Hi,\n\nYour list "${list.name}" is ready.${limit}\n\nPress "I'm finished" when you are happy with your choices.\n\n— ${studioName}`
+      : `Hi,\n\nJust a nudge about the list "${list.name}".${limit} You have picked ${list.photoCount || 0} so far.\n\n— ${studioName}`;
     const subject = kind === 'send'
       ? `Your list: ${list.name}`
       : `Still picking? ${list.name}`;
-    window.open(
-      buildGmailComposeUrl(body, { to: list.email || '', subject }),
-      '_blank',
-      'noopener,noreferrer',
-    );
+    try {
+      setSendingListId(list.id);
+      await galleryService.sendSelectionListEmail({
+        collectionSlug: collectionUrl,
+        recipientEmail: to,
+        subject,
+        message,
+        chooseUrl: choose.href,
+        listId: list.id,
+      });
+      onRefreshLists?.();
+    } catch (err) {
+      console.error('Failed to send selection email:', err);
+      alert((err as Error)?.message || 'Could not send email. Check your email settings.');
+    } finally {
+      setSendingListId(null);
+    }
   };
 
   const listCount = lists.length;
@@ -152,7 +170,7 @@ export const FavoriteSettings: React.FC<FavoriteSettingsProps> = ({
 
   const rowState = (list: ListRow) => {
     const picked = list.photoCount || 0;
-    const limit = list.max_selection || 0;
+    const busy = sendingListId === list.id;
 
     if (list.submitted_at) {
       return {
@@ -172,18 +190,19 @@ export const FavoriteSettings: React.FC<FavoriteSettingsProps> = ({
       };
     }
 
-    if (picked > 0) {
+    if (picked > 0 || list.sent_at) {
       return {
-        statusLabel: 'Choosing',
+        statusLabel: picked > 0 ? 'Choosing' : 'Sent',
         statusClass: 'is-choosing',
-        progressClass: 'is-choosing',
+        progressClass: picked > 0 ? 'is-choosing' : '',
         action: (
           <button
             type="button"
             className="cd-dl-sel-remind"
-            onClick={() => composeForList(list, 'remind')}
+            disabled={busy}
+            onClick={() => void composeForList(list, 'remind')}
           >
-            Remind
+            {busy ? 'Sending…' : 'Remind'}
           </button>
         ),
         rowClass: '',
@@ -198,9 +217,10 @@ export const FavoriteSettings: React.FC<FavoriteSettingsProps> = ({
         <button
           type="button"
           className="cd-dl-sel-send"
-          onClick={() => composeForList(list, 'send')}
+          disabled={busy}
+          onClick={() => void composeForList(list, 'send')}
         >
-          Send
+          {busy ? 'Sending…' : 'Send'}
         </button>
       ),
       rowClass: '',
@@ -339,13 +359,6 @@ export const FavoriteSettings: React.FC<FavoriteSettingsProps> = ({
                   >
                     + New selection
                   </button>
-                  <button
-                    type="button"
-                    className="cd-dl-sel-btn cd-dl-sel-btn--ghost"
-                    onClick={() => setShowTemplates(true)}
-                  >
-                    Message templates
-                  </button>
                 </div>
               </div>
 
@@ -434,16 +447,6 @@ export const FavoriteSettings: React.FC<FavoriteSettingsProps> = ({
           ) : null}
         </div>
       </div>
-
-      {showTemplates && profile?.id ? (
-        <ManageEmailTemplatesModal
-          photographerId={profile.id}
-          appName={collection?.name || 'this delivery'}
-          senderName={studioName}
-          onClose={() => setShowTemplates(false)}
-          onTemplatesChange={() => {}}
-        />
-      ) : null}
     </div>
   );
 };

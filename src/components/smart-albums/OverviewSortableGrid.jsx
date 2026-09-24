@@ -1,5 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+const CLICK_MOVE_PX = 4;
+
 function nearestDraggableIndex(index, lockedIndices, length) {
     if (!lockedIndices.has(index)) return index;
     for (let offset = 1; offset < length; offset += 1) {
@@ -43,37 +45,33 @@ function getWrapTransform(index, drag, lockedIndices) {
     return null;
 }
 
-function resolveOverIndex(clientX, clientY, wrapRefs, count, lockedIndices, fallback) {
-    for (let i = 0; i < count; i += 1) {
-        const el = wrapRefs.current[i];
-        if (!el) continue;
-        const rect = el.getBoundingClientRect();
-        if (
-            clientX >= rect.left &&
-            clientX <= rect.right &&
-            clientY >= rect.top &&
-            clientY <= rect.bottom
-        ) {
-            return nearestDraggableIndex(i, lockedIndices, count);
-        }
-    }
+/**
+ * Resolve drop target from pointer delta vs cell size — NOT getBoundingClientRect
+ * on transformed wraps. Hit-testing the dragged (translated) node always contains
+ * the cursor, so forward drags stuck on fromIndex (reload/reorder "broken drag").
+ */
+function resolveOverIndex(deltaX, deltaY, fromIndex, cols, cellW, cellH, gapX, gapY, lockedIndices, length) {
+    const stepX = Math.max(1, cellW + gapX);
+    const stepY = Math.max(1, cellH + gapY);
+    const fromRow = Math.floor(fromIndex / cols);
+    const fromCol = fromIndex % cols;
+    const colDisp = Math.round(deltaX / stepX);
+    const rowDisp = Math.round(deltaY / stepY);
+    const rows = Math.max(1, Math.ceil(length / cols));
 
-    let best = fallback;
-    let bestDist = Infinity;
-    for (let i = 0; i < count; i += 1) {
-        if (lockedIndices.has(i)) continue;
-        const el = wrapRefs.current[i];
-        if (!el) continue;
-        const rect = el.getBoundingClientRect();
-        const cx = rect.left + rect.width / 2;
-        const cy = rect.top + rect.height / 2;
-        const dist = (clientX - cx) ** 2 + (clientY - cy) ** 2;
-        if (dist < bestDist) {
-            bestDist = dist;
-            best = i;
-        }
-    }
-    return best;
+    let overCol = Math.max(0, Math.min(cols - 1, fromCol + colDisp));
+    let overRow = Math.max(0, Math.min(rows - 1, fromRow + rowDisp));
+    let overIndex = overRow * cols + overCol;
+    if (overIndex >= length) overIndex = length - 1;
+
+    let min = 0;
+    let max = length - 1;
+    while (min < length && lockedIndices.has(min)) min += 1;
+    while (max >= 0 && lockedIndices.has(max)) max -= 1;
+    if (min > max) return fromIndex;
+
+    overIndex = Math.max(min, Math.min(max, overIndex));
+    return nearestDraggableIndex(overIndex, lockedIndices, length);
 }
 
 const DEFAULT_METRICS = { cols: 4, cellW: 268, cellH: 128, gapX: 24, gapY: 28 };
@@ -94,11 +92,11 @@ function readGridMetrics(gridRef, wrapRefs) {
         return { cols, cellW: 268, cellH: 128, gapX, gapY };
     }
 
-    const rect = first.getBoundingClientRect();
+    // Use offsetWidth/Height so metrics are not skewed by an active drag transform.
     return {
         cols,
-        cellW: rect.width,
-        cellH: rect.height,
+        cellW: first.offsetWidth || 268,
+        cellH: first.offsetHeight || 128,
         gapX,
         gapY,
     };
@@ -108,6 +106,7 @@ export default function OverviewSortableGrid({
     itemCount,
     isDraggable,
     onReorder,
+    onItemActivate,
     disabled = false,
     className = '',
     renderItem,
@@ -127,8 +126,13 @@ export default function OverviewSortableGrid({
     const handlePointerDown = useCallback(
         (e, index) => {
             if (disabled) return;
-            if (!isDraggable?.(index)) return;
             if (e.button !== 0) return;
+
+            // Locked thumbs: click-to-select only (no drag session).
+            if (!isDraggable?.(index)) {
+                onItemActivate?.(index);
+                return;
+            }
 
             const wrap = wrapRefs.current[index];
             if (!wrap) return;
@@ -144,11 +148,12 @@ export default function OverviewSortableGrid({
                 startY: e.clientY,
                 deltaX: 0,
                 deltaY: 0,
+                moved: false,
                 pointerId: e.pointerId,
                 ...gridMetrics,
             });
         },
-        [disabled, isDraggable]
+        [disabled, isDraggable, onItemActivate]
     );
 
     useEffect(() => {
@@ -159,13 +164,19 @@ export default function OverviewSortableGrid({
 
             const deltaX = e.clientX - drag.startX;
             const deltaY = e.clientY - drag.startY;
+            const moved =
+                drag.moved || Math.abs(deltaX) > CLICK_MOVE_PX || Math.abs(deltaY) > CLICK_MOVE_PX;
             const overIndex = resolveOverIndex(
-                e.clientX,
-                e.clientY,
-                wrapRefs,
-                itemCount,
+                deltaX,
+                deltaY,
+                drag.fromIndex,
+                drag.cols,
+                drag.cellW,
+                drag.cellH,
+                drag.gapX,
+                drag.gapY,
                 lockedIndices,
-                drag.fromIndex
+                itemCount
             );
 
             setDrag((prev) => {
@@ -173,7 +184,8 @@ export default function OverviewSortableGrid({
                 if (
                     prev.deltaX === deltaX &&
                     prev.deltaY === deltaY &&
-                    prev.overIndex === overIndex
+                    prev.overIndex === overIndex &&
+                    prev.moved === moved
                 ) {
                     return prev;
                 }
@@ -182,6 +194,7 @@ export default function OverviewSortableGrid({
                     deltaX,
                     deltaY,
                     overIndex,
+                    moved,
                 };
             });
         };
@@ -193,18 +206,27 @@ export default function OverviewSortableGrid({
 
             const deltaX = e.clientX - drag.startX;
             const deltaY = e.clientY - drag.startY;
-            const moved = Math.abs(deltaX) > 4 || Math.abs(deltaY) > 4;
+            const moved =
+                drag.moved || Math.abs(deltaX) > CLICK_MOVE_PX || Math.abs(deltaY) > CLICK_MOVE_PX;
             const overIndex = resolveOverIndex(
-                e.clientX,
-                e.clientY,
-                wrapRefs,
-                itemCount,
+                deltaX,
+                deltaY,
+                drag.fromIndex,
+                drag.cols,
+                drag.cellW,
+                drag.cellH,
+                drag.gapX,
+                drag.gapY,
                 lockedIndices,
-                drag.fromIndex
+                itemCount
             );
 
             if (moved && drag.fromIndex !== overIndex) {
                 onReorder?.(drag.fromIndex, overIndex);
+            } else if (!moved) {
+                // preventDefault on pointerdown blocks the nested button click —
+                // activate selection explicitly (same pattern as filmstrip).
+                onItemActivate?.(drag.fromIndex);
             }
 
             setDrag(null);
@@ -221,7 +243,7 @@ export default function OverviewSortableGrid({
             window.removeEventListener('pointerup', finish);
             window.removeEventListener('pointercancel', finish);
         };
-    }, [drag, itemCount, lockedIndices, onReorder]);
+    }, [drag, itemCount, lockedIndices, onReorder, onItemActivate]);
 
     const dragging = Boolean(drag);
 

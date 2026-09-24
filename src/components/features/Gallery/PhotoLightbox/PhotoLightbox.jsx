@@ -45,6 +45,8 @@ export function PhotoLightbox({
   favoriteOverlayLabel,
   /** When set (and no favoriteOverlayLabel), shows Pixieset-style "My Favorites (n)" on the bottom-left of the image stage. */
   favoriteCount,
+  /** Delivery film_playback: adapt | highest */
+  filmPlayback = 'adapt',
 }) {
   useEffect(() => {
     if (isOpen) document.body.style.overflow = 'hidden';
@@ -205,7 +207,7 @@ export function PhotoLightbox({
                       controls
                       autoPlay
                       playsInline
-                      preload="auto"
+                      preload={filmPlayback === 'highest' ? 'auto' : 'metadata'}
                     />
                   </div>
                 ) : (

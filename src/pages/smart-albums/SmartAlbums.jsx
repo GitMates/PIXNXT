@@ -8,6 +8,7 @@ import SmartAlbumsSettings from './SmartAlbumsSettings';
 import CreateAlbum from './CreateAlbum';
 import AlbumViewer from './AlbumViewer';
 import PhotographerAlbumPreview from './PhotographerAlbumPreview';
+import AlbumShare from './AlbumShare';
 
 function AlbumsShell() {
     return (
@@ -29,6 +30,7 @@ const SmartAlbums = () => (
         <Route path="create" element={<CreateAlbum />} />
         <Route path="preview/:albumId" element={<PhotographerAlbumPreview />} />
         <Route path="album/:albumId" element={<AlbumViewer />} />
+        <Route path="share" element={<AlbumShare />} />
         <Route path="*" element={<Navigate to="/album-proofer" replace />} />
     </Routes>
 );

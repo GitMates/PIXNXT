@@ -1249,6 +1249,20 @@ body.dark-theme .ae-notifications-item-icon-container {
   color: #c8c4be !important;
 }
 
+body.dark-theme .ae-notifications-item--approved {
+  background: rgba(208, 133, 82, 0.14) !important;
+}
+
+body.dark-theme .ae-notifications-item--approved:hover {
+  background: rgba(208, 133, 82, 0.2) !important;
+}
+
+body.dark-theme .ae-notifications-item-icon-container--approved {
+  background: #ab6229 !important;
+  border-color: transparent !important;
+  color: #ffffff !important;
+}
+
 body.dark-theme .ae-notifications-item-type {
   color: #a89f94 !important;
 }

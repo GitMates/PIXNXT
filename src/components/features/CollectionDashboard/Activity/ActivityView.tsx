@@ -166,6 +166,7 @@ export const ActivityView: React.FC<ActivityViewProps> = ({
               setActiveActivityMenu={setActiveActivityMenu}
               onEditList={openEditFavoriteListModal}
               onReopenList={handleReopenFavoriteList}
+              selectionLockOnSubmit={collection?.selection_lock_on_submit !== false}
               handleDownloadAllFavoriteList={handleDownloadAllFavoriteList}
               handleExportFavoriteList={handleExportFavoriteList}
               handleLightroomCopyList={handleLightroomCopyList}
