@@ -138,7 +138,7 @@ export default function ClientGalleryNotifications({ userId, variant = 'default'
     <div className="cg-notifications" ref={rootRef}>
       <button
         type="button"
-        className={`cg-notifications-trigger${isSidebar ? ' cg-notifications-trigger--sidebar neu-circle' : ''}${open ? ' is-open' : ''}`}
+        className={`cg-notifications-trigger${isSidebar ? ' cg-notifications-trigger--sidebar' : ''}${open ? ' is-open' : ''}`}
         onClick={handleToggle}
         aria-label={unreadCount ? `${unreadCount} unread notifications` : 'Notifications'}
         aria-expanded={open}

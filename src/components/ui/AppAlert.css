@@ -1,0 +1,110 @@
+@keyframes pixnxt-alert-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.pixnxt-alert-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background-color: rgba(15, 14, 12, 0.45);
+}
+
+.pixnxt-alert {
+  width: 100%;
+  max-width: 440px;
+  background-color: #fffdf9;
+  border: 1px solid #ece7db;
+  border-radius: 16px;
+  box-shadow: 0 24px 64px -16px rgba(15, 14, 12, 0.45);
+  overflow: hidden;
+  animation: pixnxt-alert-in 0.18s ease-out;
+}
+
+.pixnxt-alert__head {
+  padding: 20px 22px 8px;
+}
+
+.pixnxt-alert__title {
+  margin: 0;
+  font-family: var(--font-sans, 'Plus Jakarta Sans', system-ui, sans-serif);
+  font-size: 17px;
+  font-weight: 700;
+  color: #1c1917;
+  letter-spacing: -0.01em;
+}
+
+.pixnxt-alert__body {
+  padding: 8px 22px 4px;
+}
+
+.pixnxt-alert__message {
+  margin: 0;
+  font-family: var(--font-sans, 'Plus Jakarta Sans', system-ui, sans-serif);
+  font-size: 14px;
+  line-height: 1.6;
+  color: #57534e;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.pixnxt-alert__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 16px 22px 20px;
+}
+
+.pixnxt-alert__ok {
+  padding: 9px 28px;
+  font-family: var(--font-sans, 'Plus Jakarta Sans', system-ui, sans-serif);
+  font-size: 13px;
+  font-weight: 700;
+  color: #fff;
+  background-color: #1c1917;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+.pixnxt-alert__ok:hover {
+  background-color: #292524;
+}
+
+/* Dark theme */
+body.dark-theme .pixnxt-alert-overlay {
+  background-color: rgba(0, 0, 0, 0.62);
+}
+
+body.dark-theme .pixnxt-alert {
+  background-color: #1c1b18;
+  border-color: #3a3733;
+  box-shadow: 0 24px 64px -12px rgba(0, 0, 0, 0.7);
+}
+
+body.dark-theme .pixnxt-alert__title {
+  color: #f3f0ea;
+}
+
+body.dark-theme .pixnxt-alert__message {
+  color: #d4cdc4;
+}
+
+body.dark-theme .pixnxt-alert__ok {
+  background-color: #d08552;
+  color: #fff;
+}
+
+body.dark-theme .pixnxt-alert__ok:hover {
+  background-color: #c07442;
+}

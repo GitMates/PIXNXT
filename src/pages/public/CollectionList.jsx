@@ -6,6 +6,7 @@ import { CollectionCardCover } from '../../components/features/ClientGallery/Col
 import { ShowcaseEnquiryForm } from '../../components/features/Showcase/ShowcaseEnquiryForm';
 import { getCollectionCardCoverSrc } from '../../lib/photoDisplayUrl';
 import { AppLoader } from '../../components/ui/AppLoading';
+import { shouldShowPixnxtBranding } from '../../lib/pixnxtBranding';
 
 const ITEMS_PER_PAGE = 12;
 
@@ -20,6 +21,7 @@ const CollectionList = ({ slug, photographerProfile = null }) => {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
+  const [legalModal, setLegalModal] = useState(null);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -521,12 +523,81 @@ const CollectionList = ({ slug, photographerProfile = null }) => {
           <p style={{ fontFamily:'sans-serif', fontSize:12, color:'#bbb', letterSpacing:'0.06em', margin:'0 0 8px' }}>
             © {photographerName.toUpperCase()}
           </p>
-          {!(profile?.hide_branding === true || localStorage.getItem('hide_branding') === 'true') && (
+          {(profile?.tos_text || profile?.privacy_policy_text) ? (
+            <p style={{ fontFamily:'sans-serif', fontSize:11, color:'#bbb', letterSpacing:'0.04em', margin:'0 0 8px' }}>
+              {profile?.tos_text ? (
+                <button
+                  type="button"
+                  onClick={() => setLegalModal('tos')}
+                  style={{ background: 'none', border: 'none', padding: 0, color: '#aaa', cursor: 'pointer', textDecoration: 'underline' }}
+                >
+                  Terms of Service
+                </button>
+              ) : null}
+              {profile?.tos_text && profile?.privacy_policy_text ? (
+                <span style={{ margin: '0 8px', color: '#ddd' }}>·</span>
+              ) : null}
+              {profile?.privacy_policy_text ? (
+                <button
+                  type="button"
+                  onClick={() => setLegalModal('privacy')}
+                  style={{ background: 'none', border: 'none', padding: 0, color: '#aaa', cursor: 'pointer', textDecoration: 'underline' }}
+                >
+                  Privacy Policy
+                </button>
+              ) : null}
+            </p>
+          ) : null}
+          {shouldShowPixnxtBranding(profile) && (
             <p style={{ fontFamily:'sans-serif', fontSize:11, color:'#ccc', letterSpacing:'0.04em', margin:0 }}>
               Powered by <span style={{ color:'#aaa' }}>Pixnxt</span>
             </p>
           )}
         </footer>
+
+        {legalModal ? (
+          <div
+            role="presentation"
+            onClick={() => setLegalModal(null)}
+            style={{
+              position: 'fixed', inset: 0, zIndex: 50,
+              background: 'rgba(0,0,0,0.45)', display: 'flex',
+              alignItems: 'center', justifyContent: 'center', padding: 16,
+            }}
+          >
+            <div
+              role="dialog"
+              onClick={(e) => e.stopPropagation()}
+              style={{
+                background: '#fff', borderRadius: 12, maxWidth: 640, width: '100%',
+                maxHeight: '80vh', overflow: 'auto', padding: 24,
+              }}
+            >
+              <h2 style={{ margin: '0 0 16px', fontSize: 20 }}>
+                {legalModal === 'tos' ? 'Terms of Service' : 'Privacy Policy'}
+              </h2>
+              <div
+                style={{ fontSize: 14, color: '#374151', lineHeight: 1.6 }}
+                dangerouslySetInnerHTML={{
+                  __html:
+                    legalModal === 'tos'
+                      ? profile?.tos_text || ''
+                      : profile?.privacy_policy_text || '',
+                }}
+              />
+              <button
+                type="button"
+                onClick={() => setLegalModal(null)}
+                style={{
+                  marginTop: 24, padding: '8px 16px', borderRadius: 8,
+                  border: 'none', background: '#f3f4f6', cursor: 'pointer',
+                }}
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        ) : null}
       </main>
     </div>
   );

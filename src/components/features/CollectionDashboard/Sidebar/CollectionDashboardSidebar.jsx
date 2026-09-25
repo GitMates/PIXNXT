@@ -8,6 +8,7 @@ import {
   Settings,
   MoreHorizontal,
   EyeOff,
+  FolderPlus,
 } from 'lucide-react';
 import { cn } from '../../../../lib/utils';
 import { useAuth } from '../../../../hooks/useAuth';
@@ -391,7 +392,10 @@ export function CollectionDashboardSidebar({
               })}
             </div>
             <button type="button" className="cdsb-add-set" onClick={onAddSet}>
-              + Add set
+              <span className="cdsb-add-set__icon" aria-hidden>
+                <FolderPlus size={15} strokeWidth={2} />
+              </span>
+              <span className="cdsb-add-set__label">New photo set</span>
             </button>
             {namedSetCount > 0 ? (
               <p className="cdsb-visible-sets">

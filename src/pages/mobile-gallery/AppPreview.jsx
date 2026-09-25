@@ -14,6 +14,7 @@ import {
 } from '../../lib/mobileGalleryPreviewFormat';
 import { getAppCtaLink } from '../../lib/mobileGalleryAppSettings';
 import { getAppDesignSettings } from '../../lib/mobileGalleryDesign';
+import { shouldShowPixnxtBranding } from '../../lib/pixnxtBranding';
 import { coverImageCssStyle } from '../../lib/focalPoint';
 import MobileGalleryPhotoGrid, { useMobileGalleryGridPhotos } from '../../components/mobile-gallery/MobileGalleryPhotoGrid';
 import './MobileGallery.css';
@@ -357,7 +358,9 @@ const AppPreview = () => {
     [app, websiteLink]
   );
   const shareUrl = useMemo(() => getPreviewShareUrl(app), [app]);
-  const showBranding = settings?.show_pixnxt_branding !== false;
+  const showBranding = shouldShowPixnxtBranding(profile, {
+    showPixnxtBranding: settings?.show_pixnxt_branding,
+  });
 
   const handleBack = () => {
     if (activeTab !== 'home') {

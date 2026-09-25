@@ -205,7 +205,7 @@ export default function StudioNotifications({ userId, variant = 'default', sourc
         type="button"
         className={
           isSidebar
-            ? `sd-notifications-trigger sd-notifications-trigger--sidebar neu-circle${open ? ' is-open' : ''}`
+            ? `sd-notifications-trigger sd-notifications-trigger--sidebar${open ? ' is-open' : ''}`
             : `sd-icon-btn${open ? ' is-open' : ''}`
         }
         onClick={handleToggle}

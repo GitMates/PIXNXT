@@ -1529,9 +1529,13 @@ body.dark-theme .sd-cmd-panel {
 
 /* Profile menu */
 body.dark-theme .sd-menu {
-  background: #ffffff;
-  border-color: rgba(26, 22, 20, 0.06);
-  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.45);
+  background: var(--sd-menu);
+  border-color: rgba(245, 244, 241, 0.08);
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.5);
+}
+
+body.dark-theme .sd-menu-section-title {
+  color: #998d84;
 }
 
 body.dark-theme .sd-menu-overline {

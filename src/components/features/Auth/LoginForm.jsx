@@ -7,19 +7,30 @@ import { AuthOrDivider, GoogleAuthButton } from './AuthSocial';
  * Login Form component for authenticating users.
  */
 export const LoginForm = ({ onSuccess, onToggle, onForgot }) => {
-  const { login } = useAuth();
+  const { login, verifyTwoFactor } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [otpCode, setOtpCode] = useState('');
+  const [challengeId, setChallengeId] = useState('');
+  const [emailHint, setEmailHint] = useState('');
+  const [step, setStep] = useState('credentials');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
-  const handleSubmit = async (e) => {
+  const handleCredentialsSubmit = async (e) => {
     e.preventDefault();
     setIsLoading(true);
     setError('');
 
     try {
-      await login({ email, password });
+      const result = await login({ email, password });
+      if (result?.requiresTwoFactor) {
+        setChallengeId(result.challengeId || '');
+        setEmailHint(result.emailHint || email);
+        setStep('otp');
+        setOtpCode('');
+        return;
+      }
       onSuccess?.();
     } catch (err) {
       setError(err.message || 'Failed to sign in');
@@ -28,8 +39,77 @@ export const LoginForm = ({ onSuccess, onToggle, onForgot }) => {
     }
   };
 
+  const handleOtpSubmit = async (e) => {
+    e.preventDefault();
+    setIsLoading(true);
+    setError('');
+    try {
+      await verifyTwoFactor({ challengeId, code: otpCode });
+      onSuccess?.();
+    } catch (err) {
+      setError(err.message || 'Invalid verification code');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  if (step === 'otp') {
+    return (
+      <form onSubmit={handleOtpSubmit} className="auth-form">
+        <div className="auth-field">
+          <label className="auth-label" htmlFor="login-otp">Verification code</label>
+          <p className="auth-field-hint" style={{ marginBottom: 8, opacity: 0.8, fontSize: 13 }}>
+            We emailed a 6-digit code to {emailHint || 'your login email'}.
+          </p>
+          <div className="auth-input-shell">
+            <input
+              id="login-otp"
+              type="text"
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              value={otpCode}
+              onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+              placeholder="123456"
+              className="auth-input"
+              required
+              minLength={6}
+              maxLength={6}
+              autoFocus
+            />
+          </div>
+        </div>
+
+        {error && <p className="auth-error" role="alert">{error}</p>}
+
+        <button
+          type="submit"
+          disabled={isLoading || otpCode.length < 6}
+          className="auth-submit"
+          aria-busy={isLoading}
+        >
+          {isLoading ? 'Verifying…' : 'Verify and continue'}
+        </button>
+
+        <p className="auth-toggle">
+          <button
+            type="button"
+            className="auth-toggle-btn"
+            onClick={() => {
+              setStep('credentials');
+              setChallengeId('');
+              setOtpCode('');
+              setError('');
+            }}
+          >
+            Back to log in
+          </button>
+        </p>
+      </form>
+    );
+  }
+
   return (
-    <form onSubmit={handleSubmit} className="auth-form">
+    <form onSubmit={handleCredentialsSubmit} className="auth-form">
       <div className="auth-field">
         <label className="auth-label" htmlFor="login-email">Email address</label>
         <div className="auth-input-shell">

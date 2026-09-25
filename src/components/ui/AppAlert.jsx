@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
+import './AppAlert.css';
 
 /**
  * Global replacement for native window.alert().
@@ -67,61 +68,21 @@ export function AppAlertHost() {
 
   return (
     <div
+      className="pixnxt-alert-overlay"
       role="alertdialog"
       aria-modal="true"
       aria-label="Notice"
       onClick={dismiss}
-      style={{
-        position: 'fixed',
-        inset: 0,
-        zIndex: 9999,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: 20,
-        backgroundColor: 'rgba(15, 14, 12, 0.45)',
-      }}
     >
-      <div
-        onClick={(e) => e.stopPropagation()}
-        style={{
-          width: '100%',
-          maxWidth: 440,
-          backgroundColor: '#fffdf9',
-          border: '1px solid #ece7db',
-          borderRadius: 16,
-          boxShadow: '0 24px 64px -16px rgba(15, 14, 12, 0.45)',
-          overflow: 'hidden',
-          animation: 'pixnxt-alert-in 0.18s ease-out',
-        }}
-      >
-        <style>{`@keyframes pixnxt-alert-in { from { opacity: 0; transform: translateY(10px) scale(0.98); } to { opacity: 1; transform: none; } }`}</style>
-        <div style={{ padding: '20px 22px 8px' }}>
-          <h3 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: '#1c1917', letterSpacing: '-0.01em' }}>
-            Notice
-          </h3>
+      <div className="pixnxt-alert" onClick={(e) => e.stopPropagation()}>
+        <div className="pixnxt-alert__head">
+          <h3 className="pixnxt-alert__title">Notice</h3>
         </div>
-        <div style={{ padding: '8px 22px 4px' }}>
-          <p style={{ margin: 0, fontSize: 14, lineHeight: 1.6, color: '#57534e', overflowWrap: 'anywhere', whiteSpace: 'pre-wrap' }}>
-            {current}
-          </p>
+        <div className="pixnxt-alert__body">
+          <p className="pixnxt-alert__message">{current}</p>
         </div>
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, padding: '16px 22px 20px' }}>
-          <button
-            type="button"
-            onClick={dismiss}
-            autoFocus
-            style={{
-              padding: '9px 28px',
-              fontSize: 13,
-              fontWeight: 700,
-              color: '#fff',
-              backgroundColor: '#1c1917',
-              border: 'none',
-              borderRadius: 10,
-              cursor: 'pointer',
-            }}
-          >
+        <div className="pixnxt-alert__actions">
+          <button type="button" className="pixnxt-alert__ok" onClick={dismiss} autoFocus>
             OK
           </button>
         </div>

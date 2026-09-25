@@ -2,19 +2,36 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { galleryService } from '../../../services/gallery.service';
 import { storageService } from '../../../services/storage.service';
-import { signOut, changePassword, updatePassword } from '../../../services/auth.service';
-import { getSession as getAuthSession } from '../../../services/auth.service';
+import { signOut, changePassword, updatePassword, listAuthSessions, revokeAuthSession, sendPasswordResetSelf, startTwoFactorEnable, confirmTwoFactorEnable, disableTwoFactor } from '../../../services/auth.service';
 import { getUserDisplayLabel, getUserInitial } from '../../../lib/userInitials';
 import { isReservedPlatformSubdomain } from '../../../lib/customDomain';
 import {
-    buildCurrentSessionRows,
-    mergeStoredSessions,
     resolveSessionLocation,
     userHasPasswordIdentity,
 } from '../../../lib/accountSessions';
 import { PasswordField } from '../Auth/PasswordField';
 import { AppLoader } from '../../ui/AppLoading';
 import '../../../pages/Settings.css';
+
+function mapAuthSessionsToRows(apiSessions, location = '—') {
+    return (apiSessions || []).map((s) => {
+        const current = Boolean(s.current);
+        return {
+            id: s.id,
+            device: s.device || 'Browser',
+            location: current ? location : '—',
+            label: current
+                ? `${s.device || 'Browser'} · ${location}`
+                : s.device || 'Browser',
+            meta: current
+                ? `${s.detail || 'This device'} · active now`
+                : s.detail || 'Active recently',
+            current,
+            canSignOut: !current,
+            lastActive: s.createdAt || null,
+        };
+    });
+}
 
 const DEFAULT_NOTIFICATIONS = {
     client_activity: true,
@@ -83,17 +100,6 @@ function CheckSmall() {
     );
 }
 
-function maskPhone(phone) {
-    const raw = (phone || '').trim();
-    if (!raw) return '';
-    if (raw.includes('•')) return raw;
-    const digits = raw.replace(/[^\d+]/g, '');
-    if (digits.length < 6) return raw;
-    const start = digits.slice(0, Math.min(5, digits.length - 3));
-    const end = digits.slice(-3);
-    return `${start}••••••${end}`;
-}
-
 function formatPasswordChanged(iso) {
     if (!iso) return null;
     const then = new Date(iso);
@@ -125,6 +131,15 @@ export default function YourAccountPanel({ user, showToast }) {
     const [showHandleModal, setShowHandleModal] = useState(false);
     const [showPasswordModal, setShowPasswordModal] = useState(false);
     const [showPasswordSuccess, setShowPasswordSuccess] = useState(false);
+    const [showTwoFactorModal, setShowTwoFactorModal] = useState(false);
+    const [twoFactorMode, setTwoFactorMode] = useState('enable'); // enable | disable
+    const [twoFactorChallengeId, setTwoFactorChallengeId] = useState('');
+    const [twoFactorEmailHint, setTwoFactorEmailHint] = useState('');
+    const [twoFactorCode, setTwoFactorCode] = useState('');
+    const [twoFactorPassword, setTwoFactorPassword] = useState('');
+    const [twoFactorError, setTwoFactorError] = useState('');
+    const [twoFactorBusy, setTwoFactorBusy] = useState(false);
+    const [forgotBusy, setForgotBusy] = useState(false);
     const [handleDraft, setHandleDraft] = useState('');
     const [passwordForm, setPasswordForm] = useState({ current: '', next: '', confirm: '' });
     const [passwordError, setPasswordError] = useState('');
@@ -136,8 +151,6 @@ export default function YourAccountPanel({ user, showToast }) {
     const [name, setName] = useState('');
     const [email, setEmail] = useState('');
     const [phone, setPhone] = useState('');
-    const [phoneDisplay, setPhoneDisplay] = useState('');
-    const [editingPhone, setEditingPhone] = useState(false);
     const [website, setWebsite] = useState('');
     const [socialInstagram, setSocialInstagram] = useState('');
     const [socialFacebook, setSocialFacebook] = useState('');
@@ -226,7 +239,6 @@ export default function YourAccountPanel({ user, showToast }) {
                 setName(resolvedName);
                 setEmail(resolvedEmail);
                 setPhone(resolvedPhone);
-                setPhoneDisplay(maskPhone(resolvedPhone));
                 setWebsite(data?.website || '');
                 setSocialInstagram(data?.social_instagram || '');
                 setSocialFacebook(data?.social_facebook || '');
@@ -255,15 +267,31 @@ export default function YourAccountPanel({ user, showToast }) {
                     ...(storedNotifications || {}),
                 });
 
-                // getSession resolves via workersAuth — works for the Workers backend.
-                const session = await getAuthSession().catch(() => null);
+                // Real refresh sessions from auth_sessions (not invented profile JSON).
                 const location = await resolveSessionLocation();
-                const currentRows = buildCurrentSessionRows(session, location);
-                const nextSessions = mergeStoredSessions(data?.active_sessions, currentRows);
+                let nextSessions = [];
+                try {
+                    const apiSessions = await listAuthSessions();
+                    nextSessions = mapAuthSessionsToRows(apiSessions, location);
+                } catch (sessionErr) {
+                    console.warn('Failed to load auth sessions:', sessionErr);
+                    nextSessions = [];
+                }
+                if (!nextSessions.some((s) => s.current)) {
+                    nextSessions = [
+                        {
+                            id: 'current',
+                            device: 'This browser',
+                            location,
+                            label: `This browser · ${location}`,
+                            meta: 'This device · active now',
+                            current: true,
+                            canSignOut: false,
+                        },
+                        ...nextSessions,
+                    ];
+                }
                 setSessions(nextSessions);
-                await galleryService.updatePhotographerProfile(user.id, {
-                    active_sessions: nextSessions,
-                });
 
                 try {
                     const collections = await galleryService.getCollections(user.id);
@@ -274,12 +302,12 @@ export default function YourAccountPanel({ user, showToast }) {
                     );
                     if (!cancelled) {
                         setHandleCounts({
-                            deliveries: deliveries || 12,
-                            guestLinks: guestLinks || 148,
+                            deliveries,
+                            guestLinks,
                         });
                     }
                 } catch {
-                    /* keep demo counts */
+                    if (!cancelled) setHandleCounts({ deliveries: 0, guestLinks: 0 });
                 }
             } catch (err) {
                 console.error(err);
@@ -308,8 +336,6 @@ export default function YourAccountPanel({ user, showToast }) {
     };
 
     const handlePhoneBlur = () => {
-        setEditingPhone(false);
-        setPhoneDisplay(maskPhone(phone));
         if (user?.id) persist({ phone }, 'Phone saved');
     };
 
@@ -375,28 +401,106 @@ export default function YourAccountPanel({ user, showToast }) {
     };
 
     const toggleTwoFactor = async () => {
-        const next = !twoFactor;
-        if (next && !phone?.trim()) {
-            showToast?.('Add a phone number first — codes are sent there.');
+        setTwoFactorError('');
+        setTwoFactorCode('');
+        setTwoFactorPassword('');
+        if (twoFactor) {
+            setTwoFactorMode('disable');
+            setShowTwoFactorModal(true);
             return;
         }
-        const previous = twoFactor;
-        setTwoFactor(next);
-        const saved = await persist(
-            { two_factor_enabled: next },
-            next ? 'Two-step verification on' : 'Two-step verification off',
-        );
-        if (!saved) setTwoFactor(previous);
+        setTwoFactorBusy(true);
+        try {
+            const data = await startTwoFactorEnable();
+            if (data?.alreadyEnabled) {
+                setTwoFactor(true);
+                showToast?.('Two-step verification is already on');
+                return;
+            }
+            setTwoFactorChallengeId(data?.challengeId || '');
+            setTwoFactorEmailHint(data?.emailHint || user?.email || '');
+            setTwoFactorMode('enable');
+            setShowTwoFactorModal(true);
+        } catch (err) {
+            console.error(err);
+            showToast?.(err?.message || 'Could not start two-step verification.');
+        } finally {
+            setTwoFactorBusy(false);
+        }
+    };
+
+    const confirmEnableTwoFactor = async (e) => {
+        e.preventDefault();
+        setTwoFactorError('');
+        if (!twoFactorCode.trim()) {
+            setTwoFactorError('Enter the code from your email.');
+            return;
+        }
+        setTwoFactorBusy(true);
+        try {
+            await confirmTwoFactorEnable({
+                challengeId: twoFactorChallengeId,
+                code: twoFactorCode.trim(),
+            });
+            setTwoFactor(true);
+            setShowTwoFactorModal(false);
+            showToast?.('Two-step verification is on');
+        } catch (err) {
+            setTwoFactorError(err?.message || 'Invalid verification code.');
+        } finally {
+            setTwoFactorBusy(false);
+        }
+    };
+
+    const confirmDisableTwoFactor = async (e) => {
+        e.preventDefault();
+        setTwoFactorError('');
+        if (hasPassword && !twoFactorPassword) {
+            setTwoFactorError('Enter your password to turn this off.');
+            return;
+        }
+        setTwoFactorBusy(true);
+        try {
+            await disableTwoFactor(
+                hasPassword ? { password: twoFactorPassword } : {},
+            );
+            setTwoFactor(false);
+            setShowTwoFactorModal(false);
+            showToast?.('Two-step verification is off');
+        } catch (err) {
+            setTwoFactorError(err?.message || 'Could not turn off two-step verification.');
+        } finally {
+            setTwoFactorBusy(false);
+        }
+    };
+
+    const sendForgotPassword = async () => {
+        if (!user?.email) {
+            showToast?.('No login email on this account.');
+            return;
+        }
+        setForgotBusy(true);
+        try {
+            const data = await sendPasswordResetSelf();
+            showToast?.(
+                `Reset link sent to ${data?.emailHint || user.email}`,
+            );
+        } catch (err) {
+            console.error(err);
+            showToast?.(err?.message || 'Could not send reset email.');
+        } finally {
+            setForgotBusy(false);
+        }
     };
 
     const toggleNotification = async (key) => {
         const next = { ...notifications, [key]: !notifications[key] };
         setNotifications(next);
-        await persist({ account_notifications: next });
+        await persist({ account_notifications: next }, 'Notification preferences saved');
     };
 
     const revokeSession = async (sessionRow) => {
-        if (sessionRow?.canSignOut && sessionRow?.current) {
+        if (sessionRow?.current) {
             try {
                 await signOut();
                 navigate('/auth', { replace: true });
@@ -407,11 +511,17 @@ export default function YourAccountPanel({ user, showToast }) {
             return;
         }
 
-        const next = sessions.filter((s) => s.id !== sessionRow?.id);
+        if (!sessionRow?.id) return;
         const previous = sessions;
-        setSessions(next);
-        const saved = await persist({ active_sessions: next }, 'Signed out of device');
-        if (!saved) setSessions(previous);
+        setSessions((rows) => rows.filter((s) => s.id !== sessionRow.id));
+        try {
+            await revokeAuthSession(sessionRow.id);
+            showToast?.('Signed out of device');
+        } catch (err) {
+            console.error(err);
+            setSessions(previous);
+            showToast?.(err?.message || 'Could not sign out that device.');
+        }
     };
 
     const saveHandle = async () => {
@@ -593,7 +703,8 @@ export default function YourAccountPanel({ user, showToast }) {
                         onChange={(e) => handleEmailChange(e.target.value)}
                     />
                     <p className="ya-field-hint">
-                        Changing this needs confirmation from both addresses.
+                        Changing this updates the public contact email shown to clients — not your
+                        sign-in email.
                     </p>
                 </div>
 
@@ -604,16 +715,16 @@ export default function YourAccountPanel({ user, showToast }) {
                     <input
                         id="ya-phone"
                         className="ya-input"
-                        type="text"
-                        value={editingPhone ? phone : phoneDisplay || phone}
-                        onFocus={() => {
-                            setEditingPhone(true);
-                        }}
+                        type="tel"
+                        autoComplete="tel"
+                        value={phone}
+                        placeholder="Your phone number"
                         onChange={(e) => setPhone(e.target.value)}
                         onBlur={handlePhoneBlur}
                     />
                     <p className="ya-field-hint">
-                        Used for sign-in codes, never shown to clients or guests.
+                        Account recovery and studio contact. Never shown to clients or guests unless
+                        you enable phone under public contact.
                     </p>
                 </div>
             </section>
@@ -757,8 +868,8 @@ export default function YourAccountPanel({ user, showToast }) {
                             {handleCounts.deliveries} deliveries and {handleCounts.guestLinks} guest
                             links currently use this handle.
                         </strong>{' '}
-                        Changing it breaks every link you have already sent. The old handle
-                        redirects for 12 months, then stops.
+                        Changing it breaks every link you have already sent. Old handles do not
+                        redirect yet — update any links you have already shared.
                     </p>
                 </div>
 
@@ -783,30 +894,46 @@ export default function YourAccountPanel({ user, showToast }) {
                         <h3 className="ya-row__title">Password</h3>
                         <p className="ya-row__hint">{passwordHint}</p>
                     </div>
-                    <button
-                        type="button"
-                        className="ya-btn ya-btn--ghost"
-                        onClick={() => {
-                            setPasswordError('');
-                            setShowPasswordModal(true);
-                        }}
+                    <div
+                        className="ya-row__actions"
+                        style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}
                     >
-                        {hasPassword ? 'Change' : 'Set'}
-                    </button>
+                        {hasPassword ? (
+                            <button
+                                type="button"
+                                className="ya-btn ya-btn--ghost"
+                                disabled={forgotBusy}
+                                onClick={sendForgotPassword}
+                            >
+                                {forgotBusy ? 'Sending…' : 'Forgot password'}
+                            </button>
+                        ) : null}
+                        <button
+                            type="button"
+                            className="ya-btn ya-btn--ghost"
+                            onClick={() => {
+                                setPasswordError('');
+                                setShowPasswordModal(true);
+                            }}
+                        >
+                            {hasPassword ? 'Change' : 'Set'}
+                        </button>
+                    </div>
                 </div>
 
                 <div className="ya-row">
                     <div className="ya-row__copy">
                         <h3 className="ya-row__title">Two-step verification</h3>
                         <p className="ya-row__hint">
-                            A code to your phone after the password. Worth it — this account holds
-                            client galleries and billing.
+                            After your password, we email a 6-digit code to your login address
+                            before signing in.
                         </p>
                     </div>
                     <button
                         type="button"
                         className={`ya-toggle ${twoFactor ? 'ya-toggle--on' : ''}`}
                         onClick={toggleTwoFactor}
+                        disabled={twoFactorBusy}
                         aria-pressed={twoFactor}
                         aria-label="Two-step verification"
                     >
@@ -955,6 +1082,22 @@ export default function YourAccountPanel({ user, showToast }) {
                             </button>
                         </div>
                         <div className="ya-modal__body">
+                            <input
+                                type="email"
+                                name="username"
+                                autoComplete="username"
+                                value={user?.email || email || ''}
+                                readOnly
+                                tabIndex={-1}
+                                aria-hidden="true"
+                                style={{
+                                    position: 'absolute',
+                                    opacity: 0,
+                                    height: 0,
+                                    width: 0,
+                                    pointerEvents: 'none',
+                                }}
+                            />
                             {hasPassword ? (
                                 <>
                                     <label className="ya-label" htmlFor="ya-pass-current">
@@ -1019,6 +1162,130 @@ export default function YourAccountPanel({ user, showToast }) {
                                 disabled={passwordSaving}
                             >
                                 {passwordSaving ? 'Saving…' : 'Save password'}
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            ) : null}
+
+            {showTwoFactorModal ? (
+                <div className="ya-modal-backdrop" role="presentation">
+                    <form
+                        className="ya-modal"
+                        onSubmit={
+                            twoFactorMode === 'enable'
+                                ? confirmEnableTwoFactor
+                                : confirmDisableTwoFactor
+                        }
+                    >
+                        <div className="ya-modal__head">
+                            <h2 className="ya-modal__title">
+                                {twoFactorMode === 'enable'
+                                    ? 'Turn on two-step verification'
+                                    : 'Turn off two-step verification'}
+                            </h2>
+                            <button
+                                type="button"
+                                className="ya-modal__close"
+                                onClick={() => setShowTwoFactorModal(false)}
+                                aria-label="Close"
+                            >
+                                ×
+                            </button>
+                        </div>
+                        <div className="ya-modal__body">
+                            {twoFactorMode === 'enable' ? (
+                                <>
+                                    <p className="ya-field-hint">
+                                        Enter the 6-digit code we sent to{' '}
+                                        {twoFactorEmailHint || user?.email || 'your login email'}.
+                                    </p>
+                                    <label className="ya-label" htmlFor="ya-2fa-code">
+                                        Verification code
+                                    </label>
+                                    <input
+                                        id="ya-2fa-code"
+                                        className="ya-input"
+                                        type="text"
+                                        inputMode="numeric"
+                                        autoComplete="one-time-code"
+                                        value={twoFactorCode}
+                                        onChange={(e) =>
+                                            setTwoFactorCode(
+                                                e.target.value.replace(/\D/g, '').slice(0, 6),
+                                            )
+                                        }
+                                        placeholder="123456"
+                                        required
+                                        minLength={6}
+                                        maxLength={6}
+                                        autoFocus
+                                    />
+                                </>
+                            ) : (
+                                <>
+                                    <p className="ya-field-hint">
+                                        Turning this off means a password alone can sign in to your
+                                        studio.
+                                    </p>
+                                    {hasPassword ? (
+                                        <>
+                                            <input
+                                                type="email"
+                                                name="username"
+                                                autoComplete="username"
+                                                value={user?.email || email || ''}
+                                                readOnly
+                                                tabIndex={-1}
+                                                aria-hidden="true"
+                                                style={{
+                                                    position: 'absolute',
+                                                    opacity: 0,
+                                                    height: 0,
+                                                    width: 0,
+                                                    pointerEvents: 'none',
+                                                }}
+                                            />
+                                            <label className="ya-label" htmlFor="ya-2fa-password">
+                                                Current password
+                                            </label>
+                                            <PasswordField
+                                                id="ya-2fa-password"
+                                                value={twoFactorPassword}
+                                                onChange={(e) =>
+                                                    setTwoFactorPassword(e.target.value)
+                                                }
+                                                autoComplete="current-password"
+                                                shellClassName="ya-password-shell"
+                                                inputClassName="ya-input ya-input--password"
+                                                actionClassName="ya-password-action"
+                                            />
+                                        </>
+                                    ) : null}
+                                </>
+                            )}
+                            {twoFactorError ? (
+                                <p className="ya-error">{twoFactorError}</p>
+                            ) : null}
+                        </div>
+                        <div className="ya-modal__actions">
+                            <button
+                                type="button"
+                                className="ya-btn ya-btn--ghost"
+                                onClick={() => setShowTwoFactorModal(false)}
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                type="submit"
+                                className="ya-btn ya-btn--dark"
+                                disabled={twoFactorBusy}
+                            >
+                                {twoFactorBusy
+                                    ? 'Saving…'
+                                    : twoFactorMode === 'enable'
+                                      ? 'Enable'
+                                      : 'Turn off'}
                             </button>
                         </div>
                     </form>

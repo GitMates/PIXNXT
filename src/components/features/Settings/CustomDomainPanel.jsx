@@ -41,6 +41,41 @@ function DnsTable({ rows }) {
   );
 }
 
+function DomainReflectPreview({ domain, platformHost }) {
+  const host = normalizeCustomDomain(domain) || 'gallery.yourdomain.com';
+  const origin = `https://${host}`;
+  const examples = [
+    { label: 'Client galleries', url: `${origin}/gallery/your-delivery` },
+    { label: 'Album proofs', url: `${origin}/album-preview/your-album` },
+    { label: 'Guest delivery', url: `${origin}/e/your-event` },
+    { label: 'Mobile gallery', url: `${origin}/m/your-app` },
+    { label: 'Print store', url: `${origin}/printstore` },
+    { label: 'Studio home', url: `${origin}/` },
+  ];
+
+  return (
+    <div className="set-domain-reflect">
+      <p className="set-domain-reflect__title">Where it shows up in PIXNXT</p>
+      <p className="set-domain-reflect__intro">
+        After verification, client-facing share links, emails, and QR codes use this host instead of{' '}
+        <code>{platformHost || 'yourstudio.pixnxt.in'}</code>.
+      </p>
+      <ul className="set-domain-reflect__list">
+        {examples.map((item) => (
+          <li key={item.label}>
+            <span className="set-domain-reflect__label">{item.label}</span>
+            <code className="set-domain-reflect__url">{item.url}</code>
+          </li>
+        ))}
+      </ul>
+      <p className="set-domain-reflect__note">
+        Your studio dashboard stays on the PIXNXT app. Only public client links switch to the custom
+        domain.
+      </p>
+    </div>
+  );
+}
+
 export function CustomDomainPanel({ profile, compact = false }) {
   const [modalOpen, setModalOpen] = useState(false);
   const [modalStep, setModalStep] = useState('instructions');
@@ -326,73 +361,78 @@ export function CustomDomainPanel({ profile, compact = false }) {
             </div>
 
             {modalStep === 'instructions' ? (
-              <div className="set-modal-body">
-                <p className="set-help-text set-help-text--strong">Before you start</p>
-                <ul className="set-domain-checklist">
-                  <li>
-                    You need a domain you own with access to DNS settings (GoDaddy, Cloudflare,
-                    Namecheap, etc.).
-                  </li>
-                  <li>
-                    Your domain stays with your provider — you are connecting a subdomain to PIXNXT, not
-                    transferring the domain.
-                  </li>
-                  <li>
-                    Use a subdomain (e.g. <code>gallery.yourdomain.com</code>). Root domains such as{' '}
-                    <code>yourdomain.com</code> are not supported.
-                  </li>
-                </ul>
+              <>
+                <div className="set-modal-body">
+                  <p className="set-help-text set-help-text--strong">Before you start</p>
+                  <ul className="set-domain-checklist">
+                    <li>
+                      You need a domain you own with access to DNS settings (GoDaddy, Cloudflare,
+                      Namecheap, etc.).
+                    </li>
+                    <li>
+                      Your domain stays with your provider — you are connecting a subdomain to PIXNXT, not
+                      transferring the domain.
+                    </li>
+                    <li>
+                      Use a subdomain (e.g. <code>gallery.yourdomain.com</code>). Root domains such as{' '}
+                      <code>yourdomain.com</code> are not supported.
+                    </li>
+                  </ul>
 
-                <p className="set-help-text">
-                  <strong>Step 1 — Add DNS.</strong> In your domain provider&apos;s DNS settings, add the record
-                  below. Do not modify existing MX records (they control email).
-                </p>
+                  <p className="set-help-text">
+                    <strong>Step 1 — Add DNS.</strong> In your domain provider&apos;s DNS settings, add the
+                    record below. Do not modify existing MX records (they control email).
+                  </p>
 
-                <DnsTable rows={instructionRows} />
+                  <DnsTable rows={instructionRows} />
 
-                <p className="set-help-text">
-                  Paste <strong>{cnameTarget}</strong> exactly as shown — do not replace it with your username
-                  or studio handle. Example:{' '}
-                  <code>gallery.yourdomain.com</code> → CNAME → <code>{cnameTarget}</code>
-                </p>
-                <p className="set-help-text">
-                  <strong>Step 2 — Connect here.</strong> Click Next, enter your subdomain, then Verify &amp;
-                  save. SSL will generate automatically (usually minutes, up to 24 hours).
-                </p>
-                <p className="set-help-text">
-                  If you use Cloudflare for this domain, set the record to <strong>DNS only</strong> (grey
-                  cloud), not proxied.
-                </p>
+                  <p className="set-help-text">
+                    Paste <strong>{cnameTarget}</strong> exactly as shown — do not replace it with your
+                    username or studio handle. Example:{' '}
+                    <code>gallery.yourdomain.com</code> → CNAME → <code>{cnameTarget}</code>
+                  </p>
+                  <p className="set-help-text">
+                    <strong>Step 2 — Connect here.</strong> Click Next, enter your subdomain, then Verify
+                    &amp; save. SSL will generate automatically (usually minutes, up to 24 hours).
+                  </p>
+                  <p className="set-help-text">
+                    If you use Cloudflare for this domain, set the record to <strong>DNS only</strong>{' '}
+                    (grey cloud), not proxied.
+                  </p>
 
-                <button
-                  type="button"
-                  className="set-domain-disclosure"
-                  onClick={() => setShowTrouble((open) => !open)}
-                >
-                  {showTrouble ? 'Hide troubleshooting' : 'Troubleshooting'}
-                </button>
-                {showTrouble && (
-                  <div className="set-domain-disclosure-body">
-                    <p className="set-help-text">
-                      <strong>I want my root domain (yourdomain.com).</strong> Root domains are not
-                      supported. Connect a subdomain such as <code>gallery.yourdomain.com</code> or{' '}
-                      <code>www.yourdomain.com</code> instead.
-                    </p>
-                    <p className="set-help-text">
-                      <strong>I can&apos;t update DNS records.</strong> Delete any domain forwarding /
-                      redirects first. Parked domains must be activated with your provider.
-                    </p>
-                    <p className="set-help-text">
-                      <strong>I updated DNS, but it&apos;s not working.</strong> Changes can take up to 48
-                      hours. Create the record at the provider that actually hosts DNS (this may differ from
-                      where you bought the domain).
-                    </p>
-                    <p className="set-help-text">
-                      <strong>Galleries show &quot;Not Secure&quot;.</strong> SSL can take up to 24 hours
-                      after a successful connection. Delete any CAA records if the certificate never appears.
-                    </p>
-                  </div>
-                )}
+                  <DomainReflectPreview domain={previewDomain} platformHost={defaultHost} />
+
+                  <button
+                    type="button"
+                    className="set-domain-disclosure"
+                    onClick={() => setShowTrouble((open) => !open)}
+                  >
+                    {showTrouble ? 'Hide troubleshooting' : 'Troubleshooting'}
+                  </button>
+                  {showTrouble && (
+                    <div className="set-domain-disclosure-body">
+                      <p className="set-help-text">
+                        <strong>I want my root domain (yourdomain.com).</strong> Root domains are not
+                        supported. Connect a subdomain such as <code>gallery.yourdomain.com</code> or{' '}
+                        <code>www.yourdomain.com</code> instead.
+                      </p>
+                      <p className="set-help-text">
+                        <strong>I can&apos;t update DNS records.</strong> Delete any domain forwarding /
+                        redirects first. Parked domains must be activated with your provider.
+                      </p>
+                      <p className="set-help-text">
+                        <strong>I updated DNS, but it&apos;s not working.</strong> Changes can take up to 48
+                        hours. Create the record at the provider that actually hosts DNS (this may differ
+                        from where you bought the domain).
+                      </p>
+                      <p className="set-help-text">
+                        <strong>Galleries show &quot;Not Secure&quot;.</strong> SSL can take up to 24 hours
+                        after a successful connection. Delete any CAA records if the certificate never
+                        appears.
+                      </p>
+                    </div>
+                  )}
+                </div>
 
                 <div className="set-modal-footer">
                   <button type="button" className="set-btn-ghost" onClick={closeModal}>
@@ -402,40 +442,43 @@ export function CustomDomainPanel({ profile, compact = false }) {
                     Next
                   </button>
                 </div>
-              </div>
+              </>
             ) : (
-              <div className="set-modal-body">
-                <label className="set-mini-label" htmlFor="custom-domain-input">
-                  Domain or subdomain name
-                </label>
-                <div className="set-custom-domain-field neu-inset cg-field-shell">
-                  <input
-                    id="custom-domain-input"
-                    className="set-input"
-                    type="text"
-                    placeholder="e.g. gallery.yourdomain.com"
-                    value={domainDraft}
-                    onChange={(e) => setDomainDraft(e.target.value)}
-                    disabled={busy}
-                  />
+              <>
+                <div className="set-modal-body">
+                  <label className="set-mini-label" htmlFor="custom-domain-input">
+                    Domain or subdomain name
+                  </label>
+                  <div className="set-custom-domain-field neu-inset cg-field-shell">
+                    <input
+                      id="custom-domain-input"
+                      className="set-input"
+                      type="text"
+                      placeholder="e.g. gallery.yourdomain.com"
+                      value={domainDraft}
+                      onChange={(e) => setDomainDraft(e.target.value)}
+                      disabled={busy}
+                    />
+                  </div>
+                  <p className="set-help-text">
+                    Enter the hostname you created in DNS, then verify. Root domains are not supported —
+                    use a subdomain such as gallery.yourdomain.com.
+                  </p>
+
+                  {domainDraft && (
+                    <>
+                      <DnsTable rows={instructionRows} />
+                      {isApexCustomDomain(normalizeCustomDomain(domainDraft)) && (
+                        <p className="set-domain-error">
+                          Root domains are not supported. Use a subdomain such as gallery.yourdomain.com.
+                        </p>
+                      )}
+                      <DomainReflectPreview domain={previewDomain} platformHost={defaultHost} />
+                    </>
+                  )}
+
+                  {error && <p className="set-domain-error">{error}</p>}
                 </div>
-                <p className="set-help-text">
-                  Enter the hostname you created in DNS, then verify. Root domains are not supported — use a
-                  subdomain such as gallery.yourdomain.com.
-                </p>
-
-                {domainDraft && (
-                  <>
-                    <DnsTable rows={instructionRows} />
-                    {isApexCustomDomain(normalizeCustomDomain(domainDraft)) && (
-                      <p className="set-domain-error">
-                        Root domains are not supported. Use a subdomain such as gallery.yourdomain.com.
-                      </p>
-                    )}
-                  </>
-                )}
-
-                {error && <p className="set-domain-error">{error}</p>}
 
                 <div className="set-modal-footer">
                   <button
@@ -450,7 +493,7 @@ export function CustomDomainPanel({ profile, compact = false }) {
                     {busy ? 'Verifying…' : 'Verify & save'}
                   </button>
                 </div>
-              </div>
+              </>
             )}
           </div>
         </div>

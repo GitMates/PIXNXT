@@ -10,12 +10,23 @@ export const useAuth = () => {
 
   const login = async (credentials) => {
     const data = await authService.signInWithEmail(credentials);
+    if (data?.requiresTwoFactor) return data;
     // Workers has no realtime subscription — push the new session into
     // context before callers navigate, or ProtectedRoute bounces to /auth.
     try {
       await context.refresh?.();
     } catch {
       // refresh failure surfaces via context state / next resolve
+    }
+    return data;
+  };
+
+  const verifyTwoFactor = async ({ challengeId, code }) => {
+    const data = await authService.verifyTwoFactorLogin({ challengeId, code });
+    try {
+      await context.refresh?.();
+    } catch {
+      // ignore
     }
     return data;
   };
@@ -59,6 +70,7 @@ export const useAuth = () => {
   return {
     ...context,
     login,
+    verifyTwoFactor,
     signup,
     loginWithGoogle,
     requestPasswordReset,

@@ -684,6 +684,7 @@ const SidebarLayout = ({
                             type="button"
                             onClick={() => setShowProfileDropdown((v) => !v)}
                             className="sb-profile-btn"
+                            aria-expanded={showProfileDropdown}
                         >
                             <span className="sb-profile-btn__avatar">{userInitial}</span>
                             <span className="min-w-0 flex-1">

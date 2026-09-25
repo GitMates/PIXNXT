@@ -143,6 +143,34 @@ export async function changePassword(currentPassword, newPassword) {
   return (await workers()).changePassword(currentPassword, newPassword);
 }
 
+export async function verifyTwoFactorLogin({ challengeId, code }) {
+  return (await workers()).verifyTwoFactorLogin({ challengeId, code });
+}
+
+export async function startTwoFactorEnable() {
+  return (await workers()).startTwoFactorEnable();
+}
+
+export async function confirmTwoFactorEnable({ challengeId, code }) {
+  return (await workers()).confirmTwoFactorEnable({ challengeId, code });
+}
+
+export async function disableTwoFactor(opts) {
+  return (await workers()).disableTwoFactor(opts);
+}
+
+export async function sendPasswordResetSelf() {
+  return (await workers()).sendPasswordResetSelf();
+}
+
+export async function listAuthSessions() {
+  return (await workers()).listAuthSessions();
+}
+
+export async function revokeAuthSession(sessionId) {
+  return (await workers()).revokeAuthSession(sessionId);
+}
+
 /**
  * Signs out the current user.
  * @returns {Promise<void>}

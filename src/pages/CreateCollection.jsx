@@ -147,89 +147,165 @@ const CreateCollection = () => {
         }
     };
 
+    const canSubmit = Boolean(name.trim()) && !isSubmitting;
+
     return (
         <div className="cc-page theme-mono cd-dashboard-shell">
             <header className="cc-header">
                 <div className="cc-header-left">
-                    <button type="button" className="cc-back-btn neu-circle" onClick={handleClose} title="Back">
+                    <button type="button" className="cc-back-btn" onClick={handleClose} title="Back" aria-label="Back">
                         <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
                     </button>
-                    <h1 className="cc-header-title">New Delivery</h1>
+                    <div className="cc-header-copy">
+                        <h1 className="cc-header-title">New Delivery</h1>
+                        <p className="cc-header-sub">Set up a gallery for your client</p>
+                    </div>
                 </div>
+                <p className="cc-header-meta">Draft · editable after create</p>
             </header>
 
             <main className="cc-main">
                 <div className="cc-form-container">
-                    {error && (
-                        <div className="cc-error-message">
-                            {error}
-                        </div>
-                    )}
-
-                    <form onSubmit={handleCreate}>
-                        <div className="cc-form-group">
-                            <label className="cc-label" htmlFor="collection-name">Delivery Name</label>
-                            <div className="cc-input-shell neu-inset">
-                                <input
-                                    id="collection-name"
-                                    type="text"
-                                    className="cc-input"
-                                    placeholder="e.g. Wedding of Sarah & James"
-                                    value={name}
-                                    onChange={(e) => setName(e.target.value)}
-                                    required
-                                />
+                    <div className="cc-form-card">
+                        <div className="cc-form-intro">
+                            <div className="cc-form-intro__icon" aria-hidden>
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+                                    <rect x="3" y="3" width="18" height="18" rx="2" />
+                                    <circle cx="9" cy="9" r="2" />
+                                    <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" />
+                                </svg>
+                            </div>
+                            <div className="cc-form-intro__copy">
+                                <p className="cc-form-eyebrow">Client gallery</p>
+                                <h2 className="cc-form-heading">Delivery details</h2>
+                                <p className="cc-form-lead">
+                                    Name the gallery and choose how it starts. Design, privacy, and sharing can be refined after you create it.
+                                </p>
                             </div>
                         </div>
 
-                        <div className="cc-form-group">
-                            <label className="cc-label">Event Date</label>
-                            <div className="cc-input-shell neu-inset cc-input-shell--rounded">
-                                <DatePicker 
-                                    value={date} 
-                                    onChange={setDate} 
-                                    placeholder="Select event date" 
-                                />
+                        {error && (
+                            <div className="cc-error-message" role="alert">
+                                {error}
                             </div>
-                        </div>
+                        )}
 
-                        <div className="cc-form-group">
-                            <label className="cc-label">Preset</label>
-                            <ClientGallerySelect
-                                value={preset}
-                                onChange={setPreset}
-                                aria-label="Delivery preset"
-                                options={presetOptions}
-                            />
-                        </div>
+                        <form onSubmit={handleCreate} className="cc-form">
+                            <section className="cc-section" aria-labelledby="cc-section-basics">
+                                <div className="cc-section-head">
+                                    <h3 id="cc-section-basics" className="cc-section-title">Basics</h3>
+                                    <span className="cc-section-rule" aria-hidden />
+                                </div>
 
-                        <div className="cc-form-group">
-                            <label className="cc-label cc-toggle-row">
-                                <span>Guest Delivery</span>
-                                <button
-                                    type="button"
-                                    role="switch"
-                                    aria-checked={guestDeliveryEnabled}
-                                    className={`cc-toggle ${guestDeliveryEnabled ? 'cc-toggle--on' : ''}`}
-                                    onClick={() => setGuestDeliveryEnabled((v) => !v)}
-                                >
-                                    <span className="cc-toggle-thumb" />
+                                <div className="cc-form-group">
+                                    <div className="cc-label-row">
+                                        <label className="cc-label" htmlFor="collection-name">Delivery name</label>
+                                        <span className="cc-label-hint">Required</span>
+                                    </div>
+                                    <div className="cc-input-shell cc-input-shell--field">
+                                        <input
+                                            id="collection-name"
+                                            type="text"
+                                            className="cc-input"
+                                            placeholder="e.g. Wedding of Sarah & James"
+                                            value={name}
+                                            onChange={(e) => setName(e.target.value)}
+                                            required
+                                            autoFocus
+                                            maxLength={120}
+                                            autoComplete="off"
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="cc-form-group cc-form-group--last">
+                                    <label className="cc-label" htmlFor="collection-date">Event date</label>
+                                    <div className="cc-input-shell cc-input-shell--field cc-input-shell--rounded" id="collection-date">
+                                        <DatePicker
+                                            value={date}
+                                            onChange={setDate}
+                                            placeholder="Select event date"
+                                        />
+                                    </div>
+                                    <p className="cc-field-hint">Optional — shown on the cover and in client emails.</p>
+                                </div>
+                            </section>
+
+                            <section className="cc-section" aria-labelledby="cc-section-options">
+                                <div className="cc-section-head">
+                                    <h3 id="cc-section-options" className="cc-section-title">Options</h3>
+                                    <span className="cc-section-rule" aria-hidden />
+                                </div>
+
+                                <div className="cc-form-group">
+                                    <label className="cc-label">Preset</label>
+                                    <ClientGallerySelect
+                                        value={preset}
+                                        onChange={setPreset}
+                                        aria-label="Delivery preset"
+                                        options={presetOptions}
+                                    />
+                                    <p className="cc-field-hint">Applies starting design and privacy from a saved preset.</p>
+                                </div>
+
+                                <div className={`cc-form-group cc-form-group--toggle${guestDeliveryEnabled ? ' is-active' : ''}`}>
+                                    <div className="cc-toggle-icon" aria-hidden>
+                                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+                                            <rect x="3" y="3" width="7" height="7" rx="1" />
+                                            <rect x="14" y="3" width="7" height="7" rx="1" />
+                                            <rect x="3" y="14" width="7" height="7" rx="1" />
+                                            <path d="M17 14v3h3" />
+                                            <path d="M14 17h3v3" />
+                                        </svg>
+                                    </div>
+                                    <label className="cc-label cc-toggle-row">
+                                        <span className="cc-toggle-copy">
+                                            <span className="cc-toggle-title">Guest delivery</span>
+                                            <span className="cc-toggle-desc">QR registration with selfie matching</span>
+                                        </span>
+                                        <button
+                                            type="button"
+                                            role="switch"
+                                            aria-checked={guestDeliveryEnabled}
+                                            className={`cc-toggle ${guestDeliveryEnabled ? 'cc-toggle--on' : ''}`}
+                                            onClick={() => setGuestDeliveryEnabled((v) => !v)}
+                                        >
+                                            <span className="cc-toggle-thumb" />
+                                        </button>
+                                    </label>
+                                    {guestDeliveryEnabled && (
+                                        <p className="cc-hint">Guests register via QR with a selfie. After you publish, matched photos are emailed as personal gallery links.</p>
+                                    )}
+                                </div>
+                            </section>
+
+                            <div className="cc-actions">
+                                <button type="submit" className="cc-submit-btn" disabled={!canSubmit}>
+                                    {isSubmitting ? (
+                                        <>
+                                            <span className="cc-submit-spinner" aria-hidden />
+                                            Creating…
+                                        </>
+                                    ) : (
+                                        <>
+                                            Create delivery
+                                            <svg className="cc-submit-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                                                <path d="M5 12h14" />
+                                                <path d="m12 5 7 7-7 7" />
+                                            </svg>
+                                        </>
+                                    )}
                                 </button>
-                            </label>
-                            {guestDeliveryEnabled && (
-                                <p className="cc-hint">Guests can register via QR with a selfie. After publishing, matched photos are emailed as personal gallery links.</p>
-                            )}
-                        </div>
+                                <button type="button" className="cc-cancel-btn" onClick={handleClose}>
+                                    Cancel
+                                </button>
+                            </div>
+                        </form>
+                    </div>
 
-                        <div className="cc-actions">
-                            <button type="submit" className="cc-submit-btn neu-pill" disabled={isSubmitting}>
-                                {isSubmitting ? 'Creating...' : 'Create Delivery'}
-                            </button>
-                            <button type="button" className="cc-cancel-btn" onClick={handleClose}>
-                                Cancel
-                            </button>
-                        </div>
-                    </form>
+                    <p className="cc-foot-note">
+                        You can upload photos, set privacy, and share the link from the delivery dashboard.
+                    </p>
                 </div>
             </main>
         </div>

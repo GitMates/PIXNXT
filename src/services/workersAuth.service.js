@@ -8,6 +8,7 @@ import {
   getAccessToken,
   jwtExpiresAt,
   setAccessToken,
+  refreshAccessToken,
   AUTH_SESSION_EXPIRED,
   readWorkersResetToken,
   isWorkersResetCallback,
@@ -66,9 +67,45 @@ export function isAuthExpiredError(error) {
 
 export async function signInWithEmail({ email, password }) {
   const data = await apiFetch('/v1/auth/login', { method: 'POST', auth: false, body: { email, password } });
+  if (data?.requiresTwoFactor) {
+    return {
+      requiresTwoFactor: true,
+      challengeId: data.challengeId,
+      emailHint: data.emailHint || '',
+    };
+  }
   setAccessToken(data.accessToken);
   const photographer = await fetchMeRaw();
   return { user: toUser(photographer), session: toSession(data.accessToken, photographer) };
+}
+
+export async function verifyTwoFactorLogin({ challengeId, code }) {
+  const data = await apiFetch('/v1/auth/2fa/verify', {
+    method: 'POST',
+    auth: false,
+    body: { challengeId, code: String(code || '').trim() },
+  });
+  setAccessToken(data.accessToken);
+  const photographer = await fetchMeRaw();
+  return { user: toUser(photographer), session: toSession(data.accessToken, photographer) };
+}
+
+export async function startTwoFactorEnable() {
+  return apiFetch('/v1/auth/2fa/enable/start', { method: 'POST', body: {} });
+}
+
+export async function confirmTwoFactorEnable({ challengeId, code }) {
+  return apiFetch('/v1/auth/2fa/enable/confirm', {
+    method: 'POST',
+    body: { challengeId, code: String(code || '').trim() },
+  });
+}
+
+export async function disableTwoFactor({ password } = {}) {
+  return apiFetch('/v1/auth/2fa/disable', {
+    method: 'POST',
+    body: password ? { password } : {},
+  });
 }
 
 export async function signUpWithEmail({ email, password, displayName }) {
@@ -109,6 +146,11 @@ export async function sendPasswordReset(email) {
   return {};
 }
 
+/** Signed-in forgot password — emails a reset link to the account login address. */
+export async function sendPasswordResetSelf() {
+  return apiFetch('/v1/auth/password-reset/send-self', { method: 'POST', body: {} });
+}
+
 /** Workers reset uses the ?token= link — no recovery session to wait for. */
 export async function updatePassword(password) {  const token = readWorkersResetToken();
   if (!token) {
@@ -124,6 +166,16 @@ export async function updatePassword(password) {  const token = readWorkersReset
 export async function changePassword(currentPassword, newPassword) {
   await apiFetch('/v1/auth/change-password', { method: 'POST', body: { currentPassword, newPassword } });
   return {};
+}
+
+export async function listAuthSessions() {
+  const data = await apiFetch('/v1/auth/sessions');
+  return data?.sessions || [];
+}
+
+export async function revokeAuthSession(sessionId) {
+  await apiFetch(`/v1/auth/sessions/${encodeURIComponent(sessionId)}`, { method: 'DELETE' });
+  return { ok: true };
 }
 
 export async function signOut() {
@@ -151,12 +203,11 @@ export async function resolveAuthSession() {
       }
     }
     try {
-      // auth:false — this IS the refresh call; don't nest another /refresh on 401.
-      const data = await apiFetch('/v1/auth/refresh', { method: 'POST', auth: false });
-      if (!data?.accessToken) return { user: null, session: null };
-      setAccessToken(data.accessToken);
+      // Shared inflight with apiFetch 401 retry — avoids dual /refresh races.
+      const accessToken = await refreshAccessToken();
+      if (!accessToken) return { user: null, session: null };
       const photographer = await fetchMeRaw();
-      return { user: toUser(photographer), session: toSession(data.accessToken, photographer) };
+      return { user: toUser(photographer), session: toSession(accessToken, photographer) };
     } catch {
       clearAccessToken();
       return { user: null, session: null };

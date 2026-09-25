@@ -176,7 +176,73 @@ const EventGuestsPanel = ({
 
   const handleSendEmail = async (guest) => {
     if (!event?.id || event.status !== 'published') {
-      alert('Publish the event first before sending delivery emails.');
+      alert('Publish the event first before sending delivery messages.');
+      return;
+    }
+    if ((guest.matched_photo_count || 0) < 1) {
+      alert('This guest has no matched photos to deliver.');
+      return;
+    }
+    if (!guest.email) {
+      alert('This guest has no email address.');
+      return;
+    }
+
+    setSendingGuestId(guest.id);
+    setOpenMenuId(null);
+    try {
+      await guestDeliveryPublishService.sendDeliveryEmail({
+        eventId: event.id,
+        guestId: guest.id,
+        channel: 'email',
+        photographerProfile,
+      });
+      await loadGuests({ silent: true });
+      alert(`Email sent to ${guest.email}.`);
+    } catch (err) {
+      console.error(err);
+      alert(err?.message || 'Failed to send email.');
+    } finally {
+      setSendingGuestId(null);
+    }
+  };
+
+  const handleSendWhatsApp = async (guest) => {
+    if (!event?.id || event.status !== 'published') {
+      alert('Publish the event first before sending delivery messages.');
+      return;
+    }
+    if ((guest.matched_photo_count || 0) < 1) {
+      alert('This guest has no matched photos to deliver.');
+      return;
+    }
+    if (!String(guest.phone || '').replace(/\D/g, '').length) {
+      alert('This guest has no phone number for WhatsApp.');
+      return;
+    }
+
+    setSendingGuestId(guest.id);
+    setOpenMenuId(null);
+    try {
+      await guestDeliveryPublishService.sendDeliveryEmail({
+        eventId: event.id,
+        guestId: guest.id,
+        channel: 'whatsapp',
+        photographerProfile,
+      });
+      await loadGuests({ silent: true });
+      alert(`WhatsApp delivery queued for ${guest.phone}.`);
+    } catch (err) {
+      console.error(err);
+      alert(err?.message || 'Failed to send WhatsApp message.');
+    } finally {
+      setSendingGuestId(null);
+    }
+  };
+
+  const handleSendAuto = async (guest) => {
+    if (!event?.id || event.status !== 'published') {
+      alert('Publish the event first before sending delivery messages.');
       return;
     }
     if ((guest.matched_photo_count || 0) < 1) {
@@ -187,16 +253,18 @@ const EventGuestsPanel = ({
     setSendingGuestId(guest.id);
     setOpenMenuId(null);
     try {
-      await guestDeliveryPublishService.sendDeliveryEmail({
+      const result = await guestDeliveryPublishService.sendDeliveryEmail({
         eventId: event.id,
         guestId: guest.id,
+        channel: 'auto',
         photographerProfile,
       });
       await loadGuests({ silent: true });
-      alert(`Email sent to ${guest.email}.`);
+      const via = result?.channel === 'whatsapp' ? 'WhatsApp' : result?.channel === 'email' ? 'email' : 'WhatsApp (or email fallback)';
+      alert(`Delivery queued via ${via}.`);
     } catch (err) {
       console.error(err);
-      alert(err?.message || 'Failed to send email.');
+      alert(err?.message || 'Failed to send delivery.');
     } finally {
       setSendingGuestId(null);
     }
@@ -303,14 +371,34 @@ const EventGuestsPanel = ({
                       type="button"
                       role="menuitem"
                       disabled={sendingGuestId === openGuest.id || event.status !== 'published'}
-                      onClick={() => handleSendEmail(openGuest)}
+                      onClick={() => handleSendAuto(openGuest)}
                     >
                       {sendingGuestId === openGuest.id
                         ? 'Sending…'
                         : openGuest.delivery_status === 'sent'
-                          ? 'Resend email'
-                          : 'Send email'}
+                          ? 'Resend delivery'
+                          : 'Send delivery'}
                     </button>
+                    {openGuest.phone ? (
+                      <button
+                        type="button"
+                        role="menuitem"
+                        disabled={sendingGuestId === openGuest.id || event.status !== 'published'}
+                        onClick={() => handleSendWhatsApp(openGuest)}
+                      >
+                        Send WhatsApp
+                      </button>
+                    ) : null}
+                    {openGuest.email ? (
+                      <button
+                        type="button"
+                        role="menuitem"
+                        disabled={sendingGuestId === openGuest.id || event.status !== 'published'}
+                        onClick={() => handleSendEmail(openGuest)}
+                      >
+                        Send email
+                      </button>
+                    ) : null}
                   </>
                 ) : null}
                 <button

@@ -156,10 +156,10 @@ export async function publishEvent(eventId) {
   return data;
 }
 
-export async function sendDeliveryEmail({ eventId, guestId, sendCopy = false }) {
+export async function sendDeliveryEmail({ eventId, guestId, sendCopy = false, channel = 'auto' }) {
   const data = await apiFetch('/v1/emails/guest-delivery', {
     method: 'POST',
-    body: { eventId, guestId, sendCopy },
+    body: { eventId, guestId, sendCopy, channel },
   });
   return data;
 }

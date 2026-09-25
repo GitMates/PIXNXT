@@ -251,7 +251,7 @@ const Showcase = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState(null);
   const [toastMessage, setToastMessage] = useState('');
-  const [settingsOpen, setSettingsOpen] = useState(true);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [menuId, setMenuId] = useState(null);
   const [menuPos, setMenuPos] = useState(null);
   const [removeTarget, setRemoveTarget] = useState(null);

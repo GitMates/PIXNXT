@@ -5,9 +5,9 @@ export const guestDeliveryPublishService = {
     return (await workersGuest()).publishEvent(eventId);
   },
 
-  async sendDeliveryEmail({ eventId, guestId, sendCopy = false, photographerProfile = null }) {
+  async sendDeliveryEmail({ eventId, guestId, sendCopy = false, channel = 'auto', photographerProfile = null }) {
     void photographerProfile;
-    return (await workersGuest()).sendDeliveryEmail({ eventId, guestId, sendCopy });
+    return (await workersGuest()).sendDeliveryEmail({ eventId, guestId, sendCopy, channel });
   },
 
   async loadGuestGallery({ slug, accessToken }) {

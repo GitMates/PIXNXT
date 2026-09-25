@@ -478,26 +478,63 @@
 .cdsb-add-set {
   display: inline-flex;
   align-items: center;
-  justify-content: center;
-  width: fit-content;
-  margin: 6px 0 4px 19px;
-  padding: 4px 10px;
-  border: 1px dashed #d0cac0;
-  border-radius: 6px;
+  justify-content: flex-start;
+  gap: 10px;
+  width: calc(100% - 38px);
+  margin: 10px 0 6px 19px;
+  padding: 9px 12px;
+  border: 1px dashed #d4cdc3;
+  border-radius: 10px;
   background: transparent;
   font-family: inherit;
-  font-size: 11.5px;
-  font-weight: 500;
-  color: #4a453f;
+  font-size: 12.5px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: #5c564e;
   cursor: pointer;
-  text-align: center;
-  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+  text-align: left;
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.cdsb-add-set__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  flex-shrink: 0;
+  border-radius: 8px;
+  background: #f3efe8;
+  color: #3a342f;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.cdsb-add-set__label {
+  flex: 1;
+  min-width: 0;
+  line-height: 1.2;
 }
 
 .cdsb-add-set:hover {
-  background: rgba(255, 255, 255, 0.85);
-  border-color: #a8a096;
+  background: #faf8f4;
+  border-style: solid;
+  border-color: #cfc6ba;
   color: #1a1a1a;
+  box-shadow: 0 4px 12px rgba(28, 24, 20, 0.06);
+}
+
+.cdsb-add-set:hover .cdsb-add-set__icon {
+  background: #1d1916;
+  color: #fff;
+}
+
+.cdsb-add-set:focus-visible {
+  outline: 2px solid #d08552;
+  outline-offset: 2px;
 }
 
 .cdsb-visible-sets {

@@ -147,8 +147,20 @@ export const ChangeCoverModal: React.FC<ChangeCoverModalProps> = ({
     if (Number.isFinite(w) && Number.isFinite(h) && w > 0 && h > 0) {
       return { width: w, height: h };
     }
-    return loadedNaturalSize;
-  }, [resolvedPhoto, loadedNaturalSize]);
+    if (
+      loadedNaturalSize &&
+      loadedNaturalSize.width > 0 &&
+      loadedNaturalSize.height > 0
+    ) {
+      return loadedNaturalSize;
+    }
+    return null;
+  }, [
+    resolvedPhoto?.width,
+    resolvedPhoto?.height,
+    loadedNaturalSize?.width,
+    loadedNaturalSize?.height,
+  ]);
 
   const cropMaskId = useId().replace(/:/g, '');
 
@@ -188,31 +200,58 @@ export const ChangeCoverModal: React.FC<ChangeCoverModalProps> = ({
 
   const syncCrosshair = useCallback((x: number, y: number) => {
     const img = imageRef.current;
-    if (!img) {
-      setCrosshairStyle({ left: `${x}%`, top: `${y}%` });
-      return;
-    }
-    setCrosshairStyle(focalPercentToElementStyle(x, y, img));
+    const next = img
+      ? focalPercentToElementStyle(x, y, img)
+      : { left: `${x}%`, top: `${y}%` };
+    setCrosshairStyle((prev) =>
+      prev.left === next.left && prev.top === next.top ? prev : next
+    );
+  }, []);
+
+  const setNaturalSizeIfChanged = useCallback((width: number, height: number) => {
+    if (!width || !height) return;
+    setLoadedNaturalSize((prev) => {
+      if (prev && prev.width === width && prev.height === height) return prev;
+      return { width, height };
+    });
+  }, []);
+
+  const setStageSizeIfChanged = useCallback((next: { width: number; height: number } | null) => {
+    if (!next) return;
+    setStageDisplaySize((prev) => {
+      if (prev && prev.width === next.width && prev.height === next.height) return prev;
+      return next;
+    });
   }, []);
 
   const measureStage = useCallback(() => {
     const img = imageRef.current;
     if (!img?.naturalWidth || !img.naturalHeight) return;
-    setLoadedNaturalSize({ width: img.naturalWidth, height: img.naturalHeight });
+    setNaturalSizeIfChanged(img.naturalWidth, img.naturalHeight);
     const bodyEl = stageWrapRef.current?.closest('.cover-focal-body') as HTMLElement | null;
     const available = bodyEl?.clientWidth
       ? Math.min(STAGE_MAX_WIDTH, bodyEl.clientWidth)
       : STAGE_MAX_WIDTH;
-    setStageDisplaySize(
+    setStageSizeIfChanged(
       computeStageDisplaySize(img.naturalWidth, img.naturalHeight, available, stageMaxHeight)
     );
     syncCrosshair(activePoint.x, activePoint.y);
-  }, [activePoint.x, activePoint.y, syncCrosshair, stageMaxHeight]);
+  }, [
+    activePoint.x,
+    activePoint.y,
+    syncCrosshair,
+    stageMaxHeight,
+    setNaturalSizeIfChanged,
+    setStageSizeIfChanged,
+  ]);
 
   const remeasureChrome = useCallback(() => {
     const modal = modalRef.current;
     if (!modal) {
-      setStageMaxHeight(estimateStageMaxHeight());
+      setStageMaxHeight((prev) => {
+        const next = estimateStageMaxHeight();
+        return Math.abs(prev - next) > 1 ? next : prev;
+      });
       return;
     }
     const vhCap = Math.round(window.innerHeight * MODAL_VIEWPORT_RATIO);
@@ -254,7 +293,7 @@ export const ChangeCoverModal: React.FC<ChangeCoverModalProps> = ({
         return;
       }
       if (!img.naturalWidth || !img.naturalHeight) return;
-      setLoadedNaturalSize({ width: img.naturalWidth, height: img.naturalHeight });
+      setNaturalSizeIfChanged(img.naturalWidth, img.naturalHeight);
       measureStage();
     };
 
@@ -267,7 +306,7 @@ export const ChangeCoverModal: React.FC<ChangeCoverModalProps> = ({
       const el = imageRef.current;
       if (el) el.removeEventListener('load', syncNaturalSize);
     };
-  }, [isOpen, view, editorSrc, measureStage]);
+  }, [isOpen, view, editorSrc, measureStage, setNaturalSizeIfChanged]);
 
   useEffect(() => {
     if (!isOpen || view !== 'edit' || !photoNaturalDimensions) return;
@@ -275,7 +314,7 @@ export const ChangeCoverModal: React.FC<ChangeCoverModalProps> = ({
     const available = bodyEl?.clientWidth
       ? Math.min(STAGE_MAX_WIDTH, bodyEl.clientWidth)
       : STAGE_MAX_WIDTH;
-    setStageDisplaySize(
+    setStageSizeIfChanged(
       computeStageDisplaySize(
         photoNaturalDimensions.width,
         photoNaturalDimensions.height,
@@ -283,7 +322,15 @@ export const ChangeCoverModal: React.FC<ChangeCoverModalProps> = ({
         stageMaxHeight
       )
     );
-  }, [isOpen, view, photoNaturalDimensions, editorSrc, stageMaxHeight]);
+  }, [
+    isOpen,
+    view,
+    photoNaturalDimensions?.width,
+    photoNaturalDimensions?.height,
+    editorSrc,
+    stageMaxHeight,
+    setStageSizeIfChanged,
+  ]);
 
   useEffect(() => {
     if (!isOpen || view !== 'edit') return undefined;

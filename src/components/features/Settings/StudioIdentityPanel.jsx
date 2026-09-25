@@ -119,7 +119,10 @@ export default function StudioIdentityPanel({ profile, updateProfile }) {
         const nextVal = !pToggle;
         setPToggle(nextVal);
         localStorage.setItem('hide_branding', (!nextVal).toString());
-        void updateProfile({ hide_branding: !nextVal });
+        void updateProfile({ hide_branding: !nextVal }).catch((err) => {
+            console.error('Failed to update PIXNXT branding', err);
+            setPToggle(!nextVal);
+        });
         flash();
     };
 

@@ -443,6 +443,35 @@ body.dark-theme .app-loader__label--sans {
   color: #c4bdb4;
 }
 
+body.dark-theme .app-loader--page,
+body.dark-theme .app-loader--page-short {
+  background: #0e0d0c;
+  color: #ece9e2;
+}
+
+/* Common page loading wrappers sitting on cream by default */
+body.dark-theme .cg-page-loading,
+body.dark-theme .sc-loading,
+body.dark-theme .pl-loading.app-loader,
+body.dark-theme .mg-loading.app-loader,
+body.dark-theme .mg-install-loading.app-loader,
+body.dark-theme .mg-preview-loading.app-loader,
+body.dark-theme .av-loading.app-loader,
+body.dark-theme .st-loading.app-loader,
+body.dark-theme .ya-loading.app-loader,
+body.dark-theme .gd-content.app-loader,
+body.dark-theme .sa-proofer-albums__loading.app-loader,
+body.dark-theme .sa-proofer-albums__first-proof-loading.app-loader,
+body.dark-theme .egr-loading.app-loader,
+body.dark-theme .fv-loading.app-loader,
+body.dark-theme .egg-muted.app-loader,
+body.dark-theme .dt-loading.app-loader,
+body.dark-theme .selections-loading.app-loader,
+body.dark-theme .preset-editor-loading.app-loader {
+  background: transparent;
+  color: #c4bdb4;
+}
+
 body.dark-theme .app-shimmer-bone {
   background: linear-gradient(90deg, #2a2826 0%, #34312e 42%, #2a2826 84%);
   background-size: 200% 100%;

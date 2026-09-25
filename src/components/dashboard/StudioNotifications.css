@@ -26,6 +26,8 @@
   height: 34px;
   border-radius: 999px;
   color: #71717a;
+  border: 1px solid transparent;
+  background: transparent;
 }
 
 .sd-notifications-badge--dot {
@@ -45,9 +47,17 @@ body.dark-theme .sd-notifications-badge--dot {
   box-shadow: 0 0 0 2px #121212;
 }
 
+body.dark-theme .theme-mono.cg-shell .sd-notifications-trigger--sidebar {
+  color: #8a8580;
+  border-color: #333333;
+  background: transparent;
+  box-shadow: none;
+}
+
+body.dark-theme .theme-mono.cg-shell .sd-notifications-trigger--sidebar:hover,
 body.dark-theme .theme-mono.cg-shell .sd-notifications-trigger--sidebar.is-open {
-  background: #252320 !important;
-  border-color: #3a3733 !important;
+  background: transparent;
+  border-color: #444444;
   color: #ece9e2;
 }
 

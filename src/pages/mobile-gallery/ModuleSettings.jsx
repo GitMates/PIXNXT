@@ -6,6 +6,7 @@ import { galleryService } from '../../services/gallery.service';
 import { storageService } from '../../services/storage.service';
 import { mobileGallerySettingsService } from '../../services/mobileGallerySettings.service';
 import { AppLoader } from '../../components/ui/AppLoading';
+import { isPixnxtBrandingHidden } from '../../lib/pixnxtBranding';
 import '../../components/features/CollectionDashboard/Settings/Settings.css';
 import './MobileGallery.css';
 
@@ -62,6 +63,7 @@ const ModuleSettings = () => {
   const [saving, setSaving] = useState(false);
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [settings, setSettings] = useState(null);
+  const [profile, setProfile] = useState(null);
   const [plan, setPlan] = useState('free');
   const [customDomainDraft, setCustomDomainDraft] = useState('');
 
@@ -77,16 +79,17 @@ const ModuleSettings = () => {
 
     (async () => {
       try {
-        const [storedSettings, profile] = await Promise.all([
+        const [storedSettings, photographerProfile] = await Promise.all([
           mobileGallerySettingsService.getSettings(user.id),
           galleryService.getPhotographerProfile(user.id),
         ]);
         if (cancelled) return;
         setSettings(storedSettings);
+        setProfile(photographerProfile || null);
         setCustomDomainDraft(
-          profile?.custom_domain || storedSettings.custom_domain || ''
+          photographerProfile?.custom_domain || storedSettings.custom_domain || ''
         );
-        setPlan(profile?.plan || 'free');
+        setPlan(photographerProfile?.plan || 'free');
       } catch (err) {
         console.error('Failed to load Mobile Gallery settings', err);
       } finally {
@@ -324,8 +327,17 @@ const ModuleSettings = () => {
               </p>
             </div>
             <BrandingToggle
-              on={Boolean(settings.show_pixnxt_branding)}
-              onChange={(value) => persistSettings({ show_pixnxt_branding: value }, { immediate: true })}
+              on={!isPixnxtBrandingHidden(profile) && settings?.show_pixnxt_branding !== false}
+              onChange={(value) => {
+                void persistSettings({ show_pixnxt_branding: value }, { immediate: true });
+                if (!user?.id) return;
+                void galleryService
+                  .updatePhotographerProfile(user.id, { hide_branding: !value })
+                  .then(() => {
+                    setProfile((prev) => ({ ...(prev || {}), hide_branding: !value }));
+                  })
+                  .catch((err) => console.error('Failed to update PIXNXT branding', err));
+              }}
             />
           </div>
         </div>

@@ -50,7 +50,8 @@ export function jwtExpiresAt(token) {
 
 let refreshInflight = null;
 
-async function refreshAccessToken() {
+/** Rotate the refresh cookie once; shared by apiFetch 401 retry and AuthContext. */
+export async function refreshAccessToken() {
   if (refreshInflight) return refreshInflight;
   refreshInflight = (async () => {
     const res = await fetch(`${apiBase()}/v1/auth/refresh`, {

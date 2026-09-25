@@ -15,6 +15,7 @@ import { DownloadModal } from '../../components/features/Gallery/DownloadModal/D
 import { ShareCollectionModal } from '../../components/features/Gallery/ShareCollectionModal/ShareCollectionModal';
 import { downloadSinglePhotoFile } from '../../lib/downloadPhoto';
 import { getCollectionShareUrl } from '../../lib/shareCollection';
+import { shouldShowPixnxtBranding } from '../../lib/pixnxtBranding';
 import {
   hasEmailAllowlist,
   resolveDownloadContactMode,
@@ -730,14 +731,26 @@ const GalleryView = () => {
   const [privateToastThumb, setPrivateToastThumb] = useState(null);
   const [downloadBlockedToast, setDownloadBlockedToast] = useState(null);
 
-  // Preference Settings from localStorage
+  // Preference Settings from photographer profile (public guests must not use localStorage)
   const [showTosModal, setShowTosModal] = useState(false);
   const [showPrivacyModal, setShowPrivacyModal] = useState(false);
-  const tosText = localStorage.getItem('tos_text') || '';
-  const privacyText = localStorage.getItem('privacy_policy_text') || '';
-  const [showCookieBanner, setShowCookieBanner] = useState(() => {
-    return localStorage.getItem('cookie_banner_enabled') === 'true' && !sessionStorage.getItem('cookie_banner_acknowledged');
-  });
+  const tosText = photographer?.tos_text || '';
+  const privacyText = photographer?.privacy_policy_text || '';
+  const cookieBannerEnabled = photographer?.cookie_banner_enabled === true;
+  const [showCookieBanner, setShowCookieBanner] = useState(false);
+
+  useEffect(() => {
+    if (!cookieBannerEnabled || !photographer?.id) {
+      setShowCookieBanner(false);
+      return;
+    }
+    try {
+      const key = `pixnxt_cookie_ack_${photographer.id}`;
+      setShowCookieBanner(localStorage.getItem(key) !== '1');
+    } catch {
+      setShowCookieBanner(true);
+    }
+  }, [cookieBannerEnabled, photographer?.id]);
 
   const [searchParams] = useSearchParams();
   const listId = searchParams.get('list');
@@ -2973,14 +2986,16 @@ const GalleryView = () => {
       </main>
 
       {/* Global Footer Branding & Policies */}
-      {!(photographer?.hide_branding === true || localStorage.getItem('hide_branding') === 'true') && (
+      {(shouldShowPixnxtBranding(photographer) || tosText || privacyText) && (
         <footer
           className={cn('mt-12 border-t py-8', isGalleryDark ? 'border-white/10' : '')}
           style={{ borderTopColor: isGalleryDark ? undefined : 'rgba(0,0,0,0.05)', backgroundColor: 'var(--gallery-bg)' }}
         >
           <Container className="max-w-none px-4 md:px-8 lg:px-12">
             <div className="text-center flex flex-col items-center gap-2">
-              <Typography variant="label" style={{ color: 'var(--gallery-meta-text)', opacity: 0.5 }}>© {new Date().getFullYear()} PIXNXT. All Rights Reserved.</Typography>
+              {shouldShowPixnxtBranding(photographer) ? (
+                <Typography variant="label" style={{ color: 'var(--gallery-meta-text)', opacity: 0.5 }}>© {new Date().getFullYear()} PIXNXT. All Rights Reserved.</Typography>
+              ) : null}
               {(tosText || privacyText) && (
                 <div className="flex gap-4 text-xs mt-2" style={{ color: 'var(--gallery-meta-text)', opacity: 0.6 }}>
                   {tosText && (
@@ -3001,7 +3016,10 @@ const GalleryView = () => {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={() => setShowTosModal(false)}>
           <div className="bg-white text-black p-6 rounded-xl max-w-2xl w-full max-h-[80vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
             <h2 className="text-xl font-medium mb-4">Terms of Service</h2>
-            <div className="whitespace-pre-wrap text-sm text-gray-700">{tosText}</div>
+            <div
+              className="text-sm text-gray-700 prose prose-sm max-w-none"
+              dangerouslySetInnerHTML={{ __html: tosText }}
+            />
             <button className="mt-6 px-4 py-2 bg-gray-100 rounded-lg hover:bg-gray-200" onClick={() => setShowTosModal(false)}>Close</button>
           </div>
         </div>
@@ -3010,7 +3028,10 @@ const GalleryView = () => {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={() => setShowPrivacyModal(false)}>
           <div className="bg-white text-black p-6 rounded-xl max-w-2xl w-full max-h-[80vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
             <h2 className="text-xl font-medium mb-4">Privacy Policy</h2>
-            <div className="whitespace-pre-wrap text-sm text-gray-700">{privacyText}</div>
+            <div
+              className="text-sm text-gray-700 prose prose-sm max-w-none"
+              dangerouslySetInnerHTML={{ __html: privacyText }}
+            />
             <button className="mt-6 px-4 py-2 bg-gray-100 rounded-lg hover:bg-gray-200" onClick={() => setShowPrivacyModal(false)}>Close</button>
           </div>
         </div>
@@ -3026,7 +3047,13 @@ const GalleryView = () => {
             className="px-6 py-2 bg-black text-white rounded whitespace-nowrap text-sm font-medium hover:bg-gray-800 transition-colors"
             style={{ backgroundColor: 'var(--gallery-text)', color: 'var(--gallery-bg)' }}
             onClick={() => {
-              sessionStorage.setItem('cookie_banner_acknowledged', 'true');
+              try {
+                if (photographer?.id) {
+                  localStorage.setItem(`pixnxt_cookie_ack_${photographer.id}`, '1');
+                }
+              } catch {
+                /* ignore */
+              }
               setShowCookieBanner(false);
             }}
           >

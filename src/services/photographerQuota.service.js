@@ -380,11 +380,13 @@ export const photographerQuotaService = {
    * Soft-allocate Face AI image slots: when the gallery has more photos than
    * remaining quota, return how many we can still process instead of failing
    * the whole sync (e.g. 20 photos + limit 10 → allowed 10).
-   * Throws only when nothing can be processed (disabled / at cap).
+   * Throws when the account is already at/over the image cap, or when nothing
+   * can be processed (disabled / zero remaining).
    *
    * @param {object} [opts]
    * @param {number} [opts.creditBack=0] — photos about to be wiped (force
-   *   reindex) so their slots count as free before allocating.
+   *   reindex) so their slots count as free before allocating. Ignored when
+   *   the account is already at/over the image cap.
    */
   async allocateFaceImageSlots(photographerId, kind, requestedCount = 1, opts = {}) {
     const snapshot = await this.fetchSnapshot(photographerId);
@@ -395,14 +397,21 @@ export const photographerQuotaService = {
     const limit = isGuest ? snapshot.face_guest_image_limit : snapshot.face_normal_image_limit;
     const rawUsed = isGuest ? snapshot.face_guest_image_used : snapshot.face_normal_image_used;
     const creditBack = Math.max(0, Math.floor(Number(opts.creditBack) || 0));
-    const used = Math.max(0, Number(rawUsed) - creditBack);
     const errKind = isGuest ? 'guest-image' : 'normal-image';
     const want = Math.max(0, Math.floor(Number(requestedCount) || 0));
     if (!enabled) throw quotaError(errKind, rawUsed, -1);
     if (limit === -1) throw quotaError(errKind, rawUsed, -1);
     if (limit <= 0) {
-      return { allowed: want, remaining: Infinity, snapshot, capped: false, limit: 0, used };
+      return { allowed: want, remaining: Infinity, snapshot, capped: false, limit: 0, used: rawUsed };
     }
+    // Hard stop when the account is already at/over the image cap.
+    // Do not credit-back past the limit — that re-ran scans and kept billing over quota.
+    if (Number(rawUsed) >= Number(limit)) {
+      throw quotaError(errKind, rawUsed, limit);
+    }
+    // Force reindex may free already-counted slots on this delivery, but never
+    // below zero and never to bypass an account that is already at the cap.
+    const used = Math.max(0, Number(rawUsed) - creditBack);
     const remaining = Math.max(0, Number(limit) - used);
     if (remaining <= 0) throw quotaError(errKind, rawUsed, limit);
     const allowed = Math.min(want || remaining, remaining);

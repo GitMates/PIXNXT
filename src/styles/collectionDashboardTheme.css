@@ -135,17 +135,17 @@
   display: inline-flex !important;
   align-items: stretch !important;
   height: 32px !important;
-  border: 1px solid #e0e0e0 !important;
+  border: 1px solid var(--cd-border, #e0e0e0) !important;
   border-radius: 9px !important;
   overflow: hidden !important;
-  background: #fff !important;
+  background: var(--cd-surface, #fff) !important;
   background-image: none !important;
   box-shadow: none !important;
   transform: none !important;
 }
 
 .theme-mono.cd-dashboard-shell .cd-share-split-btn:hover {
-  background: #fafafa !important;
+  background: var(--cd-hover, #fafafa) !important;
   box-shadow: none !important;
   transform: none !important;
 }
@@ -153,7 +153,7 @@
 .theme-mono.cd-dashboard-shell .cd-share-main,
 .theme-mono.cd-dashboard-shell .cd-share-arrow {
   background: transparent !important;
-  color: #1a1a1a !important;
+  color: var(--cd-foreground, #1a1a1a) !important;
   border: none !important;
   font-size: 0.8125rem !important;
   font-weight: 500 !important;
@@ -163,7 +163,7 @@
 
 .theme-mono.cd-dashboard-shell .cd-share-main {
   padding: 0 13px !important;
-  border-right: 1px solid #e0e0e0 !important;
+  border-right: 1px solid var(--cd-border, #e0e0e0) !important;
 }
 
 .theme-mono.cd-dashboard-shell .cd-share-arrow {
@@ -172,8 +172,8 @@
 
 .theme-mono.cd-dashboard-shell .cd-share-main:hover,
 .theme-mono.cd-dashboard-shell .cd-share-arrow:hover {
-  background: #fafafa !important;
-  color: #1a1a1a !important;
+  background: var(--cd-hover, #fafafa) !important;
+  color: var(--cd-foreground, #1a1a1a) !important;
 }
 
 .theme-mono.cd-dashboard-shell .cd-add-media-btn {
@@ -542,9 +542,9 @@
 /* Dropzone */
 .theme-mono.cd-dashboard-shell .cd-dropzone,
 .theme-mono.cd-dashboard-shell .cd-modal-dropzone {
-  border: 1px dashed #d8d3cc !important;
+  border: 1px dashed var(--cd-border, #d8d3cc) !important;
   border-radius: 12px !important;
-  background-color: #ffffff !important;
+  background-color: var(--cd-surface, #ffffff) !important;
   box-shadow: none !important;
 }
 
@@ -552,14 +552,14 @@
 .theme-mono.cd-dashboard-shell .cd-dropzone.dragging,
 .theme-mono.cd-dashboard-shell .cd-modal-dropzone:hover,
 .theme-mono.cd-dashboard-shell .cd-modal-dropzone.dragging {
-  border-color: #c4b8a8 !important;
-  background-color: #ffffff !important;
+  border-color: var(--cd-muted, #c4b8a8) !important;
+  background-color: var(--cd-hover, #ffffff) !important;
 }
 
 .theme-mono.cd-dashboard-shell .cd-dropzone.dragging,
 .theme-mono.cd-dashboard-shell .cd-modal-dropzone.dragging {
   border-color: #c46a3a !important;
-  background-color: #fdfaf7 !important;
+  background-color: var(--cd-inset, #fdfaf7) !important;
 }
 
 /* Toggles */
@@ -628,9 +628,13 @@
 }
 
 .theme-mono.cd-dashboard-shell .cc-header-title {
-  font-family: var(--font-display);
-  font-weight: 500;
+  font-family: var(--font-sans);
+  font-weight: 600;
   color: var(--cd-foreground);
+}
+
+.theme-mono.cd-dashboard-shell .cc-header-sub {
+  color: var(--cd-muted);
 }
 
 .theme-mono.cd-dashboard-shell .cc-label {
@@ -728,18 +732,20 @@
 .theme-mono.cd-dashboard-shell .cc-submit-btn {
   border-radius: 9999px;
   border: none;
-  background-image: linear-gradient(180deg, oklch(0.3 0 0), oklch(0.2 0 0));
+  background-color: #1d1916;
+  background-image: none;
   color: #fff;
-  height: 2.5rem;
+  height: 2.75rem;
   padding: 0 1.5rem;
   font-size: 0.875rem;
   font-weight: 600;
   cursor: pointer;
+  box-shadow: none;
 }
 
 .theme-mono.cd-dashboard-shell .cc-submit-btn:hover:not(:disabled) {
   transform: translateY(-1px);
-  box-shadow: 0 12px 24px -10px oklch(0 0 0 / 0.45);
+  box-shadow: 0 10px 22px -10px oklch(0 0 0 / 0.35);
 }
 
 .theme-mono.cd-dashboard-shell .cc-cancel-btn {

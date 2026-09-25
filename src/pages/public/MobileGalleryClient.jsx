@@ -9,6 +9,7 @@ import MobileGalleryInstallOverlay from '../../components/mobile-gallery/MobileG
 import { usePwaInstallPrompt } from '../../hooks/usePwaInstallPrompt';
 import { useMobileGalleryGridPhotos } from '../../components/mobile-gallery/MobileGalleryPhotoGrid';
 import { getAppDesignSettings } from '../../lib/mobileGalleryDesign';
+import { shouldShowPixnxtBranding } from '../../lib/pixnxtBranding';
 import '../mobile-gallery/MobileGallery.css';
 import { AppLoader } from '../../components/ui/AppLoading';
 import './MobileGalleryPublic.css';
@@ -97,17 +98,16 @@ const MobileGalleryClient = () => {
           return;
         }
 
-        const [photoData, settingsData, photographerData] = await Promise.all([
+        const [photoData, branding] = await Promise.all([
           mobileGalleryPublicService.getPublishedAppPhotos(appData.id),
           mobileGalleryPublicService.getModuleBranding(appData.photographer_id),
-          mobileGalleryPublicService.getPhotographerBranding(appData.photographer_id),
         ]);
 
         if (!cancelled) {
           setApp(appData);
           setPhotos(photoData);
-          setSettings(settingsData);
-          setPhotographer(photographerData);
+          setSettings(branding?.settings ?? null);
+          setPhotographer(branding?.photographer ?? null);
         }
       } catch (err) {
         console.error(err);
@@ -132,7 +132,9 @@ const MobileGalleryClient = () => {
     [app?.slug]
   );
   const ctaLink = useMemo(() => getAppCtaLink(app, null), [app]);
-  const showBranding = settings?.show_pixnxt_branding !== false;
+  const showBranding = shouldShowPixnxtBranding(photographer, {
+    showPixnxtBranding: settings?.show_pixnxt_branding,
+  });
   const profileIconUrl = settings?.logo_url || photographer?.profile_icon_url || null;
   const title = String(app?.name || '').toUpperCase();
   const photographerName =

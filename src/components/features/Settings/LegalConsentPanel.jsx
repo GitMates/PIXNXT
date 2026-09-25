@@ -1,34 +1,38 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import RichTextEditor from '../../RichTextEditor';
 import { useAuth } from '../../../hooks/useAuth';
+import { galleryService } from '../../../services/gallery.service';
+import { AppLoader } from '../../ui/AppLoading';
 import '../../../pages/Settings.css';
-
-function readString(key, fallback = '') {
-    try {
-        return localStorage.getItem(key) || fallback;
-    } catch {
-        return fallback;
-    }
-}
-
-function readBool(key, fallback = false) {
-    try {
-        const v = localStorage.getItem(key);
-        if (v === null) return fallback;
-        return v === 'true';
-    } catch {
-        return fallback;
-    }
-}
 
 function getFormattedDate() {
     return new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
 }
 
+function formatUpdatedAt(isoOrLabel) {
+    if (!isoOrLabel) return '';
+    const asDate = new Date(isoOrLabel);
+    if (!Number.isNaN(asDate.getTime())) {
+        return asDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+    }
+    return String(isoOrLabel);
+}
+
 function resolveStudioName(name) {
     const trimmed = (name || '').trim();
-    if (!trimmed || trimmed === 'Studio') return 'Karakovan Photography';
+    if (!trimmed || trimmed === 'Studio') return 'Your studio';
     return trimmed;
+}
+
+function htmlToPlain(html) {
+    if (!html) return '';
+    try {
+        const el = document.createElement('div');
+        el.innerHTML = html;
+        return (el.textContent || el.innerText || '').trim();
+    } catch {
+        return String(html).replace(/<[^>]+>/g, '').trim();
+    }
 }
 
 const RETENTION_OPTIONS = [
@@ -60,91 +64,198 @@ const RETENTION_OPTIONS = [
 
 export default function LegalConsentPanel({ showToast, studioName: studioNameProp }) {
     const { user } = useAuth();
+    const [loading, setLoading] = useState(true);
+    const [saving, setSaving] = useState(false);
 
-    const [studioName, setStudioName] = useState(() =>
-        resolveStudioName(studioNameProp)
-    );
+    const [studioName, setStudioName] = useState(() => resolveStudioName(studioNameProp));
 
-    useEffect(() => {
-        if (studioNameProp) {
-            setStudioName(resolveStudioName(studioNameProp));
-            return;
-        }
-        if (!user?.id) return;
-        try {
-            const cached = localStorage.getItem(`photographer_profile_${user.id}`);
-            if (!cached) return;
-            const parsed = JSON.parse(cached);
-            const name =
-                parsed.business_name ||
-                parsed.display_name ||
-                parsed.studio_name;
-            if (name) setStudioName(resolveStudioName(name));
-        } catch {
-            /* keep fallback */
-        }
-    }, [studioNameProp, user?.id]);
-
-    const [tos, setTos] = useState(() => readString('tos_text'));
-    const [privacyPolicy, setPrivacyPolicy] = useState(() => readString('privacy_policy_text'));
-    const [cookieToggle, setCookieToggle] = useState(() => readBool('cookie_banner_enabled', true));
-    const [faceConsent, setFaceConsent] = useState(() => readString('face_matching_consent_notice'));
-    const [faceRetention, setFaceRetention] = useState(() => readString('face_data_retention', '90d'));
-    const [noticeType, setNoticeType] = useState(() => readString('face_notice_type', 'standard'));
+    const [tos, setTos] = useState('');
+    const [privacyPolicy, setPrivacyPolicy] = useState('');
+    const [cookieToggle, setCookieToggle] = useState(false);
+    const [faceConsent, setFaceConsent] = useState('');
+    const [faceRetention, setFaceRetention] = useState('90d');
+    const [noticeType, setNoticeType] = useState('standard');
 
     const [editingTos, setEditingTos] = useState(false);
     const [editingPrivacy, setEditingPrivacy] = useState(false);
 
-    const [tosUpdated, setTosUpdated] = useState(() => readString('tos_updated_at') || '14 Mar');
-    const [privacyUpdated, setPrivacyUpdated] = useState(() => readString('privacy_updated_at') || '');
+    const [tosUpdated, setTosUpdated] = useState('');
+    const [privacyUpdated, setPrivacyUpdated] = useState('');
 
-    const [saveStatus, setSaveStatus] = useState('Saved a moment ago.');
+    const [saveStatus, setSaveStatus] = useState('');
 
-    const markSaved = useCallback((toastMsg) => {
-        setSaveStatus('Saved a moment ago.');
-        if (toastMsg) showToast?.(toastMsg);
-    }, [showToast]);
+    const markSaved = useCallback(
+        (toastMsg) => {
+            setSaveStatus('Saved a moment ago.');
+            if (toastMsg) showToast?.(toastMsg);
+        },
+        [showToast]
+    );
 
-    const handleCookieToggle = () => {
+    const persist = useCallback(
+        async (updates, toastMsg) => {
+            if (!user?.id) return false;
+            setSaving(true);
+            try {
+                await galleryService.updatePhotographerProfile(user.id, updates);
+                markSaved(toastMsg);
+                return true;
+            } catch (err) {
+                console.error(err);
+                showToast?.(err?.message || 'Could not save. Please try again.');
+                return false;
+            } finally {
+                setSaving(false);
+            }
+        },
+        [user?.id, markSaved, showToast]
+    );
+
+    useEffect(() => {
+        if (studioNameProp) setStudioName(resolveStudioName(studioNameProp));
+    }, [studioNameProp]);
+
+    useEffect(() => {
+        if (!user?.id) {
+            setLoading(false);
+            return undefined;
+        }
+        let cancelled = false;
+        (async () => {
+            try {
+                setLoading(true);
+                const data = await galleryService.getPhotographerProfile(user.id);
+                if (cancelled || !data) return;
+
+                // One-time migration from the old localStorage prototype.
+                const localTos = localStorage.getItem('tos_text') || '';
+                const localPrivacy = localStorage.getItem('privacy_policy_text') || '';
+                const localCookie = localStorage.getItem('cookie_banner_enabled');
+                const migrate = {};
+                if (!data.tos_text && localTos) migrate.tos_text = localTos;
+                if (!data.privacy_policy_text && localPrivacy) migrate.privacy_policy_text = localPrivacy;
+                if (data.cookie_banner_enabled == null && localCookie != null) {
+                    migrate.cookie_banner_enabled = localCookie === 'true';
+                }
+                if (!data.face_matching_consent_notice) {
+                    const v = localStorage.getItem('face_matching_consent_notice');
+                    if (v) migrate.face_matching_consent_notice = v;
+                }
+                if (!data.face_data_retention) {
+                    const v = localStorage.getItem('face_data_retention');
+                    if (v) migrate.face_data_retention = v;
+                }
+                if (!data.face_notice_type) {
+                    const v = localStorage.getItem('face_notice_type');
+                    if (v) migrate.face_notice_type = v;
+                }
+                if (!data.tos_updated_at && localStorage.getItem('tos_updated_at')) {
+                    migrate.tos_updated_at = new Date().toISOString();
+                }
+                if (!data.privacy_updated_at && localStorage.getItem('privacy_updated_at')) {
+                    migrate.privacy_updated_at = new Date().toISOString();
+                }
+                let profile = data;
+                if (Object.keys(migrate).length > 0) {
+                    await galleryService.updatePhotographerProfile(user.id, migrate).catch(() => null);
+                    profile = { ...data, ...migrate };
+                    try {
+                        localStorage.removeItem('tos_text');
+                        localStorage.removeItem('privacy_policy_text');
+                        localStorage.removeItem('cookie_banner_enabled');
+                        localStorage.removeItem('tos_updated_at');
+                        localStorage.removeItem('privacy_updated_at');
+                        localStorage.removeItem('face_matching_consent_notice');
+                        localStorage.removeItem('face_data_retention');
+                        localStorage.removeItem('face_notice_type');
+                    } catch {
+                        /* ignore */
+                    }
+                }
+
+                setTos(profile.tos_text || '');
+                setPrivacyPolicy(profile.privacy_policy_text || '');
+                setCookieToggle(Boolean(profile.cookie_banner_enabled));
+                setFaceConsent(profile.face_matching_consent_notice || '');
+                setFaceRetention(profile.face_data_retention || '90d');
+                setNoticeType(profile.face_notice_type || 'standard');
+                setTosUpdated(formatUpdatedAt(profile.tos_updated_at));
+                setPrivacyUpdated(formatUpdatedAt(profile.privacy_updated_at));
+                setStudioName(
+                    resolveStudioName(
+                        studioNameProp ||
+                            profile.business_name ||
+                            profile.display_name ||
+                            profile.studio_name
+                    )
+                );
+            } catch (err) {
+                console.error(err);
+                showToast?.('Failed to load legal settings.');
+            } finally {
+                if (!cancelled) setLoading(false);
+            }
+        })();
+        return () => {
+            cancelled = true;
+        };
+    }, [user?.id, studioNameProp, showToast]);
+
+    const handleCookieToggle = async () => {
         const next = !cookieToggle;
         setCookieToggle(next);
-        localStorage.setItem('cookie_banner_enabled', next.toString());
-        markSaved(next ? 'Cookie banner enabled' : 'Cookie banner disabled');
+        const ok = await persist(
+            { cookie_banner_enabled: next },
+            next ? 'Cookie banner enabled' : 'Cookie banner disabled'
+        );
+        if (!ok) setCookieToggle(!next);
     };
 
-    const saveTos = () => {
-        localStorage.setItem('tos_text', tos);
+    const saveTos = async () => {
         const dateStr = getFormattedDate();
-        localStorage.setItem('tos_updated_at', dateStr);
-        setTosUpdated(dateStr);
-        setEditingTos(false);
-        markSaved('Terms of Service saved');
+        const iso = new Date().toISOString();
+        const ok = await persist(
+            { tos_text: tos, tos_updated_at: iso },
+            'Terms of Service saved'
+        );
+        if (ok) {
+            setTosUpdated(dateStr);
+            setEditingTos(false);
+        }
     };
 
-    const savePrivacyPolicy = () => {
-        localStorage.setItem('privacy_policy_text', privacyPolicy);
+    const savePrivacyPolicy = async () => {
         const dateStr = getFormattedDate();
-        localStorage.setItem('privacy_updated_at', dateStr);
-        setPrivacyUpdated(dateStr);
-        setEditingPrivacy(false);
-        markSaved('Privacy Policy saved');
+        const iso = new Date().toISOString();
+        const ok = await persist(
+            { privacy_policy_text: privacyPolicy, privacy_updated_at: iso },
+            'Privacy Policy saved'
+        );
+        if (ok) {
+            setPrivacyUpdated(dateStr);
+            setEditingPrivacy(false);
+        }
     };
 
-    const saveFaceConsent = () => {
-        localStorage.setItem('face_matching_consent_notice', faceConsent);
-        markSaved('Face matching consent notice saved');
+    const saveFaceConsent = async () => {
+        await persist(
+            { face_matching_consent_notice: faceConsent },
+            'Face matching consent notice saved'
+        );
     };
 
-    const handleFaceRetentionChange = (val) => {
+    const handleFaceRetentionChange = async (val) => {
+        const previous = faceRetention;
         setFaceRetention(val);
-        localStorage.setItem('face_data_retention', val);
-        markSaved('Face data retention updated');
+        const ok = await persist({ face_data_retention: val }, 'Face data retention updated');
+        if (!ok) setFaceRetention(previous);
     };
 
-    const handleNoticeTypeChange = (val) => {
+    const handleNoticeTypeChange = async (val) => {
+        const previous = noticeType;
         setNoticeType(val);
-        localStorage.setItem('face_notice_type', val);
-        markSaved('Consent notice type updated');
+        const ok = await persist({ face_notice_type: val }, 'Consent notice type updated');
+        if (!ok) setNoticeType(previous);
     };
 
     const retentionLabel =
@@ -164,6 +275,13 @@ export default function LegalConsentPanel({ showToast, studioName: studioNamePro
             <span className="lc-tick-accent">Optional.</span>
         </>
     );
+
+    if (loading) {
+        return <AppLoader label="Loading legal settings" variant="page-short" />;
+    }
+
+    const tosSet = Boolean(htmlToPlain(tos));
+    const privacySet = Boolean(htmlToPlain(privacyPolicy));
 
     return (
         <div className="lc-panel">
@@ -191,7 +309,6 @@ export default function LegalConsentPanel({ showToast, studioName: studioNamePro
                 </p>
             </div>
 
-            {/* ── DOCUMENTS ── */}
             <section className="lc-section">
                 <span className="lc-overline">DOCUMENTS</span>
 
@@ -206,13 +323,14 @@ export default function LegalConsentPanel({ showToast, studioName: studioNamePro
                             type="button"
                             className="lc-btn lc-btn--outline"
                             onClick={() => setEditingTos(!editingTos)}
+                            disabled={saving}
                         >
                             {editingTos ? 'Close editor' : 'Edit terms'}
                         </button>
-                        {tos ? (
+                        {tosSet ? (
                             <span className="lc-status-badge lc-status-badge--set">
                                 <span className="lc-status-dot" />
-                                Set · updated {tosUpdated}
+                                Set{tosUpdated ? ` · updated ${tosUpdated}` : ''}
                             </span>
                         ) : (
                             <span className="lc-status-badge lc-status-badge--unset">
@@ -231,9 +349,10 @@ export default function LegalConsentPanel({ showToast, studioName: studioNamePro
                             <button
                                 type="button"
                                 className="lc-btn lc-btn--dark"
-                                onClick={saveTos}
+                                onClick={() => void saveTos()}
+                                disabled={saving}
                             >
-                                Save TOS
+                                {saving ? 'Saving…' : 'Save TOS'}
                             </button>
                         </div>
                     )}
@@ -252,14 +371,15 @@ export default function LegalConsentPanel({ showToast, studioName: studioNamePro
                             type="button"
                             className="lc-btn lc-btn--outline"
                             onClick={() => setEditingPrivacy(!editingPrivacy)}
+                            disabled={saving}
                         >
                             {editingPrivacy
                                 ? 'Close editor'
-                                : privacyPolicy
+                                : privacySet
                                   ? 'Edit policy'
                                   : 'Write policy'}
                         </button>
-                        {privacyPolicy ? (
+                        {privacySet ? (
                             <span className="lc-status-badge lc-status-badge--set">
                                 <span className="lc-status-dot" />
                                 Set{privacyUpdated ? ` · updated ${privacyUpdated}` : ''}
@@ -281,9 +401,10 @@ export default function LegalConsentPanel({ showToast, studioName: studioNamePro
                             <button
                                 type="button"
                                 className="lc-btn lc-btn--dark"
-                                onClick={savePrivacyPolicy}
+                                onClick={() => void savePrivacyPolicy()}
+                                disabled={saving}
                             >
-                                Save Privacy Policy
+                                {saving ? 'Saving…' : 'Save Privacy Policy'}
                             </button>
                         </div>
                     )}
@@ -303,9 +424,10 @@ export default function LegalConsentPanel({ showToast, studioName: studioNamePro
                         <button
                             type="button"
                             className={`ya-toggle ${cookieToggle ? 'ya-toggle--on' : ''}`}
-                            onClick={handleCookieToggle}
+                            onClick={() => void handleCookieToggle()}
                             aria-pressed={cookieToggle}
                             aria-label="Cookie notice"
+                            disabled={saving}
                         >
                             <span className="ya-toggle__thumb" />
                         </button>
@@ -313,7 +435,6 @@ export default function LegalConsentPanel({ showToast, studioName: studioNamePro
                 </div>
             </section>
 
-            {/* ── FACE MATCHING ── */}
             <section className="lc-section lc-section--face">
                 <span className="lc-overline">FACE MATCHING</span>
 
@@ -336,8 +457,9 @@ export default function LegalConsentPanel({ showToast, studioName: studioNamePro
                         <button
                             type="button"
                             className={`lc-radio-card ${noticeType === 'standard' ? 'lc-radio-card--active' : ''}`}
-                            onClick={() => handleNoticeTypeChange('standard')}
+                            onClick={() => void handleNoticeTypeChange('standard')}
                             aria-pressed={noticeType === 'standard'}
+                            disabled={saving}
                         >
                             <span className="lc-radio-circle" aria-hidden>
                                 {noticeType === 'standard' ? <span className="lc-radio-dot" /> : null}
@@ -354,8 +476,9 @@ export default function LegalConsentPanel({ showToast, studioName: studioNamePro
                         <button
                             type="button"
                             className={`lc-radio-card ${noticeType === 'custom' ? 'lc-radio-card--active' : ''}`}
-                            onClick={() => handleNoticeTypeChange('custom')}
+                            onClick={() => void handleNoticeTypeChange('custom')}
                             aria-pressed={noticeType === 'custom'}
+                            disabled={saving}
                         >
                             <span className="lc-radio-circle" aria-hidden>
                                 {noticeType === 'custom' ? <span className="lc-radio-dot" /> : null}
@@ -380,9 +503,10 @@ export default function LegalConsentPanel({ showToast, studioName: studioNamePro
                             <button
                                 type="button"
                                 className="lc-btn lc-btn--dark"
-                                onClick={saveFaceConsent}
+                                onClick={() => void saveFaceConsent()}
+                                disabled={saving}
                             >
-                                Save wording
+                                {saving ? 'Saving…' : 'Save wording'}
                             </button>
                         </div>
                     )}
@@ -401,7 +525,7 @@ export default function LegalConsentPanel({ showToast, studioName: studioNamePro
                                 <span className="lc-tick-text">
                                     {noticeType === 'standard'
                                         ? renderPreviewRequired()
-                                        : faceConsent || renderPreviewRequired()}
+                                        : htmlToPlain(faceConsent) || renderPreviewRequired()}
                                 </span>
                             </label>
                             <label className="lc-preview-tick">
@@ -435,8 +559,9 @@ export default function LegalConsentPanel({ showToast, studioName: studioNamePro
                                     key={opt.value}
                                     type="button"
                                     className={`lc-radio-card ${active ? 'lc-radio-card--active' : ''}`}
-                                    onClick={() => handleFaceRetentionChange(opt.value)}
+                                    onClick={() => void handleFaceRetentionChange(opt.value)}
                                     aria-pressed={active}
+                                    disabled={saving}
                                 >
                                     <span className="lc-radio-circle" aria-hidden>
                                         {active ? <span className="lc-radio-dot" /> : null}
@@ -457,7 +582,7 @@ export default function LegalConsentPanel({ showToast, studioName: studioNamePro
                 </div>
             </section>
 
-            <p className="lc-save-status">{saveStatus}</p>
+            {saveStatus ? <p className="lc-save-status">{saveStatus}</p> : null}
         </div>
     );
 }

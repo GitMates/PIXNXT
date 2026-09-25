@@ -312,6 +312,7 @@ const CollectionShare = () => {
                         senderEmail: profile?.email || currentUser?.email,
                         personalMessage: convertHtmlToPlainText(finalMessage),
                         subject: subject || undefined,
+                        sendCopy: Boolean(sendCopy),
                     },
                 });
                 sendSucceeded = true;
@@ -321,9 +322,8 @@ const CollectionShare = () => {
 
             // Record sharing in database logs — Pending while delivering, then Sent / Rejected.
             // The API already wrote the history row — skip the duplicate.
-            const historyStatus = scheduledDate
-                ? 'Scheduled'
-                : (sendSucceeded ? 'Sent' : 'Pending');
+            // Scheduling UI is not backed by the server yet — emails send immediately.
+            const historyStatus = sendSucceeded ? 'Sent' : 'Pending';
 
             const newHistoryItem = {
                 email: recipientEmail.trim(),
@@ -339,10 +339,17 @@ const CollectionShare = () => {
             setEmailHistory(updatedHistory);
             localStorage.setItem(`email_history_${collectionId}`, JSON.stringify(updatedHistory));
 
-            showToast(scheduledDate ? `Email scheduled successfully!` : 'Email sent successfully!');
-            setTimeout(() => {
-                navigate(`/deliveries/manage?id=${collectionId}`);
-            }, 1500);
+            showToast(
+                sendSucceeded
+                    ? (sendCopy ? 'Email sent (copy to you included)' : 'Email sent successfully!')
+                    : 'Failed to send email. Please try again.',
+            );
+            if (sendSucceeded) {
+                setScheduledDate(null);
+                setTimeout(() => {
+                    navigate(`/deliveries/manage?id=${collectionId}`);
+                }, 1500);
+            }
 
         } catch (err) {
             console.error('Failed to process email share:', err);
@@ -533,6 +540,14 @@ const CollectionShare = () => {
                                         <p className="cs-no-passwords-text">No passwords set.</p>
                                     )}
                                 </div>
+                                <label className="cs-checkbox-label" style={{ marginTop: 12 }}>
+                                    <input
+                                        type="checkbox"
+                                        checked={sendCopy}
+                                        onChange={(e) => setSendCopy(e.target.checked)}
+                                    />
+                                    <span>Send me a copy</span>
+                                </label>
                             </div>
                             
                             <div className="cs-send-btn-wrapper" ref={sendDropdownRef}>
@@ -543,7 +558,7 @@ const CollectionShare = () => {
                                         disabled={sending}
                                         style={{ borderRight: 'none' }}
                                     >
-                                        {sending ? 'Sending...' : (scheduledDate ? 'Schedule' : 'Send')}
+                                      {sending ? 'Sending...' : 'Send'}
                                     </button>
                                     {/* <button
                                         type="button"

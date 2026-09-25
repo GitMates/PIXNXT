@@ -322,6 +322,7 @@ const CollectionDashboard = () => {
     const [selectionListPhotoIds, setSelectionListPhotoIds] = useState(() => new Set());
     const [showMoreDropdown, setShowMoreDropdown] = useState(false);
     const [showFaceRecogniseModal, setShowFaceRecogniseModal] = useState(false);
+    const [faceQuotaLimitNotice, setFaceQuotaLimitNotice] = useState(null);
     const [photoMenu, setPhotoMenu] = useState(null);
     const [detailsPhoto, setDetailsPhoto] = useState(null);
     const [showRenameModal, setShowRenameModal] = useState(false);
@@ -404,6 +405,7 @@ const CollectionDashboard = () => {
     const [newSetName, setNewSetName] = useState('');
     const [newSetDescription, setNewSetDescription] = useState('');
     const [savingSet, setSavingSet] = useState(false);
+    const newSetNameInputRef = useRef(null);
     const [editingSet, setEditingSet] = useState(null); // set object for edit modal
     const [editSetName, setEditSetName] = useState('');
     const [editSetDescription, setEditSetDescription] = useState('');
@@ -3201,6 +3203,13 @@ const CollectionDashboard = () => {
     );
 
     const photoAiSyncingRef = useRef(false);
+    const photoAiAbortRef = useRef(false);
+
+    const abortPhotoAiSync = useCallback(() => {
+        photoAiAbortRef.current = true;
+        setPhotoAiIndexing(false);
+        setPhotoAiClustering(false);
+    }, []);
 
     const runPhotoAiAutoSync = useCallback(async (options = {}) => {
         if (!collectionId || photoAiSyncingRef.current) return { status: 'skipped' };
@@ -3252,8 +3261,10 @@ const CollectionDashboard = () => {
         // so people clusters stay exactly as they are.
         if (!force && missingLabels && !unindexed && !stale) {
             photoAiSyncingRef.current = true;
+            photoAiAbortRef.current = false;
             setPhotoAiIndexing(true);
             try {
+                if (photoAiAbortRef.current) return { status: 'aborted' };
                 await photoAiService.repairLabels(collectionId);
                 await refreshPhotoAiMetadata();
             } catch (err) {
@@ -3270,6 +3281,7 @@ const CollectionDashboard = () => {
         }
 
         photoAiSyncingRef.current = true;
+        photoAiAbortRef.current = false;
         setPhotoAiIndexing(true);
         try {
             const photographerId = collection?.photographer_id || user?.id;
@@ -3285,9 +3297,8 @@ const CollectionDashboard = () => {
             let quotaCapped = false;
             let quotaLimitLabel = '';
             if (photographerId) {
-                // Force reindex wipes this collection's metadata first — credit
-                // those slots back so an over-limit gallery (e.g. 14/10) can
-                // re-run and land exactly on the limit instead of hard-blocking.
+                // Force reindex may free this collection's already-counted slots,
+                // but never when the account is already at/over the image cap.
                 const creditBack = force ? rows.length : 0;
                 const allocation = await photographerQuotaService.allocateFaceImageSlots(
                     photographerId,
@@ -3296,7 +3307,8 @@ const CollectionDashboard = () => {
                     { creditBack },
                 );
                 syncLimit = Math.min(500, Math.max(1, allocation.allowed));
-                imagesToBill = syncLimit;
+                // Only bill for net new slots after crediting wiped rows.
+                imagesToBill = Math.max(0, syncLimit - creditBack);
                 quotaCapped = Boolean(allocation.capped);
                 quotaLimitLabel = allocation.limit > 0 ? String(allocation.limit) : '';
                 if (quotaCapped) {
@@ -3312,12 +3324,14 @@ const CollectionDashboard = () => {
                     await photographerQuotaService.assertNormalDeliveryQuota(photographerId, 1);
                 }
             }
+            if (photoAiAbortRef.current) return { status: 'aborted' };
             const targetIndexed = force
                 ? Math.min(indexablePhotoCount, syncLimit)
                 : Math.min(indexablePhotoCount, rows.length + syncLimit);
             const syncResult = await photoAiService.syncCollection(collectionId, syncLimit, {
                 forceReindex: force,
             });
+            if (photoAiAbortRef.current) return { status: 'aborted' };
             // Backend queues chunked indexing (202 { queued: true }) and
             // auto-reclusters when the queue drains — rows won't change on the
             // very next read. Poll until new metadata lands (or timeout), so
@@ -3331,6 +3345,7 @@ const CollectionDashboard = () => {
                 // Give the queue a head start before the first poll.
                 await new Promise((r) => setTimeout(r, 4000));
                 while (Date.now() < deadline) {
+                    if (photoAiAbortRef.current) return { status: 'aborted' };
                     try {
                         const current = await photoAiService.getMetadataForCollection(collectionId);
                         if (current.tableMissing) break;
@@ -3351,6 +3366,7 @@ const CollectionDashboard = () => {
                         // we already have more than we started with.
                         if (latest.length > startCount) {
                             await new Promise((r) => setTimeout(r, 4000));
+                            if (photoAiAbortRef.current) return { status: 'aborted' };
                             const confirm = await photoAiService.getMetadataForCollection(collectionId).catch(() => null);
                             if (confirm && !confirm.tableMissing) {
                                 const next = confirm.rows || latest;
@@ -3375,10 +3391,12 @@ const CollectionDashboard = () => {
                     }
                     await new Promise((r) => setTimeout(r, 3000));
                 }
+                if (photoAiAbortRef.current) return { status: 'aborted' };
                 // Indexing can finish while the queue's clustering pass is still
                 // running — wait for it so the panel doesn't flash the empty
                 // "No people found yet" state before faces appear.
                 await waitForClusterFresh();
+                if (photoAiAbortRef.current) return { status: 'aborted' };
                 await refreshPhotoAiMetadata();
                 await loadPhotoAiPeople({
                     silent: true,
@@ -3390,7 +3408,7 @@ const CollectionDashboard = () => {
                 {
                     const pid = collection?.photographer_id || user?.id;
                     const delta = imagesToBill;
-                    if (pid && delta > 0) {
+                    if (pid && delta > 0 && !photoAiAbortRef.current) {
                         if (isGuestFace) {
                             void photographerQuotaService
                                 .recordUsage(pid, 'guestImage', delta)
@@ -3409,6 +3427,7 @@ const CollectionDashboard = () => {
                 }
                 return { status: 'queued' };
             }
+            if (photoAiAbortRef.current) return { status: 'aborted' };
             await refreshPhotoAiMetadata();
             await loadPhotoAiPeople({
                 silent: true,
@@ -3418,7 +3437,7 @@ const CollectionDashboard = () => {
             {
                 const pid = collection?.photographer_id || user?.id;
                 const delta = imagesToBill;
-                if (pid && delta > 0) {
+                if (pid && delta > 0 && !photoAiAbortRef.current) {
                     if (isGuestFace) {
                         void photographerQuotaService
                             .recordUsage(pid, 'guestImage', delta)
@@ -5219,14 +5238,14 @@ const CollectionDashboard = () => {
 
     if (error || !collection) {
         return (
-            <div className="theme-mono cd-dashboard-shell flex h-screen items-center justify-center bg-[#F9F9F7]">
+            <div className="theme-mono cd-dashboard-shell cd-delivery-error-state flex h-screen items-center justify-center">
                 <div className="flex flex-col items-center gap-4 max-w-md text-center">
                     <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#dc2626" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
                     <div>
-                        <h2 className="text-xl font-semibold text-[#111111] mb-2">
+                        <h2 className="cd-delivery-error-state__title text-xl font-semibold mb-2">
                             {error === 'Delivery not found' ? 'Delivery Not Found' : 'Failed to Load Delivery'}
                         </h2>
-                        <p className="text-[#666] mb-4">{error || 'This delivery may have been deleted or you may not have permission to access it.'}</p>
+                        <p className="cd-delivery-error-state__text mb-4">{error || 'This delivery may have been deleted or you may not have permission to access it.'}</p>
                         <Link
                             to={backTo}
                             className="neu-pill inline-flex h-10 items-center rounded-full px-5 text-sm font-medium"
@@ -5329,8 +5348,9 @@ const CollectionDashboard = () => {
                             setShowGdPublishedPopup(false);
                             setShowMoreDropdown(false);
                             setShowPresetsSubmenu(false);
-                            // Warn when Face matching / Find People is already at its image cap.
+                            // Surface quota cap inside the modal (avoid alert covering Confirm).
                             const pid = collection?.photographer_id || user?.id;
+                            setFaceQuotaLimitNotice(null);
                             if (pid) {
                                 const isGuestFace = Boolean(collection?.guest_delivery_enabled);
                                 void photographerQuotaService.fetchSnapshot(pid).then((snap) => {
@@ -5342,10 +5362,11 @@ const CollectionDashboard = () => {
                                     );
                                     if (limit > 0 && used >= limit) {
                                         const kind = isGuestFace ? 'Face matching' : 'Find People';
-                                        alert(
-                                            `${kind} is at its limit (${used.toLocaleString()} / ${limit.toLocaleString()}).\n\n`
-                                            + `Re-running will process at most ${limit.toLocaleString()} images.\n`
-                                            + `Ask an admin to raise this limit in Quotas & Limits to index more.`,
+                                        // Stop any in-flight scan that started before the cap was hit.
+                                        abortPhotoAiSync();
+                                        setFaceQuotaLimitNotice(
+                                            `${kind} is at its limit (${used.toLocaleString()} / ${limit.toLocaleString()}). `
+                                            + `Scanning cannot run until an admin raises this limit in Quotas & Limits.`,
                                         );
                                     }
                                     setShowFaceRecogniseModal(true);
@@ -6563,11 +6584,11 @@ const CollectionDashboard = () => {
                                     />
                                     <div className="cd-modal-drop-content">
                                         <div className="cd-modal-drop-icon">
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 40 40" fill="none" stroke="#8a8378" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 40 40" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="cd-modal-drop-icon-svg">
                                                 <rect x="5" y="11" width="22" height="15" rx="2.5"></rect>
                                                 <path d="M9 22.5l4-4.5 3.5 3.5 3-3 3.5 4"></path>
-                                                <circle cx="15" cy="15.5" r="1.2" fill="#8a8378" stroke="none"></circle>
-                                                <circle cx="29" cy="27" r="6" fill="#fffdf9" stroke="#8a8378"></circle>
+                                                <circle cx="15" cy="15.5" r="1.2" fill="currentColor" stroke="none"></circle>
+                                                <circle className="cd-modal-drop-icon-badge" cx="29" cy="27" r="6" fill="currentColor" stroke="currentColor" fillOpacity="0.12"></circle>
                                                 <line x1="29" y1="24.2" x2="29" y2="29.8"></line>
                                                 <line x1="26.2" y1="27" x2="31.8" y2="27"></line>
                                             </svg>
@@ -6605,43 +6626,77 @@ const CollectionDashboard = () => {
             {/* Add Set Modal */}
             {showAddSetModal && (
                 <div className="cd-modal-overlay" onClick={() => setShowAddSetModal(false)}>
-                    <div className="cd-modal cd-set-modal" onClick={(e) => e.stopPropagation()}>
-                        <div className="cd-modal-header">
-                            <h3 className="cd-modal-title">NEW PHOTO SET</h3>
-                            <button className="cd-modal-close" onClick={() => setShowAddSetModal(false)}>
+                    <div className="cd-modal cd-set-modal" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-labelledby="cd-new-set-title">
+                        <div className="cd-modal-header cd-set-modal__header">
+                            <div className="cd-set-modal__heading">
+                                <span className="cd-set-modal__badge" aria-hidden>
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 10v6"/><path d="M9 13h6"/><path d="M20 20a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V10a2 2 0 0 1 2-2h4l2-3h4a2 2 0 0 1 2 2Z"/></svg>
+                                </span>
+                                <div>
+                                    <h3 id="cd-new-set-title" className="cd-modal-title">New photo set</h3>
+                                    <p className="cd-set-modal-lead">Name a group of photos clients can browse. Rename or reorder anytime.</p>
+                                </div>
+                            </div>
+                            <button className="cd-modal-close" onClick={() => setShowAddSetModal(false)} aria-label="Close">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
                             </button>
                         </div>
                         <div className="cd-set-modal-body">
                             <div className="cd-set-field">
-                                <label className="cd-set-field-label">Photo Set Name</label>
+                                <label className="cd-set-field-label" htmlFor="cd-new-set-name">Set name</label>
                                 <input
+                                    id="cd-new-set-name"
+                                    ref={newSetNameInputRef}
                                     type="text"
                                     className="cd-set-field-input"
-                                    placeholder="e.g. Ceremony, Reception, Getting ready"
+                                    placeholder="e.g. Ceremony"
                                     value={newSetName}
                                     onChange={(e) => setNewSetName(e.target.value)}
+                                    onKeyDown={(e) => {
+                                        if (e.key === 'Enter' && newSetName.trim() && !savingSet) {
+                                            e.preventDefault();
+                                            handleCreateSet();
+                                        }
+                                    }}
                                     autoFocus
                                 />
+                                <div className="cd-set-suggestions" role="group" aria-label="Suggested set names">
+                                    {['Ceremony', 'Reception', 'Getting ready', 'Family', 'Portraits'].map((suggestion) => (
+                                        <button
+                                            key={suggestion}
+                                            type="button"
+                                            className={`cd-set-chip${newSetName === suggestion ? ' is-active' : ''}`}
+                                            onClick={() => {
+                                                setNewSetName(suggestion);
+                                                newSetNameInputRef.current?.focus();
+                                            }}
+                                        >
+                                            {suggestion}
+                                        </button>
+                                    ))}
+                                </div>
                             </div>
                             <div className="cd-set-field">
-                                <label className="cd-set-field-label">Description</label>
+                                <label className="cd-set-field-label" htmlFor="cd-new-set-desc">Description <span className="cd-set-field-optional">optional</span></label>
                                 <textarea
+                                    id="cd-new-set-desc"
                                     className="cd-set-field-textarea"
-                                    placeholder="Optional"
+                                    placeholder="Short note shown to clients with this set"
                                     value={newSetDescription}
                                     onChange={(e) => setNewSetDescription(e.target.value)}
                                     maxLength={500}
-                                    rows={4}
+                                    rows={3}
                                 />
-                                <span className="cd-set-field-counter">{newSetDescription.length} / 500</span>
-                                <p className="cd-set-field-hint">Description is shown to clients viewing this photo set for additional storytelling.</p>
+                                <div className="cd-set-field-meta">
+                                    <p className="cd-set-field-hint">Visible to clients for storytelling.</p>
+                                    <span className="cd-set-field-counter">{newSetDescription.length}/500</span>
+                                </div>
                             </div>
                         </div>
                         <div className="cd-set-modal-footer">
-                            <button className="cd-cancel-btn" onClick={() => setShowAddSetModal(false)}>Cancel</button>
-                            <button className="cd-save-btn" onClick={handleCreateSet} disabled={!newSetName.trim() || savingSet}>
-                                {savingSet ? 'Saving...' : 'Save'}
+                            <button type="button" className="cd-cancel-btn" onClick={() => setShowAddSetModal(false)}>Cancel</button>
+                            <button type="button" className="cd-save-btn" onClick={handleCreateSet} disabled={!newSetName.trim() || savingSet}>
+                                {savingSet ? 'Creating…' : 'Create set'}
                             </button>
                         </div>
                     </div>
@@ -6651,42 +6706,60 @@ const CollectionDashboard = () => {
             {/* Edit Set Modal */}
             {editingSet && (
                 <div className="cd-modal-overlay" onClick={() => setEditingSet(null)}>
-                    <div className="cd-modal cd-set-modal" onClick={(e) => e.stopPropagation()}>
-                        <div className="cd-modal-header">
-                            <h3 className="cd-modal-title">EDIT PHOTO SET</h3>
-                            <button className="cd-modal-close" onClick={() => setEditingSet(null)}>
+                    <div className="cd-modal cd-set-modal" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-labelledby="cd-edit-set-title">
+                        <div className="cd-modal-header cd-set-modal__header">
+                            <div className="cd-set-modal__heading">
+                                <span className="cd-set-modal__badge" aria-hidden>
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+                                </span>
+                                <div>
+                                    <h3 id="cd-edit-set-title" className="cd-modal-title">Edit photo set</h3>
+                                    <p className="cd-set-modal-lead">Update how this set appears to clients.</p>
+                                </div>
+                            </div>
+                            <button className="cd-modal-close" onClick={() => setEditingSet(null)} aria-label="Close">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
                             </button>
                         </div>
                         <div className="cd-set-modal-body">
                             <div className="cd-set-field">
-                                <label className="cd-set-field-label">Photo Set Name</label>
+                                <label className="cd-set-field-label" htmlFor="cd-edit-set-name">Set name</label>
                                 <input
+                                    id="cd-edit-set-name"
                                     type="text"
                                     className="cd-set-field-input"
                                     value={editSetName}
                                     onChange={(e) => setEditSetName(e.target.value)}
+                                    onKeyDown={(e) => {
+                                        if (e.key === 'Enter' && editSetName.trim() && !savingSet) {
+                                            e.preventDefault();
+                                            handleUpdateSet();
+                                        }
+                                    }}
                                     autoFocus
                                 />
                             </div>
                             <div className="cd-set-field">
-                                <label className="cd-set-field-label">Description</label>
+                                <label className="cd-set-field-label" htmlFor="cd-edit-set-desc">Description <span className="cd-set-field-optional">optional</span></label>
                                 <textarea
+                                    id="cd-edit-set-desc"
                                     className="cd-set-field-textarea"
-                                    placeholder="Optional"
+                                    placeholder="Short note shown to clients with this set"
                                     value={editSetDescription}
                                     onChange={(e) => setEditSetDescription(e.target.value)}
                                     maxLength={500}
-                                    rows={4}
+                                    rows={3}
                                 />
-                                <span className="cd-set-field-counter">{editSetDescription.length} / 500</span>
-                                <p className="cd-set-field-hint">Description is shown to clients viewing this photo set for additional storytelling.</p>
+                                <div className="cd-set-field-meta">
+                                    <p className="cd-set-field-hint">Visible to clients for storytelling.</p>
+                                    <span className="cd-set-field-counter">{editSetDescription.length}/500</span>
+                                </div>
                             </div>
                         </div>
                         <div className="cd-set-modal-footer">
-                            <button className="cd-cancel-btn" onClick={() => setEditingSet(null)}>Cancel</button>
-                            <button className="cd-save-btn" onClick={handleUpdateSet} disabled={!editSetName.trim() || savingSet}>
-                                {savingSet ? 'Saving...' : 'Save'}
+                            <button type="button" className="cd-cancel-btn" onClick={() => setEditingSet(null)}>Cancel</button>
+                            <button type="button" className="cd-save-btn" onClick={handleUpdateSet} disabled={!editSetName.trim() || savingSet}>
+                                {savingSet ? 'Saving…' : 'Save changes'}
                             </button>
                         </div>
                     </div>
@@ -7138,67 +7211,89 @@ const CollectionDashboard = () => {
 
             {/* Face Recognise Confirm Modal */}
             {showFaceRecogniseModal && (
-                <div className="cd-modal-overlay" onClick={() => !photoAiIndexing && setShowFaceRecogniseModal(false)}>
-                    <div className="cd-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '440px' }}>
+                <div
+                    className="cd-modal-overlay"
+                    onClick={() => {
+                        abortPhotoAiSync();
+                        setShowFaceRecogniseModal(false);
+                        setFaceQuotaLimitNotice(null);
+                    }}
+                >
+                    <div className="cd-modal cd-face-ai-modal" onClick={(e) => e.stopPropagation()}>
                         <div className="cd-modal-header">
                             <h3 className="cd-modal-title">FACE RECOGNITION</h3>
                             <button
+                                type="button"
                                 className="cd-modal-close"
-                                disabled={photoAiIndexing}
-                                onClick={() => setShowFaceRecogniseModal(false)}
+                                onClick={() => {
+                                    abortPhotoAiSync();
+                                    setShowFaceRecogniseModal(false);
+                                    setFaceQuotaLimitNotice(null);
+                                }}
                             >
                                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
                             </button>
                         </div>
-                        <div className="cd-modal-body" style={{ padding: '24px' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '16px' }}>
-                                <div style={{
-                                    width: '44px',
-                                    height: '44px',
-                                    borderRadius: '50%',
-                                    backgroundColor: '#f4ece1',
-                                    color: '#c46a3a',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    flexShrink: 0,
-                                }}>
+                        <div className="cd-modal-body cd-face-ai-modal__body">
+                            <div className="cd-face-ai-modal__intro">
+                                <div className="cd-face-ai-modal__icon" aria-hidden>
                                     <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>
                                 </div>
                                 <div>
-                                    <h4 style={{ margin: 0, fontSize: '15px', fontWeight: 600, color: '#1a1a1a' }}>Ready to match faces</h4>
-                                    <p style={{ margin: '3px 0 0', fontSize: '12.5px', color: '#7a7369' }}>AI face detection & grouping</p>
+                                    <h4 className="cd-face-ai-modal__heading">
+                                        {faceQuotaLimitNotice ? 'Limit reached' : 'Ready to match faces'}
+                                    </h4>
+                                    <p className="cd-face-ai-modal__sub">AI face detection &amp; grouping</p>
                                 </div>
                             </div>
-                            <p style={{ margin: 0, fontSize: '14px', color: '#4a453f', lineHeight: 1.55 }}>
-                                Ready to run face recognition for <strong>{collection?.name || 'this delivery'}</strong>.
-                                {' '}This will index faces across your photos and cluster matching people automatically.
-                                {' '}If a Face matching / Find People image limit applies, only up to that many photos will be processed.
+                            <p className="cd-face-ai-modal__copy">
+                                {faceQuotaLimitNotice
+                                    ? <>Face recognition for <strong>{collection?.name || 'this delivery'}</strong> is paused because your image quota is full.</>
+                                    : <>
+                                        Ready to run face recognition for <strong>{collection?.name || 'this delivery'}</strong>.
+                                        {' '}This will index faces across your photos and cluster matching people automatically.
+                                        {' '}If a Face matching / Find People image limit applies, only up to that many photos will be processed.
+                                      </>}
                             </p>
-                            {photoAiIndexing && (
-                                <div style={{ marginTop: '16px', padding: '10px 14px', backgroundColor: '#fcf8f2', borderRadius: '6px', border: '1px solid #f0e6d6', display: 'flex', alignItems: 'center', gap: '10px', fontSize: '13px', color: '#a05828' }}>
-                                    <span className="cd-spinner-ring" style={{ width: '14px', height: '14px', border: '2px solid #a05828', borderTopColor: 'transparent', borderRadius: '50%', display: 'inline-block', animation: 'spin 0.8s linear infinite' }} />
+                            {faceQuotaLimitNotice ? (
+                                <div className="cd-face-ai-modal__quota" role="status">
+                                    {faceQuotaLimitNotice}
+                                </div>
+                            ) : null}
+                            {photoAiIndexing && !faceQuotaLimitNotice && (
+                                <div className="cd-face-ai-modal__progress">
+                                    <span className="cd-face-ai-modal__spinner" aria-hidden />
                                     <span>Scanning and recognizing faces…</span>
                                 </div>
                             )}
-                            <div style={{ display: 'flex', gap: '8px', marginTop: '24px', justifyContent: 'flex-end' }}>
+                            <div className="cd-face-ai-modal__actions">
                                 <button
                                     type="button"
                                     className="cd-btn-secondary"
-                                    disabled={photoAiIndexing}
-                                    onClick={() => setShowFaceRecogniseModal(false)}
+                                    onClick={() => {
+                                        abortPhotoAiSync();
+                                        setShowFaceRecogniseModal(false);
+                                        setFaceQuotaLimitNotice(null);
+                                    }}
                                 >
-                                    Cancel
+                                    {photoAiIndexing ? 'Stop & close' : 'Cancel'}
                                 </button>
                                 <button
                                     type="button"
                                     className="cd-btn-primary"
-                                    disabled={photoAiIndexing || indexablePhotoCount === 0}
+                                    disabled={
+                                        photoAiIndexing
+                                        || indexablePhotoCount === 0
+                                        || Boolean(faceQuotaLimitNotice)
+                                    }
                                     onClick={async () => {
+                                        if (faceQuotaLimitNotice) return;
                                         setShowPeoplePanel(true);
                                         try {
                                             const result = await runPhotoAiAutoSync({ force: true });
+                                            if (result?.status === 'aborted') return;
                                             setShowFaceRecogniseModal(false);
+                                            setFaceQuotaLimitNotice(null);
                                             if (result?.status === 'queued') {
                                                 showToast('Face scan started — people will appear as indexing finishes.');
                                             } else if (result?.status === 'skipped') {
@@ -7211,7 +7306,11 @@ const CollectionDashboard = () => {
                                         }
                                     }}
                                 >
-                                    {photoAiIndexing ? 'Processing…' : 'Confirm & Match Faces'}
+                                    {photoAiIndexing
+                                        ? 'Processing…'
+                                        : faceQuotaLimitNotice
+                                          ? 'Limit reached'
+                                          : 'Confirm & Match Faces'}
                                 </button>
                             </div>
                         </div>

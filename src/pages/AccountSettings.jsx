@@ -475,7 +475,7 @@ function StudioIdentityTab({ user, showToast, embedded = false }) {
         if (!user?.id) return;
         await galleryService.updatePhotographerProfile(user.id, updates);
         setProfile((prev) => ({ ...(prev || {}), ...updates }));
-        showToast?.('Saved');
+        showToast?.('Studio identity saved');
     };
 
     if (loading) {

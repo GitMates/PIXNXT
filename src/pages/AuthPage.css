@@ -221,11 +221,11 @@
   padding: 0.85rem 1.5rem;
   border: 0;
   border-radius: 0.75rem;
-  background: var(--ink, #1d1916);
+  background: #1d1916;
   font-family: inherit;
   font-size: 0.9375rem;
   font-weight: 600;
-  color: #fff;
+  color: #ffffff;
   cursor: pointer;
 }
 
@@ -270,7 +270,7 @@
   font-family: inherit;
   font-size: 0.9375rem;
   font-weight: 600;
-  color: var(--ink, #1d1916);
+  color: #1d1916;
   cursor: pointer;
 }
 
@@ -281,6 +281,68 @@
 .auth-google:disabled {
   opacity: 0.55;
   cursor: not-allowed;
+}
+
+/* Dark theme — never inherit --ink (white) onto light CTAs */
+body.dark-theme .auth-page .auth-submit,
+body.dark-theme .auth-submit {
+  background: #ece9e2 !important;
+  color: #141210 !important;
+}
+
+body.dark-theme .auth-page .auth-submit:hover:not(:disabled),
+body.dark-theme .auth-submit:hover:not(:disabled) {
+  background: #ffffff !important;
+  color: #141210 !important;
+}
+
+body.dark-theme .auth-page .auth-google,
+body.dark-theme .auth-google {
+  background: #1c1b18 !important;
+  border-color: #3a3733 !important;
+  color: #ece9e2 !important;
+}
+
+body.dark-theme .auth-page .auth-google:hover:not(:disabled),
+body.dark-theme .auth-google:hover:not(:disabled) {
+  background: #252320 !important;
+  color: #f3f0ea !important;
+}
+
+body.dark-theme .auth-page .auth-or::before,
+body.dark-theme .auth-page .auth-or::after,
+body.dark-theme .auth-or::before,
+body.dark-theme .auth-or::after {
+  background: #333029 !important;
+}
+
+body.dark-theme .auth-page .auth-or,
+body.dark-theme .auth-or {
+  color: #a19c91 !important;
+}
+
+body.dark-theme .auth-page__confirm-banner {
+  background: #1a2a20 !important;
+  color: #b8d4bc !important;
+}
+
+body.dark-theme .auth-dialog-overlay {
+  background: rgba(0, 0, 0, 0.72) !important;
+}
+
+body.dark-theme .auth-dialog {
+  background: #161513 !important;
+  border: 1px solid #2e2c29 !important;
+  color: #ece9e2 !important;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.55) !important;
+}
+
+body.dark-theme .auth-dialog__title {
+  color: #f3f0ea !important;
+}
+
+body.dark-theme .auth-dialog__body {
+  color: #a19c91 !important;
 }
 
 .auth-toggle {
