@@ -1128,6 +1128,32 @@
   font-weight: 700;
 }
 
+.si-usage-card {
+  margin-top: 4px;
+  padding: 18px 20px;
+  border: 1px solid #ece7db;
+  border-radius: 14px;
+  background: #fffdf9;
+}
+
+.si-usage-meters .aqm-row + .aqm-row {
+  margin-top: 14px;
+}
+
+.si-usage-meters .aqm-row__label {
+  font-size: 11px;
+  letter-spacing: 0.08em;
+}
+
+.si-usage-meters .aqm-row__meta {
+  font-size: 12px;
+}
+
+.si-usage-meters .aqm-row__bar {
+  height: 6px;
+  margin-top: 8px;
+}
+
 .si-domain-field {
   margin-top: 4px;
 }

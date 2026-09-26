@@ -1,6 +1,10 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
+import { galleryService } from '../../services/gallery.service';
+import { StudioAvatar } from '../ui/StudioAvatar';
+import { getUserInitial } from '../../lib/userInitials';
+import { syncProfileIconCacheFromProfile } from '../../lib/profileIcon';
 import '../../pages/mobile-gallery/MobileGallery.css';
 
 const GiftIcon = () => (
@@ -60,9 +64,41 @@ const MobileGalleryProfileDropdown = ({ open, onToggle, onClose, triggerClassNam
   const ref = useRef(null);
   const navigate = useNavigate();
   const { user, logout } = useAuth();
+  const [profile, setProfile] = useState(() => {
+    if (typeof window === 'undefined' || !user?.id) return null;
+    try {
+      const cached = localStorage.getItem(`photographer_profile_${user.id}`);
+      return cached ? JSON.parse(cached) : null;
+    } catch {
+      return null;
+    }
+  });
 
-  const userInitial = user?.email ? user.email.charAt(0).toUpperCase() : 'U';
-  const displayName = user?.email ? user.email.split('@')[0] : 'User';
+  const userInitial = getUserInitial(user);
+  const displayName =
+    profile?.display_name ||
+    (user?.email ? user.email.split('@')[0] : 'User');
+
+  useEffect(() => {
+    if (!user?.id) return undefined;
+    let cancelled = false;
+    galleryService
+      .getPhotographerProfile(user.id)
+      .then((data) => {
+        if (cancelled || !data) return;
+        setProfile(data);
+        try {
+          localStorage.setItem(`photographer_profile_${user.id}`, JSON.stringify(data));
+        } catch {
+          /* ignore */
+        }
+        syncProfileIconCacheFromProfile(data);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id]);
 
   useEffect(() => {
     if (!open) return undefined;
@@ -98,13 +134,13 @@ const MobileGalleryProfileDropdown = ({ open, onToggle, onClose, triggerClassNam
         aria-label="Account menu"
         aria-expanded={open}
       >
-        {userInitial}
+        <StudioAvatar profile={profile} userId={user?.id} fallback={userInitial} alt="Account menu" />
       </button>
       {open && (
         <div className="mg-profile-dropdown mg-profile-dropdown--full">
           <div className="mg-profile-dropdown-header">
             <div className="mg-profile-dropdown-avatar">
-              {userInitial}
+              <StudioAvatar profile={profile} userId={user?.id} fallback={userInitial} alt="" />
             </div>
             <div>
               <div className="mg-profile-dropdown-name">{displayName}</div>

@@ -14,7 +14,7 @@ import { cn } from '../../../../lib/utils';
 import { useAuth } from '../../../../hooks/useAuth';
 import { getUserDisplayLabel, getUserInitial } from '../../../../lib/userInitials';
 import { userStorageService, getStorageLimitBytes, formatStorageMeter, STORAGE_CHANGED_EVENT } from '../../../../services/userStorage.service';
-import { photographerQuotaService, QUOTA_CHANGED_EVENT, isNormalFeatureEnabled, isGuestFeatureEnabled } from '../../../../services/photographerQuota.service';
+import { photographerQuotaService, QUOTA_CHANGED_EVENT } from '../../../../services/photographerQuota.service';
 import {
   handlePhotographerLiveUpdate,
   onPhotographerLimitsBroadcast,
@@ -23,6 +23,7 @@ import {
 } from '../../../../lib/photographerLiveSync';
 import { syncUploadDefaultsToLocalStorage } from '../../../../lib/uploadDefaults';
 import { AccountQuotaMeters } from '../../../ui/AccountQuotaMeters';
+import { StudioAvatar } from '../../../ui/StudioAvatar';
 import { navigateToAccount } from '../../../../lib/accountBackNav';
 import { SidebarCoverUpload } from '../CoverSettings/SidebarCoverUpload';
 import './CollectionDashboardSidebar.css';
@@ -464,29 +465,12 @@ export function CollectionDashboardSidebar({
 
       <footer className="cdsb-footer">
         <div className="cdsb-storage">
-          {(() => {
-            const normalOn = isNormalFeatureEnabled(quotaSnapshot ?? profile);
-            const guestOn = isGuestFeatureEnabled(quotaSnapshot ?? profile);
-            return (
           <AccountQuotaMeters
             compact
+            storageOnly
             storageLabel={formatStorageMeter(usedBytes, maxBytes)}
             storagePct={storagePct}
-            imageUsed={quotaSnapshot?.image_used_count ?? profile?.image_used_count}
-            imageLimit={quotaSnapshot?.image_limit ?? profile?.image_limit}
-            faceUsed={quotaSnapshot?.face_matching_delivery_used ?? profile?.face_matching_delivery_used}
-            faceLimit={quotaSnapshot?.face_matching_delivery_limit ?? profile?.face_matching_delivery_limit}
-            normalImageUsed={quotaSnapshot?.face_normal_image_used ?? profile?.face_normal_image_used ?? quotaSnapshot?.image_used_count ?? profile?.image_used_count}
-            normalImageLimit={!normalOn ? -1 : (quotaSnapshot?.face_normal_image_limit ?? profile?.face_normal_image_limit ?? quotaSnapshot?.image_limit ?? profile?.image_limit)}
-            guestImageUsed={quotaSnapshot?.face_guest_image_used ?? profile?.face_guest_image_used}
-            guestImageLimit={!guestOn ? -1 : (quotaSnapshot?.face_guest_image_limit ?? profile?.face_guest_image_limit ?? quotaSnapshot?.image_limit ?? profile?.image_limit)}
-            normalFaceUsed={quotaSnapshot?.face_normal_delivery_used ?? profile?.face_normal_delivery_used}
-            normalFaceLimit={!normalOn ? -1 : (quotaSnapshot?.face_normal_delivery_limit ?? profile?.face_normal_delivery_limit)}
-            guestFaceUsed={quotaSnapshot?.face_guest_delivery_used ?? profile?.face_guest_delivery_used ?? quotaSnapshot?.face_matching_delivery_used ?? profile?.face_matching_delivery_used}
-            guestFaceLimit={!guestOn ? -1 : (quotaSnapshot?.face_guest_delivery_limit ?? profile?.face_guest_delivery_limit ?? quotaSnapshot?.face_matching_delivery_limit ?? profile?.face_matching_delivery_limit)}
           />
-            );
-          })()}
         </div>
 
         <button
@@ -497,7 +481,14 @@ export function CollectionDashboardSidebar({
             navigateToAccount(navigate, '/account', fromPath, accountBackLabel || 'Delivery');
           }}
         >
-          <span className="cdsb-profile__avatar">{userInitial}</span>
+          <span className="cdsb-profile__avatar">
+            <StudioAvatar
+              profile={profile}
+              userId={user?.id || profile?.id}
+              fallback={userInitial}
+              alt={userDisplayLabel}
+            />
+          </span>
           <span className="cdsb-profile__text">
             <span className="cdsb-profile__name">{userDisplayLabel}</span>
             <span className="cdsb-profile__role">Studio owner</span>

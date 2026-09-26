@@ -7,6 +7,11 @@ import { storageService } from '../../services/storage.service';
 import { mobileGallerySettingsService } from '../../services/mobileGallerySettings.service';
 import { AppLoader } from '../../components/ui/AppLoading';
 import { isPixnxtBrandingHidden } from '../../lib/pixnxtBranding';
+import {
+  getPhotographerR2Folder,
+  buildUserModulePath,
+  R2_USER_MODULES,
+} from '../../lib/photographerR2Folder';
 import '../../components/features/CollectionDashboard/Settings/Settings.css';
 import './MobileGallery.css';
 
@@ -158,8 +163,13 @@ const ModuleSettings = () => {
 
     setUploadingLogo(true);
     try {
-      const ext = file.name.split('.').pop() || 'png';
-      const path = `photographers/${user.id}/mobile-gallery/logo_${Date.now()}.${ext}`;
+      const ext = (file.name.split('.').pop() || 'png').toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 8) || 'png';
+      const folder = await getPhotographerR2Folder(user.id);
+      const path = buildUserModulePath(
+        folder,
+        R2_USER_MODULES.MOBILE_GALLERY,
+        `logo_${Date.now()}.${ext}`,
+      );
       const uploadResult = await storageService.upload(path, file);
       await persistSettings({ logo_url: uploadResult.url }, { immediate: true });
     } catch (err) {

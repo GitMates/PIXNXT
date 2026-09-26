@@ -21,7 +21,7 @@ import {
 } from '../lib/products';
 import StudioNotifications from './dashboard/StudioNotifications';
 import { userStorageService, getStorageLimitBytes, formatStorageMeter, STORAGE_CHANGED_EVENT } from '../services/userStorage.service';
-import { photographerQuotaService, QUOTA_CHANGED_EVENT, isNormalFeatureEnabled, isGuestFeatureEnabled } from '../services/photographerQuota.service';
+import { photographerQuotaService, QUOTA_CHANGED_EVENT } from '../services/photographerQuota.service';
 import {
     handlePhotographerLiveUpdate,
     onPhotographerLimitsBroadcast,
@@ -29,6 +29,7 @@ import {
     subscribePhotographerRow,
 } from '../lib/photographerLiveSync';
 import { AccountQuotaMeters } from './ui/AccountQuotaMeters';
+import { StudioAvatar } from './ui/StudioAvatar';
 import { getThemeMode, setThemeMode, THEME_CHANGE_EVENT } from '../lib/appearanceTheme';
 import { syncUploadDefaultsToLocalStorage } from '../lib/uploadDefaults';
 import { navigateToAccount } from '../lib/accountBackNav';
@@ -100,7 +101,7 @@ const SidebarLayout = ({
     );
     const hasSections = studioNavItems.length > 0;
 
-    const profileIconUrl = profile?.profile_icon_url?.trim() || '';
+    const studioLogoUrl = profile?.logo_url?.trim() || '';
     const userInitial = getUserInitial(user);
     const userDisplayLabel = getUserDisplayLabel(user);
 
@@ -115,14 +116,24 @@ const SidebarLayout = ({
     };
 
     const renderBrandIcon = () =>
-        profileIconUrl ? (
+        studioLogoUrl ? (
             <img
-                src={profileIconUrl}
-                alt=""
+                src={studioLogoUrl}
+                alt={profile?.business_name || profile?.display_name || 'Studio logo'}
                 className="sb-brand__logo"
             />
         ) : (
-            <span className="sb-brand__mark" aria-hidden>{userInitial}</span>
+            <span className="sb-brand__pixnxt" title="PIXNXT">
+                <img
+                    src="/logo.png"
+                    alt=""
+                    className="sb-brand__pixnxt-mark"
+                    width={22}
+                    height={22}
+                    decoding="async"
+                />
+                <span className="sb-brand__pixnxt-text">PIXNXT</span>
+            </span>
         );
 
     const [realStorageBytes, setRealStorageBytes] = useState(() => {
@@ -173,6 +184,9 @@ const SidebarLayout = ({
                             setProfile(data);
                             localStorage.setItem(`photographer_profile_${user.id}`, JSON.stringify(data));
                             syncUploadDefaultsToLocalStorage(data);
+                            import('../lib/profileIcon').then(({ syncProfileIconCacheFromProfile }) => {
+                              syncProfileIconCacheFromProfile(data);
+                            }).catch(() => {});
                         }
                     })
                     .catch((err) => console.error('Error loading photographer profile:', err));
@@ -655,29 +669,12 @@ const SidebarLayout = ({
                         {showProfileDropdown && renderProfileDropdown('bottom-full left-0 mb-2.5')}
 
                         <div className="sb-storage">
-                            {(() => {
-                                const normalOn = isNormalFeatureEnabled(quotaSnapshot ?? profile);
-                                const guestOn = isGuestFeatureEnabled(quotaSnapshot ?? profile);
-                                return (
                             <AccountQuotaMeters
                                 compact
+                                storageOnly
                                 storageLabel={formatStorageMeter(usedBytes, maxBytes)}
                                 storagePct={storagePct}
-                                imageUsed={quotaSnapshot?.image_used_count ?? profile?.image_used_count}
-                                imageLimit={quotaSnapshot?.image_limit ?? profile?.image_limit}
-                                faceUsed={quotaSnapshot?.face_matching_delivery_used ?? profile?.face_matching_delivery_used}
-                                faceLimit={quotaSnapshot?.face_matching_delivery_limit ?? profile?.face_matching_delivery_limit}
-                                normalImageUsed={quotaSnapshot?.face_normal_image_used ?? profile?.face_normal_image_used ?? quotaSnapshot?.image_used_count ?? profile?.image_used_count}
-                                normalImageLimit={!normalOn ? -1 : (quotaSnapshot?.face_normal_image_limit ?? profile?.face_normal_image_limit ?? quotaSnapshot?.image_limit ?? profile?.image_limit)}
-                                guestImageUsed={quotaSnapshot?.face_guest_image_used ?? profile?.face_guest_image_used}
-                                guestImageLimit={!guestOn ? -1 : (quotaSnapshot?.face_guest_image_limit ?? profile?.face_guest_image_limit ?? quotaSnapshot?.image_limit ?? profile?.image_limit)}
-                                normalFaceUsed={quotaSnapshot?.face_normal_delivery_used ?? profile?.face_normal_delivery_used}
-                                normalFaceLimit={!normalOn ? -1 : (quotaSnapshot?.face_normal_delivery_limit ?? profile?.face_normal_delivery_limit)}
-                                guestFaceUsed={quotaSnapshot?.face_guest_delivery_used ?? profile?.face_guest_delivery_used ?? quotaSnapshot?.face_matching_delivery_used ?? profile?.face_matching_delivery_used}
-                                guestFaceLimit={!guestOn ? -1 : (quotaSnapshot?.face_guest_delivery_limit ?? profile?.face_guest_delivery_limit ?? quotaSnapshot?.face_matching_delivery_limit ?? profile?.face_matching_delivery_limit)}
                             />
-                                );
-                            })()}
                         </div>
 
                         <button
@@ -686,7 +683,14 @@ const SidebarLayout = ({
                             className="sb-profile-btn"
                             aria-expanded={showProfileDropdown}
                         >
-                            <span className="sb-profile-btn__avatar">{userInitial}</span>
+                            <span className="sb-profile-btn__avatar">
+                              <StudioAvatar
+                                profile={profile}
+                                userId={user?.id}
+                                fallback={userInitial}
+                                alt={userDisplayLabel}
+                              />
+                            </span>
                             <span className="min-w-0 flex-1">
                                 <span className="sb-profile-btn__name">{userDisplayLabel}</span>
                                 <span className="sb-profile-btn__role">Studio owner</span>

@@ -12,102 +12,10 @@ import AlbumListCoverThumb from '../components/smart-albums/AlbumListCoverThumb'
 import { AppLoader } from '../components/ui/AppLoading';
 import DashboardCommandSearch from '../components/dashboard/DashboardCommandSearch';
 import StudioNotifications from '../components/dashboard/StudioNotifications';
+import { StudioAvatar } from '../components/ui/StudioAvatar';
+import { syncProfileIconCacheFromProfile, getStudioProfileIconSrc, preloadProfileIcon } from '../lib/profileIcon';
 import { coverImageCssStyle } from '../lib/focalPoint';
 import './Dashboard.css';
-
-const STUDIO_STATS = [
-  { label: 'OWED TO YOU', value: '₹1,45,000', sub: '2 invoices · oldest 21 days' },
-  { label: 'BOOKED THIS MONTH', value: '₹6,80,000', sub: '₹2,15,000 received' },
-  { label: 'LIVE DELIVERIES', value: '24', sub: '18 galleries · 6 albums' },
-  { label: 'SHOOTS THIS MONTH', value: '9', sub: 'Across 5 projects' },
-];
-
-const NEEDS_YOU = [
-  {
-    group: 'OWED A REPLY',
-    items: [
-      {
-        channel: 'PORTAL',
-        title: 'Meera & Rohan',
-        sub: 'Proposal opened · no reply',
-        status: 'Waiting 2 days',
-        tone: 'warn',
-        action: 'Reply on WhatsApp →',
-        route: '/portal',
-      },
-      {
-        channel: 'GUEST DELIVERY',
-        title: 'Ananya Sangeet',
-        sub: '28 faces need review',
-        status: 'Waiting 1 day',
-        tone: 'warn',
-        action: 'Review matches →',
-        route: '/guest-delivery',
-      },
-    ],
-  },
-  {
-    group: 'MONEY',
-    items: [
-      {
-        channel: 'INVOICE',
-        title: 'INV-2041 · Priya & Karthik',
-        sub: 'Balance ₹45,000',
-        status: '6 days past due',
-        tone: 'warn',
-        action: 'Send UPI reminder →',
-        route: '/portal',
-      },
-    ],
-  },
-  {
-    group: 'ON YOUR DESK',
-    items: [
-      {
-        channel: 'ALBUM',
-        title: 'Priya & Karthik — Album v2',
-        sub: 'Client left 4 comments',
-        status: 'Waiting 9 days',
-        tone: 'warn',
-        action: 'Open album →',
-        route: '/album-proofer',
-      },
-    ],
-  },
-];
-
-const THIS_WEEK = [
-  {
-    day: 'WED',
-    date: '13',
-    title: 'Nithya & Arun',
-    detail: 'Sangeet · 1 of 3 · 4:30 PM · Chennai',
-    status: '3 of 5 ready',
-    tone: 'warn',
-    progress: 3,
-    total: 5,
-  },
-  {
-    day: 'FRI',
-    date: '15',
-    title: 'Meera & Rohan',
-    detail: 'Engagement · 1 of 1 · 10:00 AM · Coimbatore',
-    status: 'Ready',
-    tone: 'ok',
-    progress: 4,
-    total: 4,
-  },
-  {
-    day: 'SAT',
-    date: '16',
-    title: 'Studio day',
-    detail: 'Portraits · 2 slots · 11 AM & 3 PM',
-    status: '1 of 2 ready',
-    tone: 'warn',
-    progress: 1,
-    total: 2,
-  },
-];
 
 const NEW_MENU = [
   {
@@ -342,9 +250,21 @@ function formatStorageAmount(bytes) {
 const Dashboard = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
-  const [profile, setProfile] = useState(null);
+  const [profile, setProfile] = useState(() => {
+    if (typeof window === 'undefined' || !user?.id) return null;
+    try {
+      const cached = localStorage.getItem(`photographer_profile_${user.id}`);
+      return cached ? JSON.parse(cached) : null;
+    } catch {
+      return null;
+    }
+  });
   const [modules, setModules] = useState([]);
   const [recentWork, setRecentWork] = useState([]);
+  const [studioStats, setStudioStats] = useState([]);
+  const [needsYou, setNeedsYou] = useState([]);
+  const [thisWeek, setThisWeek] = useState([]);
+  const [heroStatus, setHeroStatus] = useState('');
   const [loading, setLoading] = useState(true);
   const [profileOpen, setProfileOpen] = useState(false);
   const [newOpen, setNewOpen] = useState(false);
@@ -367,14 +287,37 @@ const Dashboard = () => {
     const load = async () => {
       if (!user) return;
       try {
+        // Instant paint from cache while the network profile loads.
+        try {
+          const cached = localStorage.getItem(`photographer_profile_${user.id}`);
+          if (cached) {
+            const parsed = JSON.parse(cached);
+            setProfile((prev) => prev || parsed);
+            syncProfileIconCacheFromProfile(parsed);
+          }
+        } catch {
+          /* ignore */
+        }
         setLoading(true);
         const [profileData, dash] = await Promise.all([
           galleryService.getPhotographerProfile(user.id),
           loadStudioDashboard(user.id),
         ]);
         setProfile(profileData);
+        if (profileData) {
+          try {
+            localStorage.setItem(`photographer_profile_${user.id}`, JSON.stringify(profileData));
+          } catch {
+            /* ignore */
+          }
+          syncProfileIconCacheFromProfile(profileData);
+        }
         setModules(dash.modules || []);
         setRecentWork(dash.recentWork || []);
+        setStudioStats(dash.studioStats || []);
+        setNeedsYou(dash.needsYou || []);
+        setThisWeek(dash.thisWeek || []);
+        setHeroStatus(dash.heroStatus || '');
       } catch (e) {
         console.error('Error loading dashboard:', e);
       } finally {
@@ -399,6 +342,11 @@ const Dashboard = () => {
       cancelled = true;
     };
   }, [user?.id]);
+
+  useEffect(() => {
+    const src = getStudioProfileIconSrc(profile, user?.id);
+    if (src) preloadProfileIcon(src);
+  }, [profile, user?.id]);
 
   useEffect(() => {
     const onDoc = (e) => {
@@ -434,7 +382,7 @@ const Dashboard = () => {
   const studioName = profile?.display_name || 'Your studio';
   const showcaseUrl = buildShowcaseUrl(profile, user);
   const showcaseLabel = showcaseUrl.replace(/^https?:\/\//, '').replace(/\/$/, '');
-  const mark = (studioName.trim()[0] || 'S').toUpperCase();
+  const needsYouCount = needsYou.reduce((n, g) => n + (g.items?.length || 0), 0);
 
   const goMenu = (path) => {
     setProfileOpen(false);
@@ -450,7 +398,16 @@ const Dashboard = () => {
       <header className="sd-topbar">
         <div className="sd-brand">
           <span className="sd-brand-mark" aria-hidden>
-            {mark}
+            <img
+              src="/logo.png"
+              alt=""
+              className="sd-brand-mark__logo"
+              width={36}
+              height={36}
+              decoding="async"
+              fetchPriority="high"
+              draggable={false}
+            />
           </span>
           <div className="sd-brand-text">
             <span className="sd-brand-name">{studioName}</span>
@@ -478,7 +435,7 @@ const Dashboard = () => {
               aria-expanded={profileOpen}
               title="Profile"
             >
-              {initials}
+              <StudioAvatar profile={profile} userId={user?.id} fallback={initials} alt="Profile" />
             </button>
             {profileOpen && (
               <div className="sd-menu" role="menu">
@@ -545,8 +502,7 @@ const Dashboard = () => {
               {greetingForNow()}, {firstName}.
             </h1>
             <p className="sd-status">
-              {formatTodayLine()}. <strong>Two clients are waiting on a reply</strong>, and one invoice is
-              six days past due. Everything else is moving.
+              {heroStatus || `${formatTodayLine()}. Your studio is ready.`}
             </p>
           </div>
 
@@ -667,7 +623,9 @@ const Dashboard = () => {
             <span className="sd-overline sd-overline--accent">THE STUDIO</span>
           </div>
           <div className="sd-studio">
-            {STUDIO_STATS.map((stat) => (
+            {(studioStats.length ? studioStats : [
+              { label: 'LIVE DELIVERIES', value: '—', sub: 'Loading…' },
+            ]).map((stat) => (
               <div key={stat.label} className="sd-studio-cell">
                 <span className="sd-studio-label">{stat.label}</span>
                 <span className="sd-studio-value">{stat.value}</span>
@@ -682,48 +640,53 @@ const Dashboard = () => {
             <div className="sd-panel-head">
               <div className="sd-panel-title-wrap">
                 <span className="sd-panel-title">NEEDS YOU</span>
-                <span className="sd-badge">4</span>
+                {needsYouCount > 0 ? <span className="sd-badge">{needsYouCount}</span> : null}
               </div>
-              <Link to="/portal" className="sd-link">
-                Open Portal
+              <Link to="/client-gallery" className="sd-link">
+                Open studio
               </Link>
             </div>
             <div className="sd-needs">
-              {NEEDS_YOU.map((group) => (
-                <div key={group.group} className="sd-needs-group">
-                  <div className="sd-needs-group-label">{group.group}</div>
-                  {group.items.map((item) => (
-                    <div key={item.title} className="sd-needs-row">
-                      <span className="sd-needs-channel">{item.channel}</span>
-                      <div className="sd-needs-main">
-                        <span className="sd-needs-title">{item.title}</span>
-                        <span className="sd-needs-sub">{item.sub}</span>
+              {needsYou.length > 0 ? (
+                needsYou.map((group) => (
+                  <div key={group.group} className="sd-needs-group">
+                    <div className="sd-needs-group-label">{group.group}</div>
+                    {group.items.map((item) => (
+                      <div key={`${item.channel}-${item.title}-${item.route}`} className="sd-needs-row">
+                        <span className="sd-needs-channel">{item.channel}</span>
+                        <div className="sd-needs-main">
+                          <span className="sd-needs-title">{item.title}</span>
+                          <span className="sd-needs-sub">{item.sub}</span>
+                        </div>
+                        <span className={`sd-needs-status sd-tone-${item.tone}`}>
+                          <span className="sd-dot" aria-hidden />
+                          {item.status}
+                        </span>
+                        <button
+                          type="button"
+                          className="sd-needs-action"
+                          onClick={() => navigate(item.route)}
+                        >
+                          {item.action}
+                        </button>
                       </div>
-                      <span className={`sd-needs-status sd-tone-${item.tone}`}>
-                        <span className="sd-dot" aria-hidden />
-                        {item.status}
-                      </span>
-                      <button
-                        type="button"
-                        className="sd-needs-action"
-                        onClick={() => navigate(item.route)}
-                      >
-                        {item.action}
-                      </button>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
+                ))
+              ) : (
+                <div className="sd-panel-empty">
+                  <p>Nothing waiting on you right now.</p>
                 </div>
-              ))}
+              )}
               <div className="sd-panel-foot">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
                   <circle cx="12" cy="12" r="9" />
                   <path d="M12 7v5l3 2" />
                 </svg>
                 <span>
-                  Three things are waiting on clients. Nothing for you to do on them.{' '}
-                  <Link to="/portal" className="sd-link">
-                    See them
-                  </Link>
+                  {needsYouCount > 0
+                    ? 'These are live items from your deliveries, albums, and guest events.'
+                    : 'When clients leave feedback or guests need delivery, they will show up here.'}
                 </span>
               </div>
             </div>
@@ -733,41 +696,52 @@ const Dashboard = () => {
             <div className="sd-panel-head">
               <div className="sd-panel-title-wrap">
                 <span className="sd-panel-title">THIS WEEK</span>
-                <span className="sd-badge">3</span>
+                {thisWeek.length > 0 ? <span className="sd-badge">{thisWeek.length}</span> : null}
               </div>
-              <Link to="/portal" className="sd-link">
+              <Link to="/client-gallery" className="sd-link">
                 Open calendar
               </Link>
             </div>
             <div className="sd-week">
-              {THIS_WEEK.map((ev) => (
-                <div key={`${ev.day}-${ev.date}`} className="sd-week-row">
-                  <div className="sd-week-date">
-                    <span className="sd-week-day">{ev.day}</span>
-                    <span className="sd-week-num">{ev.date}</span>
-                  </div>
-                  <div className="sd-week-body">
-                    <div className="sd-week-top">
-                      <span className="sd-week-title">{ev.title}</span>
-                      <span className={`sd-week-status sd-tone-${ev.tone}`}>
-                        <span className="sd-dot" aria-hidden />
-                        {ev.status}
-                      </span>
+              {thisWeek.length > 0 ? (
+                thisWeek.map((ev) => (
+                  <button
+                    key={`${ev.day}-${ev.date}-${ev.title}-${ev.route}`}
+                    type="button"
+                    className="sd-week-row"
+                    onClick={() => ev.route && navigate(ev.route)}
+                  >
+                    <div className="sd-week-date">
+                      <span className="sd-week-day">{ev.day}</span>
+                      <span className="sd-week-num">{ev.date}</span>
                     </div>
-                    <div className="sd-week-bottom">
-                      <span className="sd-week-detail">{ev.detail}</span>
-                      <span className={`sd-week-bars sd-week-bars--${ev.tone}`} aria-hidden>
-                        {Array.from({ length: ev.total }).map((_, i) => (
-                          <span
-                            key={i}
-                            className={`sd-week-bar${i < ev.progress ? ' sd-week-bar--on' : ''}`}
-                          />
-                        ))}
-                      </span>
+                    <div className="sd-week-body">
+                      <div className="sd-week-top">
+                        <span className="sd-week-title">{ev.title}</span>
+                        <span className={`sd-week-status sd-tone-${ev.tone}`}>
+                          <span className="sd-dot" aria-hidden />
+                          {ev.status}
+                        </span>
+                      </div>
+                      <div className="sd-week-bottom">
+                        <span className="sd-week-detail">{ev.detail}</span>
+                        <span className={`sd-week-bars sd-week-bars--${ev.tone}`} aria-hidden>
+                          {Array.from({ length: ev.total || 1 }).map((_, i) => (
+                            <span
+                              key={i}
+                              className={`sd-week-bar${i < (ev.progress || 0) ? ' sd-week-bar--on' : ''}`}
+                            />
+                          ))}
+                        </span>
+                      </div>
                     </div>
-                  </div>
+                  </button>
+                ))
+              ) : (
+                <div className="sd-panel-empty">
+                  <p>No event dates this week. Add an event date on a delivery or guest event to see it here.</p>
                 </div>
-              ))}
+              )}
               <div className="sd-panel-foot">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
                   <rect x="3" y="4" width="18" height="18" rx="2" />
@@ -776,10 +750,7 @@ const Dashboard = () => {
                   <line x1="3" y1="10" x2="21" y2="10" />
                 </svg>
                 <span>
-                  The rest of the week is clear.{' '}
-                  <Link to="/portal" className="sd-link">
-                    Open calendar
-                  </Link>
+                  Built from your delivery and guest-event dates — not placeholder shoots.
                 </span>
               </div>
             </div>

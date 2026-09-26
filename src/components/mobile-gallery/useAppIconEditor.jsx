@@ -1,6 +1,11 @@
 import React, { useCallback, useState } from 'react';
 import { mobileGalleryService } from '../../services/mobileGallery.service';
 import { storageService } from '../../services/storage.service';
+import {
+  getPhotographerR2Folder,
+  buildUserModulePath,
+  R2_USER_MODULES,
+} from '../../lib/photographerR2Folder';
 import AppIconModal from './AppIconModal';
 
 export function useAppIconEditor(app, photographerId, onAppUpdated) {
@@ -20,8 +25,14 @@ export function useAppIconEditor(app, photographerId, onAppUpdated) {
       if (!file || !photographerId || !app?.id) return;
       setUploadingIcon(true);
       try {
-        const ext = file.name.split('.').pop() || 'png';
-        const path = `photographers/${photographerId}/mobile-gallery/${app.id}/icon_${Date.now()}.${ext}`;
+        const ext = (file.name.split('.').pop() || 'png').toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 8) || 'png';
+        const folder = await getPhotographerR2Folder(photographerId);
+        const path = buildUserModulePath(
+          folder,
+          R2_USER_MODULES.MOBILE_GALLERY,
+          app.id,
+          `icon_${Date.now()}.${ext}`,
+        );
         const result = await storageService.upload(path, file);
         const updated = await mobileGalleryService.updateApp(photographerId, app.id, {
           icon_url: result.url,

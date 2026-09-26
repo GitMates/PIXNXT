@@ -1,7 +1,8 @@
 .cc-page {
     display: flex;
     flex-direction: column;
-    min-height: 100vh;
+    height: 100dvh;
+    overflow: hidden;
 }
 
 .cc-page.theme-mono.cd-dashboard-shell {
@@ -12,14 +13,13 @@
 
 .cc-header {
     height: auto;
-    min-height: 72px;
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 16px;
-    padding: 18px 32px;
-    position: sticky;
-    top: 0;
+    padding: 12px 32px;
+    flex-shrink: 0;
+    position: relative;
     z-index: 100;
 }
 
@@ -107,15 +107,22 @@
 
 .cc-main {
     flex: 1;
+    min-height: 0;
     display: flex;
     justify-content: center;
     align-items: flex-start;
-    padding: 2.75rem 24px 4.5rem;
+    padding: 10px 24px 14px;
+    overflow: hidden;
 }
 
 .cc-form-container {
     width: 100%;
-    max-width: 560px;
+    max-width: 720px;
+    min-height: 0;
+    margin-top: auto;
+    margin-bottom: auto;
+    display: flex;
+    flex-direction: column;
 }
 
 .cc-form-card {
@@ -127,13 +134,25 @@
         0 1px 0 rgba(255, 255, 255, 0.8) inset,
         0 18px 48px rgba(28, 24, 20, 0.08);
     overflow: hidden;
+    animation: cc-card-in 0.35s ease both;
+}
+
+@keyframes cc-card-in {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: none;
+    }
 }
 
 .cc-form-intro {
     display: flex;
-    align-items: flex-start;
-    gap: 14px;
-    padding: 26px 28px 22px;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 24px;
     background:
         linear-gradient(180deg, #faf8f4 0%, #fff 100%);
     border-bottom: 1px solid #efeae3;
@@ -143,12 +162,15 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 42px;
-    height: 42px;
+    width: 36px;
+    height: 36px;
     flex-shrink: 0;
-    border-radius: 12px;
-    background: #1d1916;
+    border-radius: 10px;
+    background: linear-gradient(135deg, #2a2320 0%, #1d1916 60%, #3a2a1e 100%);
     color: #f3efe8;
+    box-shadow:
+        0 4px 12px rgba(28, 24, 20, 0.22),
+        0 0 0 3px rgba(208, 133, 82, 0.12);
 }
 
 .cc-form-intro__copy {
@@ -178,26 +200,54 @@
     font-size: 0.8125rem;
     line-height: 1.5;
     color: #8a847e;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .cc-form {
-    padding: 8px 28px 28px;
+    padding: 0 24px 16px;
+}
+
+.cc-form-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    align-items: start;
 }
 
 .cc-section {
-    padding: 18px 0 4px;
+    padding: 12px 0 2px;
+    min-width: 0;
+    animation: cc-section-in 0.4s ease both;
 }
 
-.cc-section + .cc-section {
+.cc-section:nth-child(2) {
+    animation-delay: 0.06s;
+}
+
+@keyframes cc-section-in {
+    from {
+        opacity: 0;
+        transform: translateY(6px);
+    }
+    to {
+        opacity: 1;
+        transform: none;
+    }
+}
+
+.cc-form-grid .cc-section + .cc-section {
+    border-left: none;
     border-top: 1px solid #f0ebe4;
-    margin-top: 8px;
+    margin-top: 6px;
+    padding-left: 0;
 }
 
 .cc-section-head {
     display: flex;
     align-items: center;
     gap: 12px;
-    margin-bottom: 16px;
+    margin-bottom: 12px;
 }
 
 .cc-section-title {
@@ -213,15 +263,27 @@
 .cc-section-rule {
     flex: 1;
     height: 1px;
-    background: #ebe6df;
+    background: linear-gradient(90deg, rgba(208, 133, 82, 0.55), #ebe6df 45%);
 }
 
 .cc-form-group {
-    margin-bottom: 1.35rem;
+    margin-bottom: 0.8rem;
 }
 
 .cc-form-group--last {
-    margin-bottom: 0.75rem;
+    margin-bottom: 0.35rem;
+}
+
+.cc-label-count {
+    font-size: 0.6875rem;
+    font-weight: 550;
+    color: #b0a89e;
+    letter-spacing: 0.02em;
+    font-variant-numeric: tabular-nums;
+}
+
+.cc-label-hint + .cc-label-count {
+    margin-left: 8px;
 }
 
 .cc-label-row {
@@ -249,12 +311,16 @@
     column-gap: 12px;
     row-gap: 0;
     align-items: center;
-    margin-bottom: 0.25rem;
-    padding: 14px 16px;
+    margin-bottom: 0.2rem;
+    padding: 11px 14px;
     border-radius: 14px;
     border: 1px solid #e6e1d9;
     background: #faf8f5;
     transition: border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
+}
+
+.cc-form-group--toggle:hover {
+    border-color: #cfc6ba;
 }
 
 .cc-form-group--toggle.is-active {
@@ -308,6 +374,10 @@
     transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
+.cc-input-shell--field:hover {
+    border-color: #cfc6ba;
+}
+
 .cc-input-shell--field:focus-within {
     border-color: #c8c0b6;
     box-shadow: 0 0 0 3px rgba(208, 133, 82, 0.12);
@@ -335,17 +405,19 @@
     display: flex;
     align-items: center;
     gap: 12px;
-    margin-top: 24px;
-    padding-top: 22px;
+    margin-top: 12px;
+    padding-top: 12px;
     border-top: 1px solid #eeeae4;
 }
 
 .cc-submit-btn {
+    position: relative;
+    overflow: hidden;
     display: inline-flex;
     align-items: center;
     justify-content: center;
     gap: 8px;
-    min-height: 46px;
+    min-height: 42px;
     padding: 0 22px;
     border-radius: 999px;
     border: none;
@@ -355,6 +427,20 @@
     transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease, opacity 0.15s ease;
 }
 
+.cc-submit-btn:not(:disabled)::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(105deg, transparent 40%, rgba(255, 255, 255, 0.22) 50%, transparent 60%);
+    transform: translateX(-110%);
+    transition: transform 0.6s ease;
+    pointer-events: none;
+}
+
+.cc-submit-btn:hover:not(:disabled)::after {
+    transform: translateX(110%);
+}
+
 .cc-submit-btn:disabled {
     opacity: 0.5;
     cursor: not-allowed;
@@ -362,9 +448,26 @@
     box-shadow: none !important;
 }
 
+.cc-submit-btn:hover:not(:disabled) {
+    transform: translateY(-1px);
+    box-shadow: 0 8px 20px rgba(28, 24, 20, 0.22);
+}
+
+.cc-submit-btn:active:not(:disabled) {
+    transform: none;
+}
+
+.cc-submit-name {
+    max-width: 220px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
 .cc-submit-arrow {
     opacity: 0.85;
     transition: transform 0.15s ease;
+    flex-shrink: 0;
 }
 
 .cc-submit-btn:hover:not(:disabled) .cc-submit-arrow {
@@ -385,7 +488,7 @@
 }
 
 .cc-cancel-btn {
-    min-height: 46px;
+    min-height: 42px;
     padding: 0 18px;
     border-radius: 999px;
     border: 1px solid #ddd6cc;
@@ -475,11 +578,79 @@
 }
 
 .cc-foot-note {
-    margin: 16px 4px 0;
-    text-align: center;
-    font-size: 0.75rem;
-    line-height: 1.45;
-    color: #9a9188;
+    display: none;
+}
+
+/* Short viewports: compress further so the whole form still fits without scrolling. */
+@media (max-height: 780px) {
+    .cc-form-lead {
+        display: none;
+    }
+
+    .cc-form-intro {
+        padding: 10px 24px;
+    }
+
+    .cc-form {
+        padding-bottom: 12px;
+    }
+
+    .cc-section {
+        padding-top: 8px;
+    }
+
+    .cc-section-head {
+        margin-bottom: 8px;
+    }
+
+    .cc-form-group {
+        margin-bottom: 0.6rem;
+    }
+
+    .cc-field-hint {
+        margin-top: 5px;
+    }
+
+    .cc-form-group--toggle {
+        padding: 9px 12px;
+    }
+
+    .cc-hint {
+        margin-top: 8px;
+    }
+
+    .cc-actions {
+        margin-top: 8px;
+        padding-top: 10px;
+    }
+
+    .cc-header-sub {
+        display: none;
+    }
+}
+
+@media (max-width: 760px) {
+    .cc-page {
+        height: auto;
+        min-height: 100dvh;
+        overflow: visible;
+    }
+
+    .cc-main {
+        overflow: visible;
+        align-items: flex-start;
+    }
+
+    .cc-form-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .cc-form-grid .cc-section + .cc-section {
+        border-left: none;
+        border-top: 1px solid #f0ebe4;
+        margin-top: 8px;
+        padding-left: 0;
+    }
 }
 
 @media (max-width: 640px) {

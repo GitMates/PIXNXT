@@ -7,6 +7,11 @@ import { mobileGalleryPhotosService } from '../../services/mobileGalleryPhotos.s
 import { storageService } from '../../services/storage.service';
 
 import { getWallpaperUrl } from '../../lib/mobileGalleryPreviewFormat';
+import {
+  getPhotographerR2Folder,
+  buildUserModulePath,
+  R2_USER_MODULES,
+} from '../../lib/photographerR2Folder';
 
 import {
   getAppDesignSettings,
@@ -522,8 +527,14 @@ const AppDesignPanel = ({ app, photographerId, onAppUpdated, onEditIcon, iconUpl
     if (!file || !photographerId || !app?.id) return;
     setUploadingCover(true);
     try {
-      const ext = file.name.split('.').pop() || 'jpg';
-      const path = `photographers/${photographerId}/mobile-gallery/${app.id}/cover_${Date.now()}.${ext}`;
+      const ext = (file.name.split('.').pop() || 'jpg').toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 8) || 'jpg';
+      const folder = await getPhotographerR2Folder(photographerId);
+      const path = buildUserModulePath(
+        folder,
+        R2_USER_MODULES.MOBILE_GALLERY,
+        app.id,
+        `cover_${Date.now()}.${ext}`,
+      );
       const result = await storageService.upload(path, file);
       setCoverImageUrl(result.url);
       onAppUpdated?.({ ...app, cover_image_url: result.url });

@@ -10,6 +10,8 @@ export const R2_USER_MODULES = {
   ALBUM_PROOFER: 'album-proofer',
   GUEST_DELIVERY: 'guestdelivery',
   MOBILE_GALLERY: 'mobilegallery',
+  /** Studio identity: logos, cover logo, favicon, profile icon, watermarks */
+  STUDIO: 'studio',
 };
 
 export const PHOTOGRAPHER_R2_FIELDS = 'id, r2_folder, email, display_name';

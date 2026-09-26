@@ -110,6 +110,7 @@ const PHOTO_STORAGE_PATH_COLUMNS = [
 ];
 
 const collectionPathNameCache = new Map();
+const setPathNameCache = new Map();
 
 function safePathSegment(value, fallback = 'item') {
   return String(value || fallback)
@@ -134,6 +135,61 @@ async function getCollectionPathFolder(collectionId) {
   } catch {
     return `delivery__${collectionId}`;
   }
+}
+
+/**
+ * R2 photoset folder — just the readable set name, e.g. `ceremony`
+ * (Highlights stays `highlights`). A `-2`, `-3` suffix is added only when
+ * sibling sets in the same delivery slug to the same name, so photos from
+ * two same-named sets never mix. No ids in folder names.
+ */
+function assignSetFolders(siblings) {
+  const ordered = [...(siblings || [])].sort((a, b) => {
+    const ca = a?.created_at || a?.createdAt || '';
+    const cb = b?.created_at || b?.createdAt || '';
+    if (ca !== cb) return String(ca) < String(cb) ? -1 : 1;
+    return String(a?.id || '') < String(b?.id || '') ? -1 : 1;
+  });
+  const used = new Set();
+  const byId = new Map();
+  for (const s of ordered) {
+    if (!s?.id || byId.has(s.id)) continue;
+    const base = safePathSegment(s.name, 'set');
+    let folder = base;
+    for (let i = 2; used.has(folder); i += 1) folder = `${base}-${i}`;
+    used.add(folder);
+    byId.set(s.id, folder);
+  }
+  return byId;
+}
+
+async function getSetPathFolder(collectionId, setId, setNameHint = null) {
+  if (!setId) return 'highlights';
+  if (setPathNameCache.has(setId)) {
+    return setPathNameCache.get(setId);
+  }
+  let folder = null;
+  if (collectionId) {
+    try {
+      const sets = await (await workersGallery()).getSets(collectionId);
+      const list = sets || [];
+      const known = list.some((s) => s.id === setId);
+      const siblings = known
+        ? list
+        : [...list, { id: setId, name: setNameHint || 'set' }];
+      folder = assignSetFolders(siblings).get(setId) || null;
+    } catch {
+      folder = null;
+    }
+  }
+  if (!folder) folder = safePathSegment(setNameHint, 'set');
+  setPathNameCache.set(setId, folder);
+  return folder;
+}
+
+function clearSetPathFolderCache(setId = null) {
+  if (setId) setPathNameCache.delete(setId);
+  else setPathNameCache.clear();
 }
 
 function collectPhotoStoragePaths(photo) {
@@ -361,20 +417,38 @@ export const galleryService = {
    * Create a new set
    */
   async createSet({ collectionId, photographerId, name, description, position }) {
-    return (await workersGallery()).createSet({ collectionId, photographerId, name, description, position });
+    const created = await (await workersGallery()).createSet({
+      collectionId,
+      photographerId,
+      name,
+      description,
+      position,
+    });
+    if (created?.id) {
+      // Resolve lazily on first upload so sibling collisions get `-2`, `-3`.
+      clearSetPathFolderCache(created.id);
+    }
+    return created;
   },
 
   /**
    * Update a set's name/description
    */
   async updateSet(setId, updateData) {
-    return (await workersGallery()).updateSet(setId, updateData);
+    const updated = await (await workersGallery()).updateSet(setId, updateData);
+    if (setId && updateData?.name != null) {
+      // Clear so the next upload resolves the (possibly renamed) folder
+      // against current siblings instead of reusing a stale name.
+      clearSetPathFolderCache(setId);
+    }
+    return updated;
   },
 
   /**
    * Delete a set and all photos in it (DB + Cloudflare R2).
    */
   async deleteSet(setId) {
+    clearSetPathFolderCache(setId);
     return (await workersGallery()).deleteSet(setId);
   },
 
@@ -482,7 +556,7 @@ export const galleryService = {
       globalThis.__pixnxtFolderCache.set(cKey, cF);
     }
 
-    const setFolder = setId ? `set__${safePathSegment(setId, 'set')}` : 'highlights';
+    const setFolder = await getSetPathFolder(collectionId, setId);
     return `users/${photographerFolder}/${DELIVERY_R2_MODULE}/${collectionFolder}/photoset/${setFolder}`;
   },
 
@@ -1079,9 +1153,11 @@ export const galleryService = {
       getPhotographerR2Folder(photographerId),
       getCollectionPathFolder(collectionId),
     ]);
-    const setFolder = existing?.set_id
-      ? `set__${safePathSegment(existing.set_id, 'set')}`
-      : 'highlights';
+    const setFolder = await getSetPathFolder(
+      collectionId,
+      existing?.set_id || null,
+      existing?.set_name || existing?.setName || null,
+    );
     const basePath = `users/${photographerFolder}/${DELIVERY_R2_MODULE}/${collectionFolder}/photoset/${setFolder}`;
     const filePath = `${basePath}/original/${fileName}`;
 

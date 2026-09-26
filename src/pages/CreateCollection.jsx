@@ -179,7 +179,7 @@ const CreateCollection = () => {
                                 <p className="cc-form-eyebrow">Client gallery</p>
                                 <h2 className="cc-form-heading">Delivery details</h2>
                                 <p className="cc-form-lead">
-                                    Name the gallery and choose how it starts. Design, privacy, and sharing can be refined after you create it.
+                                    Name it, date it, pick a preset — the rest comes after.
                                 </p>
                             </div>
                         </div>
@@ -191,6 +191,7 @@ const CreateCollection = () => {
                         )}
 
                         <form onSubmit={handleCreate} className="cc-form">
+                            <div className="cc-form-grid">
                             <section className="cc-section" aria-labelledby="cc-section-basics">
                                 <div className="cc-section-head">
                                     <h3 id="cc-section-basics" className="cc-section-title">Basics</h3>
@@ -200,7 +201,10 @@ const CreateCollection = () => {
                                 <div className="cc-form-group">
                                     <div className="cc-label-row">
                                         <label className="cc-label" htmlFor="collection-name">Delivery name</label>
-                                        <span className="cc-label-hint">Required</span>
+                                        <span>
+                                            <span className="cc-label-hint">Required</span>
+                                            <span className="cc-label-count"> · {name.trim().length}/120</span>
+                                        </span>
                                     </div>
                                     <div className="cc-input-shell cc-input-shell--field">
                                         <input
@@ -278,6 +282,7 @@ const CreateCollection = () => {
                                     )}
                                 </div>
                             </section>
+                            </div>
 
                             <div className="cc-actions">
                                 <button type="submit" className="cc-submit-btn" disabled={!canSubmit}>
@@ -288,7 +293,13 @@ const CreateCollection = () => {
                                         </>
                                     ) : (
                                         <>
-                                            Create delivery
+                                            {name.trim() ? (
+                                                <>
+                                                    Create <span className="cc-submit-name">“{name.trim().length > 24 ? `${name.trim().slice(0, 24)}…` : name.trim()}”</span>
+                                                </>
+                                            ) : (
+                                                'Create delivery'
+                                            )}
                                             <svg className="cc-submit-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
                                                 <path d="M5 12h14" />
                                                 <path d="m12 5 7 7-7 7" />
@@ -303,9 +314,6 @@ const CreateCollection = () => {
                         </form>
                     </div>
 
-                    <p className="cc-foot-note">
-                        You can upload photos, set privacy, and share the link from the delivery dashboard.
-                    </p>
                 </div>
             </main>
         </div>

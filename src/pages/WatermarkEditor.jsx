@@ -5,6 +5,12 @@ import { storageService } from '../services/storage.service';
 import { galleryService } from '../services/gallery.service';
 import './WatermarkEditor.css';
 import { AppLoader } from '../components/ui/AppLoading';
+import {
+    getPhotographerR2Folder,
+    buildUserModulePath,
+    R2_USER_MODULES,
+    safeR2PathSegment,
+} from '../lib/photographerR2Folder';
 
 // ── Font options ──────────────────────────────────────────────────────────────
 const FONT_OPTIONS = [
@@ -162,7 +168,15 @@ const WatermarkEditor = () => {
         if (!file || !profileId) return;
         try {
             setUploading(true);
-            const path = `photographers/${profileId}/watermarks/watermark_${Date.now()}_${file.name}`;
+            const folder = await getPhotographerR2Folder(profileId);
+            const base = safeR2PathSegment(String(file.name || 'watermark').replace(/\.[^.]+$/, ''), 'watermark');
+            const ext = (file.name.split('.').pop() || 'png').toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 8) || 'png';
+            const path = buildUserModulePath(
+                folder,
+                R2_USER_MODULES.STUDIO,
+                'watermarks',
+                `watermark_${Date.now()}_${base}.${ext}`,
+            );
             const result = await storageService.upload(path, file);
             setImageUrl(result.url);
         } catch (err) {
@@ -178,8 +192,8 @@ const WatermarkEditor = () => {
         setImageUrl(null);
     };
 
-    const handleClose = () => {
-        if (dirty && !saving && !window.confirm('You have unsaved watermark changes. Leave without saving?')) {
+    const handleClose = async () => {
+        if (dirty && !saving && !(await window.confirm('You have unsaved watermark changes. Leave without saving?'))) {
             return;
         }
         navigate('/settings/watermark');

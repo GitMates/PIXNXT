@@ -13,13 +13,13 @@ import LegalConsentPanel from '../components/features/Settings/LegalConsentPanel
 import PlanBillingPanel from '../components/features/Settings/PlanBillingPanel';
 import YourAccountPanel from '../components/features/Settings/YourAccountPanel';
 import { getThemeMode, setThemeMode, THEME_CHANGE_EVENT } from '../lib/appearanceTheme';
-import { userStorageService, getStorageLimitBytes, formatStorageMeter } from '../services/userStorage.service';
 import {
     readAccountBack,
     writeAccountBack,
     resolveAccountBack,
 } from '../lib/accountBackNav';
 import { cn } from '../lib/utils';
+import { syncProfileIconCacheFromProfile } from '../lib/profileIcon';
 import brandPng from '../assets/icons/client gallery.png';
 import smartAlbumPng from '../assets/icons/smart album.png';
 import dashboardPng from '../assets/icons/dashboard.png';
@@ -65,11 +65,16 @@ export default function AccountSettings() {
     const [showDropdown, setShowDropdown] = useState(false);
     const dropdownRef = useRef(null);
     const [toastMessage, setToastMessage] = useState('');
-    const [studioProfile, setStudioProfile] = useState(null);
+    const [studioProfile, setStudioProfile] = useState(() => {
+        if (typeof window === 'undefined' || !user?.id) return null;
+        try {
+            const cached = localStorage.getItem(`photographer_profile_${user.id}`);
+            return cached ? JSON.parse(cached) : null;
+        } catch {
+            return null;
+        }
+    });
     const [themeMode, setThemeModeState] = useState(() => getThemeMode());
-    const [usedBytes, setUsedBytes] = useState(() =>
-        userStorageService.getCachedStorageBytes(user?.id),
-    );
     const [backTarget, setBackTarget] = useState(
         () => readAccountBack() || { path: '/dashboard', label: 'Dashboard' },
     );
@@ -124,20 +129,23 @@ export default function AccountSettings() {
         return slug;
     }, [studioProfile, user]);
 
-    const maxBytes = useMemo(() => getStorageLimitBytes(studioProfile), [studioProfile]);
-
-    const storagePct = useMemo(() => {
-        if (!maxBytes) return 0;
-        return Math.min(100, (usedBytes / maxBytes) * 100);
-    }, [usedBytes, maxBytes]);
-
     useEffect(() => {
         if (!user?.id || !useStudioShell) return;
         let cancelled = false;
         (async () => {
             try {
                 const data = await galleryService.getPhotographerProfile(user.id);
-                if (!cancelled) setStudioProfile(data || null);
+                if (!cancelled) {
+                    setStudioProfile(data || null);
+                    if (data) {
+                        try {
+                            localStorage.setItem(`photographer_profile_${user.id}`, JSON.stringify(data));
+                        } catch {
+                            /* ignore */
+                        }
+                        syncProfileIconCacheFromProfile(data);
+                    }
+                }
             } catch (err) {
                 console.error(err);
             }
@@ -145,16 +153,6 @@ export default function AccountSettings() {
         return () => {
             cancelled = true;
         };
-    }, [user?.id, useStudioShell]);
-
-    useEffect(() => {
-        if (!user?.id || !useStudioShell) return;
-        userStorageService
-            .calculateUserStorageBytes(user, studioProfile)
-            .then((bytes) => {
-                if (typeof bytes === 'number' && bytes >= 0) setUsedBytes(bytes);
-            })
-            .catch(() => {});
     }, [user?.id, useStudioShell]);
 
     useEffect(() => {
@@ -301,21 +299,6 @@ export default function AccountSettings() {
                             ))}
                         </div>
 
-                        <div className="studio-shell__storage sb-storage">
-                            <div className="flex items-center justify-between gap-2">
-                                <span className="sb-storage__label">STORAGE</span>
-                                <span className="sb-storage__meta">
-                                    {formatStorageMeter(usedBytes, maxBytes)}
-                                </span>
-                            </div>
-                            <div className="sb-storage__bar">
-                                <div
-                                    className="sb-storage__bar-fill"
-                                    style={{ width: `${storagePct}%` }}
-                                />
-                            </div>
-                        </div>
-
                         <button
                             type="button"
                             className="studio-shell__signout"
@@ -413,7 +396,7 @@ export default function AccountSettings() {
                         </div>
                     </div>
 
-                    <AccountTopbarIcons userInitial={userInitial} />
+                    <AccountTopbarIcons userInitial={userInitial} profile={studioProfile} />
                 </div>
             </header>
 

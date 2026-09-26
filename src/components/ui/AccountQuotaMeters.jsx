@@ -34,9 +34,11 @@ export function AccountQuotaMeters({
   compact = false,
   collapsible = true,
   defaultExpanded = false,
+  /** Sidebar: Storage bar only — detail rows live on Studio identity. */
+  storageOnly = false,
 }) {
   const [expanded, setExpanded] = useState(() => {
-    if (!collapsible) return true;
+    if (storageOnly || !collapsible) return true;
     const stored = readExpanded();
     // Respect an explicit stored preference, otherwise use the default (minimized).
     try {
@@ -99,13 +101,16 @@ export function AccountQuotaMeters({
         toRow('face', compact ? 'Deliveries' : 'Face match deliveries', faceUsed, faceLimit),
       ];
 
+  const showDetails = !storageOnly && (!collapsible || expanded);
+  const showToggle = !storageOnly && collapsible;
+
   return (
     <div className={className}>
       <div className="aqm-row">
         <div className="aqm-row__head">
           <span className="aqm-row__label">Storage</span>
           <span className="aqm-row__meta">{storageLabel}</span>
-          {collapsible && (
+          {showToggle && (
             <button
               type="button"
               onClick={toggle}
@@ -123,7 +128,7 @@ export function AccountQuotaMeters({
         </div>
       </div>
 
-      {(!collapsible || expanded) &&
+      {showDetails &&
         detailRows.map((row) => (
           <div
             key={row.key}

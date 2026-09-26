@@ -114,7 +114,7 @@ const AppsList = () => {
   const handleDelete = async (app) => {
     if (!user) return;
     closeContextMenu();
-    if (!window.confirm(`Delete "${app.name}"? This cannot be undone.`)) return;
+    if (!(await window.confirm(`Delete "${app.name}"? This cannot be undone.`))) return;
     try {
       await mobileGalleryService.deleteApp(user.id, app.id);
       setApps((prev) => prev.filter((a) => a.id !== app.id));

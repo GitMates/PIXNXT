@@ -280,7 +280,7 @@ export default function LabFrameWorkshop() {
       alert(`Cannot complete framing from "${getLabStatusLabel(selected.order.status)}".`);
       return;
     }
-    if (!window.confirm('Mark framing complete and send this order to Packaging?')) return;
+    if (!(await window.confirm('Mark framing complete and send this order to Packaging?'))) return;
     setBusy(true);
     try {
       await saveFrameJob({
@@ -302,7 +302,7 @@ export default function LabFrameWorkshop() {
 
   const handleSendReprint = async () => {
     if (!selected) return;
-    if (!window.confirm('Send this order to Reprint Required?')) return;
+    if (!(await window.confirm('Send this order to Reprint Required?'))) return;
     setBusy(true);
     try {
       await saveFrameJob({ status: 'failed' });

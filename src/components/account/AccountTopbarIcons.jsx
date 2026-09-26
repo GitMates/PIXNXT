@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import MobileGalleryHelpDropdown from '../mobile-gallery/MobileGalleryHelpDropdown';
 import MobileGalleryNotifications from '../mobile-gallery/MobileGalleryNotifications';
+import { StudioAvatar } from '../ui/StudioAvatar';
 import '../../pages/mobile-gallery/MobileGallery.css';
 
 const GiftIcon = () => (
@@ -58,7 +59,7 @@ const LogoutIcon = () => (
   </svg>
 );
 
-function AccountProfileDropdown({ open, onToggle, onClose, userInitial }) {
+function AccountProfileDropdown({ open, onToggle, onClose, userInitial, profile }) {
   const ref = useRef(null);
   const navigate = useNavigate();
   const { user, logout } = useAuth();
@@ -99,13 +100,13 @@ function AccountProfileDropdown({ open, onToggle, onClose, userInitial }) {
         aria-label="Account menu"
         aria-expanded={open}
       >
-        {userInitial}
+        <StudioAvatar profile={profile} userId={user?.id || profile?.id} fallback={userInitial} alt="Account menu" />
       </button>
       {open && (
         <div className="mg-profile-dropdown mg-profile-dropdown--full acct-profile-menu">
           <div className="mg-profile-dropdown-header">
             <div className="mg-profile-dropdown-avatar">
-              {userInitial}
+              <StudioAvatar profile={profile} userId={user?.id || profile?.id} fallback={userInitial} alt="" />
             </div>
             <div>
               <div className="mg-profile-dropdown-name">{displayName}</div>
@@ -145,7 +146,7 @@ function AccountProfileDropdown({ open, onToggle, onClose, userInitial }) {
 }
 
 /** Help / notifications / profile icons for Account settings header */
-export default function AccountTopbarIcons({ userInitial }) {
+export default function AccountTopbarIcons({ userInitial, profile }) {
   const [openPanel, setOpenPanel] = useState(null);
 
   const togglePanel = (panel) => {
@@ -173,6 +174,7 @@ export default function AccountTopbarIcons({ userInitial }) {
         onToggle={() => togglePanel('profile')}
         onClose={closePanels}
         userInitial={userInitial}
+        profile={profile}
       />
     </div>
   );

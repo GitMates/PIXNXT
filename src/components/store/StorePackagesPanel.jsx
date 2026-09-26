@@ -192,7 +192,7 @@ export default function StorePackagesPanel({ photographerId, onNotify }) {
   };
 
   const handleDelete = async (pkg) => {
-    if (!window.confirm(`Delete package “${pkg.name}”?`)) return;
+    if (!(await window.confirm(`Delete package “${pkg.name}”?`))) return;
     const previous = packages;
     applyPackages(packages.filter((p) => p.id !== pkg.id), photographerId);
     try {

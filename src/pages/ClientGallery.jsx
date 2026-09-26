@@ -379,7 +379,7 @@ const ClientGallery = () => {
             n > 0
                 ? `Remove folder "${folder.name}"? ${n} delivery(s) will move back to the main list (not deleted).`
                 : `Remove folder "${folder.name}"?`;
-        if (!window.confirm(msg)) return;
+        if (!(await window.confirm(msg))) return;
         if (!user?.id) return;
         try {
             await galleryService.deleteFolder(folder.id, user.id);

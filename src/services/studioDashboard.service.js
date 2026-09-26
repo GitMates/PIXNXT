@@ -81,58 +81,45 @@ function activityAt(item) {
   );
 }
 
+async function loadStudioOverview() {
+  try {
+    const { apiFetch } = await import('../lib/api/client');
+    return await apiFetch('/v1/engage/studio-overview');
+  } catch (e) {
+    console.warn('Studio overview failed:', e);
+    return null;
+  }
+}
+
 /** Published deliveries with no client_sessions row ≈ unopened. */
-async function countUnopenedDeliveries(publishedIds) {
+function countUnopenedFromOverview(publishedIds, overview) {
   if (!publishedIds.length) return 0;
-  try {
-    const { apiFetch } = await import('../lib/api/client');
-    const overview = await apiFetch('/v1/engage/studio-overview');
-    const opened = new Set(overview?.openedCollectionIds || []);
-    return publishedIds.filter((id) => !opened.has(id)).length;
-  } catch (e) {
-    console.warn('Unopened delivery heuristic failed:', e);
-    return 0;
-  }
+  const opened = new Set(overview?.openedCollectionIds || []);
+  return publishedIds.filter((id) => !opened.has(id)).length;
 }
 
-async function countGuestNeedReview(photographerId, liveEventIds) {
-  void photographerId;
+function countGuestNeedReviewFromOverview(liveEventIds, overview) {
   if (!liveEventIds.length) return 0;
-  try {
-    const { apiFetch } = await import('../lib/api/client');
-    const overview = await apiFetch('/v1/engage/studio-overview');
-    const wanted = new Set(liveEventIds);
-    return (overview?.guests || []).filter((g) => {
-      if (!wanted.has(g.event_id)) return false;
-      const s = g.delivery_status || 'pending';
-      return s !== 'sent' && s !== 'matched';
-    }).length;
-  } catch (e) {
-    console.warn('Guest review count failed:', e);
-    return 0;
-  }
+  const wanted = new Set(liveEventIds);
+  return (overview?.guests || []).filter((g) => {
+    if (!wanted.has(g.event_id)) return false;
+    const s = g.delivery_status || 'pending';
+    return s !== 'sent' && s !== 'matched';
+  }).length;
 }
 
-async function loadPrintLabStats(photographerId) {
-  void photographerId;
-  try {
-    const { apiFetch } = await import('../lib/api/client');
-    const overview = await apiFetch('/v1/engage/studio-overview');
-    const orders = overview?.printOrders || [];
-
-    const now = new Date();
-    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-    const monthRevenue = orders
-      .filter((o) => o.created_at && new Date(o.created_at) >= monthStart)
-      .reduce((sum, o) => sum + (Number(o.total) || 0), 0);
-
-    const inProduction = orders.filter((o) => IN_PRODUCTION.has(o.status)).length;
-
-    return { monthRevenue, inProduction };
-  } catch (e) {
-    console.warn('Print lab stats failed:', e);
-    return { monthRevenue: 0, inProduction: 0 };
-  }
+function printLabStatsFromOverview(overview) {
+  const orders = overview?.printOrders || [];
+  const now = new Date();
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+  const monthRevenue = orders
+    .filter((o) => o.created_at && new Date(o.created_at) >= monthStart)
+    .reduce((sum, o) => sum + (Number(o.total) || 0), 0);
+  const inProduction = orders.filter((o) => IN_PRODUCTION.has(o.status)).length;
+  const awaitingArtwork = orders.filter((o) =>
+    /artwork|review|waiting.?customer/i.test(String(o.status || '')),
+  ).length;
+  return { monthRevenue, inProduction, awaitingArtwork, orders };
 }
 
 function portalModuleStats() {
@@ -197,25 +184,36 @@ function portalRecentItems() {
  */
 export async function loadStudioDashboard(photographerId) {
   if (!photographerId) {
-    return { modules: emptyModules(), recentWork: [] };
+    return {
+      modules: emptyModules(),
+      recentWork: [],
+      studioStats: emptyStudioStats(),
+      needsYou: [],
+      thisWeek: [],
+      heroStatus: 'Your studio is ready. Create a delivery to get started.',
+    };
   }
 
-  const [collectionsRes, albumsRes, eventsRes, appsRes, printRes] = await Promise.allSettled([
+  const [collectionsRes, albumsRes, eventsRes, appsRes, overviewRes] = await Promise.allSettled([
     galleryService.getCollections(photographerId),
     smartAlbumsService.getAlbums(photographerId),
     guestDeliveryService.getEvents(photographerId),
     mobileGalleryService.getApps(photographerId),
-    loadPrintLabStats(photographerId),
+    loadStudioOverview(),
   ]);
 
   const collections = collectionsRes.status === 'fulfilled' ? collectionsRes.value || [] : [];
   const albums = albumsRes.status === 'fulfilled' ? albumsRes.value || [] : [];
   const events = eventsRes.status === 'fulfilled' ? eventsRes.value || [] : [];
   const apps = appsRes.status === 'fulfilled' ? appsRes.value || [] : [];
-  const print = printRes.status === 'fulfilled' ? printRes.value : { monthRevenue: 0, inProduction: 0 };
+  const overview = overviewRes.status === 'fulfilled' ? overviewRes.value : null;
+  const print = printLabStatsFromOverview(overview);
 
   const publishedDeliveries = collections.filter((c) => c.status === 'published');
-  const unopened = await countUnopenedDeliveries(publishedDeliveries.map((c) => c.id));
+  const unopened = countUnopenedFromOverview(
+    publishedDeliveries.map((c) => c.id),
+    overview,
+  );
 
   const sharedAlbums = albums.filter((a) => {
     const status = getAlbumProofStatus(mergeAlbumProofTimestamps(a));
@@ -234,9 +232,9 @@ export async function loadStudioDashboard(photographerId) {
   const maxWaitDays = waitingAlbums.reduce((m, w) => Math.max(m, w.days), 0);
 
   const liveEvents = events.filter((e) => e.status === 'published');
-  const needReview = await countGuestNeedReview(
-    photographerId,
-    liveEvents.map((e) => e.id)
+  const needReview = countGuestNeedReviewFromOverview(
+    liveEvents.map((e) => e.id),
+    overview,
   );
 
   const publishedApps = apps.filter((a) => a.status === 'published');
@@ -312,7 +310,266 @@ export async function loadStudioDashboard(photographerId) {
     apps,
   });
 
-  return { modules, recentWork };
+  const studioStats = buildStudioStats({
+    publishedDeliveries,
+    sharedAlbums,
+    liveEvents,
+    collections,
+    print,
+  });
+
+  const needsYou = buildNeedsYou({
+    waitingAlbums,
+    liveEvents,
+    overview,
+    needReview,
+    unopened,
+    publishedDeliveries,
+    print,
+  });
+
+  const thisWeek = buildThisWeek({ collections, events, albums: waitingAlbums });
+
+  const heroStatus = buildHeroStatus({
+    needsYou,
+    waitingAlbums,
+    needReview,
+    unopened,
+    publishedDeliveries,
+  });
+
+  return {
+    modules,
+    recentWork,
+    studioStats,
+    needsYou,
+    thisWeek,
+    heroStatus,
+  };
+}
+
+function emptyStudioStats() {
+  return [
+    { label: 'LIVE DELIVERIES', value: '0', sub: 'None published yet' },
+    { label: 'SHARED ALBUMS', value: '0', sub: 'None shared yet' },
+    { label: 'PRINT LAB (MONTH)', value: '₹0', sub: 'No orders this month' },
+    { label: 'GUEST EVENTS', value: '0', sub: 'None live' },
+  ];
+}
+
+function buildStudioStats({ publishedDeliveries, sharedAlbums, liveEvents, collections, print }) {
+  const drafts = collections.filter((c) => c.status !== 'published').length;
+  return [
+    {
+      label: 'LIVE DELIVERIES',
+      value: String(publishedDeliveries.length),
+      sub: drafts > 0 ? `${drafts} draft${drafts === 1 ? '' : 's'}` : 'All published',
+    },
+    {
+      label: 'SHARED ALBUMS',
+      value: String(sharedAlbums.length),
+      sub: sharedAlbums.length ? 'In client review' : 'None shared yet',
+    },
+    {
+      label: 'PRINT LAB (MONTH)',
+      value: formatInr(print.monthRevenue),
+      sub:
+        print.inProduction > 0
+          ? `${print.inProduction} in production`
+          : 'Nothing in production',
+    },
+    {
+      label: 'GUEST EVENTS',
+      value: String(liveEvents.length),
+      sub: liveEvents.length ? 'Published events' : 'None live',
+    },
+  ];
+}
+
+function buildNeedsYou({
+  waitingAlbums,
+  liveEvents,
+  overview,
+  needReview,
+  unopened,
+  publishedDeliveries,
+  print,
+}) {
+  const groups = [];
+
+  const albumItems = waitingAlbums.slice(0, 4).map(({ album, status, days }) => ({
+    channel: 'ALBUM',
+    title: album.name || 'Untitled album',
+    sub: status.label || 'Needs attention',
+    status: days > 0 ? `Waiting ${days} day${days === 1 ? '' : 's'}` : 'Waiting',
+    tone: 'warn',
+    action: 'Open album →',
+    route: `/album-proofer/album/${album.id}`,
+  }));
+  if (albumItems.length) {
+    groups.push({ group: 'ON YOUR DESK', items: albumItems });
+  }
+
+  const guestItems = [];
+  if (needReview > 0) {
+    const eventById = new Map(liveEvents.map((e) => [e.id, e]));
+    const guests = (overview?.guests || []).filter((g) => {
+      const s = g.delivery_status || 'pending';
+      return s !== 'sent' && s !== 'matched';
+    });
+    const byEvent = new Map();
+    for (const g of guests) {
+      const key = g.event_id;
+      byEvent.set(key, (byEvent.get(key) || 0) + 1);
+    }
+    for (const [eventId, count] of [...byEvent.entries()].slice(0, 3)) {
+      const ev = eventById.get(eventId);
+      guestItems.push({
+        channel: 'GUEST DELIVERY',
+        title: ev?.name || 'Guest event',
+        sub: `${count} guest${count === 1 ? '' : 's'} need review or delivery`,
+        status: 'Needs you',
+        tone: 'warn',
+        action: 'Review guests →',
+        route: `/guest-delivery/event/${eventId}`,
+      });
+    }
+  }
+  if (guestItems.length) {
+    groups.push({ group: 'GUEST DELIVERY', items: guestItems });
+  }
+
+  const moneyItems = [];
+  if (print.awaitingArtwork > 0) {
+    moneyItems.push({
+      channel: 'PRINT LAB',
+      title: `${print.awaitingArtwork} order${print.awaitingArtwork === 1 ? '' : 's'} need artwork review`,
+      sub: 'Customers are waiting on lab feedback',
+      status: 'Needs review',
+      tone: 'warn',
+      action: 'Open lab →',
+      route: '/store/orders',
+    });
+  }
+  if (moneyItems.length) {
+    groups.push({ group: 'MONEY', items: moneyItems });
+  }
+
+  const deliveryItems = [];
+  if (unopened > 0 && publishedDeliveries.length) {
+    deliveryItems.push({
+      channel: 'CLIENT GALLERY',
+      title: `${unopened} published deliver${unopened === 1 ? 'y' : 'ies'} unopened`,
+      sub: 'Clients have not visited yet',
+      status: 'Unopened',
+      tone: 'muted',
+      action: 'Open galleries →',
+      route: '/client-gallery',
+    });
+  }
+  if (deliveryItems.length) {
+    groups.push({ group: 'CLIENT GALLERY', items: deliveryItems });
+  }
+
+  return groups;
+}
+
+function buildThisWeek({ collections, events, albums }) {
+  const now = new Date();
+  const dayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const weekEnd = new Date(dayStart.getTime() + 7 * MS_DAY);
+
+  const items = [];
+
+  const pushDated = (title, detail, dateValue, route, tone = 'ok', progress = 1, total = 1) => {
+    if (!dateValue) return;
+    const d = new Date(dateValue);
+    if (Number.isNaN(d.getTime()) || d < dayStart || d > weekEnd) return;
+    items.push({
+      day: d.toLocaleDateString('en-US', { weekday: 'short' }).toUpperCase(),
+      date: String(d.getDate()),
+      title,
+      detail,
+      status: tone === 'warn' ? 'Needs attention' : 'Scheduled',
+      tone,
+      progress,
+      total,
+      route,
+      sortAt: d.getTime(),
+    });
+  };
+
+  for (const c of collections) {
+    pushDated(
+      c.name || 'Delivery',
+      c.status === 'published' ? 'Published delivery' : 'Draft delivery',
+      c.event_date,
+      `/deliveries/manage?id=${c.id}`,
+      c.status === 'published' ? 'ok' : 'warn',
+    );
+  }
+  for (const e of events) {
+    pushDated(
+      e.name || 'Guest event',
+      e.status === 'published' ? 'Guest delivery event' : 'Draft guest event',
+      e.event_date,
+      `/guest-delivery/event/${e.id}`,
+      e.status === 'published' ? 'ok' : 'warn',
+    );
+  }
+  for (const { album, status } of albums.slice(0, 4)) {
+    const at = getAlbumProofActivityAt(album) || album.updated_at;
+    if (!at) continue;
+    const d = new Date(at);
+    if (Number.isNaN(d.getTime())) continue;
+    // Show album follow-ups that are currently waiting, pinned to today if older.
+    const pin = d < dayStart ? dayStart : d;
+    if (pin > weekEnd) continue;
+    items.push({
+      day: pin.toLocaleDateString('en-US', { weekday: 'short' }).toUpperCase(),
+      date: String(pin.getDate()),
+      title: album.name || 'Album proof',
+      detail: status.label || 'Album waiting',
+      status: 'Follow up',
+      tone: 'warn',
+      progress: 1,
+      total: 2,
+      route: `/album-proofer/album/${album.id}`,
+      sortAt: pin.getTime(),
+    });
+  }
+
+  return items
+    .sort((a, b) => a.sortAt - b.sortAt)
+    .slice(0, 5)
+    .map(({ sortAt, ...rest }) => {
+      void sortAt;
+      return rest;
+    });
+}
+
+function buildHeroStatus({ needsYou, waitingAlbums, needReview, unopened, publishedDeliveries }) {
+  const actionCount = needsYou.reduce((n, g) => n + (g.items?.length || 0), 0);
+  if (actionCount === 0) {
+    if (publishedDeliveries.length === 0) {
+      return 'Your studio is ready. Create a delivery to get started.';
+    }
+    return `${formatTodayLineBase()}. Everything looks clear — no clients waiting on you.`;
+  }
+  const bits = [];
+  if (waitingAlbums.length) bits.push(`${waitingAlbums.length} album${waitingAlbums.length === 1 ? '' : 's'} need attention`);
+  if (needReview) bits.push(`${needReview} guest${needReview === 1 ? '' : 's'} need review`);
+  if (unopened) bits.push(`${unopened} deliver${unopened === 1 ? 'y is' : 'ies are'} still unopened`);
+  const detail = bits.length ? bits.join(', ') : `${actionCount} item${actionCount === 1 ? '' : 's'} need you`;
+  return `${formatTodayLineBase()}. ${detail}.`;
+}
+
+function formatTodayLineBase() {
+  return new Date().toLocaleDateString('en-US', {
+    weekday: 'long',
+    month: 'long',
+    day: 'numeric',
+  });
 }
 
 function buildRecentWork({ collections, albums, events, apps }) {

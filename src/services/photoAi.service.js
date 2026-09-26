@@ -198,6 +198,10 @@ export const photoAiService = {
   async hydratePeople(collectionId, rawRows) {
     const people = ((rawRows || []).map(normalizePersonRow)).map((row) => ({
       id: row.cluster_key || row.id,
+      // Real photo_ai_people.id (UUID) — required for PATCH; cluster keys like
+      // c5 are only unique within a delivery and collide across galleries.
+      dbId: row.id || null,
+      clusterKey: row.cluster_key || null,
       faceIds: row.face_ids || [],
       photoIds: row.photo_ids || [],
       label: row.label,
@@ -259,6 +263,8 @@ export const photoAiService = {
     const data = await apiFetch(`/v1/public/gallery/${encodeURIComponent(collectionId)}/people${qs}`);
     const people = ((data?.people || []).map(normalizePersonRow)).map((row) => ({
       id: row.cluster_key || row.id,
+      dbId: row.id || null,
+      clusterKey: row.cluster_key || null,
       faceIds: row.face_ids || [],
       photoIds: row.photo_ids || [],
       label: row.label,
@@ -298,7 +304,7 @@ export const photoAiService = {
     const { apiFetch } = await import('../lib/api/client');
     await apiFetch(`/v1/photo-ai/people/${encodeURIComponent(personId)}`, {
       method: 'PATCH',
-      body: { isHidden: Boolean(hidden) },
+      body: { collectionId, isHidden: Boolean(hidden) },
     });
     return { ok: true };
   },
@@ -316,7 +322,7 @@ export const photoAiService = {
     const { apiFetch } = await import('../lib/api/client');
     await apiFetch(`/v1/photo-ai/people/${encodeURIComponent(personId)}`, {
       method: 'PATCH',
-      body: { label: trimmed },
+      body: { collectionId, label: trimmed },
     });
     broadcastPersonLabelUpdate({ collectionId, personId, label: trimmed });
     return { ok: true };

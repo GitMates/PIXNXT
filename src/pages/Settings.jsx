@@ -1144,7 +1144,7 @@ const PresetsTab = ({ profile }) => {
     };
 
     const handleDeletePreset = async (id) => {
-        if (!window.confirm('Are you sure you want to delete this template?')) return;
+        if (!(await window.confirm('Are you sure you want to delete this template?'))) return;
         try {
             const { deletePreset } = await import('../services/workersGallery.service');
             await deletePreset(id);

@@ -11,7 +11,7 @@ import { AppAlertHost, installAppAlert } from './components/ui/AppAlert'
 
 migrateStripInlineDataFromAlbumLocalStorage()
 installGlobalCrashHooks()
-// Native alert() → centered in-app popup (same look as other modals).
+// Native alert()/confirm() → centered in-app popups (same look as other modals).
 installAppAlert()
 
 // After a deploy, an already-open tab still references chunk hashes that no

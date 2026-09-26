@@ -580,7 +580,7 @@ function PhotographerPricingDashboard({ onLogout, photographerEmail }) {
       return;
     }
     const lastLog = auditLogs[0];
-    const confirmUndo = window.confirm(`Are you sure you want to undo the last pricing update completed on ${new Date(lastLog.created_at).toLocaleDateString()}? This will restore previous prices for ${lastLog.updated_products.length} products.`);
+    const confirmUndo = await window.confirm(`Are you sure you want to undo the last pricing update completed on ${new Date(lastLog.created_at).toLocaleDateString()}? This will restore previous prices for ${lastLog.updated_products.length} products.`);
     if (!confirmUndo) return;
 
     setLoading(true);
@@ -628,7 +628,7 @@ function PhotographerPricingDashboard({ onLogout, photographerEmail }) {
   };
 
   const handleRestoreFromLog = async (logEntry) => {
-    const confirmRestore = window.confirm(`Restore pricing setup from history completed by ${logEntry.updated_by}?`);
+    const confirmRestore = await window.confirm(`Restore pricing setup from history completed by ${logEntry.updated_by}?`);
     if (!confirmRestore) return;
 
     setLoading(true);

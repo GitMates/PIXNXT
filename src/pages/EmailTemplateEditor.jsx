@@ -108,7 +108,7 @@ const EmailTemplateEditor = () => {
     const handleReset = async () => {
         if (!user?.id || !isSystem || !id) return;
         
-        if (window.confirm('Are you sure you want to reset this template to its default state?')) {
+        if (await window.confirm('Are you sure you want to reset this template to its default state?')) {
             try {
                 setSaving(true);
                 const resetTpl = await clientGalleryEmailTemplatesService.resetTemplate(user.id, id);

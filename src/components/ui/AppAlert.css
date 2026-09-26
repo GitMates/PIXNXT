@@ -12,12 +12,13 @@
 .pixnxt-alert-overlay {
   position: fixed;
   inset: 0;
-  z-index: 9999;
+  z-index: 99999;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 20px;
   background-color: rgba(15, 14, 12, 0.45);
+  box-sizing: border-box;
 }
 
 .pixnxt-alert {
@@ -65,6 +66,23 @@
   padding: 16px 22px 20px;
 }
 
+.pixnxt-alert__cancel {
+  padding: 9px 18px;
+  font-family: var(--font-sans, 'Plus Jakarta Sans', system-ui, sans-serif);
+  font-size: 13px;
+  font-weight: 600;
+  color: #57534e;
+  background-color: transparent;
+  border: 1px solid #e7e5e4;
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+.pixnxt-alert__cancel:hover {
+  background-color: #f5f5f4;
+  color: #1c1917;
+}
+
 .pixnxt-alert__ok {
   padding: 9px 28px;
   font-family: var(--font-sans, 'Plus Jakarta Sans', system-ui, sans-serif);
@@ -79,6 +97,14 @@
 
 .pixnxt-alert__ok:hover {
   background-color: #292524;
+}
+
+.pixnxt-alert__ok--danger {
+  background-color: #b91c1c;
+}
+
+.pixnxt-alert__ok--danger:hover {
+  background-color: #991b1b;
 }
 
 /* Dark theme */
@@ -100,6 +126,16 @@ body.dark-theme .pixnxt-alert__message {
   color: #d4cdc4;
 }
 
+body.dark-theme .pixnxt-alert__cancel {
+  color: #d4cdc4;
+  border-color: #3a3733;
+}
+
+body.dark-theme .pixnxt-alert__cancel:hover {
+  background-color: #2a2825;
+  color: #f3f0ea;
+}
+
 body.dark-theme .pixnxt-alert__ok {
   background-color: #d08552;
   color: #fff;
@@ -107,4 +143,12 @@ body.dark-theme .pixnxt-alert__ok {
 
 body.dark-theme .pixnxt-alert__ok:hover {
   background-color: #c07442;
+}
+
+body.dark-theme .pixnxt-alert__ok--danger {
+  background-color: #dc2626;
+}
+
+body.dark-theme .pixnxt-alert__ok--danger:hover {
+  background-color: #b91c1c;
 }

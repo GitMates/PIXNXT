@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Camera, RefreshCw, Upload, X } from 'lucide-react';
 import { AppSpinner } from '../../../ui/AppLoading';
@@ -45,66 +45,48 @@ function IndexingFacesStatus({ onStart, canStart }) {
   );
 }
 
-function PersonDeletePopover({ anchorRef, person, deleting, onCancel, onConfirm }) {
-  const popoverRef = useRef(null);
-  const [position, setPosition] = useState(null);
-
-  const updatePosition = useCallback(() => {
-    const anchor = anchorRef.current;
-    if (!anchor) return;
-    const rect = anchor.getBoundingClientRect();
-    setPosition({
-      left: rect.left + rect.width / 2,
-      top: rect.top,
-    });
-  }, [anchorRef]);
-
-  useLayoutEffect(() => {
-    updatePosition();
-    const raf = window.requestAnimationFrame(updatePosition);
-    window.addEventListener('resize', updatePosition);
-    window.addEventListener('scroll', updatePosition, true);
-    return () => {
-      window.cancelAnimationFrame(raf);
-      window.removeEventListener('resize', updatePosition);
-      window.removeEventListener('scroll', updatePosition, true);
-    };
-  }, [updatePosition, person?.id]);
-
-  if (!person || !position || typeof document === 'undefined') return null;
+function PersonDeletePopover({ person, deleting, onCancel, onConfirm }) {
+  if (!person || typeof document === 'undefined') return null;
 
   return createPortal(
     <div
-      ref={popoverRef}
-      className="cdpw-person-delete-popover cdpw-person-delete-popover--portal"
-      style={{ left: `${position.left}px`, top: `${position.top}px` }}
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby={`cdpw-person-delete-${person.id}`}
-      onClick={(e) => e.stopPropagation()}
+      className="cdpw-person-delete-overlay"
+      role="presentation"
+      onClick={() => {
+        if (!deleting) onCancel?.();
+      }}
     >
-      <span className="cdpw-person-delete-popover__label">Remove person</span>
-      <p id={`cdpw-person-delete-${person.id}`} className="cdpw-person-delete-popover__body">
-        <strong>{displayPersonLabel(person.label)}</strong> will be hidden from this delivery. Their
-        photos stay in the gallery.
-      </p>
-      <div className="cdpw-person-delete-popover__actions">
-        <button
-          type="button"
-          className="cdpw-person-delete-popover__cancel"
-          disabled={deleting}
-          onClick={onCancel}
-        >
-          Cancel
-        </button>
-        <button
-          type="button"
-          className="cdpw-person-delete-popover__confirm"
-          disabled={deleting}
-          onClick={() => void onConfirm()}
-        >
-          {deleting ? 'Removing…' : 'Remove'}
-        </button>
+      <div
+        className="cdpw-person-delete-popover cdpw-person-delete-popover--modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={`cdpw-person-delete-${person.id}`}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <span className="cdpw-person-delete-popover__label">Remove person</span>
+        <p id={`cdpw-person-delete-${person.id}`} className="cdpw-person-delete-popover__body">
+          <strong>{displayPersonLabel(person.label)}</strong> will be hidden from this delivery. Their
+          photos stay in the gallery.
+        </p>
+        <div className="cdpw-person-delete-popover__actions">
+          <button
+            type="button"
+            className="cdpw-person-delete-popover__cancel"
+            disabled={deleting}
+            onClick={onCancel}
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            className="cdpw-person-delete-popover__confirm"
+            disabled={deleting}
+            onClick={() => void onConfirm()}
+            autoFocus
+          >
+            {deleting ? 'Removing…' : 'Remove'}
+          </button>
+        </div>
       </div>
     </div>,
     document.body
@@ -133,7 +115,6 @@ export function CollectionPeopleStrip({
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [deleting, setDeleting] = useState(false);
   const selfieInputRef = useRef(null);
-  const deleteAnchorRef = useRef(null);
   const visiblePeople = people.filter((person) => !person.isHidden);
   const overflow = Math.max(0, visiblePeople.length - VISIBLE_LIMIT);
   const shown = expanded ? visiblePeople : visiblePeople.slice(0, VISIBLE_LIMIT);
@@ -273,10 +254,7 @@ export function CollectionPeopleStrip({
                     aria-pressed={active}
                     aria-label={`Filter by ${displayPersonLabel(person.label)}`}
                   >
-                    <span
-                      ref={isDeleteTarget ? deleteAnchorRef : null}
-                      className="cdpw-person__avatar-wrap"
-                    >
+                    <span className="cdpw-person__avatar-wrap">
                       <PersonFaceAvatar
                         imageUrl={person.imageUrl}
                         boundingBox={person.boundingBox}
@@ -419,7 +397,6 @@ export function CollectionPeopleStrip({
 
       {deleteTarget ? (
         <PersonDeletePopover
-          anchorRef={deleteAnchorRef}
           person={deleteTarget}
           deleting={deleting}
           onCancel={() => setDeleteTarget(null)}

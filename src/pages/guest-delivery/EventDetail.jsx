@@ -109,7 +109,7 @@ export default function EventDetail() {
         ? `Re-publish "${event.name}"? This will re-index photos, re-match all guests, and send delivery emails again to guests with matches.`
         : `Publish "${event.name}"? This will index photos, match each guest by selfie, and email personal gallery links. Guests can keep registering via the QR link.`;
 
-    if (!window.confirm(confirmMessage)) return;
+    if (!(await window.confirm(confirmMessage))) return;
 
     setPublishing(true);
     setPublishStep('Indexing photos and matching faces…');

@@ -319,6 +319,14 @@ body.dark-theme .theme-mono.cg-shell .sb-brand__logo {
   opacity: 1;
 }
 
+body.dark-theme .theme-mono.cg-shell .sb-brand__pixnxt {
+  color: #b8682b !important;
+}
+
+body.dark-theme .theme-mono.cg-shell .sb-brand__pixnxt-text {
+  color: #d08552 !important;
+}
+
 body.dark-theme .theme-mono.cg-shell .sb-storage__bar-fill {
   background: #ffffff !important;
 }
@@ -3561,6 +3569,11 @@ body.dark-theme .si-address-card {
   border-color: #33322e;
 }
 
+body.dark-theme .si-usage-card {
+  background: #1c1b19;
+  border-color: #33322e;
+}
+
 body.dark-theme .pb-plan-name,
 body.dark-theme .pb-running-total__title,
 body.dark-theme .pb-meter__label,
@@ -5417,6 +5430,48 @@ body.dark-theme .theme-mono.cd-dashboard-shell .cdpw-person__overflow {
   color: #c4bbb2;
 }
 
+body.dark-theme .cdpw-person-delete-overlay {
+  background: rgba(0, 0, 0, 0.62);
+}
+
+body.dark-theme .cdpw-person-delete-popover {
+  background: #1c1b18;
+  border-color: #3a3733;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.7);
+}
+
+body.dark-theme .cdpw-person-delete-popover__label {
+  color: #a8a29e;
+}
+
+body.dark-theme .cdpw-person-delete-popover__body {
+  color: #d4cdc4;
+}
+
+body.dark-theme .cdpw-person-delete-popover__body strong {
+  color: #f3f0ea;
+}
+
+body.dark-theme .cdpw-person-delete-popover__cancel {
+  border-color: #3a3733;
+  background: #2a2825;
+  color: #d4cdc4;
+}
+
+body.dark-theme .cdpw-person-delete-popover__cancel:hover:not(:disabled) {
+  background: #35322e;
+  color: #f3f0ea;
+}
+
+body.dark-theme .cdpw-person-delete-popover__confirm {
+  background: #d08552;
+  color: #fff;
+}
+
+body.dark-theme .cdpw-person-delete-popover__confirm:hover:not(:disabled) {
+  background: #c07442;
+}
+
 body.dark-theme .theme-mono.cd-dashboard-shell .cd-photo-grid--manage .cd-photo-card:hover,
 body.dark-theme .theme-mono.cd-dashboard-shell .cd-photo-grid--dragging.cd-photo-grid--filenames .cd-photo-card:hover {
   background: #1f1e1b !important;
@@ -5584,6 +5639,16 @@ body.dark-theme .theme-mono.cd-dashboard-shell .gd-guest-board__pill--ready,
 body.dark-theme .theme-mono.cd-dashboard-shell .gd-guest-board__pill--sent {
   background: rgba(90, 140, 100, 0.22) !important;
   color: #b8d4bc !important;
+}
+
+body.dark-theme .theme-mono.cd-dashboard-shell .gd-guest-board__pill--failed {
+  background: rgba(180, 60, 50, 0.22) !important;
+  color: #e8a090 !important;
+}
+
+body.dark-theme .theme-mono.cd-dashboard-shell .gd-guest-board__pill--pending {
+  background: rgba(208, 133, 82, 0.2) !important;
+  color: #e0b090 !important;
 }
 
 body.dark-theme .theme-mono.cd-dashboard-shell .gd-guest-board__pill--not-yet,

@@ -11,6 +11,12 @@ import {
 } from '../../../lib/accountSessions';
 import { PasswordField } from '../Auth/PasswordField';
 import { AppLoader } from '../../ui/AppLoading';
+import {
+    getPhotographerR2Folder,
+    buildUserModulePath,
+    R2_USER_MODULES,
+} from '../../../lib/photographerR2Folder';
+import { writeCachedProfileIcon, syncProfileIconCacheFromProfile } from '../../../lib/profileIcon';
 import '../../../pages/Settings.css';
 
 function mapAuthSessionsToRows(apiSessions, location = '—') {
@@ -184,6 +190,22 @@ export default function YourAccountPanel({ user, showToast }) {
                     );
                 }
                 await galleryService.updatePhotographerProfile(user.id, updates);
+                // Keep the shared profile cache fresh so avatars across the
+                // dashboard/sidebars pick up changes (e.g. profile icon) without reload.
+                try {
+                    const key = `photographer_profile_${user.id}`;
+                    const raw = localStorage.getItem(key);
+                    const prev = raw ? JSON.parse(raw) : {};
+                    const next = { ...prev, ...updates, id: prev.id || user.id };
+                    localStorage.setItem(key, JSON.stringify(next));
+                    if ('profile_icon_url' in updates || 'avatar_url' in updates) {
+                        writeCachedProfileIcon(user.id, next.profile_icon_url || next.avatar_url || '');
+                    } else {
+                        syncProfileIconCacheFromProfile(next);
+                    }
+                } catch {
+                    /* ignore */
+                }
                 markSaved(toastMsg);
                 return true;
             } catch (err) {
@@ -369,8 +391,13 @@ export default function YourAccountPanel({ user, showToast }) {
         if (!file || !user?.id) return;
         setUploadingIcon(true);
         try {
-            const ext = file.name.split('.').pop() || 'png';
-            const path = `photographers/${user.id}/profile_icon_${Date.now()}.${ext}`;
+            const ext = (file.name.split('.').pop() || 'png').toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 8) || 'png';
+            const folder = await getPhotographerR2Folder(user.id);
+            const path = buildUserModulePath(
+                folder,
+                R2_USER_MODULES.STUDIO,
+                `profile_icon_${Date.now()}.${ext}`,
+            );
             const uploadResult = await storageService.upload(path, file);
             const imageUrl = uploadResult.url;
             setProfileIcon(imageUrl);

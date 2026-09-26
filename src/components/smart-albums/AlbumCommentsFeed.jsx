@@ -44,7 +44,7 @@ export default function AlbumCommentsFeed({
         async (msg, e) => {
             e.stopPropagation();
             if (!albumId || !msg?.id) return;
-            if (!window.confirm('Delete this comment?')) return;
+            if (!(await window.confirm('Delete this comment?'))) return;
             setDeleteBusyId(msg.id);
             try {
                 await smartAlbumCommentsService.deleteComment({ albumId, commentId: msg.id });

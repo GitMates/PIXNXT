@@ -176,7 +176,7 @@ export function CustomDomainPanel({ profile, compact = false }) {
   };
 
   const handleRemove = async () => {
-    if (!window.confirm(`Remove custom domain ${connectedDomain}?`)) return;
+    if (!(await window.confirm(`Remove custom domain ${connectedDomain}?`))) return;
     try {
       setBusy(true);
       await customDomainService.disconnect();

@@ -222,6 +222,7 @@
   width: 48px;
   height: 48px;
   border-radius: 50%;
+  overflow: hidden;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1114,6 +1115,7 @@
   flex-shrink: 0;
   border: none;
   border-radius: 50%;
+  overflow: hidden;
   background: #1a1a1a;
   color: #fff;
   font-size: 14px;

@@ -21,7 +21,9 @@ function guestBoardState(guest) {
 }
 
 function guestSentState(guest) {
+  if (guest.delivery_status === 'failed') return 'failed';
   if (guest.delivery_status === 'sent' || guest.delivery_email_sent_at) return 'sent';
+  if (guest.delivery_status === 'pending') return 'pending';
   return 'not-yet';
 }
 
@@ -33,6 +35,8 @@ const STATE_LABEL = {
 
 const SENT_LABEL = {
   sent: 'Sent',
+  failed: 'Failed',
+  pending: 'Sending…',
   'not-yet': 'Not yet',
 };
 
@@ -145,7 +149,7 @@ const EventGuestsPanel = ({
   );
 
   const handleDelete = async (guest) => {
-    if (!window.confirm(`Remove guest "${guest.name}"?`)) return;
+    if (!(await window.confirm(`Remove guest "${guest.name}"?`))) return;
     setOpenMenuId(null);
     try {
       await guestDeliveryGuestsService.deleteGuest(photographerId, event.id, guest.id);
@@ -165,7 +169,7 @@ const EventGuestsPanel = ({
     setOpenMenuId(null);
     try {
       await navigator.clipboard.writeText(url);
-      const opened = window.confirm(
+      const opened = await window.confirm(
         `Gallery link copied.\n\n${url}\n\nOpen it now in this browser? (Use this to test locally — email links use production until you deploy.)`
       );
       if (opened) window.open(url, '_blank', 'noopener,noreferrer');
@@ -198,7 +202,7 @@ const EventGuestsPanel = ({
         photographerProfile,
       });
       await loadGuests({ silent: true });
-      alert(`Email sent to ${guest.email}.`);
+      alert(`Email queued for ${guest.email}. Status will update on this board shortly.`);
     } catch (err) {
       console.error(err);
       alert(err?.message || 'Failed to send email.');
@@ -231,7 +235,7 @@ const EventGuestsPanel = ({
         photographerProfile,
       });
       await loadGuests({ silent: true });
-      alert(`WhatsApp delivery queued for ${guest.phone}.`);
+      alert(`WhatsApp queued for ${guest.phone}. Status will update on this board shortly.`);
     } catch (err) {
       console.error(err);
       alert(err?.message || 'Failed to send WhatsApp message.');
@@ -260,8 +264,8 @@ const EventGuestsPanel = ({
         photographerProfile,
       });
       await loadGuests({ silent: true });
-      const via = result?.channel === 'whatsapp' ? 'WhatsApp' : result?.channel === 'email' ? 'email' : 'WhatsApp (or email fallback)';
-      alert(`Delivery queued via ${via}.`);
+      const via = result?.channel === 'whatsapp' ? 'WhatsApp' : result?.channel === 'email' ? 'email' : 'WhatsApp (email fallback if needed)';
+      alert(`Delivery queued via ${via}. Status will update on this board shortly.`);
     } catch (err) {
       console.error(err);
       alert(err?.message || 'Failed to send delivery.');

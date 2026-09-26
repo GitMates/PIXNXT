@@ -69,7 +69,8 @@
   width: 36px;
   height: 36px;
   border-radius: 9px;
-  background: #1a1614;
+  overflow: hidden;
+  background: #b8682b;
   color: #fff;
   display: grid;
   place-items: center;
@@ -77,6 +78,14 @@
   font-size: 14px;
   font-weight: 600;
   flex-shrink: 0;
+}
+
+.sd-brand-mark__logo {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+  display: block;
 }
 
 .sd-brand-text {
@@ -405,8 +414,10 @@
 .sd-avatar {
   width: 38px;
   height: 38px;
-  border: none;
+  border: 1.5px solid #1a1614;
   border-radius: 50%;
+  overflow: hidden;
+  padding: 0;
   background: #2a2420;
   color: #fff;
   font-family: var(--sd-font);
@@ -1208,10 +1219,27 @@
 .sd-week-row {
   display: flex;
   gap: 14px;
+  width: 100%;
   padding: 14px 18px;
+  border: none;
   border-top: 1px solid var(--sd-line);
+  background: transparent;
+  text-align: left;
+  font: inherit;
+  color: inherit;
   cursor: pointer;
   transition: background-color 0.12s ease;
+}
+
+.sd-panel-empty {
+  padding: 28px 18px;
+  color: var(--sd-muted, #8a847e);
+  font-size: 0.875rem;
+  line-height: 1.45;
+}
+
+.sd-panel-empty p {
+  margin: 0;
 }
 
 .sd-week-row:first-child {
@@ -1453,8 +1481,8 @@ body.dark-theme .sd-topbar {
 }
 
 body.dark-theme .sd-brand-mark {
-  background: #f5f4f1;
-  color: #12110f;
+  background: #b8682b;
+  color: #fff;
 }
 
 body.dark-theme .sd-brand-name {
@@ -1488,8 +1516,9 @@ body.dark-theme .sd-icon-btn-dot {
 }
 
 body.dark-theme .sd-avatar {
-  background: #f5f4f1;
-  color: #12110f;
+  background: #2a2420;
+  color: #fff;
+  border-color: rgba(245, 244, 241, 0.35);
 }
 
 /* Search */

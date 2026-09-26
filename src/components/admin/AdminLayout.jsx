@@ -4,6 +4,9 @@ import { LayoutDashboard, Users, LogOut, ChevronDown, AlertTriangle, Layers, Gau
 import { useAuth } from '../../hooks/useAuth';
 import { signOut } from '../../services/auth.service';
 import { getUserDisplayLabel, getUserInitial } from '../../lib/userInitials';
+import { StudioAvatar } from '../ui/StudioAvatar';
+import { galleryService } from '../../services/gallery.service';
+import { syncProfileIconCacheFromProfile } from '../../lib/profileIcon';
 import './adminStudio.css';
 
 const AdminLayout = () => {
@@ -11,6 +14,15 @@ const AdminLayout = () => {
   const navigate = useNavigate();
   const [showProfileDropdown, setShowProfileDropdown] = useState(false);
   const profileDropdownRef = useRef(null);
+  const [profile, setProfile] = useState(() => {
+    if (typeof window === 'undefined' || !user?.id) return null;
+    try {
+      const cached = localStorage.getItem(`photographer_profile_${user.id}`);
+      return cached ? JSON.parse(cached) : null;
+    } catch {
+      return null;
+    }
+  });
 
   const userInitial = getUserInitial(user);
   const userDisplayLabel = getUserDisplayLabel(user);
@@ -19,6 +31,22 @@ const AdminLayout = () => {
     await signOut();
     navigate('/admin/login');
   };
+
+  useEffect(() => {
+    if (!user?.id) return undefined;
+    let cancelled = false;
+    galleryService
+      .getPhotographerProfile(user.id)
+      .then((data) => {
+        if (cancelled || !data) return;
+        setProfile(data);
+        syncProfileIconCacheFromProfile(data);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id]);
 
   useEffect(() => {
     const handleClickOutside = (e) => {
@@ -86,8 +114,8 @@ const AdminLayout = () => {
               onClick={() => setShowProfileDropdown((v) => !v)}
               className="flex w-full items-center gap-3 rounded-xl px-2 py-2 text-left transition-colors hover:bg-white/8"
             >
-              <span className="inline-flex size-8 shrink-0 items-center justify-center rounded-full bg-white text-sm font-semibold text-[#141414]">
-                {userInitial}
+              <span className="inline-flex size-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-white text-sm font-semibold text-[#141414]">
+                <StudioAvatar profile={profile} userId={user?.id} fallback={userInitial} alt={userDisplayLabel} />
               </span>
               <span className="min-w-0 flex-1 truncate text-sm font-medium text-white/90">{userDisplayLabel}</span>
               <ChevronDown className={`size-4 text-white/40 transition-transform ${showProfileDropdown ? 'rotate-180' : ''}`} />

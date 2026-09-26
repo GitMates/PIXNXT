@@ -85,7 +85,7 @@ export default function GuestDeliveryEventsList() {
 
   const handleDelete = async (event) => {
     if (!user) return;
-    if (!window.confirm(`Delete "${event.name}"? This cannot be undone.`)) return;
+    if (!(await window.confirm(`Delete "${event.name}"? This cannot be undone.`))) return;
     try {
       await guestDeliveryService.deleteEvent(user.id, event.id);
       setEvents((prev) => prev.filter((e) => e.id !== event.id));

@@ -246,7 +246,7 @@ export default function LabOrderDetail() {
 
   const handleStatusChange = async (newStatus) => {
     if (!order) return;
-    const isConfirmed = window.confirm(
+    const isConfirmed = await window.confirm(
       `Are you sure you want to change status to "${STATUS_LABELS[newStatus] || newStatus}"?`
     );
     if (!isConfirmed) return;

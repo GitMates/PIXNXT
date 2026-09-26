@@ -13,6 +13,7 @@ import {
 import { products } from "../../lib/products"
 import { cn } from "../../lib/utils"
 import { type ViewMode } from "./portalData"
+import { StudioAvatar } from "../ui/StudioAvatar"
 
 type NavItem = {
   label: string
@@ -137,6 +138,8 @@ export interface PortalSidebarProps {
   workspaceProjectName: string | null
   goToView: (view: ViewMode) => void
   userInitial?: string
+  profile?: { profile_icon_url?: string | null; avatar_url?: string | null; id?: string } | null
+  userId?: string
 }
 
 export function PortalSidebar({
@@ -144,6 +147,8 @@ export function PortalSidebar({
   workspaceProjectName,
   goToView,
   userInitial = "N",
+  profile = null,
+  userId,
 }: PortalSidebarProps) {
   return (
     <aside className="glass-panel hidden h-screen w-64 shrink-0 flex-col border-r border-[#ECEAE6] bg-[#FAF9F6] lg:flex">
@@ -213,8 +218,8 @@ export function PortalSidebar({
           <p className="mt-1 text-[10px] text-[#A1A1AA]">0 B of 100 GB used</p>
         </div>
 
-        <span className="absolute -bottom-0 left-4 z-10 inline-flex size-8 items-center justify-center rounded-full bg-[#3b6fd9] text-xs font-semibold text-white ring-[3px] ring-[#FAF9F6]">
-          {userInitial}
+        <span className="absolute -bottom-0 left-4 z-10 inline-flex size-8 items-center justify-center overflow-hidden rounded-full bg-[#3b6fd9] text-xs font-semibold text-white ring-[3px] ring-[#FAF9F6]">
+          <StudioAvatar profile={profile} userId={userId} fallback={userInitial} alt="Profile" />
         </span>
       </div>
     </aside>

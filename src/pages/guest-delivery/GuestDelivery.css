@@ -564,6 +564,16 @@
   color: #40774d;
 }
 
+.gd-guest-board__pill--failed {
+  background: #fce8e6;
+  color: #d93025;
+}
+
+.gd-guest-board__pill--pending {
+  background: #fff3e0;
+  color: #b57b36;
+}
+
 .gd-guest-board__pill--review {
   background: #fff3e0;
   color: #b57b36;

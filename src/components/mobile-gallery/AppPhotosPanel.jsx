@@ -187,7 +187,7 @@ const AppPhotosPanel = ({ app, photographerId, onAppUpdated }) => {
 
   const deleteSelected = async () => {
     if (!selectedIds.size || !photographerId || !app?.id) return;
-    if (!window.confirm(`Delete ${selectedIds.size} photo${selectedIds.size === 1 ? '' : 's'}? This cannot be undone.`)) {
+    if (!(await window.confirm(`Delete ${selectedIds.size} photo${selectedIds.size === 1 ? '' : 's'}? This cannot be undone.`))) {
       return;
     }
     setDeleting(true);

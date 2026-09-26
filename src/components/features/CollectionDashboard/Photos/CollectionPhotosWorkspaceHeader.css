@@ -568,17 +568,47 @@
   display: flex;
   flex-direction: column;
   gap: 0;
-  min-width: 228px;
-  max-width: 280px;
-  padding: 12px 14px 11px;
-  border-radius: 12px;
+  width: 100%;
+  max-width: 360px;
+  min-width: 0;
+  padding: 20px 22px 18px;
+  border-radius: 16px;
   border: 1px solid #eceae6;
   background: #fff;
   box-shadow:
     0 4px 6px rgba(26, 26, 26, 0.04),
-    0 16px 40px rgba(26, 26, 26, 0.12);
+    0 24px 64px rgba(26, 26, 26, 0.18);
   text-align: left;
   font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+}
+
+.cdpw-person-delete-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 99990;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(15, 14, 12, 0.45);
+  box-sizing: border-box;
+}
+
+.cdpw-person-delete-popover--modal {
+  position: relative;
+  z-index: 1;
+  animation: cdpw-person-delete-modal-in 0.18s ease-out;
+}
+
+@keyframes cdpw-person-delete-modal-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
 }
 
 .cdpw-person-delete-popover--portal {
@@ -588,26 +618,31 @@
   animation: cdpw-person-delete-in 0.2s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-.cdpw-person-delete-popover::before {
+.cdpw-person-delete-popover--portal::before,
+.cdpw-person-delete-popover--portal::after {
   content: '';
   position: absolute;
   left: 50%;
   bottom: -7px;
   transform: translateX(-50%);
+}
+
+.cdpw-person-delete-popover--portal::before {
   border-left: 7px solid transparent;
   border-right: 7px solid transparent;
   border-top: 7px solid #eceae6;
 }
 
-.cdpw-person-delete-popover::after {
-  content: '';
-  position: absolute;
-  left: 50%;
+.cdpw-person-delete-popover--portal::after {
   bottom: -6px;
-  transform: translateX(-50%);
   border-left: 6px solid transparent;
   border-right: 6px solid transparent;
   border-top: 6px solid #fff;
+}
+
+.cdpw-person-delete-popover::before,
+.cdpw-person-delete-popover::after {
+  content: none;
 }
 
 .cdpw-person-delete-popover__label {

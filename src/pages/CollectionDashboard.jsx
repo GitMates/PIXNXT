@@ -941,7 +941,7 @@ const CollectionDashboard = () => {
             alert('No download records to delete.');
             return;
         }
-        if (!window.confirm(`Delete all ${items.length} download record(s) on this tab? This cannot be undone.`)) return;
+        if (!(await window.confirm(`Delete all ${items.length} download record(s) on this tab? This cannot be undone.`))) return;
 
         try {
             await Promise.all(
@@ -1002,7 +1002,7 @@ const CollectionDashboard = () => {
     };
 
     const handleDeleteFavoriteActivity = async (id) => {
-        if (!window.confirm('Are you sure you want to delete this favorite list and all its info?')) return;
+        if (!(await window.confirm('Are you sure you want to delete this favorite list and all its info?'))) return;
         try {
             await galleryService.deleteFavoriteList(id);
             setFavoriteActivity(prev => prev.filter(a => a.id !== id));
@@ -1059,7 +1059,7 @@ const CollectionDashboard = () => {
 
     const handleRemovePhotoFromFavoriteList = async (listId, photoId) => {
         if (!listId || !photoId) return;
-        if (!window.confirm('Remove this photo from the favorite list?')) return;
+        if (!(await window.confirm('Remove this photo from the favorite list?'))) return;
         try {
             await galleryService.removePhotoFromFavoriteList(listId, photoId);
             setFavoriteDetailPhotoMenuPhotoId(null);
@@ -1105,7 +1105,7 @@ const CollectionDashboard = () => {
         if (!list?.id) return;
         if (!list.submitted_at) return;
         const label = list.name || 'this selection';
-        if (!window.confirm(`Reopen "${label}"? Your client will be able to change their choices again.`)) {
+        if (!(await window.confirm(`Reopen "${label}"? Your client will be able to change their choices again.`))) {
             return;
         }
         try {
@@ -2161,7 +2161,7 @@ const CollectionDashboard = () => {
     };
 
     const handleDeleteReminder = async (id) => {
-        if (!window.confirm('Are you sure you want to delete this reminder?')) return;
+        if (!(await window.confirm('Are you sure you want to delete this reminder?'))) return;
         try {
             setSaving(true);
             await galleryService.deleteCollectionReminder(id);
@@ -3069,12 +3069,14 @@ const CollectionDashboard = () => {
         // keep the rename local instead of failing against the API.
         if (String(personId).startsWith('guest-')) return;
         try {
-            await photoAiService.setPersonLabel(collectionId, personId, trimmed);
+            const match = photoAiPeople.find((p) => p.id === personId);
+            const apiId = match?.dbId || personId;
+            await photoAiService.setPersonLabel(collectionId, apiId, trimmed);
         } catch (err) {
             console.warn('Failed to rename person:', err);
             throw err;
         }
-    }, [collectionId]);
+    }, [collectionId, photoAiPeople]);
 
     const handleTogglePersonHidden = useCallback(async (personId, hidden) => {
         if (!collectionId || !personId) return;
@@ -3092,7 +3094,9 @@ const CollectionDashboard = () => {
             return;
         }
         try {
-            await photoAiService.setPersonHidden(collectionId, personId, hidden);
+            const match = photoAiPeople.find((p) => p.id === personId);
+            const apiId = match?.dbId || personId;
+            await photoAiService.setPersonHidden(collectionId, apiId, hidden);
             if (hidden && activePersonId === personId) {
                 setActivePersonId(null);
             }
@@ -3105,7 +3109,7 @@ const CollectionDashboard = () => {
             console.warn('Failed to update person visibility:', err);
             alert(err?.message || 'Could not update person visibility.');
         }
-    }, [collectionId, activePersonId]);
+    }, [collectionId, activePersonId, photoAiPeople]);
 
     const photoAiRowsRef = useRef(photoAiRows);
     photoAiRowsRef.current = photoAiRows;
@@ -3495,7 +3499,11 @@ const CollectionDashboard = () => {
         return subscribePersonLabelUpdates(({ collectionId: cid, personId, label }) => {
             if (cid !== collectionId || !personId || !label) return;
             setPhotoAiPeople((prev) =>
-                prev.map((person) => (person.id === personId ? { ...person, label } : person))
+                prev.map((person) =>
+                    person.id === personId || person.dbId === personId
+                        ? { ...person, label }
+                        : person
+                )
             );
         });
     }, [collectionId]);

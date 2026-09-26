@@ -2,7 +2,20 @@ import React, { useEffect, useRef, useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { storageService } from '../../../services/storage.service';
 import { galleryService } from '../../../services/gallery.service';
+import { userStorageService, getStorageLimitBytes, formatStorageMeter } from '../../../services/userStorage.service';
+import {
+    isNormalFeatureEnabled,
+    isGuestFeatureEnabled,
+} from '../../../services/photographerQuota.service';
+import { useAuth } from '../../../hooks/useAuth';
+import { AccountQuotaMeters } from '../../ui/AccountQuotaMeters';
 import { CustomDomainPanel } from './CustomDomainPanel';
+import {
+    resolvePhotographerR2Folder,
+    buildUserModulePath,
+    R2_USER_MODULES,
+    safeR2PathSegment,
+} from '../../../lib/photographerR2FolderCore';
 import '../../../pages/Settings.css';
 import { AppLoader } from '../../ui/AppLoading';
 
@@ -43,9 +56,21 @@ function getFileName(url) {
     }
 }
 
+function studioAssetPath(profile, ...segments) {
+    const folder = resolvePhotographerR2Folder(profile);
+    return buildUserModulePath(folder, R2_USER_MODULES.STUDIO, ...segments);
+}
+
+function safeUploadFileName(name) {
+    const raw = String(name || 'file').trim() || 'file';
+    return safeR2PathSegment(raw.replace(/\.[^.]+$/, ''), 'file')
+        + (raw.includes('.') ? `.${raw.split('.').pop().toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 8)}` : '');
+}
+
 /* ── component ──────────────────────────────────────────────────── */
 
 export default function StudioIdentityPanel({ profile, updateProfile }) {
+    const { user } = useAuth();
     const [pToggle, setPToggle] = useState(() => {
         if (profile?.hide_branding !== undefined && profile?.hide_branding !== null) {
             return !profile.hide_branding;
@@ -61,9 +86,33 @@ export default function StudioIdentityPanel({ profile, updateProfile }) {
     const coverLogoInputRef = useRef(null);
     const faviconInputRef = useRef(null);
     const [sampleDeliveries, setSampleDeliveries] = useState({ gallery: '', proof: '' });
+    const [usedBytes, setUsedBytes] = useState(() =>
+        userStorageService.getCachedStorageBytes(user?.id || profile?.id),
+    );
 
     const slug = useMemo(() => getSlug(profile), [profile]);
     const baseHost = useMemo(() => getGalleryHost(), []);
+    const maxBytes = useMemo(() => getStorageLimitBytes(profile), [profile]);
+    const storagePct = useMemo(() => {
+        if (!maxBytes) return 0;
+        return Math.min(100, (usedBytes / maxBytes) * 100);
+    }, [usedBytes, maxBytes]);
+    const normalOn = isNormalFeatureEnabled(profile);
+    const guestOn = isGuestFeatureEnabled(profile);
+
+    useEffect(() => {
+        if (!user?.id && !profile?.id) return undefined;
+        let cancelled = false;
+        userStorageService
+            .calculateUserStorageBytes(user || { id: profile.id }, profile)
+            .then((bytes) => {
+                if (!cancelled && typeof bytes === 'number' && bytes >= 0) setUsedBytes(bytes);
+            })
+            .catch(() => {});
+        return () => {
+            cancelled = true;
+        };
+    }, [user, profile]);
 
     useEffect(() => {
         if (!profile?.id) return;
@@ -131,7 +180,11 @@ export default function StudioIdentityPanel({ profile, updateProfile }) {
         if (!file) return;
         try {
             setUploadingLogo(true);
-            const path = `photographers/${profile.id}/logos/logo_${Date.now()}_${file.name}`;
+            const path = studioAssetPath(
+                profile,
+                'logos',
+                `logo_${Date.now()}_${safeUploadFileName(file.name)}`,
+            );
             const result = await storageService.upload(path, file);
             await updateProfile({ logo_url: result.url });
             flash();
@@ -144,7 +197,7 @@ export default function StudioIdentityPanel({ profile, updateProfile }) {
     };
 
     const handleLogoDelete = async () => {
-        if (!window.confirm('Are you sure you want to remove your logo?')) return;
+        if (!(await window.confirm('Are you sure you want to remove your logo?'))) return;
         try {
             await updateProfile({ logo_url: null });
             flash();
@@ -158,7 +211,11 @@ export default function StudioIdentityPanel({ profile, updateProfile }) {
         if (!file) return;
         try {
             setUploadingCoverLogo(true);
-            const path = `photographers/${profile.id}/logos/cover_logo_${Date.now()}_${file.name}`;
+            const path = studioAssetPath(
+                profile,
+                'logos',
+                `cover_logo_${Date.now()}_${safeUploadFileName(file.name)}`,
+            );
             const result = await storageService.upload(path, file);
             await updateProfile({ cover_logo_url: result.url });
             flash();
@@ -171,7 +228,7 @@ export default function StudioIdentityPanel({ profile, updateProfile }) {
     };
 
     const handleCoverLogoDelete = async () => {
-        if (!window.confirm('Are you sure you want to remove your cover logo?')) return;
+        if (!(await window.confirm('Are you sure you want to remove your cover logo?'))) return;
         try {
             await updateProfile({ cover_logo_url: null });
             flash();
@@ -185,7 +242,11 @@ export default function StudioIdentityPanel({ profile, updateProfile }) {
         if (!file) return;
         try {
             setUploadingFavicon(true);
-            const path = `photographers/${profile.id}/favicons/favicon_${Date.now()}_${file.name}`;
+            const path = studioAssetPath(
+                profile,
+                'favicons',
+                `favicon_${Date.now()}_${safeUploadFileName(file.name)}`,
+            );
             const result = await storageService.upload(path, file);
             localStorage.setItem('custom_favicon_url', result.url);
             await updateProfile({ favicon_url: result.url });
@@ -199,7 +260,7 @@ export default function StudioIdentityPanel({ profile, updateProfile }) {
     };
 
     const handleFaviconDelete = async () => {
-        if (!window.confirm('Are you sure you want to remove your site icon?')) return;
+        if (!(await window.confirm('Are you sure you want to remove your site icon?'))) return;
         try {
             localStorage.removeItem('custom_favicon_url');
             await updateProfile({ favicon_url: null });
@@ -238,6 +299,35 @@ export default function StudioIdentityPanel({ profile, updateProfile }) {
                     on a proof, a print order and a guest gallery at the same time.
                 </p>
             </div>
+
+            <section className="si-section si-section--usage">
+                <span className="si-overline type-group-label">USAGE</span>
+                <h2 className="si-heading-2">Plan usage</h2>
+                <p className="si-body-muted">
+                    Storage and face AI limits for this studio. Ask an admin to raise a limit when
+                    something shows over or at capacity.
+                </p>
+                <div className="si-usage-card">
+                    <AccountQuotaMeters
+                        className="si-usage-meters"
+                        collapsible={false}
+                        storageLabel={formatStorageMeter(usedBytes, maxBytes)}
+                        storagePct={storagePct}
+                        imageUsed={profile?.image_used_count}
+                        imageLimit={profile?.image_limit}
+                        faceUsed={profile?.face_matching_delivery_used}
+                        faceLimit={profile?.face_matching_delivery_limit}
+                        normalImageUsed={profile?.face_normal_image_used ?? profile?.image_used_count}
+                        normalImageLimit={!normalOn ? -1 : (profile?.face_normal_image_limit ?? profile?.image_limit)}
+                        guestImageUsed={profile?.face_guest_image_used}
+                        guestImageLimit={!guestOn ? -1 : (profile?.face_guest_image_limit ?? profile?.image_limit)}
+                        normalFaceUsed={profile?.face_normal_delivery_used}
+                        normalFaceLimit={!normalOn ? -1 : profile?.face_normal_delivery_limit}
+                        guestFaceUsed={profile?.face_guest_delivery_used ?? profile?.face_matching_delivery_used}
+                        guestFaceLimit={!guestOn ? -1 : (profile?.face_guest_delivery_limit ?? profile?.face_matching_delivery_limit)}
+                    />
+                </div>
+            </section>
 
             {/* ════════════════════════════════════════════════════════
                 ADDRESSES
