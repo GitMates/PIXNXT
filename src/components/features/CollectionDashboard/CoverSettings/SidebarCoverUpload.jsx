@@ -9,6 +9,7 @@ import {
   endCoverPhotoDrag,
 } from '../../../../lib/coverPhotoDrag';
 import './SidebarCoverUpload.css';
+import { useAppLanguage } from '../../../../context/AppLanguageContext';
 
 const COVER_DROP_ICON = (
   <svg
@@ -48,6 +49,8 @@ export function SidebarCoverUpload({
   onSelectFromCollection,
   onCoverFileSelect,
 }) {
+  const { t } = useAppLanguage();
+  const w = t.workspace;
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef(null);
   const hasPhotos = Number(photoCount) > 0;
@@ -162,7 +165,7 @@ export function SidebarCoverUpload({
                     className="cd-sidebar-cover-action-btn"
                     onClick={handleBrowseClick}
                   >
-                    Upload
+                    {w.upload}
                   </button>
                 </>
               ) : (
@@ -171,14 +174,14 @@ export function SidebarCoverUpload({
                   className="cd-sidebar-cover-action-btn cd-sidebar-cover-action-btn--primary cd-sidebar-cover-action-btn--upload"
                   onClick={handleBrowseClick}
                 >
-                  Upload a photo
+                  {w.uploadPhoto}
                 </button>
               )}
             </div>
           )}
         </div>
       </div>
-      <span className="cd-sidebar-cover-field-label">Delivery cover</span>
+      <span className="cd-sidebar-cover-field-label">{w.deliveryCover}</span>
     </>
   );
 
@@ -206,7 +209,7 @@ export function SidebarCoverUpload({
           <img
             key={coverUrl.split('#')[0]}
             src={coverUrl.split('#')[0]}
-            alt="Delivery cover"
+            alt={w.deliveryCover}
             draggable={false}
             style={{ objectPosition: `${coverFocalX}% ${coverFocalY}%` }}
           />
@@ -218,7 +221,7 @@ export function SidebarCoverUpload({
             aria-hidden
           />
           <div className="cd-sidebar-cover-caption">
-            <span className="cd-sidebar-cover-caption__label">Delivery cover</span>
+            <span className="cd-sidebar-cover-caption__label">{w.deliveryCover}</span>
             <div className="cd-sidebar-cover-caption__actions">
               <button
                 type="button"
@@ -226,7 +229,7 @@ export function SidebarCoverUpload({
                 onClick={handleSelectFromCollection}
                 disabled={isUpdating}
               >
-                {isUpdating ? 'Updating…' : 'Edit'}
+                {isUpdating ? w.updating : w.edit}
               </button>
             </div>
           </div>

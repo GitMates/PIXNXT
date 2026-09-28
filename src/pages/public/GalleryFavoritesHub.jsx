@@ -2,16 +2,18 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, Heart, Lock, MessageCircle } from 'lucide-react';
 import { galleryService } from '../../services/gallery.service';
+import { galleryUiStrings } from '../../lib/gallery-languages';
+import { GALLERY_SETTINGS_STORAGE_PREFIX } from '../../lib/galleryLiveSync';
 import { AppLoader } from '../../components/ui/AppLoading';
 import './GalleryFavoritesHub.css';
 
-function SelectionCardCover({ coverUrl }) {
+function SelectionCardCover({ coverUrl, t }) {
   if (!coverUrl) {
     return (
       <div className="selection-card__cover selection-card__cover--empty">
         <div className="selection-card__empty-state">
           <Heart size={18} strokeWidth={1.5} aria-hidden />
-          <span>Nothing chosen yet</span>
+          <span>{t.selEmpty}</span>
         </div>
       </div>
     );
@@ -24,7 +26,7 @@ function SelectionCardCover({ coverUrl }) {
   );
 }
 
-function SelectionCard({ list, chooseBasePath }) {
+function SelectionCard({ list, chooseBasePath, t }) {
   const cap =
     list.max_selection != null && Number(list.max_selection) > 0
       ? Number(list.max_selection)
@@ -39,21 +41,21 @@ function SelectionCard({ list, chooseBasePath }) {
 
   return (
     <Link to={detailPath} className="selection-card">
-      <SelectionCardCover coverUrl={list.coverUrl} />
+      <SelectionCardCover coverUrl={list.coverUrl} t={t} />
       <div className="selection-card__body">
         <div className="selection-card__title-row">
           <h3 className="selection-card__title">{list.name}</h3>
           {isSubmitted ? (
             <span className="selection-card__sent-badge">
               <Lock size={10} strokeWidth={2} aria-hidden />
-              Sent
+              {t.selSentLocked}
             </span>
           ) : null}
         </div>
         {cap != null ? (
-          <p className="selection-card__stat">{cap} asked for</p>
+          <p className="selection-card__stat">{t.selAskedForCount(cap)}</p>
         ) : count > 0 ? (
-          <p className="selection-card__stat">{count} chosen</p>
+          <p className="selection-card__stat">{t.selChosenCount(count)}</p>
         ) : null}
         {list.description?.trim() ? (
           <p className="selection-card__desc">{list.description.trim()}</p>
@@ -61,7 +63,7 @@ function SelectionCard({ list, chooseBasePath }) {
         {hasNote ? (
           <p className="selection-card__note-line">
             <MessageCircle size={12} strokeWidth={1.75} aria-hidden />
-            You left a note.
+            {t.selNoteLeft}
           </p>
         ) : null}
         {cap != null ? (
@@ -84,7 +86,7 @@ function SelectionCard({ list, chooseBasePath }) {
               </>
             )}
           </span>
-          <span className="selection-card__open">{isSubmitted ? 'View →' : 'Open →'}</span>
+          <span className="selection-card__open">{isSubmitted ? t.selView : t.selOpen}</span>
         </div>
       </div>
     </Link>
@@ -107,6 +109,7 @@ export default function GalleryFavoritesHub() {
 
   const galleryPath = `/gallery/${slug}`;
   const chooseBasePath = `/gallery/${slug}/choose`;
+  const t = galleryUiStrings(collection?.language);
 
   const loadLists = useCallback(async (sid) => {
     const data = await galleryService.getFavoriteListsForSession(sid);
@@ -166,6 +169,25 @@ export default function GalleryFavoritesHub() {
       cancelled = true;
     };
   }, [slug, navigate, galleryPath, loadLists]);
+
+  // Language switches from the dashboard apply instantly (same browser).
+  useEffect(() => {
+    const id = collection?.id;
+    if (!id) return undefined;
+    const onStorage = (event) => {
+      if (!event.newValue || !event.key?.startsWith(GALLERY_SETTINGS_STORAGE_PREFIX)) return;
+      try {
+        const data = JSON.parse(event.newValue);
+        if (data?.collectionId && data.collectionId !== id) return;
+        const lang = data?.settings?.language;
+        if (lang !== undefined) setCollection((prev) => (prev ? { ...prev, language: lang } : prev));
+      } catch {
+        /* ignore */
+      }
+    };
+    window.addEventListener('storage', onStorage);
+    return () => window.removeEventListener('storage', onStorage);
+  }, [collection?.id]);
 
   useEffect(() => {
     if (!sessionId) return undefined;
@@ -256,13 +278,13 @@ export default function GalleryFavoritesHub() {
     return (
       <div className="selections-page">
         <main className="selections-page__main">
-          <h1 className="selections-page__hero-title">Your selections</h1>
+          <h1 className="selections-page__hero-title">{t.selHero}</h1>
           <p className="selections-page__hero-sub">
-            Sign in with your email from the gallery to view and manage your selections.
+            {t.selSignInHint}
           </p>
           <p style={{ textAlign: 'center' }}>
             <Link to={galleryPath} className="selections-page__pill-btn">
-              View gallery
+              {t.selViewGallery}
             </Link>
           </p>
         </main>
@@ -281,7 +303,7 @@ export default function GalleryFavoritesHub() {
         </Link>
         <div className="selections-page__header-actions">
           <button type="button" className="selections-page__pill-btn" onClick={openCreateModal} disabled={creating}>
-            + New selection
+            + {t.selNew}
           </button>
           <div className="selections-page__more-wrap">
             <button
@@ -295,7 +317,7 @@ export default function GalleryFavoritesHub() {
             {moreOpen ? (
               <div className="selections-page__more-menu">
                 <button type="button" onClick={handleSignOut}>
-                  Sign out
+                  {t.selSignOut}
                 </button>
               </div>
             ) : null}
@@ -304,27 +326,26 @@ export default function GalleryFavoritesHub() {
       </header>
 
       <main className="selections-page__main">
-        <h1 className="selections-page__hero-title">Your selections</h1>
+        <h1 className="selections-page__hero-title">{t.selHero}</h1>
         <p className="selections-page__hero-sub">
-          Everything you have chosen, in one place. {photographerName} has asked for some of these
-          — the rest are yours.
+          {t.selHeroSub(photographerName)}
         </p>
 
         {askedLists.length > 0 ? (
           <section className="selections-section">
             <div className="selections-section__head">
               <span className="selections-section__label">
-                Asked for by {photographerUpper}
+                {t.selAskedFor(photographerName)}
               </span>
               {stillToSendCount > 0 ? (
                 <span className="selections-section__meta">
-                  {stillToSendCount} still to send
+                  {t.selStillToSend(stillToSendCount)}
                 </span>
               ) : null}
             </div>
             <div className="selections-grid">
               {askedLists.map((list) => (
-                <SelectionCard key={list.id} list={list} chooseBasePath={chooseBasePath} />
+                <SelectionCard key={list.id} list={list} chooseBasePath={chooseBasePath} t={t} />
               ))}
             </div>
           </section>
@@ -333,30 +354,29 @@ export default function GalleryFavoritesHub() {
         <section className="selections-section">
           <div className="selections-section__head">
             <span className="selections-section__label">
-              Yours
+              {t.selYours}
               {yourLists.length > 0 ? (
                 <span className="selections-section__count-badge">{yourLists.length}</span>
               ) : null}
             </span>
-            <span className="selections-section__meta">only you see these until you send them</span>
+            <span className="selections-section__meta">{t.selOnlyYou}</span>
           </div>
           <div className="selections-grid">
             {yourLists.map((list) => (
-              <SelectionCard key={list.id} list={list} chooseBasePath={chooseBasePath} />
+              <SelectionCard key={list.id} list={list} chooseBasePath={chooseBasePath} t={t} />
             ))}
             <button type="button" className="selection-card selection-card--new" onClick={openCreateModal}>
               <span className="selection-card--new__plus">+</span>
-              <p className="selection-card--new__title">New selection</p>
+              <p className="selection-card--new__title">{t.selNew}</p>
               <p className="selection-card--new__desc">
-                Group photographs your own way — for your parents, for printing, for anything.
+                {t.selNewDesc}
               </p>
             </button>
           </div>
         </section>
 
         <p className="selections-page__footnote">
-          Nothing reaches {photographerName} until you press <strong>Send</strong> inside a
-          selection.
+          {t.selFootnote(photographerName)}
         </p>
       </main>
 
@@ -374,13 +394,13 @@ export default function GalleryFavoritesHub() {
             aria-labelledby="selection-create-title"
           >
             <h2 id="selection-create-title" className="selection-create-modal__title">
-              New selection
+              {t.selNew}
             </h2>
             <p className="selection-create-modal__desc">
-              A way to group photographs for yourself.Only you see it until you send it.
+              {t.selCreateDesc}
             </p>
             <label className="selection-create-modal__label" htmlFor="selection-create-name">
-              What is it for
+              {t.selCreateLabel}
             </label>
             <input
               id="selection-create-name"
@@ -388,12 +408,12 @@ export default function GalleryFavoritesHub() {
               autoFocus
               value={newListName}
               onChange={(e) => setNewListName(e.target.value)}
-              placeholder="For my parents"
+              placeholder={t.selCreatePh}
               className="selection-create-modal__input"
               onKeyDown={(e) => e.key === 'Enter' && submitNewList()}
             />
             <p className="selection-create-modal__hint">
-              Only you and {photographerName} will see this name.
+              {t.selCreateHint(photographerName)}
             </p>
             <div className="selection-create-modal__actions">
               <button
@@ -402,7 +422,7 @@ export default function GalleryFavoritesHub() {
                 onClick={() => setShowCreateModal(false)}
                 className="selection-create-modal__cancel"
               >
-                Cancel
+                {t.selCancel}
               </button>
               <button
                 type="button"
@@ -410,7 +430,7 @@ export default function GalleryFavoritesHub() {
                 onClick={submitNewList}
                 className="selection-create-modal__submit"
               >
-                {creating ? 'Creating…' : 'Create'}
+                {creating ? t.selCreating : t.selCreate}
               </button>
             </div>
           </div>

@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useAppLanguage } from '../../context/AppLanguageContext';
 
 function detectIsMac() {
   if (typeof navigator === 'undefined') return false;
@@ -138,6 +139,7 @@ function buildCommandItems(modKey) {
 
 export default function DashboardCommandSearch() {
   const navigate = useNavigate();
+  const { t: appT } = useAppLanguage();
   const isMac = useMemo(() => detectIsMac(), []);
   const modKey = isMac ? '⌘' : 'Ctrl+';
   const searchKbd = isMac ? '⌘K' : 'Ctrl+K';
@@ -277,7 +279,7 @@ export default function DashboardCommandSearch() {
           aria-expanded={open}
           aria-controls="sd-cmd-list"
           aria-autocomplete="list"
-          placeholder="Search anything — clients, albums, invoices..."
+          placeholder={appT.dash.searchPh}
           value={query}
           onChange={(e) => {
             setQuery(e.target.value);
@@ -295,7 +297,7 @@ export default function DashboardCommandSearch() {
         <div className="sd-cmd-panel" role="listbox" id="sd-cmd-list">
           <div className="sd-cmd-scroll" ref={listRef}>
             {sections.length === 0 ? (
-              <p className="sd-cmd-empty">No matches. Try a name, product, or action.</p>
+              <p className="sd-cmd-empty">{appT.dash.cmdEmpty}</p>
             ) : (
               sections.map((section) => (
                 <div key={section.name} className="sd-cmd-section">

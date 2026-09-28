@@ -10,6 +10,7 @@ import {
   GALLERY_SETTINGS_STORAGE_PREFIX,
 } from '../../lib/galleryLiveSync';
 import { MasonryGrid } from '../../components/features/Gallery/MasonryGrid/MasonryGrid';
+import { galleryUiStrings } from '../../lib/gallery-languages';
 import { AppLoader } from '../../components/ui/AppLoading';
 import JSZip from 'jszip';
 import './GalleryFavoritesHub.css';
@@ -45,9 +46,11 @@ export default function GallerySelectionDetail() {
   const [copiedLink, setCopiedLink] = useState(false);
 
   const shareMenuRef = useRef(null);
+  const commentTimers = useRef(new Map());
 
   const galleryPath = `/gallery/${slug}`;
   const choosePath = `/gallery/${slug}/choose`;
+  const t = galleryUiStrings(collection?.language);
 
   const loadDetail = useCallback(async (sid, targetListId) => {
     const row = await galleryService.getFavoriteListById(targetListId, sid);
@@ -58,7 +61,12 @@ export default function GallerySelectionDetail() {
     }
     setList(row);
     const rows = await galleryService.getFavoriteListItemRows(targetListId);
-    setPhotos(rows.map((r) => r.photo).filter(Boolean));
+    setPhotos(rows.map((r) => {
+      const photo = r.photo;
+      if (!photo) return null;
+      const comment = r.note || r.comment || photo.comment || '';
+      return { ...photo, selectionComment: comment || '' };
+    }).filter(Boolean));
     const savedNote = localStorage.getItem(noteStorageKey(targetListId));
     if (savedNote != null) {
       setClientNote(savedNote);
@@ -119,6 +127,25 @@ export default function GallerySelectionDetail() {
     localStorage.setItem(noteStorageKey(listId), clientNote);
   }, [listId, clientNote]);
 
+  // Language switches from the dashboard apply instantly (same browser).
+  useEffect(() => {
+    const id = collection?.id;
+    if (!id) return undefined;
+    const onStorage = (event) => {
+      if (!event.newValue || !event.key?.startsWith(GALLERY_SETTINGS_STORAGE_PREFIX)) return;
+      try {
+        const data = JSON.parse(event.newValue);
+        if (data?.collectionId && data.collectionId !== id) return;
+        const lang = data?.settings?.language;
+        if (lang !== undefined) setCollection((prev) => (prev ? { ...prev, language: lang } : prev));
+      } catch {
+        /* ignore */
+      }
+    };
+    window.addEventListener('storage', onStorage);
+    return () => window.removeEventListener('storage', onStorage);
+  }, [collection?.id]);
+
   // Click outside to close share dropdown
   useEffect(() => {
     const handleClickOutside = (e) => {
@@ -175,6 +202,7 @@ export default function GallerySelectionDetail() {
   const isSubmitted = Boolean(list?.submitted_at);
   const isLocked = isSubmitted && collection?.selection_lock_on_submit !== false;
   const notesAllowed = collection?.favorites_allow_comments !== false;
+  const storeOnSelection = collection?.selection_store_enabled === true || collection?.selection_store_enabled === 1;
 
   // Download honors the delivery's download settings — same as the main gallery.
   const downloadsAllowed = isCollectionFeatureEnabled(collection?.downloads_enabled);
@@ -346,6 +374,7 @@ export default function GallerySelectionDetail() {
       const slugMatch = data.slug && slug && String(data.slug).toLowerCase() === String(slug).toLowerCase();
       const idMatch = data.collectionId && collection?.id && String(data.collectionId) === String(collection.id);
       if (!slugMatch && !idMatch) return;
+      if (data.type === 'SELECTION_ITEMS_UPDATED') return;
       // Apply the broadcast patch instantly (broadcast fires before the
       // dashboard's DB update commits), then re-fetch to converge.
       if (data.settings && typeof data.settings === 'object') {
@@ -388,6 +417,71 @@ export default function GallerySelectionDetail() {
     navigate(`${galleryPath}?pickList=${encodeURIComponent(listId)}`);
   };
 
+  const pingSelectionItems = useCallback((detail = {}) => {
+    if (!collection?.id || !listId) return;
+    const payload = {
+      type: 'SELECTION_ITEMS_UPDATED',
+      collectionId: collection.id,
+      slug: collection.slug,
+      listId,
+      photoId: detail.photoId || null,
+      removed: Boolean(detail.removed),
+      comment: detail.comment,
+      at: Date.now(),
+    };
+    try {
+      const channel = new BroadcastChannel(GALLERY_LIVE_CHANNEL);
+      channel.postMessage(payload);
+      channel.close();
+    } catch {
+      /* BroadcastChannel optional */
+    }
+  }, [collection?.id, collection?.slug, listId]);
+
+  const openShop = useCallback((photo) => {
+    if (!collection?.slug || !photo?.id) return;
+    const returnPath = `/gallery/${collection.slug}/choose/${listId}`;
+    try {
+      sessionStorage.setItem('pixnxt_printstore_return', JSON.stringify({ path: returnPath }));
+    } catch {
+      /* ignore */
+    }
+    if (userEmail) localStorage.setItem('pixnxt_printstore_email', userEmail);
+    window.location.assign(`/printstore?slug=${encodeURIComponent(collection.slug)}&photo=${encodeURIComponent(photo.id)}`);
+  }, [collection?.slug, listId, userEmail]);
+
+  const handleRemovePhoto = useCallback(async (photo) => {
+    if (!photo?.id || !listId || !sessionId) return;
+    setPhotos((prev) => prev.filter((p) => p.id !== photo.id));
+    try {
+      await galleryService.removePhotoFromFavoriteList(listId, photo.id, sessionId);
+      pingSelectionItems({ photoId: photo.id, removed: true });
+    } catch (err) {
+      console.error(err);
+      setPhotos((prev) => (prev.some((p) => p.id === photo.id) ? prev : [...prev, photo]));
+    }
+  }, [listId, sessionId, pingSelectionItems]);
+
+  const savePhotoComment = useCallback(async (photoId, comment) => {
+    if (!sessionId || !listId) return;
+    try {
+      await galleryService.toggleFavorite(sessionId, photoId, true, listId, comment);
+      pingSelectionItems({ photoId, comment });
+    } catch (err) {
+      console.error(err);
+    }
+  }, [sessionId, listId, pingSelectionItems]);
+
+  const handleCommentChange = (photoId, value) => {
+    setPhotos((prev) => prev.map((p) => (p.id === photoId ? { ...p, selectionComment: value } : p)));
+    const existing = commentTimers.current.get(photoId);
+    if (existing) clearTimeout(existing);
+    commentTimers.current.set(photoId, setTimeout(() => {
+      commentTimers.current.delete(photoId);
+      void savePhotoComment(photoId, value);
+    }, 450));
+  };
+
   if (loading) {
     return <AppLoader label="Loading selection" variant="page-short" className="selections-loading app-loader" />;
   }
@@ -412,7 +506,7 @@ export default function GallerySelectionDetail() {
           <div className="selection-detail__chrome-left">
             <Link to={choosePath} className="selection-detail__crumb" title="Back to selections">
               <ArrowLeft size={15} strokeWidth={1.75} aria-hidden />
-              <span>Your selections</span>
+              <span>{t.selHero}</span>
             </Link>
             <span className="selection-detail__crumb-sep">/</span>
             <div className="selection-detail__toolbar-left">
@@ -425,7 +519,7 @@ export default function GallerySelectionDetail() {
             {/* Primary Action to add photos */}
             {!isLocked && (
               <button type="button" className="selection-detail__ghost-btn" onClick={openGalleryToAdd}>
-                Add more from the gallery
+                {t.selAddMore}
               </button>
             )}
 
@@ -496,12 +590,12 @@ export default function GallerySelectionDetail() {
                 disabled={isSubmitting || photos.length < 1}
                 onClick={() => void handleSend()}
               >
-                {isSubmitting ? 'Sending…' : `Send to ${photographerName}`}
+                {isSubmitting ? t.gateSaving : t.selSendTo(photographerName)}
               </button>
             ) : (
               <span className="selection-detail__locked-badge">
                 <Lock size={11} strokeWidth={2} aria-hidden />
-                {isLocked ? 'Sent, locked' : 'Sent'}
+                {isLocked ? t.selSentLocked : t.selSentEditable}
               </span>
             )}
           </div>
@@ -515,7 +609,7 @@ export default function GallerySelectionDetail() {
               <div className="selection-detail__note-head">
                 <span className="selection-detail__note-label">
                   <MessageCircle size={13} strokeWidth={1.75} aria-hidden />
-                  Your note to {photographerName.toUpperCase()}
+                  {t.selNoteTo(photographerName)}
                 </span>
                 {!editingNote ? (
                   <button
@@ -574,7 +668,7 @@ export default function GallerySelectionDetail() {
             </div>
           ) : (
             <MasonryGrid
-              key={`selection-${listId}-${galleryGridSettings.style}-${galleryGridSettings.size}-${galleryGridSettings.spacing}`}
+              key={`selection-${listId}-${galleryGridSettings.style}-${galleryGridSettings.size}-${galleryGridSettings.spacing}-${storeOnSelection ? 'shop' : 'noshop'}`}
               photos={photos}
               gridSettings={galleryGridSettings}
               isHorizontal={galleryGridSettings.style?.toLowerCase() === 'horizontal'}
@@ -583,7 +677,22 @@ export default function GallerySelectionDetail() {
               showDownload={false}
               showFavorite={false}
               showShare={false}
-              showShop={false}
+              showShop={storeOnSelection}
+              onShop={storeOnSelection ? openShop : undefined}
+              pinTools
+              onRemove={handleRemovePhoto}
+              renderBelow={notesAllowed ? (photo) => (
+                <div className="selection-photo-comment">
+                  <textarea
+                    className="selection-photo-comment__input"
+                    rows={2}
+                    value={photo.selectionComment || ''}
+                    placeholder={t.selPhotoComment}
+                    aria-label={t.selPhotoComment}
+                    onChange={(e) => handleCommentChange(photo.id, e.target.value)}
+                  />
+                </div>
+              ) : undefined}
               forceShow
             />
           )}

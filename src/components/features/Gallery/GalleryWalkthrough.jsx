@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { galleryUiStrings } from '../../../lib/galleryUiStrings';
+import { galleryUiStrings } from '../../../lib/gallery-languages';
 
 const STORAGE_PREFIX = 'pixnxt_gallery_assist_seen_';
 

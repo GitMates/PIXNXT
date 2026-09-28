@@ -24,6 +24,7 @@ import {
 import { syncUploadDefaultsToLocalStorage } from '../../../../lib/uploadDefaults';
 import { AccountQuotaMeters } from '../../../ui/AccountQuotaMeters';
 import { StudioAvatar } from '../../../ui/StudioAvatar';
+import { useAppLanguage } from '../../../../context/AppLanguageContext';
 import { navigateToAccount } from '../../../../lib/accountBackNav';
 import { SidebarCoverUpload } from '../CoverSettings/SidebarCoverUpload';
 import './CollectionDashboardSidebar.css';
@@ -46,10 +47,11 @@ function formatCount(n) {
   return value.toLocaleString();
 }
 
-function formatMediaSummary(photoCount = 0, videoCount = 0) {
-  const parts = [];
+function formatMediaSummary(photoCount = 0, videoCount = 0, t) {
   const photos = Number(photoCount) || 0;
   const films = Number(videoCount) || 0;
+  if (t?.delivery?.mediaSummary) return t.delivery.mediaSummary(photos, films);
+  const parts = [];
   if (photos > 0) parts.push(`${formatCount(photos)} ${photos === 1 ? 'photo' : 'photos'}`);
   if (films > 0) parts.push(`${formatCount(films)} ${films === 1 ? 'film' : 'films'}`);
   if (!parts.length) return '0 photos';
@@ -57,9 +59,10 @@ function formatMediaSummary(photoCount = 0, videoCount = 0) {
 }
 
 function MediaSectionHeader({ summary }) {
+  const { t: appT } = useAppLanguage();
   return (
     <div className="cdsb-nav__section cdsb-nav__section--media">
-      <span>Media</span>
+      <span>{appT.delivery.media}</span>
       <span className="cdsb-nav__section-meta">{summary}</span>
     </div>
   );
@@ -336,11 +339,13 @@ export function CollectionDashboardSidebar({
     return null;
   };
 
+  const { t: appT } = useAppLanguage();
   const namedSetCount = sortedSidebarSets.filter((s) => !s.isHighlights).length;
   const visibleNamedSetCount = sortedSidebarSets.filter(
     (s) => !s.isHighlights && s.isPrivate !== true
   ).length;
-  const mediaSummary = formatMediaSummary(photoCount, videoCount);
+  const mediaSummary = formatMediaSummary(photoCount, videoCount, appT);
+  const settingsTabKey = { general: 'basics', privacy: 'access', download: 'downloads', favorite: 'selections', shop: 'printLab' };
 
   const photosActive = activeSidebarTab === 'photos';
   const designActive = activeSidebarTab === 'design';
@@ -396,21 +401,21 @@ export function CollectionDashboardSidebar({
               <span className="cdsb-add-set__icon" aria-hidden>
                 <FolderPlus size={15} strokeWidth={2} />
               </span>
-              <span className="cdsb-add-set__label">New photo set</span>
+              <span className="cdsb-add-set__label">{appT.delivery.newPhotoSet}</span>
             </button>
             {namedSetCount > 0 ? (
               <p className="cdsb-visible-sets">
-                {visibleNamedSetCount} of {namedSetCount} sets visible to your client
+                {appT.delivery.visibleSets(visibleNamedSetCount, namedSetCount)}
               </p>
             ) : null}
           </div>
 
-          <p className="cdsb-nav__section cdsb-nav__section--group">The delivery</p>
+          <p className="cdsb-nav__section cdsb-nav__section--group">{appT.delivery.theDelivery}</p>
 
           <NavItem
             active={designActive}
             icon={Pencil}
-            label="Design"
+            label={appT.delivery.design}
             onClick={() => onSidebarTabChange('design')}
           />
 
@@ -418,7 +423,7 @@ export function CollectionDashboardSidebar({
             <NavItem
               active={activeSidebarTab === 'guests'}
               icon={Target}
-              label="Guests"
+              label={appT.delivery.guests}
               count={guestCount}
               onClick={() => onSidebarTabChange('guests')}
             />
@@ -427,7 +432,7 @@ export function CollectionDashboardSidebar({
           <NavItem
             active={activityActive}
             icon={Clock}
-            label="Activity"
+            label={appT.delivery.activity}
             count={activityCount}
             onClick={() => {
               onSidebarTabChange('activity');
@@ -435,12 +440,12 @@ export function CollectionDashboardSidebar({
             }}
           />
 
-          <p className="cdsb-nav__section cdsb-nav__section--group">Set once</p>
+          <p className="cdsb-nav__section cdsb-nav__section--group">{appT.delivery.setOnce}</p>
           <div className={cn('cdsb-settings-block', settingsActive && 'cdsb-settings-block--active')}>
             <NavItem
               active={settingsActive}
               icon={Settings}
-              label="Settings"
+              label={appT.delivery.settings}
               onClick={() => onSidebarTabChange('settings')}
               className="cdsb-nav-item--settings"
               expandable
@@ -452,7 +457,7 @@ export function CollectionDashboardSidebar({
                   <NestedTabItem
                     key={tab.id}
                     active={activeSettingsTab === tab.id}
-                    label={tab.label}
+                    label={appT.delivery[settingsTabKey[tab.id]] || tab.label}
                     count={settingsBadge(tab.id)}
                     onClick={() => onSettingsTabChange?.(tab.id)}
                   />
@@ -491,7 +496,7 @@ export function CollectionDashboardSidebar({
           </span>
           <span className="cdsb-profile__text">
             <span className="cdsb-profile__name">{userDisplayLabel}</span>
-            <span className="cdsb-profile__role">Studio owner</span>
+            <span className="cdsb-profile__role">{appT.common.studioOwner}</span>
           </span>
           <ChevronRight className="cdsb-profile__chevron" size={16} />
         </button>
@@ -500,7 +505,7 @@ export function CollectionDashboardSidebar({
           type="button"
           className="cdsb-collapse"
           onClick={onToggleCollapse}
-          title={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          title={isCollapsed ? appT.delivery.expandSidebar : appT.delivery.collapseSidebar}
         >
           {isCollapsed ? '»' : '«'}
         </button>

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useLayoutEffect, useMemo, useCallback, useRef } from 'react';
 import { motion as Motion } from 'framer-motion';
-import { Download, Heart, Share2, Play, ShoppingBag, ArrowDownToLine } from 'lucide-react';
+import { Download, Heart, Share2, Play, ShoppingBag, ArrowDownToLine, X } from 'lucide-react';
 import { cn } from '../../../../lib/utils';
 import { SmoothMediaImage } from '../../../ui/SmoothMediaImage';
 import { isGalleryVideo } from '../../../../lib/galleryMediaType';
@@ -29,6 +29,10 @@ export function MasonryGrid({
   onDownload,
   onShare,
   onShop,
+  onRemove,
+  /** Always-visible shop and remove controls (selection pages hide the hover toolbar). */
+  pinTools = false,
+  renderBelow = null,
   onTogglePrivate,
   customRowHeight,
   customColumnCount,
@@ -856,6 +860,39 @@ export function MasonryGrid({
             </div>
           )}
 
+          {pinTools && (onRemove || (showShop && onShop)) ? (
+            <div className="selection-photo-tools absolute top-2 right-2 z-[20] flex gap-1.5">
+              {showShop && onShop ? (
+                <button
+                  type="button"
+                  className="selection-photo-tool"
+                  aria-label="Shop"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    dismissTooltip();
+                    onShop(photo);
+                  }}
+                >
+                  <ShoppingBag size={14} strokeWidth={1.75} />
+                </button>
+              ) : null}
+              {onRemove ? (
+                <button
+                  type="button"
+                  className="selection-photo-tool"
+                  aria-label="Remove from this selection"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    dismissTooltip();
+                    onRemove(photo);
+                  }}
+                >
+                  <X size={14} strokeWidth={2} />
+                </button>
+              ) : null}
+            </div>
+          ) : null}
+
           {/* Overlay — gradient fades in on hover via CSS */}
           <div className="gallery-masonry-tile-overlay absolute inset-0 z-[10]">
             {showPrivateBadge && isPrivate ? <PhotoPrivateBadge visible /> : null}
@@ -1019,7 +1056,14 @@ export function MasonryGrid({
           >
             {columnItems.map((photo, idx) => {
               if (photo.isPromoBanner) return renderPromoCard(photo);
-              return renderPhotoItem(photo, idx);
+              const card = renderPhotoItem(photo, idx);
+              if (!renderBelow) return card;
+              return (
+                <div key={`stack-${photo.id}-${idx}`} className="w-full min-w-0">
+                  {card}
+                  {renderBelow(photo)}
+                </div>
+              );
             })}
           </div>
         ))}
@@ -1044,7 +1088,14 @@ export function MasonryGrid({
     >
       {displayPhotos.map((photo, index) => {
         if (photo.isPromoBanner) return renderPromoCard(photo);
-        return renderPhotoItem(photo, index);
+        const card = renderPhotoItem(photo, index);
+        if (!renderBelow) return card;
+        return (
+          <div key={`stack-${photo.id}-${index}`} className="w-full min-w-0">
+            {card}
+            {renderBelow(photo)}
+          </div>
+        );
       })}
     </Motion.div>
   );

@@ -86,7 +86,7 @@ import {
   SLIDESHOW_CHANGED_EVENT,
   withResolvedSlideshowEnabled,
 } from '../../lib/collectionFeatureFlags';
-import { galleryHtmlLang, galleryUiStrings } from '../../lib/galleryUiStrings';
+import { galleryHtmlLang, galleryUiStrings } from '../../lib/gallery-languages';
 import { GalleryWalkthrough } from '../../components/features/Gallery/GalleryWalkthrough';
 import {
   BannerBouquetSvg,
@@ -432,6 +432,10 @@ const GalleryView = () => {
     }
   };
 
+  // Declared up front: effects below (e.g. the printLab/shop opener) read
+  // searchParams during render, so this must run before any of them.
+  const [searchParams] = useSearchParams();
+
   useEffect(() => {
     async function loadActiveProducts() {
       if (!collection?.id || collection.store_enabled !== true) {
@@ -752,7 +756,6 @@ const GalleryView = () => {
     }
   }, [cookieBannerEnabled, photographer?.id]);
 
-  const [searchParams] = useSearchParams();
   const listId = searchParams.get('list');
   const pickListParam = searchParams.get('pickList');
   const photosParam = searchParams.get('photos');
@@ -1818,6 +1821,7 @@ const GalleryView = () => {
     import('../../lib/api/client').then(({ subscribeSse }) => {
       if (cancelled) return;
       unsubscribe = subscribeSse(`/v1/public/gallery/${collection.id}/events`, {
+        retryMs: 3000,
         onEvent: async () => {
           try {
             const fresh = await galleryService.getCollectionBySlug(collection.slug, { collectionId: collection.id });
@@ -2496,13 +2500,13 @@ const GalleryView = () => {
             {photographer?.business_name || photographer?.display_name || 'Private gallery'}
           </div>
           <Typography variant="h2" className="mb-2">{collection.name || 'Protected delivery'}</Typography>
-          <Typography variant="muted" className="mb-6">This delivery is protected. Enter the password to view it.</Typography>
+          <Typography variant="muted" className="mb-6">{uiStrings.pwDesc}</Typography>
           <form onSubmit={handlePasswordGateSubmit} className="flex flex-col gap-3">
             <input
               type="password"
               value={passwordInput}
               onChange={(e) => { setPasswordInput(e.target.value); setPasswordError(''); }}
-              placeholder="Gallery password"
+              placeholder={uiStrings.pwPlaceholder}
               autoComplete="off"
               autoFocus
               className="w-full rounded-md border border-zinc-300 px-4 py-3 text-center text-sm tracking-wide outline-none focus:border-zinc-900"
@@ -2515,7 +2519,7 @@ const GalleryView = () => {
               disabled={passwordChecking}
               className="w-full rounded-md bg-zinc-900 px-4 py-3 text-[11px] font-bold uppercase tracking-[0.25em] text-white transition-opacity disabled:opacity-50"
             >
-              {passwordChecking ? 'Checking…' : 'View gallery'}
+              {passwordChecking ? uiStrings.pwChecking : uiStrings.pwButton}
             </button>
           </form>
         </div>
@@ -2533,6 +2537,7 @@ const GalleryView = () => {
         saving={emailGateSaving}
         error={emailGateError}
         onSubmit={handleEmailGateSubmit}
+        strings={uiStrings}
       />
     );
   }
@@ -3155,18 +3160,17 @@ const GalleryView = () => {
                   </div>
                 )}
                 <h3 className="gallery-heading mb-3 text-lg font-bold uppercase tracking-[0.2em] md:text-xl">
-                  Favorites
+                  {uiStrings.favTitle}
                 </h3>
                 <p className={cn('gallery-body-text text-sm leading-relaxed', isGalleryDark ? 'text-white/60' : 'text-zinc-500')}>
-                  Save your favorite photos and revisit them at anytime using your email address. You can share this list
-                  with your photographer, family and friends.
+                  {uiStrings.favDesc}
                 </p>
               </div>
 
               <div className="space-y-5">
                 <input
                   type="email"
-                  placeholder="Email address"
+                  placeholder={uiStrings.favEmailPh}
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className={cn(
@@ -3188,7 +3192,7 @@ const GalleryView = () => {
                     onClick={handleFavoriteEmailSubmit}
                     disabled={isSubmittingEmail}
                   >
-                    {isSubmittingEmail ? 'Please wait…' : 'Sign in'}
+                    {isSubmittingEmail ? uiStrings.favWait : uiStrings.favSignIn}
                   </button>
                 </div>
               </div>

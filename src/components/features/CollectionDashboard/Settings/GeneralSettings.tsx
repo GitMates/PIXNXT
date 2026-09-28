@@ -7,6 +7,7 @@ import { getCollectionShareUrl } from '../../../../lib/shareCollection';
 import { CategoryTagsField } from './CategoryTagsField';
 import './BasicsSettings.css';
 import './DownloadSettings.css';
+import { useAppLanguage } from '../../../../context/AppLanguageContext';
 
 
 export interface GeneralSettingsProps {
@@ -50,12 +51,6 @@ const LANGUAGES = [
     { id: 'Hindi', label: 'हिन्दी' },
     { id: 'Tamil', label: 'தமிழ்' },
 ];
-
-const REMIND_CHANNELS = [
-    { id: 'both', label: 'WhatsApp, email as fallback' },
-    { id: 'email', label: 'Email only' },
-    { id: 'whatsapp', label: 'WhatsApp only' },
-] as const;
 
 const REMIND_WHEN = [
     { id: '3days', label: '3 days before', timing: '3 days before auto expiry date' },
@@ -147,6 +142,8 @@ export const GeneralSettings: React.FC<GeneralSettingsProps> = ({
     showOnShowcase: showOnShowcaseProp,
     setShowOnShowcase,
 }) => {
+    const { t } = useAppLanguage();
+    const w = t.workspace;
     const [activeTab, setActiveTab] = React.useState<'link' | 'closes' | 'gallery'>('link');
     const [copied, setCopied] = React.useState(false);
     const [remindChannel, setRemindChannel] = React.useState<'both' | 'email' | 'whatsapp'>('both');
@@ -180,7 +177,7 @@ export const GeneralSettings: React.FC<GeneralSettingsProps> = ({
     const brandHost = shareHostPath.split('/')[0] || 'gallery';
     const primaryReminder = expiryReminders[0];
     const reminderPreview = primaryReminder?.body
-        || 'Closing soon — download anything you want to keep';
+        || w.closingSoon;
 
     const persistCollection = async (patch: Record<string, unknown>) => {
         try {
@@ -239,6 +236,15 @@ export const GeneralSettings: React.FC<GeneralSettingsProps> = ({
 
     const saveLanguage = async (next: string) => {
         setLanguage(next);
+        // Broadcast first so open gallery tabs switch language instantly
+        // (same channel as the other visitor flags); persist right after.
+        setCollection((prev: any) => (prev ? { ...prev, language: next } : prev));
+        broadcastGalleryLive({
+            type: 'SETTINGS_UPDATED',
+            collectionId,
+            slug: collectionUrl,
+            settings: { language: next },
+        });
         await persistCollection({ language: next });
     };
 
@@ -282,24 +288,24 @@ export const GeneralSettings: React.FC<GeneralSettingsProps> = ({
         if (el) el.click();
     };
 
-    const onOff = (value: boolean) => (value ? 'on' : 'off');
-    const gallerySummary = (
-        <>
-            Slideshow and social sharing are <strong>{onOff(slideshow)}</strong>. Walk-through cards are <strong>{onOff(galleryAssist)}</strong>.
-        </>
-    );
-    const channelLabel = REMIND_CHANNELS.find((item) => item.id === remindChannel)?.label || 'WhatsApp, email as fallback';
+    const onOff = (value: boolean) => (value ? w.on : w.off);
+    const gallerySummary = w.gallerySummary(onOff(slideshow), onOff(galleryAssist));
+    const channelLabel = remindChannel === 'email'
+        ? w.remindEmail
+        : remindChannel === 'whatsapp'
+            ? w.remindWhatsapp
+            : w.remindBoth;
     const whenLabel = remindWhen === '3days'
-        ? '3 days before'
+        ? w.remind3
         : remindWhen === 'both'
-            ? '3 days and a week before'
-            : 'a week before';
+            ? w.remindBothTimes
+            : w.weekBefore;
     const closesSummary = autoExpiry ? (
         <>
-            Hides itself on <strong>{expiryLabel}</strong>, reminder by <strong>WhatsApp, email as fallback</strong> a week before.
+            {w.hidesOn} <strong>{expiryLabel}</strong>, {w.reminderBy} <strong>{channelLabel}</strong> {whenLabel}.
         </>
     ) : (
-        'No auto expiry set yet.'
+        w.noExpiry
     );
 
     const langId = LANGUAGES.some((item) => item.id === language)
@@ -317,10 +323,10 @@ export const GeneralSettings: React.FC<GeneralSettingsProps> = ({
     return (
         <div className="cd-general-settings-view cd-basics cd-dl">
             <header className="cd-basics__header">
-                <h2 className="cd-basics__title">Basics</h2>
-                <p className="cd-basics__kicker">this delivery</p>
+                <h2 className="cd-basics__title">{w.basics}</h2>
+                <p className="cd-basics__kicker">{w.thisDeliveryKicker}</p>
                 <p className="cd-basics__lead">
-                    What this delivery is called, where it lives, and when it closes.
+                    {w.basicsLead}
                 </p>
             </header>
 
@@ -333,7 +339,7 @@ export const GeneralSettings: React.FC<GeneralSettingsProps> = ({
                         aria-selected={activeTab === 'link'}
                         onClick={() => setActiveTab('link')}
                     >
-                        Name and link
+                        {w.nameAndLink}
                     </button>
                     <button
                         type="button"
@@ -342,7 +348,7 @@ export const GeneralSettings: React.FC<GeneralSettingsProps> = ({
                         aria-selected={activeTab === 'closes'}
                         onClick={() => setActiveTab('closes')}
                     >
-                        Auto expiry
+                        {w.autoExpiry}
                     </button>
                     <button
                         type="button"
@@ -351,7 +357,7 @@ export const GeneralSettings: React.FC<GeneralSettingsProps> = ({
                         aria-selected={activeTab === 'gallery'}
                         onClick={() => setActiveTab('gallery')}
                     >
-                        In the gallery
+                        {w.inTheGallery}
                     </button>
                 </div>
 
@@ -369,9 +375,9 @@ export const GeneralSettings: React.FC<GeneralSettingsProps> = ({
                                     </span>
                                 </div>
                                 <div className="cd-dl-status__copy">
-                                    <h3 className="cd-dl-status__title">Name and link</h3>
+                                    <h3 className="cd-dl-status__title">{w.nameAndLink}</h3>
                                     <p className="cd-dl-status__desc">
-                                        Lives at <strong>{shareHostPath || 'your gallery link'}</strong>, and listed on your Showcase.
+                                        {w.livesAt(shareHostPath || w.yourGalleryLink)}
                                     </p>
                                 </div>
                             </div>
@@ -380,7 +386,7 @@ export const GeneralSettings: React.FC<GeneralSettingsProps> = ({
                             <div className="cd-dl-card">
                                 <div className="cd-dl-row">
                                     <div className="cd-dl-row__copy">
-                                        <p className="cd-dl-row__title">Gallery link</p>
+                                        <p className="cd-dl-row__title">{w.galleryLink}</p>
                                         <p className="cd-dl-row__desc">
                                             {brandHost}/g/
                                         </p>
@@ -388,7 +394,7 @@ export const GeneralSettings: React.FC<GeneralSettingsProps> = ({
                                             {collectionUrl}
                                         </p>
                                         <p className="cd-dl-row__desc" style={{ fontSize: '11px', color: '#b0a89e' }}>
-                                            — changing this breaks any link already sent.
+                                            — {w.linkBreaks.replace(/^—\s*/, '')}
                                         </p>
                                     </div>
                                     <div className="cd-dl-row__control">
@@ -401,7 +407,7 @@ export const GeneralSettings: React.FC<GeneralSettingsProps> = ({
                                                 onChange={(e) => setCollectionUrl(e.target.value)}
                                             />
                                             <button type="button" className="cd-basics-btn" onClick={copyLink}>
-                                                {copied ? 'Copied' : 'Copy'}
+                                                {copied ? w.copied : w.copy}
                                             </button>
                                         </div>
                                     </div>
@@ -409,13 +415,13 @@ export const GeneralSettings: React.FC<GeneralSettingsProps> = ({
 
                                 <div className="cd-dl-row">
                                     <div className="cd-dl-row__copy">
-                                        <p className="cd-dl-row__title">Event date</p>
+                                        <p className="cd-dl-row__title">{w.eventDate}</p>
                                     </div>
                                     <div className="cd-dl-row__control">
                                         <DatePicker
                                             value={eventDate}
                                             onChange={(next) => void saveEventDate(next)}
-                                            placeholder="Add a date"
+                                            placeholder={w.addDate}
                                             displayFormat="long"
                                             showQuickSearch={false}
                                         />
@@ -424,11 +430,11 @@ export const GeneralSettings: React.FC<GeneralSettingsProps> = ({
 
                                 <div className="cd-dl-row">
                                     <div className="cd-dl-row__copy">
-                                        <p className="cd-dl-row__title">Language</p>
-                                        <p className="cd-dl-row__desc">What the gallery is written in for your client.</p>
+                                        <p className="cd-dl-row__title">{w.galleryLanguage}</p>
+                                        <p className="cd-dl-row__desc">{w.galleryLanguageDesc}</p>
                                     </div>
                                     <div className="cd-dl-row__control">
-                                        <div className="cd-basics-segment" role="group" aria-label="Language">
+                                        <div className="cd-basics-segment" role="group" aria-label={w.galleryLanguage}>
                                             {LANGUAGES.map((item) => (
                                                 <button
                                                     key={item.id}
@@ -445,24 +451,24 @@ export const GeneralSettings: React.FC<GeneralSettingsProps> = ({
 
                                 <div className="cd-dl-row" style={{ flexDirection: 'column', alignItems: 'stretch' }}>
                                     <div className="cd-dl-row__copy" style={{ marginBottom: '8px' }}>
-                                        <p className="cd-dl-row__title">Category tags</p>
-                                        <p className="cd-dl-row__desc">Used to group deliveries on your Showcase and in search.</p>
+                                        <p className="cd-dl-row__title">{w.categoryTags}</p>
+                                        <p className="cd-dl-row__desc">{w.categoryTagsDesc}</p>
                                     </div>
                                     <CategoryTagsField
                                         tags={categoryTags}
                                         onChange={onCategoryTagsChange}
                                         disabled={categoryTagsSaving}
-                                        placeholder="Add a tag and press Enter"
+                                        placeholder={w.addTag}
                                     />
                                 </div>
                             </div>
 
-                            <p className="cd-dl-section__label" style={{ marginTop: '28px', marginBottom: '8px' }}>WHERE ELSE IT APPEARS</p>
+                            <p className="cd-dl-section__label" style={{ marginTop: '28px', marginBottom: '8px' }}>{w.whereElse}</p>
                             <div className="cd-dl-card">
                                 <div className="cd-dl-row">
                                     <div className="cd-dl-row__copy">
-                                        <p className="cd-dl-row__title">Show on Showcase</p>
-                                        <p className="cd-dl-row__desc">List this delivery on your public home page, so people who find your work can see it.</p>
+                                        <p className="cd-dl-row__title">{w.showOnShowcase}</p>
+                                        <p className="cd-dl-row__desc">{w.showOnShowcaseDesc}</p>
                                     </div>
                                     <div className="cd-dl-row__control">
                                         <Toggle
@@ -492,12 +498,12 @@ export const GeneralSettings: React.FC<GeneralSettingsProps> = ({
                                     ) : (
                                         <span className="cd-basics-cal">
                                             <span className="cd-basics-cal__day">—</span>
-                                            <span className="cd-basics-cal__mon">Date</span>
+                                            <span className="cd-basics-cal__mon">{w.date}</span>
                                         </span>
                                     )}
                                 </div>
                                 <div className="cd-dl-status__copy">
-                                    <h3 className="cd-dl-status__title">Auto expiry</h3>
+                                    <h3 className="cd-dl-status__title">{w.autoExpiry}</h3>
                                     <p className="cd-dl-status__desc">
                                         {closesSummary}
                                     </p>
@@ -508,8 +514,8 @@ export const GeneralSettings: React.FC<GeneralSettingsProps> = ({
                             <div className="cd-basics-note-banner">
                                 <div className="cd-dl-row" style={{ padding: 0 }}>
                                     <div className="cd-dl-row__copy">
-                                        <p className="cd-dl-row__title">Close this delivery automatically</p>
-                                        <p className="cd-dl-row__desc">Off means it stays open until you close it yourself. Storage keeps counting either way.</p>
+                                        <p className="cd-dl-row__title">{w.closeAuto}</p>
+                                        <p className="cd-dl-row__desc">{w.closeAutoDesc}</p>
                                     </div>
                                     <div className="cd-dl-row__control">
                                         <Toggle
@@ -522,11 +528,11 @@ export const GeneralSettings: React.FC<GeneralSettingsProps> = ({
 
                             {!!autoExpiry && (
                                 <>
-                                    <p className="cd-dl-section__label">WHEN</p>
+                                    <p className="cd-dl-section__label">{w.when}</p>
                                     <div className="cd-dl-card" style={{ marginBottom: '24px' }}>
                                         <div className="cd-dl-row">
                                             <div className="cd-dl-row__copy">
-                                                <p className="cd-dl-row__title">Closes on</p>
+                                                <p className="cd-dl-row__title">{w.closesOn}</p>
                                             </div>
                                             <div className="cd-dl-row__control">
                                                 <div className="cd-basics-expiry-row">
@@ -534,12 +540,12 @@ export const GeneralSettings: React.FC<GeneralSettingsProps> = ({
                                                         <DatePicker
                                                             value={autoExpiry}
                                                             onChange={(next) => void saveExpiry(next)}
-                                                            placeholder="Optional"
+                                                            placeholder={w.optional}
                                                             disablePastDates
                                                         />
                                                     </div>
                                                     <button type="button" className="cd-basics-btn" onClick={triggerExpiryPicker}>
-                                                        Change
+                                                        {w.change}
                                                     </button>
                                                 </div>
                                             </div>
@@ -547,8 +553,8 @@ export const GeneralSettings: React.FC<GeneralSettingsProps> = ({
 
                                         <div className="cd-dl-row">
                                             <div className="cd-dl-row__copy">
-                                                <p className="cd-dl-row__title">Hidden at</p>
-                                                <p className="cd-dl-row__desc">Nothing is deleted — you can reopen it any time.</p>
+                                                <p className="cd-dl-row__title">{w.hiddenAt}</p>
+                                                <p className="cd-dl-row__desc">{w.hiddenAtDesc}</p>
                                             </div>
                                             <div className="cd-dl-row__control">
                                                 <span style={{ fontSize: '14.5px', fontWeight: 500, color: '#2a241e' }}>11:59 pm IST</span>
@@ -556,11 +562,11 @@ export const GeneralSettings: React.FC<GeneralSettingsProps> = ({
                                         </div>
                                     </div>
 
-                                    <p className="cd-dl-section__label">REMINDER</p>
+                                    <p className="cd-dl-section__label">{w.reminder}</p>
                                     <div className="cd-dl-card">
                                         <div className="cd-dl-row">
                                             <div className="cd-dl-row__copy">
-                                                <p className="cd-dl-row__title">Remind them by</p>
+                                                <p className="cd-dl-row__title">{w.remindBy}</p>
                                             </div>
                                             <div className="cd-dl-row__control">
                                                 <select
@@ -568,7 +574,11 @@ export const GeneralSettings: React.FC<GeneralSettingsProps> = ({
                                                     onChange={(e) => void saveReminderPrefs(e.target.value as any, remindWhen)}
                                                     className="cd-dl-select-input"
                                                 >
-                                                    {REMIND_CHANNELS.map((item) => (
+                                                    {[
+                                                        { id: 'both', label: w.remindBoth },
+                                                        { id: 'email', label: w.remindEmail },
+                                                        { id: 'whatsapp', label: w.remindWhatsapp },
+                                                    ].map((item) => (
                                                         <option key={item.id} value={item.id}>{item.label}</option>
                                                     ))}
                                                 </select>
@@ -577,7 +587,7 @@ export const GeneralSettings: React.FC<GeneralSettingsProps> = ({
 
                                         <div className="cd-dl-row">
                                             <div className="cd-dl-row__copy">
-                                                <p className="cd-dl-row__title">How long before</p>
+                                                <p className="cd-dl-row__title">{w.howLong}</p>
                                             </div>
                                             <div className="cd-dl-row__control">
                                                 <select
@@ -585,7 +595,11 @@ export const GeneralSettings: React.FC<GeneralSettingsProps> = ({
                                                     onChange={(e) => void saveReminderPrefs(remindChannel, e.target.value as any)}
                                                     className="cd-dl-select-input"
                                                 >
-                                                    {REMIND_WHEN.map((item) => (
+                                                    {[
+                                                        { id: '3days', label: w.remind3 },
+                                                        { id: 'week', label: w.remindWeek },
+                                                        { id: 'both', label: w.remindBothTimes },
+                                                    ].map((item) => (
                                                         <option key={item.id} value={item.id}>{item.label}</option>
                                                     ))}
                                                 </select>
@@ -594,7 +608,7 @@ export const GeneralSettings: React.FC<GeneralSettingsProps> = ({
 
                                         <div className="cd-dl-row">
                                             <div className="cd-dl-row__copy">
-                                                <p className="cd-dl-row__title">The message</p>
+                                                <p className="cd-dl-row__title">{w.theMessage}</p>
                                                 <p className="cd-dl-row__desc" style={{ color: '#2a241e', fontWeight: 500, marginTop: '2px' }}>
                                                     {reminderPreview}
                                                 </p>
@@ -605,14 +619,14 @@ export const GeneralSettings: React.FC<GeneralSettingsProps> = ({
                                                     className="cd-basics-btn"
                                                     onClick={() => (primaryReminder ? onEditReminder(primaryReminder) : onAddReminder())}
                                                 >
-                                                    Edit
+                                                    {w.edit}
                                                 </button>
                                                 <button
                                                     type="button"
                                                     className="cd-basics-btn"
                                                     onClick={() => (primaryReminder ? onEditReminder(primaryReminder) : onAddReminder())}
                                                 >
-                                                    Preview
+                                                    {w.preview}
                                                 </button>
                                             </div>
                                         </div>
@@ -634,11 +648,11 @@ export const GeneralSettings: React.FC<GeneralSettingsProps> = ({
                                         <rect x="14" y="14" width="7" height="7" rx="1.5" />
                                     </svg>
                                     <span className="cd-basics-card-badge__text">
-                                        IN GALLERY
+                                        {w.inGalleryBadge}
                                     </span>
                                 </div>
                                 <div className="cd-dl-status__copy">
-                                    <h3 className="cd-dl-status__title">In the gallery</h3>
+                                    <h3 className="cd-dl-status__title">{w.inTheGallery}</h3>
                                     <p className="cd-dl-status__desc">
                                         {gallerySummary}
                                     </p>
@@ -649,8 +663,8 @@ export const GeneralSettings: React.FC<GeneralSettingsProps> = ({
                             <div className="cd-dl-card">
                                 <div className="cd-dl-row">
                                     <div className="cd-dl-row__copy">
-                                        <p className="cd-dl-row__title">Slideshow</p>
-                                        <p className="cd-dl-row__desc">Visitors can play the delivery as a slideshow.</p>
+                                        <p className="cd-dl-row__title">{w.slideshow}</p>
+                                        <p className="cd-dl-row__desc">{w.slideshowDesc}</p>
                                     </div>
                                     <div className="cd-dl-row__control">
                                         <Toggle
@@ -666,8 +680,8 @@ export const GeneralSettings: React.FC<GeneralSettingsProps> = ({
 
                                 <div className="cd-dl-row">
                                     <div className="cd-dl-row__copy">
-                                        <p className="cd-dl-row__title">Social sharing</p>
-                                        <p className="cd-dl-row__desc">Visitors can share individual photographs.</p>
+                                        <p className="cd-dl-row__title">{w.socialSharing}</p>
+                                        <p className="cd-dl-row__desc">{w.socialSharingDesc}</p>
                                     </div>
                                     <div className="cd-dl-row__control">
                                         <Toggle
@@ -683,8 +697,8 @@ export const GeneralSettings: React.FC<GeneralSettingsProps> = ({
 
                                 <div className="cd-dl-row">
                                     <div className="cd-dl-row__copy">
-                                        <p className="cd-dl-row__title">Walk-through cards</p>
-                                        <p className="cd-dl-row__desc">Short prompts showing first-time visitors how the gallery works.</p>
+                                        <p className="cd-dl-row__title">{w.walkthrough}</p>
+                                        <p className="cd-dl-row__desc">{w.walkthroughDesc}</p>
                                     </div>
                                     <div className="cd-dl-row__control">
                                         <Toggle

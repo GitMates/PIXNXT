@@ -33,6 +33,7 @@ import { photoExifCameraLabel } from '../lib/exifCamera';
 import { PhotoDetailsModal } from '../components/features/CollectionDashboard/Media/PhotoDetailsModal';
 import '../components/features/CollectionDashboard/Media/PhotoDetailsModal.css';
 import { useAuth } from '../hooks/useAuth';
+import { useAppLanguage } from '../context/AppLanguageContext';
 import { DesignTab } from '../components/features/CollectionDashboard/DesignTab';
 import '../components/features/CollectionDashboard/DesignTab/DesignWorkspace.css';
 import { PreviewPane } from '../components/features/CollectionDashboard/PreviewPane';
@@ -131,7 +132,7 @@ import {
     isVideoMedia,
 } from '../lib/photoDisplayUrl';
 import { formatCoverDate, formatSidebarDeliveryDate, formatLastSavedTime } from '../lib/formatCoverDate.js';
-import { broadcastGalleryLive, subscribePersonLabelUpdates } from '../lib/galleryLiveSync';
+import { broadcastGalleryLive, GALLERY_LIVE_CHANNEL, subscribePersonLabelUpdates } from '../lib/galleryLiveSync';
 import { isDigitalDownloadEnabled } from '../lib/storePackages';
 import { partitionGalleryMedia, countGalleryMedia, isGalleryVideo } from '../lib/galleryMediaType';
 import {
@@ -159,6 +160,8 @@ const CollectionDashboard = () => {
     const activityTabParam = searchParams.get('tab');
     const activitySubParam = searchParams.get('activity');
     const { user } = useAuth();
+    const { t: appT } = useAppLanguage();
+    const w = appT.workspace;
     const photosGridRef = useRef(null);
     const pendingUploadScrollRef = useRef(false);
 
@@ -1612,6 +1615,76 @@ const CollectionDashboard = () => {
         setFavoriteDetailToolbarMenuOpen(false);
         setFavoriteDetailPhotoMenuPhotoId(null);
     }, [selectedFavoriteListId]);
+
+    useEffect(() => {
+        if (!collectionId) return undefined;
+        let channel = null;
+        const applySelectionUpdate = (data) => {
+            if (!data || data.type !== 'SELECTION_ITEMS_UPDATED') return;
+            if (String(data.collectionId) !== String(collectionId)) return;
+            const listId = data.listId ? String(data.listId) : '';
+            const photoId = data.photoId ? String(data.photoId) : '';
+            if (listId && data.removed && photoId) {
+                setFavoriteActivity((prev) => prev.map((row) => (
+                    String(row.id) === listId
+                        ? { ...row, photoCount: Math.max(0, (Number(row.photoCount) || 0) - 1) }
+                        : row
+                )));
+                setFavoriteDetailRows((prev) => (
+                    String(selectedFavoriteListId) === listId
+                        ? prev.filter((row) => String(row.photo?.id || row.id) !== photoId)
+                        : prev
+                ));
+                setSelectionListPhotoIds((prev) => {
+                    const next = new Set(prev);
+                    next.delete(photoId);
+                    return next;
+                });
+                setClientFavoritedPhotoIds((prev) => {
+                    const next = new Set(prev);
+                    next.delete(photoId);
+                    return next;
+                });
+            } else if (listId && photoId && data.comment !== undefined) {
+                const comment = data.comment;
+                setFavoriteDetailRows((prev) => prev.map((row) => {
+                    if (String(selectedFavoriteListId) !== listId) return row;
+                    if (String(row.photo?.id || row.id) !== photoId) return row;
+                    return {
+                        ...row,
+                        note: comment,
+                        comment,
+                        photo: row.photo ? { ...row.photo, comment, note: comment } : row.photo,
+                    };
+                }));
+            }
+            window.setTimeout(() => {
+                void galleryService.getFavoriteActivity(collectionId).then((activity) => {
+                    setFavoriteActivity(activity || []);
+                }).catch(() => {});
+                void galleryService.getCollectionFavoriteOverlayPhotoIds(collectionId).then((overlays) => {
+                    setClientFavoritedPhotoIds(new Set(overlays.favoritedPhotoIds));
+                    setSelectionListPhotoIds(new Set(overlays.selectionListPhotoIds));
+                }).catch(() => {});
+                if (listId) {
+                    void galleryService.getFavoriteListItemRows(listId).then((rows) => {
+                        setFavoriteDetailRows((prev) => (
+                            String(selectedFavoriteListId) === listId ? rows : prev
+                        ));
+                    }).catch(() => {});
+                }
+            }, 400);
+        };
+        try {
+            channel = new BroadcastChannel(GALLERY_LIVE_CHANNEL);
+            channel.onmessage = (event) => applySelectionUpdate(event.data);
+        } catch {
+            /* BroadcastChannel optional */
+        }
+        return () => {
+            try { channel?.close(); } catch { /* ignore */ }
+        };
+    }, [collectionId, selectedFavoriteListId]);
 
     useEffect(() => {
         if (!selectedFavoriteListId) return;
@@ -5307,12 +5380,12 @@ const CollectionDashboard = () => {
                             disabled={statusSaving}
                             title={
                                 hasBeenPublished({ status, published_at: collection?.published_at })
-                                    ? 'Change delivery status'
-                                    : 'Publish this delivery'
+                                    ? w.changeStatus
+                                    : w.publishDelivery
                             }
                             onClick={handleStatusBadgeClick}
                         >
-                            <span>{statusSaving ? 'Saving…' : deliveryStatusLabel(status)}</span>
+                            <span>{statusSaving ? w.saving : (deliveryStatusLabel(status) === 'Published' ? w.published : deliveryStatusLabel(status) === 'Hidden' ? w.hidden : w.draft)}</span>
                             {hasBeenPublished({ status, published_at: collection?.published_at }) ? (
                                 <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden><polyline points="6 9 12 15 18 9"></polyline></svg>
                             ) : null}
@@ -5326,7 +5399,7 @@ const CollectionDashboard = () => {
                                     className={`cd-status-option ${status === DELIVERY_STATUS.published ? 'is-active' : ''}`}
                                     onClick={() => void persistDeliveryStatus(DELIVERY_STATUS.published)}
                                 >
-                                    Published
+                                    {w.published}
                                 </button>
                                 <button
                                     type="button"
@@ -5335,13 +5408,13 @@ const CollectionDashboard = () => {
                                     className={`cd-status-option ${status === DELIVERY_STATUS.archived ? 'is-active' : ''}`}
                                     onClick={() => void persistDeliveryStatus(DELIVERY_STATUS.archived)}
                                 >
-                                    Hidden
+                                    {w.hidden}
                                 </button>
                             </div>
                         ) : null}
                     </div>
                     {lastSavedTime ? (
-                        <span className="cd-topbar-save">All changes saved · {lastSavedTime}</span>
+                        <span className="cd-topbar-save">{w.allSaved} · {lastSavedTime}</span>
                     ) : null}
                 </div>
 
@@ -5369,7 +5442,7 @@ const CollectionDashboard = () => {
                                         isGuestFace ? snap.face_guest_image_limit : snap.face_normal_image_limit,
                                     );
                                     if (limit > 0 && used >= limit) {
-                                        const kind = isGuestFace ? 'Face matching' : 'Find People';
+                                        const kind = isGuestFace ? w.faceMatching : w.findPeople;
                                         // Stop any in-flight scan that started before the cap was hit.
                                         abortPhotoAiSync();
                                         setFaceQuotaLimitNotice(
@@ -5385,7 +5458,7 @@ const CollectionDashboard = () => {
                         }}
                     >
                         <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><circle cx="12" cy="12" r="3"/></svg>
-                        <span>Find People</span>
+                        <span>{w.findPeople}</span>
                     </button>
                     )}
                     <div className="cd-more-wrapper" ref={moreRef}>
@@ -5406,11 +5479,11 @@ const CollectionDashboard = () => {
                                 }
                             }}
                         >
-                            More <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                            {w.more} <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
                         </button>
                         {showMoreDropdown && (
                             <div className="cd-more-dropdown" role="menu">
-                                <div className="cd-dropdown-section-title">THIS DELIVERY</div>
+                                <div className="cd-dropdown-section-title">{w.thisDelivery}</div>
                                 <button
                                     type="button"
                                     className="cd-ctx-item"
@@ -5421,7 +5494,7 @@ const CollectionDashboard = () => {
                                         setShowDuplicateModal(true);
                                     }}
                                 >
-                                    <span>Duplicate</span>
+                                    <span>{w.duplicate}</span>
                                     <span className="cd-dropdown-right-label">{duplicateShortcutLabel}</span>
                                 </button>
                                 <button
@@ -5435,10 +5508,10 @@ const CollectionDashboard = () => {
                                         setShowRenameDeliveryModal(true);
                                     }}
                                 >
-                                    <span>Rename</span>
+                                    <span>{w.rename}</span>
                                 </button>
                                 <div className="cd-dropdown-divider" />
-                                <div className="cd-dropdown-section-title">MOBILE APP</div>
+                                <div className="cd-dropdown-section-title">{w.mobileApp}</div>
                                 <button
                                     type="button"
                                     className="cd-ctx-item"
@@ -5449,16 +5522,16 @@ const CollectionDashboard = () => {
                                         setShowPushToAppModal(true);
                                     }}
                                 >
-                                    <span>Push to the app...</span>
+                                    <span>{w.pushToApp}</span>
                                     <span className="cd-dropdown-right-label">
                                         {mobileAppSetsLiveCount === 1
-                                            ? '1 set live'
-                                            : `${mobileAppSetsLiveCount} sets live`}
+                                            ? w.setsLive(1)
+                                            : w.setsLive(mobileAppSetsLiveCount)}
                                     </span>
                                 </button>
 
                                 <div className="cd-dropdown-divider" />
-                                <div className="cd-dropdown-section-title">EXPORT</div>
+                                <div className="cd-dropdown-section-title">{w.export}</div>
                                 <button
                                     type="button"
                                     className="cd-ctx-item"
@@ -5470,7 +5543,7 @@ const CollectionDashboard = () => {
                                         setActiveSettingsTab('download');
                                     }}
                                 >
-                                    <span>Download everything</span>
+                                    <span>{w.downloadEverything}</span>
                                     <span className="cd-dropdown-right-label">{deliveryStorageLabel}</span>
                                 </button>
                                 <button
@@ -5482,7 +5555,7 @@ const CollectionDashboard = () => {
                                         setShowPresetsSubmenu(false);
                                     }}
                                 >
-                                    <span>Download a set...</span>
+                                    <span>{w.downloadSet}</span>
                                 </button>
                                 <button
                                     type="button"
@@ -5493,11 +5566,11 @@ const CollectionDashboard = () => {
                                         setShowPresetsSubmenu(false);
                                     }}
                                 >
-                                    <span>Export guest list (CSV)</span>
+                                    <span>{w.exportGuests}</span>
                                 </button>
 
                                 <div className="cd-dropdown-divider" />
-                                <div className="cd-dropdown-section-title">DANGER</div>
+                                <div className="cd-dropdown-section-title">{w.danger}</div>
                                 <button
                                     type="button"
                                     className="cd-ctx-item"
@@ -5508,7 +5581,7 @@ const CollectionDashboard = () => {
                                         setShowArchiveConfirmModal(true);
                                     }}
                                 >
-                                    <span>Archive</span>
+                                    <span>{w.archive}</span>
                                 </button>
                                 <button
                                     type="button"
@@ -5520,7 +5593,7 @@ const CollectionDashboard = () => {
                                         setShowDeleteCollectionModal(true);
                                     }}
                                 >
-                                    <span>Delete delivery</span>
+                                    <span>{w.deleteDelivery}</span>
                                 </button>
                             </div>
                         )}
@@ -5553,7 +5626,7 @@ const CollectionDashboard = () => {
                         className="cd-topbar-btn"
                         onClick={handlePreviewAsClient}
                     >
-                        Preview
+                        {w.preview}
                     </button>
                     <div className="cd-share-wrapper" ref={shareRef}>
                         <button
@@ -5569,7 +5642,7 @@ const CollectionDashboard = () => {
                                 setShowShareDropdown(!showShareDropdown);
                             }}
                         >
-                            Share <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                            {w.share} <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
                         </button>
                         {showShareDropdown && (
                             <DeliverySharePublishPanel
@@ -5611,7 +5684,7 @@ const CollectionDashboard = () => {
                                     void openGdPublishedPopup();
                                 }}
                             >
-                                Send to {(gdGuestCount || gdEvent?.guest_count || 0).toLocaleString()} guests
+                                {w.sendToGuests(gdGuestCount || gdEvent?.guest_count || 0)}
                             </button>
                             {showGdPublishedPopup ? (
                                 <GuestDeliveryPublishedPopup

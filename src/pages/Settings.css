@@ -4500,6 +4500,37 @@
   cursor: pointer;
 }
 
+.ya-lang-segment {
+  display: inline-flex;
+  gap: 6px;
+  padding: 4px;
+  border: 1px solid #e6e1d9;
+  border-radius: 9999px;
+  background: #fff;
+}
+
+.ya-lang-segment__item {
+  border: none;
+  background: transparent;
+  padding: 7px 16px;
+  border-radius: 9999px;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  color: #8c857e;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.ya-lang-segment__item:hover {
+  color: #1a1a1a;
+}
+
+.ya-lang-segment__item.is-on {
+  background: #1d1916;
+  color: #fff;
+}
+
 .ya-text-btn:hover {
   color: #8c3a32;
 }

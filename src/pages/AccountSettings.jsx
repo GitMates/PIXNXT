@@ -3,6 +3,8 @@ import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { Home, FileText, CreditCard, User, ChevronLeft, LogOut } from 'lucide-react';
 import { galleryService } from '../services/gallery.service';
 import { useAuth } from '../hooks/useAuth';
+import { useAppLanguage } from '../context/AppLanguageContext';
+import { APP_LANGUAGE_IDS, appLanguageLabel } from '../lib/app-languages';
 import { getUserDisplayLabel, getUserInitial } from '../lib/userInitials';
 import { apiFetch } from '../lib/api/client';
 import AccountTopbarIcons from '../components/account/AccountTopbarIcons';
@@ -52,7 +54,7 @@ const STUDIO_NAV = [
     { id: 'studio-identity', label: 'Studio identity', icon: Home, section: 'STUDIO' },
     { id: 'legal-consent', label: 'Legal & consent', icon: FileText, section: 'STUDIO' },
     { id: 'billing', label: 'Plan & billing', icon: CreditCard, section: 'STUDIO' },
-    { id: 'account', label: 'Your account', icon: User, section: 'YOU' },
+    { id: 'account', label: 'Your profile', icon: User, section: 'YOU' },
 ];
 
 export default function AccountSettings() {
@@ -60,6 +62,7 @@ export default function AccountSettings() {
     const navigate = useNavigate();
     const location = useLocation();
     const { user, logout } = useAuth();
+    const { t: appT } = useAppLanguage();
     const activeTab = tab || 'account';
     const useStudioShell = STUDIO_SHELL_TABS.has(activeTab);
     const [showDropdown, setShowDropdown] = useState(false);
@@ -230,11 +233,15 @@ export default function AccountSettings() {
                         onClick={() => navigate(backTarget.path || '/dashboard')}
                     >
                         <ChevronLeft size={15} strokeWidth={2} />
-                        Back to {backTarget.label || 'Dashboard'}
+                        {backTarget.label === 'Settings'
+                            ? appT.common.backToSettings
+                            : backTarget.label && backTarget.label !== 'Dashboard' && appT.products[backTarget.label]
+                                ? appT.products[backTarget.label]
+                                : appT.common.backToDashboard}
                     </button>
 
                     <div className="studio-shell__brand">
-                        <span className="studio-shell__brand-label type-group-label">STUDIO</span>
+                        <span className="studio-shell__brand-label type-group-label">{appT.sections.studio}</span>
                         <h1 className="studio-shell__studio-name type-section-title">{businessName}</h1>
                         {studioHandle ? (
                             <p className="studio-shell__studio-handle type-meta">{studioHandle}</p>
@@ -242,7 +249,7 @@ export default function AccountSettings() {
                     </div>
 
                     <nav className="studio-shell__nav" aria-label="Studio settings">
-                        <span className="studio-shell__nav-label">STUDIO</span>
+                        <span className="studio-shell__nav-label">{appT.sections.studio}</span>
                         {studioItems.map((item) => {
                             const Icon = item.icon;
                             const active = isNavActive(item.id);
@@ -254,12 +261,12 @@ export default function AccountSettings() {
                                     onClick={() => navigate(`/account/${item.id}`)}
                                 >
                                     <Icon size={17} strokeWidth={1.75} className="studio-shell__nav-icon" />
-                                    <span>{item.label}</span>
+                                    <span>{appT.account.tabs[item.label] || item.label}</span>
                                 </button>
                             );
                         })}
 
-                        <span className="studio-shell__nav-label studio-shell__nav-label--spaced">YOU</span>
+                        <span className="studio-shell__nav-label studio-shell__nav-label--spaced">{appT.sections.you}</span>
                         {youItems.map((item) => {
                             const Icon = item.icon;
                             const active = isNavActive(item.id);
@@ -271,7 +278,7 @@ export default function AccountSettings() {
                                     onClick={() => navigate(`/account/${item.id}`)}
                                 >
                                     <Icon size={17} strokeWidth={1.75} className="studio-shell__nav-icon" />
-                                    <span>{item.label}</span>
+                                    <span>{appT.account.tabs[item.label] || item.label}</span>
                                 </button>
                             );
                         })}
@@ -280,9 +287,9 @@ export default function AccountSettings() {
                     <div className="studio-shell__aside-footer">
                         <div className="sb-appearance-track studio-shell__theme" role="group" aria-label="Appearance">
                             {[
-                                { id: 'light', label: 'Light' },
-                                { id: 'auto', label: 'Auto' },
-                                { id: 'dark', label: 'Dark' },
+                                { id: 'light', label: appT.common.light },
+                                { id: 'auto', label: appT.common.auto },
+                                { id: 'dark', label: appT.common.dark },
                             ].map(({ id, label }) => (
                                 <button
                                     key={id}
@@ -306,7 +313,7 @@ export default function AccountSettings() {
                         >
                             <LogOut size={16} strokeWidth={1.75} />
                             <span className="studio-shell__signout-text">
-                                <span className="studio-shell__signout-label">Sign out</span>
+                                <span className="studio-shell__signout-label">{appT.common.signOut}</span>
                                 {user?.email ? (
                                     <span className="studio-shell__signout-email">{user.email}</span>
                                 ) : null}
@@ -402,7 +409,10 @@ export default function AccountSettings() {
 
             <nav className="acct-subnav">
                 <ClientGallerySubpageTabs
-                    tabs={ACCOUNT_TABS}
+                    tabs={ACCOUNT_TABS.map((tab) => ({
+                        ...tab,
+                        label: appT.account.tabs[tab.label] || tab.label,
+                    }))}
                     activeId={activeTab}
                     onChange={(id) => navigate(`/account/${id}`)}
                 />
@@ -475,11 +485,12 @@ function StudioIdentityTab({ user, showToast, embedded = false }) {
 }
 
 function YourAccountTab({ user, showToast }) {
+    const { t: appT } = useAppLanguage();
     return (
         <div className="ya-page">
-            <h1 className="type-page-title si-page-title ya-page-title">Your account</h1>
+            <h1 className="type-page-title si-page-title ya-page-title">{appT.account.yourAccountTitle}</h1>
             <p className="type-lede si-page-lead ya-page-lead">
-                Your sign-in, your devices, what you get told.
+                {appT.account.yourAccountLead}
             </p>
             <YourAccountPanel user={user} showToast={showToast} />
         </div>
@@ -499,6 +510,7 @@ function BillingTab() {
 }
 
 function AdvancedTab({ user, showToast }) {
+    const { lang: appLang, setAppLanguage, t: appT } = useAppLanguage();
     // Advanced Settings State
     const [settings, setSettings] = useState({
         // Client Gallery
@@ -601,9 +613,7 @@ function AdvancedTab({ user, showToast }) {
     };
 
     const handleLanguageSelect = (lang) => {
-        const updated = { ...settings, language: lang };
-        setSettings(updated);
-        saveSettings(updated);
+        setAppLanguage(lang);
         setLangDropdownOpen(false);
     };
 
@@ -810,46 +820,35 @@ function AdvancedTab({ user, showToast }) {
             {/* Language Section at the bottom */}
             <div className="bg-white border border-[#eeeeee] rounded-[2px] p-8 mt-4 flex flex-col gap-3">
                 <div className="flex items-center gap-2">
-                    <h2 className="text-[18px] font-semibold text-[#222]">Language</h2>
-                    <span className="text-[11px] font-bold text-[#1890ff] bg-[#e6f7ff] border border-[#bae7ff] px-1.5 py-0.5 rounded-[2px] select-none tracking-wide">BETA</span>
+                    <h2 className="text-[18px] font-semibold text-[#222]">{appT.account.language}</h2>
                 </div>
 
-                {/* Custom Language Select Dropdown */}
                 <div className="relative w-full max-w-[480px]" ref={langRef}>
-                    <div 
+                    <div
                         className="flex items-center justify-between border border-[#ddd] bg-white px-4 py-2.5 text-[17px] text-[#111] cursor-pointer hover:border-[#aaa] transition-colors rounded-[2px]"
                         onClick={() => setLangDropdownOpen(!langDropdownOpen)}
                     >
-                        <span>{settings.language}</span>
+                        <span>{appLanguageLabel(appLang)}</span>
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#666" strokeWidth="2.5" className="mt-0.5"><polyline points="6 9 12 15 18 9"></polyline></svg>
                     </div>
 
                     {langDropdownOpen && (
                         <div className="absolute top-[105%] left-0 w-full bg-white border border-[#ccc] rounded-[2px] shadow-lg z-[600] py-1 text-[17px]">
-                            <div 
-                                className={`px-4 py-2 cursor-pointer transition-colors ${settings.language === 'English (US)' ? 'bg-[#1890ff] text-white' : 'hover:bg-[#f5f5f5] text-[#222]'}`}
-                                onClick={() => handleLanguageSelect('English (US)')}
-                            >
-                                English (US)
-                            </div>
-                            <div 
-                                className={`px-4 py-2 cursor-pointer transition-colors ${settings.language === 'Español (Latinoamérica)' ? 'bg-[#1890ff] text-white' : 'hover:bg-[#f5f5f5] text-[#222]'}`}
-                                onClick={() => handleLanguageSelect('Español (Latinoamérica)')}
-                            >
-                                Español (Latinoamérica)
-                            </div>
-                            <div 
-                                className={`px-4 py-2 cursor-pointer transition-colors ${settings.language === 'Português (Brasil)' ? 'bg-[#1890ff] text-white' : 'hover:bg-[#f5f5f5] text-[#222]'}`}
-                                onClick={() => handleLanguageSelect('Português (Brasil)')}
-                            >
-                                Português (Brasil)
-                            </div>
+                            {APP_LANGUAGE_IDS.map((id) => (
+                                <div
+                                    key={id}
+                                    className={`px-4 py-2 cursor-pointer transition-colors ${appLang === id ? 'bg-[#1890ff] text-white' : 'hover:bg-[#f5f5f5] text-[#222]'}`}
+                                    onClick={() => handleLanguageSelect(id)}
+                                >
+                                    {appLanguageLabel(id)}
+                                </div>
+                            ))}
                         </div>
                     )}
                 </div>
 
                 <p className="text-[14px] text-[#888] leading-relaxed mt-1">
-                    Choose your preferred language for the Pixieset dashboard. During the beta phase, this setting applies only to Client Gallery.
+                    {appT.account.languageApplies}
                 </p>
             </div>
         </div>

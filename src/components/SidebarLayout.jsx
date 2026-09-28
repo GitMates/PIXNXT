@@ -30,6 +30,7 @@ import {
 } from '../lib/photographerLiveSync';
 import { AccountQuotaMeters } from './ui/AccountQuotaMeters';
 import { StudioAvatar } from './ui/StudioAvatar';
+import { useAppLanguage } from '../context/AppLanguageContext';
 import { getThemeMode, setThemeMode, THEME_CHANGE_EVENT } from '../lib/appearanceTheme';
 import { syncUploadDefaultsToLocalStorage } from '../lib/uploadDefaults';
 import { navigateToAccount } from '../lib/accountBackNav';
@@ -68,6 +69,7 @@ const SidebarLayout = ({
     const contextDropdownRef = useRef(null);
     const profileDropdownRef = useRef(null);
     const { user, logout } = useAuth();
+    const { t: appT } = useAppLanguage();
     const [showProfileDropdown, setShowProfileDropdown] = useState(false);
     const [isAdmin, setIsAdmin] = useState(false);
     const [themeMode, setThemeModeState] = useState(() => getThemeMode());
@@ -335,7 +337,7 @@ const SidebarLayout = ({
 
         return (
             <div className={cn('sb-profile-menu absolute', positionClasses)} role="menu">
-                <span className="sb-profile-menu__section-title">STUDIO</span>
+                <span className="sb-profile-menu__section-title">{appT.sections.studio}</span>
                 <div className="flex flex-col gap-0.5">
                     <button
                         type="button"
@@ -347,7 +349,7 @@ const SidebarLayout = ({
                         )}
                     >
                         <Home className="size-4 shrink-0" strokeWidth={1.75} />
-                        <span>Studio identity</span>
+                        <span>{appT.dash.studioIdentity}</span>
                     </button>
                     <button
                         type="button"
@@ -359,7 +361,7 @@ const SidebarLayout = ({
                         )}
                     >
                         <FileText className="size-4 shrink-0" strokeWidth={1.75} />
-                        <span>Legal &amp; consent</span>
+                        <span>{appT.dash.legalConsent}</span>
                     </button>
                     <button
                         type="button"
@@ -371,13 +373,13 @@ const SidebarLayout = ({
                         )}
                     >
                         <CreditCard className="size-4 shrink-0" strokeWidth={1.75} />
-                        <span>Plan &amp; billing</span>
+                        <span>{appT.dash.planBilling}</span>
                     </button>
                 </div>
 
                 <div className="sb-profile-menu__divider" />
 
-                <span className="sb-profile-menu__section-title">YOU</span>
+                <span className="sb-profile-menu__section-title">{appT.sections.you}</span>
                 <div className="flex flex-col gap-0.5">
                     <button
                         type="button"
@@ -390,7 +392,7 @@ const SidebarLayout = ({
                         )}
                     >
                         <User className="size-4 shrink-0" strokeWidth={1.75} />
-                        <span>Your account</span>
+                        <span>{appT.dash.yourAccount}</span>
                     </button>
                     {isAdmin && (
                         <button
@@ -410,9 +412,9 @@ const SidebarLayout = ({
 
                 <div className="sb-appearance-track sb-appearance-track--menu" role="group" aria-label="Appearance">
                     {[
-                        { id: 'light', label: 'Light' },
-                        { id: 'auto', label: 'Auto' },
-                        { id: 'dark', label: 'Dark' },
+                        { id: 'light', label: appT.common.light },
+                        { id: 'auto', label: appT.common.auto },
+                        { id: 'dark', label: appT.common.dark },
                     ].map(({ id, label }) => {
                         const isActive = themeMode === id;
                         return (
@@ -445,7 +447,7 @@ const SidebarLayout = ({
                     className="sb-profile-menu__item"
                 >
                     <LogOut className="size-4 shrink-0" strokeWidth={1.75} />
-                    <span>Sign out</span>
+                    <span>{appT.common.signOut}</span>
                 </button>
             </div>
         );
@@ -480,11 +482,11 @@ const SidebarLayout = ({
                             <span className="cg-app-switcher-item__icon inline-flex size-9 items-center justify-center rounded-lg bg-[#F4F3F0]">
                                 <img src={dashboardPng} alt="" className="size-4 object-contain" />
                             </span>
-                            Home
+                            {appT.products.Home}
                         </button>
 
                         <p className="cg-app-switcher-label px-3 pb-1 pt-3 text-xs font-medium uppercase tracking-wider text-[#71717A]">
-                            Pixnxt Ecosystem
+                            {appT.products.ecosystem}
                         </p>
 
                         {products.map((product) => {
@@ -507,12 +509,20 @@ const SidebarLayout = ({
                                     </span>
                                     <span className="min-w-0 flex-1 text-left">
                                         <span className="flex items-center gap-2">
-                                            <span className="cg-app-switcher-item__name font-medium text-[#1A1A1A]">{product.name}</span>
+                                            <span className="cg-app-switcher-item__name font-medium text-[#1A1A1A]">{appT.products[product.name] || product.name}</span>
                                             {active && (
-                                                <span className="cg-app-switcher-item__badge rounded-full bg-[#1A1A1A]/10 px-1.5 py-0.5 text-[0.65rem] font-medium text-[#1A1A1A]">Current</span>
+                                                <span className="cg-app-switcher-item__badge rounded-full bg-[#1A1A1A]/10 px-1.5 py-0.5 text-[0.65rem] font-medium text-[#1A1A1A]">{appT.products.Current}</span>
                                             )}
                                         </span>
-                                        <span className="cg-app-switcher-item__tagline block truncate text-xs text-[#71717A]">{product.tagline}</span>
+                        <span className="cg-app-switcher-item__tagline block truncate text-xs text-[#71717A]">
+                          {product.id === 'client-gallery'
+                            ? appT.products.tagClient
+                            : product.id === 'portal'
+                              ? appT.products.tagPortal
+                              : product.id === 'mobile-gallery'
+                                ? appT.products.tagMobile
+                                : appT.products.tagAlbum}
+                        </span>
                                     </span>
                                 </button>
                             );
@@ -545,7 +555,7 @@ const SidebarLayout = ({
                 className={cn('sb-nav-item', active && 'sb-nav-item--active')}
             >
                 <Icon className="size-4 shrink-0" strokeWidth={1.75} />
-                <span className="sb-nav-item__label">{item.label}</span>
+                <span className="sb-nav-item__label">{appT.nav[item.label] || item.label}</span>
                 {count != null && (
                     <span className="sb-nav-item__count">{count}</span>
                 )}
@@ -571,7 +581,7 @@ const SidebarLayout = ({
                         onClick={() => { void logout?.(); }}
                         className="mt-6 w-full rounded-xl bg-[#1A1A1A] px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-black"
                     >
-                        Sign out
+                        {appT.common.signOut}
                     </button>
                 </div>
             </div>
@@ -619,7 +629,7 @@ const SidebarLayout = ({
                                 className="sb-product-btn"
                                 aria-expanded={showContextDropdown}
                             >
-                                <span className="truncate">{activeProduct.name}</span>
+                                <span className="truncate">{appT.products[activeProduct.name] || activeProduct.name}</span>
                                 <span className="sb-product-btn__chevron" aria-hidden>
                                     <ChevronDown className="size-3.5" strokeWidth={2} />
                                 </span>
@@ -642,7 +652,7 @@ const SidebarLayout = ({
                                                 <span className="sb-product-menu__icon inline-flex size-7 shrink-0 items-center justify-center rounded-md bg-[#F4F3F0]">
                                                     <Icon className="size-3.5" />
                                                 </span>
-                                                <span className="min-w-0 flex-1 truncate font-medium">{item.name}</span>
+                                                <span className="min-w-0 flex-1 truncate font-medium">{appT.products[item.name] || item.name}</span>
                                                 {active && <span className="sb-product-menu__dot size-1.5 shrink-0 rounded-full bg-[#1A1A1A]" />}
                                             </button>
                                         );
@@ -653,9 +663,9 @@ const SidebarLayout = ({
 
                         {hasSections ? (
                             <>
-                                <p className="sb-nav-section">Work</p>
+                                <p className="sb-nav-section">{appT.sections.work}</p>
                                 {workNavItems.map(renderNavButton)}
-                                <p className="sb-nav-section sb-nav-section--studio">Studio</p>
+                                <p className="sb-nav-section sb-nav-section--studio">{appT.sections.studio}</p>
                                 {studioNavItems.map(renderNavButton)}
                             </>
                         ) : (
@@ -693,7 +703,7 @@ const SidebarLayout = ({
                             </span>
                             <span className="min-w-0 flex-1">
                                 <span className="sb-profile-btn__name">{userDisplayLabel}</span>
-                                <span className="sb-profile-btn__role">Studio owner</span>
+                                <span className="sb-profile-btn__role">{appT.common.studioOwner}</span>
                             </span>
                             <ChevronUp className={cn('size-4 shrink-0 text-[#8C827A] transition-transform duration-200', !showProfileDropdown && 'rotate-180')} />
                         </button>

@@ -1,5 +1,6 @@
 import React from 'react';
 import { captureModeNeedsName, captureModeNeedsPhone, normalizeCaptureMode } from '../../../../lib/galleryEmailRegistration';
+import { galleryUiStrings } from '../../../../lib/gallery-languages';
 import './GalleryEmailGate.css';
 
 export type CaptureFieldMode = 'email' | 'email_name' | 'email_name_phone';
@@ -12,6 +13,7 @@ export function GalleryEmailGate({
   saving,
   error,
   onSubmit,
+  strings,
 }: {
   collectionName?: string | null;
   coverUrl?: string | null;
@@ -20,20 +22,22 @@ export function GalleryEmailGate({
   saving?: boolean;
   error?: string | null;
   onSubmit: (payload: { email: string; name: string; phone: string }) => void | Promise<void>;
+  strings?: ReturnType<typeof galleryUiStrings>;
 }) {
   const mode = normalizeCaptureMode(captureMode);
   const askName = captureModeNeedsName(mode);
   const askPhone = captureModeNeedsPhone(mode);
+  const t = strings || galleryUiStrings('English');
 
   const [email, setEmail] = React.useState('');
   const [name, setName] = React.useState('');
   const [phone, setPhone] = React.useState('');
 
   const lead = askPhone
-    ? 'Your name, email and phone — once, then the gallery opens.'
+    ? t.gateLeadFull
     : askName
-      ? 'Your name and email — once, then the gallery opens.'
-      : 'Your email address — once, then the gallery opens.';
+      ? t.gateLeadName
+      : t.gateLeadEmail;
 
   const handleSubmit = (event: React.FormEvent) => {
     event.preventDefault();
@@ -60,26 +64,26 @@ export function GalleryEmailGate({
         <form className="geg-form" onSubmit={handleSubmit}>
           {askName ? (
             <label className="geg-field">
-              <span>Name</span>
+              <span>{t.gateName}</span>
               <input
                 type="text"
                 autoComplete="name"
                 value={name}
                 onChange={(event) => setName(event.target.value)}
-                placeholder="Your name"
+                placeholder={t.gateNamePh}
                 required
               />
             </label>
           ) : null}
 
           <label className="geg-field">
-            <span>Email</span>
+            <span>{t.gateEmail}</span>
             <input
               type="email"
               autoComplete="email"
               value={email}
               onChange={(event) => setEmail(event.target.value)}
-              placeholder="you@email.com"
+              placeholder={t.gateEmailPh}
               required
               autoFocus={!askName}
             />
@@ -87,13 +91,13 @@ export function GalleryEmailGate({
 
           {askPhone ? (
             <label className="geg-field">
-              <span>Phone</span>
+              <span>{t.gatePhone}</span>
               <input
                 type="tel"
                 autoComplete="tel"
                 value={phone}
                 onChange={(event) => setPhone(event.target.value)}
-                placeholder="WhatsApp number"
+                placeholder={t.gatePhonePh}
                 required
               />
             </label>
@@ -102,11 +106,11 @@ export function GalleryEmailGate({
           {error ? <p className="geg-error">{error}</p> : null}
 
           <button type="submit" className="geg-submit" disabled={saving}>
-            {saving ? 'Saving…' : 'Continue'}
+            {saving ? t.gateSaving : t.gateContinue}
           </button>
         </form>
 
-        <p className="geg-hint">You will not be asked again on this device.</p>
+        <p className="geg-hint">{t.gateHint}</p>
       </div>
     </div>
   );

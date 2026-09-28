@@ -93,6 +93,9 @@ export const FavoriteSettings: React.FC<FavoriteSettingsProps> = ({
   const [lockOnSubmit, setLockOnSubmit] = React.useState(collection?.selection_lock_on_submit !== false);
   const [chaseAfterSilence, setChaseAfterSilence] = React.useState(collection?.selection_chase_enabled !== false);
   const [allowDownloadShare, setAllowDownloadShare] = React.useState(collection?.selection_allow_download_share !== false);
+  const [selectionStore, setSelectionStore] = React.useState(
+    collection?.selection_store_enabled === true || collection?.selection_store_enabled === 1,
+  );
   const [sendingListId, setSendingListId] = React.useState<string | null>(null);
 
   React.useEffect(() => {
@@ -100,11 +103,13 @@ export const FavoriteSettings: React.FC<FavoriteSettingsProps> = ({
     setLockOnSubmit(collection?.selection_lock_on_submit !== false);
     setChaseAfterSilence(collection?.selection_chase_enabled !== false);
     setAllowDownloadShare(collection?.selection_allow_download_share !== false);
+    setSelectionStore(collection?.selection_store_enabled === true || collection?.selection_store_enabled === 1);
   }, [
     collection?.selection_notify_on_submit,
     collection?.selection_lock_on_submit,
     collection?.selection_chase_enabled,
     collection?.selection_allow_download_share,
+    collection?.selection_store_enabled,
   ]);
 
   const persist = async (patch: Record<string, unknown>) => {
@@ -431,6 +436,20 @@ export const FavoriteSettings: React.FC<FavoriteSettingsProps> = ({
                         void persist({ selection_allow_download_share: next });
                       }}
                       label="Allow download and share on selections"
+                    />
+                  )}
+                />
+                <Row
+                  title="Let them order prints from a selection"
+                  desc="Show the shop on each photograph they have chosen. Turning this off hides it at once."
+                  control={(
+                    <Toggle
+                      checked={selectionStore}
+                      onChange={(next) => {
+                        setSelectionStore(next);
+                        void persist({ selection_store_enabled: next });
+                      }}
+                      label="Let them order prints from a selection"
                     />
                   )}
                 />

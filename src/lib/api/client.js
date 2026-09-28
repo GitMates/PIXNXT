@@ -129,47 +129,61 @@ export function readWorkersResetToken() {
  * explicit access token is appended as ?access_token= over HTTPS).
  * Returns an unsubscribe function. Auto-stops on error (caller polls anyway).
  */
-export function subscribeSse(path, { onEvent, query = {} } = {}) {
+export function subscribeSse(path, { onEvent, query = {}, retryMs = 0 } = {}) {
   if (typeof window === 'undefined' || typeof EventSource === 'undefined') {
     return () => {};
   }
-  const params = new URLSearchParams({ ...query });
-  if (accessToken) params.set('access_token', accessToken);
-  const source = new EventSource(`${apiBase()}${path}?${params.toString()}`);
-  source.onmessage = (event) => {
+  let source = null;
+  let retryId = null;
+  let disposed = false;
+  const emit = (event, type) => {
     if (!event.data || event.data.startsWith(':')) return;
     try {
-      onEvent?.(JSON.parse(event.data), event);
+      onEvent?.(JSON.parse(event.data), event, type);
     } catch {
-      onEvent?.(event.data, event);
+      onEvent?.(event.data, event, type);
     }
   };
-  source.addEventListener('feedback-updated', (event) => {
+  const connect = () => {
+    if (disposed) return;
+    const params = new URLSearchParams({ ...query });
+    if (accessToken) params.set('access_token', accessToken);
     try {
-      onEvent?.(JSON.parse(event.data), event, 'feedback-updated');
+      source = new EventSource(`${apiBase()}${path}?${params.toString()}`);
     } catch {
-      onEvent?.(event.data, event, 'feedback-updated');
+      scheduleRetry();
+      return;
     }
-  });
-  source.addEventListener('gallery-updated', (event) => {
-    try {
-      onEvent?.(JSON.parse(event.data), event, 'gallery-updated');
-    } catch {
-      onEvent?.(event.data, event, 'gallery-updated');
-    }
-  });
-  source.onerror = () => {
-    try {
-      source.close();
-    } catch {
-      // ignore
-    }
+    source.onmessage = (event) => emit(event);
+    source.addEventListener('feedback-updated', (event) => emit(event, 'feedback-updated'));
+    source.addEventListener('gallery-updated', (event) => emit(event, 'gallery-updated'));
+    source.onerror = () => {
+      try {
+        source?.close();
+      } catch {
+        // ignore
+      }
+      source = null;
+      // The backend closes streams after ~60s — reconnect so pushes keep flowing.
+      scheduleRetry();
+    };
   };
+  const scheduleRetry = () => {
+    if (disposed || !retryMs || retryId) return;
+    retryId = window.setTimeout(() => {
+      retryId = null;
+      connect();
+    }, retryMs);
+  };
+  connect();
   return () => {
+    disposed = true;
+    if (retryId) window.clearTimeout(retryId);
     try {
-      source.close();
+      source?.close();
     } catch {
       // ignore
     }
+    source = null;
   };
 }

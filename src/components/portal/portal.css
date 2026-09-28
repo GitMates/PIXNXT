@@ -73,7 +73,7 @@
     inset -3px -3px 7px oklch(1 0.004 85 / 0.85);
 }
 
-.theme-mono .neu-input:focus {
+body:not(.dark-theme) .theme-mono .neu-input:focus {
   background-color: #ffffff;
   box-shadow:
     inset 2px 2px 5px oklch(0.4 0.01 70 / 0.08),
@@ -94,9 +94,9 @@
   transition: all 0.2s ease-in-out;
 }
 
-.theme-mono select:focus,
-.theme-mono input:focus,
-.theme-mono textarea:focus {
+body:not(.dark-theme) .theme-mono select:focus,
+body:not(.dark-theme) .theme-mono input:focus,
+body:not(.dark-theme) .theme-mono textarea:focus {
   outline: none;
   background-color: #ffffff;
   box-shadow: 0 0 0 2px oklch(0.26 0.006 60 / 0.2);

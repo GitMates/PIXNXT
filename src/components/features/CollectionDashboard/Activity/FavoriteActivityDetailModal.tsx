@@ -132,7 +132,10 @@ export function FavoriteActivityDetailModal({
   const submittedLabel = detail.max_selection != null && Number(detail.max_selection) > 0
     ? `${detail.photoCount ?? 0} of ${detail.max_selection} · complete`
     : `${detail.photoCount ?? 0} selected`;
-  const noteCount = sortedRows.filter((row: any) => String(row.photo?.note || '').trim()).length;
+  const rowComment = (row: FavoriteDetailRow & { note?: string | null; comment?: string | null; photo?: FavoriteDetailRow['photo'] & { comment?: string | null; note?: string | null } }) =>
+    String(row.note || row.comment || row.photo?.comment || row.photo?.note || '').trim();
+
+  const noteCount = sortedRows.filter((row) => rowComment(row)).length;
   const whenLabel = detail.updated_at
     ? `${formatActivityRelativeTime(detail.updated_at)} · ${new Date(detail.updated_at)
         .toLocaleString('en-GB', {
@@ -253,6 +256,11 @@ export function FavoriteActivityDetailModal({
                         {thumb && isVideo ? (
                           <span className="favorite-detail-photo-grid__video">
                             <Play size={14} fill="white" stroke="white" />
+                          </span>
+                        ) : null}
+                        {rowComment(row) ? (
+                          <span className="favorite-detail-photo-grid__note" title={rowComment(row)}>
+                            {rowComment(row)}
                           </span>
                         ) : null}
                       </div>

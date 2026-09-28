@@ -782,7 +782,7 @@ export async function createFavoriteList(collectionId, sessionId, listName, meta
   return data?.list;
 }
 
-export async function toggleFavorite(sessionId, photoId, isFavorite, listId = null) {
+export async function toggleFavorite(sessionId, photoId, isFavorite, listId = null, comment) {
   let targetId = listId;
   if (!targetId) {
     const lists = await getFavoriteListsForSession(sessionId);
@@ -792,7 +792,12 @@ export async function toggleFavorite(sessionId, photoId, isFavorite, listId = nu
   await apiFetch(`/v1/engage/lists/${targetId}/items`, {
     method: 'POST',
     auth: false,
-    body: { sessionId, photoId, isFavorite: !!isFavorite },
+    body: {
+      sessionId,
+      photoId,
+      isFavorite: !!isFavorite,
+      ...(comment !== undefined ? { comment } : {}),
+    },
   });
   return { favorited: !!isFavorite };
 }
@@ -856,8 +861,12 @@ export async function deleteFavoriteList(listId) {
   await apiFetch(`/v1/engage/lists/${listId}`, { method: 'DELETE', body: {} });
 }
 
-export async function removePhotoFromFavoriteList(listId, photoId) {
-  await apiFetch(`/v1/engage/lists/${listId}/items/${photoId}`, { method: 'DELETE' });
+export async function removePhotoFromFavoriteList(listId, photoId, sessionId = null) {
+  const q = sessionId ? `?sessionId=${encodeURIComponent(sessionId)}` : '';
+  await apiFetch(`/v1/engage/lists/${listId}/items/${photoId}${q}`, {
+    method: 'DELETE',
+    auth: !sessionId,
+  });
 }
 
 export async function getSessionDefaultFavoriteList(sessionId) {

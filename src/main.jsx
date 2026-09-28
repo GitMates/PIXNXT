@@ -5,6 +5,7 @@ import { BrowserRouter } from 'react-router-dom'
 import './index.css'
 import App from './App.jsx'
 import { AuthProvider } from './context/AuthContext'
+import { AppLanguageProvider } from './context/AppLanguageContext'
 import { migrateStripInlineDataFromAlbumLocalStorage } from './lib/albumLocalStorage'
 import { installGlobalCrashHooks } from './lib/crashLogger'
 import { AppAlertHost, installAppAlert } from './components/ui/AppAlert'
@@ -34,7 +35,9 @@ createRoot(document.getElementById('root')).render(
       }}
     >
       <AuthProvider>
-        <App />
+        <AppLanguageProvider>
+          <App />
+        </AppLanguageProvider>
         <AppAlertHost />
       </AuthProvider>
     </BrowserRouter>

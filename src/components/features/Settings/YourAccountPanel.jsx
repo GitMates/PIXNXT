@@ -17,6 +17,8 @@ import {
     R2_USER_MODULES,
 } from '../../../lib/photographerR2Folder';
 import { writeCachedProfileIcon, syncProfileIconCacheFromProfile } from '../../../lib/profileIcon';
+import { useAppLanguage } from '../../../context/AppLanguageContext';
+import { APP_LANGUAGE_IDS, appLanguageLabel } from '../../../lib/app-languages';
 import '../../../pages/Settings.css';
 
 function mapAuthSessionsToRows(apiSessions, location = '—') {
@@ -45,29 +47,6 @@ const DEFAULT_NOTIFICATIONS = {
     guest_registrations: true,
     product_news: false,
 };
-
-const NOTIFY_ROWS = [
-    {
-        key: 'client_activity',
-        title: 'A client comments or approves',
-        hint: 'Email and push.',
-    },
-    {
-        key: 'print_orders',
-        title: 'A print order comes in',
-        hint: 'Email and push.',
-    },
-    {
-        key: 'guest_registrations',
-        title: 'Guest registrations during an event',
-        hint: 'A single summary an hour, not one per guest. 148 registrations should not be 148 notifications.',
-    },
-    {
-        key: 'product_news',
-        title: 'Product news from PIXNXT',
-        hint: 'Occasional. Never more than monthly.',
-    },
-];
 
 function PersonIcon() {
     return (
@@ -106,34 +85,34 @@ function CheckSmall() {
     );
 }
 
-function formatPasswordChanged(iso) {
+function formatPasswordChanged(iso, a) {
     if (!iso) return null;
     const then = new Date(iso);
-    if (Number.isNaN(then.getTime())) return 'Last changed recently';
+    if (Number.isNaN(then.getTime())) return a.lastChangedRecent;
     const months = Math.max(
         0,
         Math.round((Date.now() - then.getTime()) / (1000 * 60 * 60 * 24 * 30)),
     );
-    if (months <= 0) return 'Last changed this month';
-    if (months === 1) return 'Last changed 1 month ago';
-    return `Last changed ${months} months ago`;
+    if (months <= 0) return a.lastChangedMonth;
+    if (months === 1) return a.lastChanged1;
+    return a.lastChangedN(months);
 }
 
-function passwordStatusLabel({ passwordChangedAt, loginPasswordSet, user }) {
-    const changed = formatPasswordChanged(passwordChangedAt);
+function passwordStatusLabel({ passwordChangedAt, loginPasswordSet, user }, a) {
+    const changed = formatPasswordChanged(passwordChangedAt, a);
     if (changed) return changed;
-    if (userHasPasswordIdentity(user, loginPasswordSet)) return 'Password set';
-    return 'Not set yet';
+    if (userHasPasswordIdentity(user, loginPasswordSet)) return a.passwordSet;
+    return a.notSetYet;
 }
 
 export default function YourAccountPanel({ user, showToast }) {
     const navigate = useNavigate();
+    const { lang: appLang, setAppLanguage, t: appT } = useAppLanguage();
     const fileInputRef = useRef(null);
     const saveTimers = useRef({});
 
     const [loading, setLoading] = useState(true);
     const [uploadingIcon, setUploadingIcon] = useState(false);
-    const [saveStatus, setSaveStatus] = useState('Saved a moment ago.');
     const [showHandleModal, setShowHandleModal] = useState(false);
     const [showPasswordModal, setShowPasswordModal] = useState(false);
     const [showPasswordSuccess, setShowPasswordSuccess] = useState(false);
@@ -173,7 +152,6 @@ export default function YourAccountPanel({ user, showToast }) {
 
     const markSaved = useCallback(
         (toastMsg) => {
-            setSaveStatus('Saved a moment ago.');
             if (toastMsg) showToast?.(toastMsg);
         },
         [showToast],
@@ -614,11 +592,17 @@ export default function YourAccountPanel({ user, showToast }) {
         }
     };
 
-    const passwordHint = passwordStatusLabel({ passwordChangedAt, loginPasswordSet, user });
+    const passwordHint = passwordStatusLabel({ passwordChangedAt, loginPasswordSet, user }, appT.account);
+    const notifyRows = [
+        { key: 'client_activity', title: appT.account.notifyClientTitle, hint: appT.account.notifyEmailPush },
+        { key: 'print_orders', title: appT.account.notifyPrintTitle, hint: appT.account.notifyEmailPush },
+        { key: 'guest_registrations', title: appT.account.notifyGuestTitle, hint: appT.account.notifyGuestHint },
+        { key: 'product_news', title: appT.account.notifyNewsTitle, hint: appT.account.notifyNewsHint },
+    ];
     const hasPassword = userHasPasswordIdentity(user, loginPasswordSet);
 
     if (loading) {
-        return <AppLoader label="Loading account" variant="page-short" className="ya-loading app-loader" />;
+        return <AppLoader label={appT.account.loadingAccount} variant="page-short" className="ya-loading app-loader" />;
     }
 
     return (
@@ -628,14 +612,13 @@ export default function YourAccountPanel({ user, showToast }) {
                     <PersonIcon />
                 </span>
                 <p className="ya-info-banner__text">
-                    Personal to <strong>you</strong>, not to the studio. Nothing on this page
-                    appears to a client or a guest.
+                    {appT.account.personalNote}
                 </p>
             </div>
 
             {/* ── YOU ── */}
             <section className="ya-section">
-                <span className="ya-overline">YOU</span>
+                <span className="ya-overline">{appT.account.youOverline}</span>
 
                 <div className="ya-avatar-row">
                     <button
@@ -680,9 +663,9 @@ export default function YourAccountPanel({ user, showToast }) {
                         )}
                     </button>
                     <div className="ya-avatar-meta">
-                        <p className="ya-avatar-title">Profile icon</p>
+                        <p className="ya-avatar-title">{appT.account.profileIcon}</p>
                         <p className="ya-field-hint">
-                            Shown on your galleries and showcase. The preview fits the full image.
+                            {appT.account.profileIconDesc}
                         </p>
                         <div className="ya-avatar-actions">
                             <button
@@ -690,7 +673,7 @@ export default function YourAccountPanel({ user, showToast }) {
                                 className="ya-btn ya-btn--ghost"
                                 onClick={() => fileInputRef.current?.click()}
                             >
-                                {profileIcon ? 'Change' : 'Upload'}
+                                {profileIcon ? appT.common.change : appT.common.upload}
                             </button>
                             {profileIcon ? (
                                 <button
@@ -698,7 +681,7 @@ export default function YourAccountPanel({ user, showToast }) {
                                     className="ya-text-btn"
                                     onClick={handleRemoveIcon}
                                 >
-                                    Remove
+                                    {appT.common.remove}
                                 </button>
                             ) : null}
                         </div>
@@ -707,7 +690,7 @@ export default function YourAccountPanel({ user, showToast }) {
 
                 <div className="ya-field">
                     <label className="ya-label" htmlFor="ya-name">
-                        Name
+                        {appT.account.name}
                     </label>
                     <input
                         id="ya-name"
@@ -720,7 +703,7 @@ export default function YourAccountPanel({ user, showToast }) {
 
                 <div className="ya-field">
                     <label className="ya-label" htmlFor="ya-email">
-                        Email
+                        {appT.account.email}
                     </label>
                     <input
                         id="ya-email"
@@ -730,14 +713,13 @@ export default function YourAccountPanel({ user, showToast }) {
                         onChange={(e) => handleEmailChange(e.target.value)}
                     />
                     <p className="ya-field-hint">
-                        Changing this updates the public contact email shown to clients — not your
-                        sign-in email.
+                        {appT.account.emailHint}
                     </p>
                 </div>
 
                 <div className="ya-field">
                     <label className="ya-label" htmlFor="ya-phone">
-                        Phone
+                        {appT.account.phone}
                     </label>
                     <input
                         id="ya-phone"
@@ -745,40 +727,60 @@ export default function YourAccountPanel({ user, showToast }) {
                         type="tel"
                         autoComplete="tel"
                         value={phone}
-                        placeholder="Your phone number"
+                        placeholder={appT.account.phonePh}
                         onChange={(e) => setPhone(e.target.value)}
                         onBlur={handlePhoneBlur}
                     />
                     <p className="ya-field-hint">
-                        Account recovery and studio contact. Never shown to clients or guests unless
-                        you enable phone under public contact.
+                        {appT.account.phoneHint}
+                    </p>
+                </div>
+
+                <div className="ya-field">
+                    <span className="ya-label" id="ya-language-label">
+                        {appT.account.language}
+                    </span>
+                    <div className="ya-lang-segment" role="group" aria-labelledby="ya-language-label">
+                        {APP_LANGUAGE_IDS.map((id) => (
+                            <button
+                                key={id}
+                                type="button"
+                                className={`ya-lang-segment__item${appLang === id ? ' is-on' : ''}`}
+                                aria-pressed={appLang === id}
+                                onClick={() => setAppLanguage(id)}
+                            >
+                                {appLanguageLabel(id)}
+                            </button>
+                        ))}
+                    </div>
+                    <p className="ya-field-hint">
+                        {appT.account.languageApplies}
                     </p>
                 </div>
             </section>
 
             <section className="ya-section">
-                <span className="ya-overline">PUBLIC CONTACT</span>
+                <span className="ya-overline">{appT.account.publicContact}</span>
                 <p className="ya-section-lead">
-                    Shown on your <strong>Showcase</strong> and public galleries when you turn each
-                    field on there.
+                    {appT.account.publicContactLead}
                 </p>
 
                 <div className="ya-field">
                     <label className="ya-label" htmlFor="ya-website">
-                        Website
+                        {appT.account.website}
                     </label>
                     <input
                         id="ya-website"
                         className="ya-input"
                         type="url"
-                        placeholder="https://yourstudio.com"
+                        placeholder={appT.account.websitePh}
                         value={website}
                         onChange={(e) => handleWebsiteChange(e.target.value)}
                     />
                 </div>
 
                 <div className="ya-field">
-                    <span className="ya-label">Social links</span>
+                    <span className="ya-label">{appT.account.socialLinks}</span>
                     <div className="ya-social-fields">
                         <div className="ya-field ya-field--nested">
                             <label className="ya-label ya-label--sub" htmlFor="ya-social-instagram">
@@ -788,7 +790,7 @@ export default function YourAccountPanel({ user, showToast }) {
                                 id="ya-social-instagram"
                                 className="ya-input"
                                 type="text"
-                                placeholder="@username or full URL"
+                                placeholder={appT.account.instagramPh}
                                 value={socialInstagram}
                                 onChange={(e) =>
                                     handleSocialChange(
@@ -807,7 +809,7 @@ export default function YourAccountPanel({ user, showToast }) {
                                 id="ya-social-facebook"
                                 className="ya-input"
                                 type="text"
-                                placeholder="Page URL or username"
+                                placeholder={appT.account.facebookPh}
                                 value={socialFacebook}
                                 onChange={(e) =>
                                     handleSocialChange(
@@ -826,7 +828,7 @@ export default function YourAccountPanel({ user, showToast }) {
                                 id="ya-social-x"
                                 className="ya-input"
                                 type="text"
-                                placeholder="@username or full URL"
+                                placeholder={appT.account.instagramPh}
                                 value={socialXTwitter}
                                 onChange={(e) =>
                                     handleSocialChange(
@@ -842,20 +844,20 @@ export default function YourAccountPanel({ user, showToast }) {
 
                 <div className="ya-field">
                     <label className="ya-label" htmlFor="ya-address-line">
-                        Business address
+                        {appT.account.businessAddress}
                     </label>
                     <input
                         id="ya-address-line"
                         className="ya-input"
                         type="text"
-                        placeholder="Street address"
+                        placeholder={appT.account.streetPh}
                         value={addressLine1}
                         onChange={(e) => handleAddressLineChange(e.target.value)}
                     />
                     <div className="ya-field-row">
                         <div className="ya-field ya-field--nested">
                             <label className="ya-label ya-label--sub" htmlFor="ya-city">
-                                City
+                                {appT.account.city}
                             </label>
                             <input
                                 id="ya-city"
@@ -867,7 +869,7 @@ export default function YourAccountPanel({ user, showToast }) {
                         </div>
                         <div className="ya-field ya-field--nested">
                             <label className="ya-label ya-label--sub" htmlFor="ya-state">
-                                State / province
+                                {appT.account.state}
                             </label>
                             <input
                                 id="ya-state"
@@ -883,20 +885,18 @@ export default function YourAccountPanel({ user, showToast }) {
 
             {/* ── STUDIO HANDLE ── */}
             <section className="ya-section">
-                <span className="ya-overline">STUDIO HANDLE</span>
+                <span className="ya-overline">{appT.account.studioHandle}</span>
                 <p className="ya-handle">{handle || '—'}</p>
                 <p className="ya-field-hint ya-field-hint--tight">
-                    The first part of every address your studio uses.
+                    {appT.account.handleLead}
                 </p>
 
                 <div className="ya-warn-box">
                     <p className="ya-warn-box__text">
                         <strong>
-                            {handleCounts.deliveries} deliveries and {handleCounts.guestLinks} guest
-                            links currently use this handle.
+                            {appT.account.handleWarn(handleCounts.deliveries, handleCounts.guestLinks)}
                         </strong>{' '}
-                        Changing it breaks every link you have already sent. Old handles do not
-                        redirect yet — update any links you have already shared.
+                        {appT.account.handleWarnRest}
                     </p>
                 </div>
 
@@ -908,17 +908,17 @@ export default function YourAccountPanel({ user, showToast }) {
                         setShowHandleModal(true);
                     }}
                 >
-                    Change handle
+                    {appT.account.changeHandle}
                 </button>
             </section>
 
             {/* ── SIGNING IN ── */}
             <section className="ya-section">
-                <span className="ya-overline">SIGNING IN</span>
+                <span className="ya-overline">{appT.account.signingIn}</span>
 
                 <div className="ya-row">
                     <div className="ya-row__copy">
-                        <h3 className="ya-row__title">Password</h3>
+                        <h3 className="ya-row__title">{appT.account.password}</h3>
                         <p className="ya-row__hint">{passwordHint}</p>
                     </div>
                     <div
@@ -932,7 +932,7 @@ export default function YourAccountPanel({ user, showToast }) {
                                 disabled={forgotBusy}
                                 onClick={sendForgotPassword}
                             >
-                                {forgotBusy ? 'Sending…' : 'Forgot password'}
+                                {forgotBusy ? appT.account.sending : appT.account.forgotPassword}
                             </button>
                         ) : null}
                         <button
@@ -943,17 +943,16 @@ export default function YourAccountPanel({ user, showToast }) {
                                 setShowPasswordModal(true);
                             }}
                         >
-                            {hasPassword ? 'Change' : 'Set'}
+                            {hasPassword ? appT.common.change : appT.account.set}
                         </button>
                     </div>
                 </div>
 
                 <div className="ya-row">
                     <div className="ya-row__copy">
-                        <h3 className="ya-row__title">Two-step verification</h3>
+                        <h3 className="ya-row__title">{appT.account.twoStep}</h3>
                         <p className="ya-row__hint">
-                            After your password, we email a 6-digit code to your login address
-                            before signing in.
+                            {appT.account.twoStepHint}
                         </p>
                     </div>
                     <button
@@ -962,15 +961,15 @@ export default function YourAccountPanel({ user, showToast }) {
                         onClick={toggleTwoFactor}
                         disabled={twoFactorBusy}
                         aria-pressed={twoFactor}
-                        aria-label="Two-step verification"
+                        aria-label={appT.account.twoStep}
                     >
                         <span className="ya-toggle__thumb" />
                     </button>
                 </div>
 
                 <div className="ya-block">
-                    <h3 className="ya-row__title">Where you&apos;re signed in</h3>
-                    <p className="ya-row__hint">Sign out of any device you don&apos;t recognise.</p>
+                    <h3 className="ya-row__title">{appT.account.sessionsTitle}</h3>
+                    <p className="ya-row__hint">{appT.account.sessionsHint}</p>
 
                     <div className="ya-session-card">
                         {sessions.map((session, idx) => (
@@ -984,11 +983,7 @@ export default function YourAccountPanel({ user, showToast }) {
                                             `${session.device}${session.location ? ` · ${session.location}` : ''}`}
                                     </span>
                                     <span className="ya-session-row__meta">
-                                        {session.meta ||
-                                            session.lastActive ||
-                                            (session.current
-                                                ? 'This device · active now'
-                                                : 'Active recently')}
+                                        {session.current ? appT.account.thisDevice : appT.account.activeRecently}
                                     </span>
                                 </div>
                                 {session.canSignOut || !session.current ? (
@@ -997,7 +992,7 @@ export default function YourAccountPanel({ user, showToast }) {
                                         className="ya-btn ya-btn--ghost"
                                         onClick={() => revokeSession(session)}
                                     >
-                                        Sign out
+                                        {appT.common.signOut}
                                     </button>
                                 ) : null}
                             </div>
@@ -1005,22 +1000,21 @@ export default function YourAccountPanel({ user, showToast }) {
                     </div>
 
                     <p className="ya-field-hint">
-                        Venue laptops and borrowed machines are how sessions outlive their
-                        usefulness. This list is the only way to end one.
+                        {appT.account.sessionsFoot}
                     </p>
                 </div>
             </section>
 
             {/* ── WHAT YOU GET TOLD ── */}
             <section className="ya-section ya-section--last">
-                <span className="ya-overline">WHAT YOU GET TOLD</span>
+                <span className="ya-overline">{appT.account.toldTitle}</span>
                 <p className="ya-section-lead">
-                    Messages to <strong>you</strong>. What clients and guests receive is set per
-                    module, in that module&apos;s Delivery &amp; messages.
+                    {appT.account.toldLeadBefore} <strong>{appT.account.toldLeadYou}</strong>
+                    {appT.account.toldLeadAfter}
                 </p>
 
                 <div className="ya-notify-list">
-                    {NOTIFY_ROWS.map((row) => (
+                    {notifyRows.map((row) => (
                         <div key={row.key} className="ya-row ya-row--notify">
                             <div className="ya-row__copy">
                                 <h3 className="ya-row__title">{row.title}</h3>
@@ -1041,7 +1035,7 @@ export default function YourAccountPanel({ user, showToast }) {
 
                 <p className="ya-save-status">
                     <CheckSmall />
-                    {saveStatus}
+                    {appT.account.savedAgo}
                 </p>
             </section>
 
@@ -1050,19 +1044,19 @@ export default function YourAccountPanel({ user, showToast }) {
                 <div className="ya-modal-backdrop" role="presentation">
                     <div className="ya-modal" role="dialog" aria-modal="true">
                         <div className="ya-modal__head">
-                            <h2 className="ya-modal__title">Change handle</h2>
+                            <h2 className="ya-modal__title">{appT.account.changeHandle}</h2>
                             <button
                                 type="button"
                                 className="ya-modal__close"
                                 onClick={() => setShowHandleModal(false)}
-                                aria-label="Close"
+                                aria-label={appT.account.close}
                             >
                                 ×
                             </button>
                         </div>
                         <div className="ya-modal__body">
                             <label className="ya-label" htmlFor="ya-handle-input">
-                                Studio handle
+                                {appT.account.handleField}
                             </label>
                             <input
                                 id="ya-handle-input"
@@ -1071,8 +1065,7 @@ export default function YourAccountPanel({ user, showToast }) {
                                 onChange={(e) => setHandleDraft(e.target.value)}
                             />
                             <p className="ya-field-hint">
-                                Lowercase letters and numbers only. Old links redirect for 12
-                                months.
+                                {appT.account.handleHint}
                             </p>
                         </div>
                         <div className="ya-modal__actions">
@@ -1081,10 +1074,10 @@ export default function YourAccountPanel({ user, showToast }) {
                                 className="ya-btn ya-btn--ghost"
                                 onClick={() => setShowHandleModal(false)}
                             >
-                                Cancel
+                                {appT.common.cancel}
                             </button>
                             <button type="button" className="ya-btn ya-btn--dark" onClick={saveHandle}>
-                                Save handle
+                                {appT.account.saveHandle}
                             </button>
                         </div>
                     </div>
@@ -1097,13 +1090,13 @@ export default function YourAccountPanel({ user, showToast }) {
                     <form className="ya-modal" onSubmit={savePassword}>
                         <div className="ya-modal__head">
                             <h2 className="ya-modal__title">
-                                {hasPassword ? 'Change password' : 'Set password'}
+                                {hasPassword ? appT.account.changePassword : appT.account.setPassword}
                             </h2>
                             <button
                                 type="button"
                                 className="ya-modal__close"
                                 onClick={() => setShowPasswordModal(false)}
-                                aria-label="Close"
+                                aria-label={appT.account.close}
                             >
                                 ×
                             </button>
@@ -1128,7 +1121,7 @@ export default function YourAccountPanel({ user, showToast }) {
                             {hasPassword ? (
                                 <>
                                     <label className="ya-label" htmlFor="ya-pass-current">
-                                        Current password
+                                        {appT.account.currentPassword}
                                     </label>
                                     <PasswordField
                                         id="ya-pass-current"
@@ -1144,7 +1137,7 @@ export default function YourAccountPanel({ user, showToast }) {
                                 </>
                             ) : null}
                             <label className="ya-label" htmlFor="ya-pass-next">
-                                New password
+                                {appT.account.newPassword}
                             </label>
                             <PasswordField
                                 id="ya-pass-next"
@@ -1158,7 +1151,7 @@ export default function YourAccountPanel({ user, showToast }) {
                                 actionClassName="ya-password-action"
                             />
                             <label className="ya-label ya-label--spaced" htmlFor="ya-pass-confirm">
-                                Confirm password
+                                {appT.account.confirmPassword}
                             </label>
                             <PasswordField
                                 id="ya-pass-confirm"
@@ -1181,14 +1174,14 @@ export default function YourAccountPanel({ user, showToast }) {
                                 className="ya-btn ya-btn--ghost"
                                 onClick={() => setShowPasswordModal(false)}
                             >
-                                Cancel
+                                {appT.common.cancel}
                             </button>
                             <button
                                 type="submit"
                                 className="ya-btn ya-btn--dark"
                                 disabled={passwordSaving}
                             >
-                                {passwordSaving ? 'Saving…' : 'Save password'}
+                                {passwordSaving ? appT.account.saving : appT.account.savePassword}
                             </button>
                         </div>
                     </form>
@@ -1208,14 +1201,14 @@ export default function YourAccountPanel({ user, showToast }) {
                         <div className="ya-modal__head">
                             <h2 className="ya-modal__title">
                                 {twoFactorMode === 'enable'
-                                    ? 'Turn on two-step verification'
-                                    : 'Turn off two-step verification'}
+                                    ? appT.account.turnOn2fa
+                                    : appT.account.turnOff2fa}
                             </h2>
                             <button
                                 type="button"
                                 className="ya-modal__close"
                                 onClick={() => setShowTwoFactorModal(false)}
-                                aria-label="Close"
+                                aria-label={appT.account.close}
                             >
                                 ×
                             </button>
@@ -1224,11 +1217,10 @@ export default function YourAccountPanel({ user, showToast }) {
                             {twoFactorMode === 'enable' ? (
                                 <>
                                     <p className="ya-field-hint">
-                                        Enter the 6-digit code we sent to{' '}
-                                        {twoFactorEmailHint || user?.email || 'your login email'}.
+                                        {appT.account.codeSent(twoFactorEmailHint || user?.email || appT.account.yourLoginEmail)}
                                     </p>
                                     <label className="ya-label" htmlFor="ya-2fa-code">
-                                        Verification code
+                                        {appT.account.verificationCode}
                                     </label>
                                     <input
                                         id="ya-2fa-code"
@@ -1252,8 +1244,7 @@ export default function YourAccountPanel({ user, showToast }) {
                             ) : (
                                 <>
                                     <p className="ya-field-hint">
-                                        Turning this off means a password alone can sign in to your
-                                        studio.
+                                        {appT.account.turnOff2faHint}
                                     </p>
                                     {hasPassword ? (
                                         <>
@@ -1274,7 +1265,7 @@ export default function YourAccountPanel({ user, showToast }) {
                                                 }}
                                             />
                                             <label className="ya-label" htmlFor="ya-2fa-password">
-                                                Current password
+                                                {appT.account.currentPassword}
                                             </label>
                                             <PasswordField
                                                 id="ya-2fa-password"
@@ -1301,7 +1292,7 @@ export default function YourAccountPanel({ user, showToast }) {
                                 className="ya-btn ya-btn--ghost"
                                 onClick={() => setShowTwoFactorModal(false)}
                             >
-                                Cancel
+                                {appT.common.cancel}
                             </button>
                             <button
                                 type="submit"
@@ -1309,10 +1300,10 @@ export default function YourAccountPanel({ user, showToast }) {
                                 disabled={twoFactorBusy}
                             >
                                 {twoFactorBusy
-                                    ? 'Saving…'
+                                    ? appT.account.saving
                                     : twoFactorMode === 'enable'
-                                      ? 'Enable'
-                                      : 'Turn off'}
+                                      ? appT.account.enable
+                                      : appT.account.turnOff}
                             </button>
                         </div>
                     </form>
@@ -1332,10 +1323,10 @@ export default function YourAccountPanel({ user, showToast }) {
                                 <CheckSmall />
                             </div>
                             <h2 id="ya-password-success-title" className="ya-modal__title">
-                                Password changed
+                                {appT.account.passwordChanged}
                             </h2>
                             <p className="ya-field-hint ya-field-hint--center">
-                                Your new password is saved. Use it the next time you sign in.
+                                {appT.account.passwordChangedHint}
                             </p>
                         </div>
                         <div className="ya-modal__actions ya-modal__actions--center">
@@ -1344,7 +1335,7 @@ export default function YourAccountPanel({ user, showToast }) {
                                 className="ya-btn ya-btn--dark"
                                 onClick={() => setShowPasswordSuccess(false)}
                             >
-                                Done
+                                {appT.account.done}
                             </button>
                         </div>
                     </div>

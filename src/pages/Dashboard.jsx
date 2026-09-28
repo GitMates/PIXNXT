@@ -13,6 +13,8 @@ import { AppLoader } from '../components/ui/AppLoading';
 import DashboardCommandSearch from '../components/dashboard/DashboardCommandSearch';
 import StudioNotifications from '../components/dashboard/StudioNotifications';
 import { StudioAvatar } from '../components/ui/StudioAvatar';
+import { useAppLanguage } from '../context/AppLanguageContext';
+import { localizeAppText } from '../lib/app-languages';
 import { syncProfileIconCacheFromProfile, getStudioProfileIconSrc, preloadProfileIcon } from '../lib/profileIcon';
 import { coverImageCssStyle } from '../lib/focalPoint';
 import './Dashboard.css';
@@ -215,6 +217,14 @@ function greetingForNow() {
   return 'Good evening';
 }
 
+function greetingLine(t, firstName) {
+  const h = new Date().getHours();
+  if (t?.dash?.greetMorning && h < 12) return t.dash.greetMorning(firstName);
+  if (t?.dash?.greetAfternoon && h < 17) return t.dash.greetAfternoon(firstName);
+  if (t?.dash?.greetEvening) return t.dash.greetEvening(firstName);
+  return `${greetingForNow()}, ${firstName}.`;
+}
+
 function formatTodayLine() {
   return new Date().toLocaleDateString('en-GB', {
     weekday: 'long',
@@ -249,6 +259,7 @@ function formatStorageAmount(bytes) {
 
 const Dashboard = () => {
   const { user, logout } = useAuth();
+  const { t: appT } = useAppLanguage();
   const navigate = useNavigate();
   const [profile, setProfile] = useState(() => {
     if (typeof window === 'undefined' || !user?.id) return null;
@@ -372,7 +383,7 @@ const Dashboard = () => {
   if (loading && !profile) {
     return (
       <div className="sd-loading">
-        <AppLoader label="Loading your studio" variant="page" className="sd-loading__inner" />
+        <AppLoader label={appT.dash.loadingStudio} variant="page" className="sd-loading__inner" />
       </div>
     );
   }
@@ -382,6 +393,7 @@ const Dashboard = () => {
   const studioName = profile?.display_name || 'Your studio';
   const showcaseUrl = buildShowcaseUrl(profile, user);
   const showcaseLabel = showcaseUrl.replace(/^https?:\/\//, '').replace(/\/$/, '');
+  const tx = (value) => localizeAppText(appT, value);
   const needsYouCount = needsYou.reduce((n, g) => n + (g.items?.length || 0), 0);
 
   const goMenu = (path) => {
@@ -440,34 +452,34 @@ const Dashboard = () => {
             {profileOpen && (
               <div className="sd-menu" role="menu">
                 <div className="sd-menu-section sd-menu-section--links">
-                  <div className="sd-menu-section-title">STUDIO</div>
+                  <div className="sd-menu-section-title">{appT.sections.studio}</div>
                   <button type="button" className="sd-menu-item" role="menuitem" onClick={() => goMenu('/account/studio-identity')}>
                     <Home size={16} strokeWidth={1.8} />
-                    <span>Studio identity</span>
+                    <span>{appT.dash.studioIdentity}</span>
                   </button>
                   <button type="button" className="sd-menu-item" role="menuitem" onClick={() => goMenu('/account/legal-consent')}>
                     <FileText size={16} strokeWidth={1.8} />
-                    <span>Legal &amp; consent</span>
+                    <span>{appT.dash.legalConsent}</span>
                   </button>
                   <button type="button" className="sd-menu-item" role="menuitem" onClick={() => goMenu('/account/billing')}>
                     <CreditCard size={16} strokeWidth={1.8} />
-                    <span>Plan &amp; billing</span>
+                    <span>{appT.dash.planBilling}</span>
                   </button>
                 </div>
 
                 <div className="sd-menu-divider" />
 
                 <div className="sd-menu-section sd-menu-section--links">
-                  <div className="sd-menu-section-title">YOU</div>
+                  <div className="sd-menu-section-title">{appT.sections.you}</div>
                   <button type="button" className="sd-menu-item" role="menuitem" onClick={() => goMenu('/account/account')}>
                     <User size={16} strokeWidth={1.8} />
-                    <span>Your account</span>
+                    <span>{appT.dash.yourAccount}</span>
                   </button>
                 </div>
 
                 <div className="sd-menu-section sd-menu-section--appearance">
                   <div className="sd-appearance" role="group" aria-label="Appearance">
-                    {['light', 'auto', 'dark'].map((mode) => (
+                      {[{ id: 'light', label: appT.common.light }, { id: 'auto', label: appT.common.auto }, { id: 'dark', label: appT.common.dark }].map(({ id: mode, label }) => (
                       <button
                         key={mode}
                         type="button"
@@ -475,7 +487,7 @@ const Dashboard = () => {
                         aria-pressed={appearance === mode}
                         onClick={() => handleAppearanceChange(mode)}
                       >
-                        {mode.charAt(0).toUpperCase() + mode.slice(1)}
+                        {label}
                       </button>
                     ))}
                   </div>
@@ -484,9 +496,9 @@ const Dashboard = () => {
                 <div className="sd-menu-divider" />
 
                 <div className="sd-menu-section sd-menu-section--links">
-                  <button type="button" className="sd-menu-item sd-menu-item--logout" role="menuitem" onClick={handleLogout}>
+                    <button type="button" className="sd-menu-item sd-menu-item--logout" role="menuitem" onClick={handleLogout}>
                     <LogOut size={16} strokeWidth={1.8} />
-                    <span>Sign out</span>
+                    <span>{appT.common.signOut}</span>
                   </button>
                 </div>
               </div>
@@ -499,10 +511,10 @@ const Dashboard = () => {
         <section className="sd-hero">
           <div className="sd-hero-copy">
             <h1 className="sd-greeting">
-              {greetingForNow()}, {firstName}.
+              {greetingLine(appT, firstName)}
             </h1>
             <p className="sd-status">
-              {heroStatus || `${formatTodayLine()}. Your studio is ready.`}
+              {heroStatus ? tx(heroStatus) : `${formatTodayLine()}. ${appT.dash.studioReady}`}
             </p>
           </div>
 
@@ -513,14 +525,14 @@ const Dashboard = () => {
               onClick={() => setNewOpen((v) => !v)}
               aria-expanded={newOpen}
             >
-              New
+              {appT.dash.newBtn}
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden>
                 <polyline points="6 9 12 15 18 9" />
               </svg>
             </button>
             {newOpen && (
               <div className="sd-new-menu">
-                <div className="sd-new-menu-header">CREATE</div>
+                <div className="sd-new-menu-header">{appT.dash.createHeader}</div>
                 {NEW_MENU.map((item, idx) => {
                   if (item.isDivider) {
                     return <div key={`div-${idx}`} className="sd-new-menu-divider" />;
@@ -539,8 +551,8 @@ const Dashboard = () => {
                         {getMenuIcon(item.icon)}
                       </span>
                       <span className="sd-new-menu-text">
-                        <span className="sd-new-menu-label">{item.label}</span>
-                        <span className="sd-new-menu-desc">{item.description}</span>
+                        <span className="sd-new-menu-label">{(appT.dash.newMenu?.[item.label]?.[0]) || item.label}</span>
+                        <span className="sd-new-menu-desc">{(appT.dash.newMenu?.[item.label]?.[1]) || item.description}</span>
                       </span>
                     </button>
                   );
@@ -575,9 +587,9 @@ const Dashboard = () => {
 
         <section className="sd-section">
           <div className="sd-section-head">
-            <span className="sd-overline">RECENT WORK</span>
+            <span className="sd-overline">{appT.dash.recentWork}</span>
             <Link to="/client-gallery" className="sd-link">
-              All deliveries
+              {appT.dash.allDeliveries}
             </Link>
           </div>
           {recentWork.length > 0 ? (
@@ -610,9 +622,9 @@ const Dashboard = () => {
             </div>
           ) : (
             <div className="sd-recent-empty">
-              <p>No recent work yet. Create a delivery, album, or guest event to see it here.</p>
+              <p>{appT.dash.emptyWork}</p>
               <button type="button" className="sd-new-btn" onClick={() => navigate('/deliveries/create')}>
-                New delivery
+                {appT.dash.newBtn} {(appT.dash.newMenu?.['Delivery']?.[0]) || 'delivery'}
               </button>
             </div>
           )}
@@ -620,16 +632,16 @@ const Dashboard = () => {
 
         <section className="sd-section">
           <div className="sd-section-head">
-            <span className="sd-overline sd-overline--accent">THE STUDIO</span>
+            <span className="sd-overline sd-overline--accent">{appT.dash.theStudio}</span>
           </div>
           <div className="sd-studio">
             {(studioStats.length ? studioStats : [
-              { label: 'LIVE DELIVERIES', value: '—', sub: 'Loading…' },
+              { label: appT.dash.liveDeliveries, value: '—', sub: appT.dash.loadingStat },
             ]).map((stat) => (
               <div key={stat.label} className="sd-studio-cell">
-                <span className="sd-studio-label">{stat.label}</span>
+                <span className="sd-studio-label">{tx(stat.label)}</span>
                 <span className="sd-studio-value">{stat.value}</span>
-                <span className="sd-studio-sub">{stat.sub}</span>
+                <span className="sd-studio-sub">{tx(stat.sub)}</span>
               </div>
             ))}
           </div>
@@ -639,35 +651,35 @@ const Dashboard = () => {
           <div className="sd-panel">
             <div className="sd-panel-head">
               <div className="sd-panel-title-wrap">
-                <span className="sd-panel-title">NEEDS YOU</span>
+                <span className="sd-panel-title">{appT.dash.needsYou}</span>
                 {needsYouCount > 0 ? <span className="sd-badge">{needsYouCount}</span> : null}
               </div>
               <Link to="/client-gallery" className="sd-link">
-                Open studio
+                {appT.dash.openStudio}
               </Link>
             </div>
             <div className="sd-needs">
               {needsYou.length > 0 ? (
                 needsYou.map((group) => (
                   <div key={group.group} className="sd-needs-group">
-                    <div className="sd-needs-group-label">{group.group}</div>
+                    <div className="sd-needs-group-label">{tx(group.group)}</div>
                     {group.items.map((item) => (
                       <div key={`${item.channel}-${item.title}-${item.route}`} className="sd-needs-row">
-                        <span className="sd-needs-channel">{item.channel}</span>
+                        <span className="sd-needs-channel">{tx(item.channel)}</span>
                         <div className="sd-needs-main">
                           <span className="sd-needs-title">{item.title}</span>
-                          <span className="sd-needs-sub">{item.sub}</span>
+                          <span className="sd-needs-sub">{tx(item.sub)}</span>
                         </div>
                         <span className={`sd-needs-status sd-tone-${item.tone}`}>
                           <span className="sd-dot" aria-hidden />
-                          {item.status}
+                          {tx(item.status)}
                         </span>
                         <button
                           type="button"
                           className="sd-needs-action"
                           onClick={() => navigate(item.route)}
                         >
-                          {item.action}
+                          {tx(item.action)}
                         </button>
                       </div>
                     ))}
@@ -675,7 +687,7 @@ const Dashboard = () => {
                 ))
               ) : (
                 <div className="sd-panel-empty">
-                  <p>Nothing waiting on you right now.</p>
+                  <p>{appT.dash.nothingWaiting}</p>
                 </div>
               )}
               <div className="sd-panel-foot">
@@ -685,8 +697,8 @@ const Dashboard = () => {
                 </svg>
                 <span>
                   {needsYouCount > 0
-                    ? 'These are live items from your deliveries, albums, and guest events.'
-                    : 'When clients leave feedback or guests need delivery, they will show up here.'}
+                    ? appT.dash.needsFootLive
+                    : appT.dash.needsFootEmpty}
                 </span>
               </div>
             </div>
@@ -695,11 +707,11 @@ const Dashboard = () => {
           <div className="sd-panel">
             <div className="sd-panel-head">
               <div className="sd-panel-title-wrap">
-                <span className="sd-panel-title">THIS WEEK</span>
+                <span className="sd-panel-title">{appT.dash.thisWeek}</span>
                 {thisWeek.length > 0 ? <span className="sd-badge">{thisWeek.length}</span> : null}
               </div>
               <Link to="/client-gallery" className="sd-link">
-                Open calendar
+                {appT.dash.openCalendar}
               </Link>
             </div>
             <div className="sd-week">
@@ -720,11 +732,11 @@ const Dashboard = () => {
                         <span className="sd-week-title">{ev.title}</span>
                         <span className={`sd-week-status sd-tone-${ev.tone}`}>
                           <span className="sd-dot" aria-hidden />
-                          {ev.status}
+                          {tx(ev.status)}
                         </span>
                       </div>
                       <div className="sd-week-bottom">
-                        <span className="sd-week-detail">{ev.detail}</span>
+                        <span className="sd-week-detail">{tx(ev.detail)}</span>
                         <span className={`sd-week-bars sd-week-bars--${ev.tone}`} aria-hidden>
                           {Array.from({ length: ev.total || 1 }).map((_, i) => (
                             <span
@@ -739,7 +751,7 @@ const Dashboard = () => {
                 ))
               ) : (
                 <div className="sd-panel-empty">
-                  <p>No event dates this week. Add an event date on a delivery or guest event to see it here.</p>
+                  <p>{appT.dash.noEvents}</p>
                 </div>
               )}
               <div className="sd-panel-foot">
@@ -750,7 +762,7 @@ const Dashboard = () => {
                   <line x1="3" y1="10" x2="21" y2="10" />
                 </svg>
                 <span>
-                  Built from your delivery and guest-event dates — not placeholder shoots.
+                  {appT.dash.weekFoot}
                 </span>
               </div>
             </div>
