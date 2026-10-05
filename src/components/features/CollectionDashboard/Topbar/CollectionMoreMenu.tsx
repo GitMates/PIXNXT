@@ -382,7 +382,7 @@ export function CollectionMoreMenu({
               setArchiveConfirmOpen(true);
             }}
           >
-            <span>Archive</span>
+            <span>Hidden</span>
           </button>
           <button
             type="button"
@@ -432,7 +432,7 @@ export function CollectionMoreMenu({
         <div className="cd-modal-overlay" onClick={() => setArchiveConfirmOpen(false)}>
           <div className="cd-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '400px' }}>
             <div className="cd-modal-header">
-              <h3 className="cd-modal-title">Archive Delivery</h3>
+              <h3 className="cd-modal-title">Hide Delivery</h3>
               <button type="button" className="cd-modal-close" onClick={() => setArchiveConfirmOpen(false)} aria-label="Close">
                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                   <line x1="18" y1="6" x2="6" y2="18" />
@@ -441,10 +441,10 @@ export function CollectionMoreMenu({
               </button>
             </div>
             <div className="cd-modal-body" style={{ padding: '24px' }}>
-              <p style={{ margin: 0, fontSize: '14.5px', color: '#555', lineHeight: 1.5 }}>Are you sure you want to archive this delivery? This will hide it from active views.</p>
+              <p style={{ margin: 0, fontSize: '14.5px', color: '#555', lineHeight: 1.5 }}>Are you sure you want to hide this delivery? This will hide it from active views.</p>
               <div style={{ display: 'flex', gap: '8px', marginTop: '20px', justifyContent: 'flex-end' }}>
                 <button type="button" className="cd-basics-btn" onClick={() => setArchiveConfirmOpen(false)}>Cancel</button>
-                <button type="button" className="cd-basics-btn" style={{ backgroundColor: '#2c2520', color: '#fff' }} onClick={handleArchive} disabled={busy}>Archive</button>
+                <button type="button" className="cd-basics-btn" style={{ backgroundColor: '#2c2520', color: '#fff' }} onClick={handleArchive} disabled={busy}>Hide</button>
               </div>
             </div>
           </div>

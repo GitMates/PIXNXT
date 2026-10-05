@@ -441,10 +441,6 @@ export const ChangeCoverModal: React.FC<ChangeCoverModalProps> = ({
     setView('edit');
   };
 
-  const handleCentre = () => {
-    setActivePoint(50, 50);
-  };
-
   const handleFocalKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
       const step = e.shiftKey ? 5 : 1;
@@ -681,50 +677,6 @@ export const ChangeCoverModal: React.FC<ChangeCoverModalProps> = ({
                 </div>
               </div>
 
-              <div className="cover-focal-controls">
-                <div className="cover-focal-control-group">
-                  <div className="cover-focal-control-group__row">
-                    <button
-                      type="button"
-                      className="cover-focal-tool-btn cover-focal-tool-btn--secondary"
-                      onClick={() => setView('pick')}
-                      disabled={saving}
-                    >
-                      Replace photo
-                    </button>
-                    {onRemove ? (
-                      <button
-                        type="button"
-                        className="cover-focal-tool-btn cover-focal-tool-btn--hairline"
-                        onClick={handleRemove}
-                        disabled={saving}
-                      >
-                        Remove
-                      </button>
-                    ) : null}
-                  </div>
-                  <span className="cover-focal-control-group__label cover-focal-control-group__label--accent">
-                    Which photo
-                  </span>
-                </div>
-
-                <div className="cover-focal-control-group cover-focal-control-group--where">
-                  <div className="cover-focal-control-group__row">
-                    <span className="cover-focal-coords">
-                      Focal {across}% × {down}%
-                    </span>
-                    <button
-                      type="button"
-                      className="cover-focal-tool-btn cover-focal-tool-btn--hairline"
-                      onClick={handleCentre}
-                      disabled={saving}
-                    >
-                      Reset to centre
-                    </button>
-                  </div>
-                  <span className="cover-focal-control-group__label">Where in it</span>
-                </div>
-              </div>
             </div>
 
             <div className="cover-focal-bottom">
@@ -775,6 +727,24 @@ export const ChangeCoverModal: React.FC<ChangeCoverModalProps> = ({
                   <button type="button" className="cover-focal-btn" onClick={onClose} disabled={saving}>
                     Cancel
                   </button>
+                  <button
+                    type="button"
+                    className="cover-focal-tool-btn cover-focal-tool-btn--secondary"
+                    onClick={() => setView('pick')}
+                    disabled={saving}
+                  >
+                    Replace photo
+                  </button>
+                  {onRemove ? (
+                    <button
+                      type="button"
+                      className="cover-focal-tool-btn cover-focal-tool-btn--hairline"
+                      onClick={handleRemove}
+                      disabled={saving}
+                    >
+                      Remove
+                    </button>
+                  ) : null}
                   <button
                     type="button"
                     className="cover-focal-btn cover-focal-btn--primary"

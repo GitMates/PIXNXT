@@ -16,7 +16,7 @@ import {
     buildUserModulePath,
     R2_USER_MODULES,
 } from '../../../lib/photographerR2Folder';
-import { writeCachedProfileIcon, syncProfileIconCacheFromProfile } from '../../../lib/profileIcon';
+import { writeCachedProfileIcon, syncProfileIconCacheFromProfile, resolveProfileIconUrl } from '../../../lib/profileIcon';
 import { useAppLanguage } from '../../../context/AppLanguageContext';
 import { APP_LANGUAGE_IDS, appLanguageLabel } from '../../../lib/app-languages';
 import '../../../pages/Settings.css';
@@ -234,8 +234,9 @@ export default function YourAccountPanel({ user, showToast }) {
                     user.email?.split('@')[0]?.toLowerCase().replace(/[^a-z0-9]/g, '') ||
                     '';
 
-                setProfileIcon(data?.profile_icon_url || '');
-                if (!data?.profile_icon_url) setIconSize({ w: 72, h: 72 });
+                const iconUrl = resolveProfileIconUrl(data);
+                setProfileIcon(iconUrl);
+                if (!iconUrl) setIconSize({ w: 72, h: 72 });
                 setName(resolvedName);
                 setEmail(resolvedEmail);
                 setPhone(resolvedPhone);
@@ -377,7 +378,7 @@ export default function YourAccountPanel({ user, showToast }) {
                 `profile_icon_${Date.now()}.${ext}`,
             );
             const uploadResult = await storageService.upload(path, file);
-            const imageUrl = uploadResult.url;
+            const imageUrl = resolveProfileIconUrl({ profile_icon_url: uploadResult.url }) || uploadResult.url;
             setProfileIcon(imageUrl);
             setIconSize({ w: 72, h: 72 });
             await persist({ profile_icon_url: imageUrl }, 'Profile icon updated');

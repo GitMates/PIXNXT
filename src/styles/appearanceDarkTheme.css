@@ -5791,6 +5791,10 @@ body.dark-theme .theme-mono.cd-dashboard-shell .cd-activity-feed__copy {
   color: #ece9e2 !important;
 }
 
+body.dark-theme .theme-mono.cd-dashboard-shell .cd-activity-feed__copy strong {
+  color: #f3f0ea !important;
+}
+
 body.dark-theme .theme-mono.cd-dashboard-shell .cd-activity-feed__time,
 body.dark-theme .theme-mono.cd-dashboard-shell .cd-activity-feed__empty,
 body.dark-theme .theme-mono.cd-dashboard-shell .cd-activity-feed__empty-sub,
@@ -7375,6 +7379,40 @@ body.dark-theme .favorite-detail-fact-value {
 body.dark-theme .favorite-detail-fact-label {
   background: #141311 !important;
   color: #a19c91 !important;
+}
+
+body.dark-theme .favorite-detail-fact-row,
+body.dark-theme .theme-mono.cd-dashboard-shell .favorite-detail-fact-row {
+  border-bottom-color: #2e2c29 !important;
+}
+
+body.dark-theme .favorite-detail-fact-value strong {
+  color: #f3f0ea !important;
+}
+
+/* Favorite detail drawer footer — mirror the download drawer treatment
+   (dark secondary pill, light primary pill, orange link). */
+body.dark-theme .favorite-detail-footer-secondary,
+body.dark-theme .theme-mono.cd-dashboard-shell .favorite-detail-footer-secondary {
+  background: #1c1b18 !important;
+  border-color: #3a3733 !important;
+  color: #ece9e2 !important;
+}
+
+body.dark-theme .favorite-detail-footer-primary,
+body.dark-theme .theme-mono.cd-dashboard-shell .favorite-detail-footer-primary {
+  background: #ece9e2 !important;
+  color: #141210 !important;
+}
+
+body.dark-theme .favorite-detail-footer-primary:hover,
+body.dark-theme .theme-mono.cd-dashboard-shell .favorite-detail-footer-primary:hover {
+  background: #ffffff !important;
+}
+
+body.dark-theme .favorite-detail-footer-link,
+body.dark-theme .theme-mono.cd-dashboard-shell .favorite-detail-footer-link {
+  color: #e09a5f !important;
 }
 
 /* Store orders activity panels */

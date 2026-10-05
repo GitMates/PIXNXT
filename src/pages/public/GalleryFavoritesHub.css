@@ -814,9 +814,16 @@
   cursor: default;
 }
 
-.selection-detail__masonry .gallery-masonry-tile-overlay,
-.selection-detail__masonry .gallery-masonry-actions {
-  display: none !important;
+.selection-detail__masonry .group:hover .gallery-masonry-tile-overlay,
+.selection-detail__masonry .group:focus-within .gallery-masonry-tile-overlay {
+  opacity: 1;
+}
+
+.selection-detail__masonry .group:hover .gallery-masonry-actions,
+.selection-detail__masonry .group:focus-within .gallery-masonry-actions {
+  opacity: 1;
+  transform: none;
+  pointer-events: auto;
 }
 
 .selection-photo-tools {

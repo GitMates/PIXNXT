@@ -10,6 +10,12 @@ import {
   GALLERY_SETTINGS_STORAGE_PREFIX,
 } from '../../lib/galleryLiveSync';
 import { MasonryGrid } from '../../components/features/Gallery/MasonryGrid/MasonryGrid';
+import {
+  AddToFavoritesPanel,
+  NoteSavedToast,
+  PhotoNotePopup,
+  PhotoOptionsMenu,
+} from '../../components/features/Gallery/ClientPhotoOverlays';
 import { galleryUiStrings } from '../../lib/gallery-languages';
 import { AppLoader } from '../../components/ui/AppLoading';
 import JSZip from 'jszip';
@@ -46,7 +52,15 @@ export default function GallerySelectionDetail() {
   const [copiedLink, setCopiedLink] = useState(false);
 
   const shareMenuRef = useRef(null);
-  const commentTimers = useRef(new Map());
+  const [notePopup, setNotePopup] = useState(null);
+  const [noteSaving, setNoteSaving] = useState(false);
+  const [noteToast, setNoteToast] = useState(null);
+  const [optionsMenu, setOptionsMenu] = useState(null);
+  const [addToPhoto, setAddToPhoto] = useState(null);
+  const [addToLists, setAddToLists] = useState([]);
+  const [addToMembers, setAddToMembers] = useState([]);
+  const [addToBusy, setAddToBusy] = useState(null);
+  const [addToCreating, setAddToCreating] = useState(false);
 
   const galleryPath = `/gallery/${slug}`;
   const choosePath = `/gallery/${slug}/choose`;
@@ -462,24 +476,126 @@ export default function GallerySelectionDetail() {
     }
   }, [listId, sessionId, pingSelectionItems]);
 
-  const savePhotoComment = useCallback(async (photoId, comment) => {
-    if (!sessionId || !listId) return;
+  const photoThumb = (photo) => photo?.thumbnail_url || photo?.web_url || photo?.full_url || null;
+
+  const openNotePopup = (photo, anchor) => {
+    if (!notesAllowed || !photo?.id) return;
+    setOptionsMenu(null);
+    const rect = anchor?.getBoundingClientRect ? { ...anchor.getBoundingClientRect() } : null;
+    setNotePopup({ photo, rect });
+  };
+
+  const savePhotoNote = async (text) => {
+    const photo = notePopup?.photo;
+    if (!photo?.id || !sessionId || !listId) return;
+    const clean = String(text || '').trim();
+    setNoteSaving(true);
     try {
-      await galleryService.toggleFavorite(sessionId, photoId, true, listId, comment);
-      pingSelectionItems({ photoId, comment });
+      await galleryService.toggleFavorite(sessionId, photo.id, true, listId, clean || null);
+      setPhotos((prev) => prev.map((p) => (p.id === photo.id ? { ...p, selectionComment: clean } : p)));
+      setNotePopup(null);
+      if (clean) setNoteToast({ thumb: photoThumb(photo) });
+      pingSelectionItems({ photoId: photo.id, comment: clean });
+    } catch (err) {
+      console.error(err);
+      window.alert(err?.message || 'Could not save note. Please try again.');
+    } finally {
+      setNoteSaving(false);
+    }
+  };
+
+  const deletePhotoNote = async () => {
+    const photo = notePopup?.photo;
+    if (!photo?.id || !sessionId || !listId) return;
+    setNoteSaving(true);
+    try {
+      await galleryService.toggleFavorite(sessionId, photo.id, true, listId, null);
+      setPhotos((prev) => prev.map((p) => (p.id === photo.id ? { ...p, selectionComment: '' } : p)));
+      setNotePopup(null);
+      pingSelectionItems({ photoId: photo.id, comment: '' });
+    } catch (err) {
+      console.error(err);
+      window.alert(err?.message || 'Could not delete note. Please try again.');
+    } finally {
+      setNoteSaving(false);
+    }
+  };
+
+  const openOptionsMenu = (photo, anchor) => {
+    if (!photo?.id) return;
+    setNotePopup(null);
+    const rect = anchor?.getBoundingClientRect ? { ...anchor.getBoundingClientRect() } : null;
+    setOptionsMenu({ photo, rect });
+  };
+
+  const openAddToPanel = async () => {
+    const photo = optionsMenu?.photo;
+    if (!photo?.id || !sessionId) return;
+    setOptionsMenu(null);
+    setAddToPhoto(photo);
+    setAddToLists([]);
+    setAddToMembers([]);
+    try {
+      const lists = await galleryService.getFavoriteListsForSession(sessionId);
+      setAddToLists(lists || []);
+      const members = [];
+      for (const row of lists || []) {
+        const favs = await galleryService.getFavorites(sessionId, row.id).catch(() => []);
+        if ((favs || []).map((id) => String(id)).includes(String(photo.id))) members.push(row.id);
+      }
+      setAddToMembers(members);
     } catch (err) {
       console.error(err);
     }
-  }, [sessionId, listId, pingSelectionItems]);
+  };
 
-  const handleCommentChange = (photoId, value) => {
-    setPhotos((prev) => prev.map((p) => (p.id === photoId ? { ...p, selectionComment: value } : p)));
-    const existing = commentTimers.current.get(photoId);
-    if (existing) clearTimeout(existing);
-    commentTimers.current.set(photoId, setTimeout(() => {
-      commentTimers.current.delete(photoId);
-      void savePhotoComment(photoId, value);
-    }, 450));
+  const toggleAddToMember = async (target) => {
+    const photo = addToPhoto;
+    if (!photo?.id || !sessionId || !target?.id || addToBusy) return;
+    const member = addToMembers.includes(target.id);
+    setAddToBusy(target.id);
+    try {
+      await galleryService.toggleFavorite(sessionId, photo.id, !member, target.id);
+      setAddToMembers((prev) => (member ? prev.filter((id) => id !== target.id) : [...prev, target.id]));
+      setAddToLists((prev) => prev.map((row) => (
+        row.id === target.id
+          ? { ...row, photoCount: Math.max(0, (Number(row.photoCount) || 0) + (member ? -1 : 1)) }
+          : row
+      )));
+      if (String(target.id) === String(listId)) {
+        if (member) {
+          setPhotos((prev) => prev.filter((p) => p.id !== photo.id));
+          pingSelectionItems({ photoId: photo.id, removed: true });
+        } else {
+          setPhotos((prev) => (prev.some((p) => p.id === photo.id) ? prev : [...prev, photo]));
+          pingSelectionItems({ photoId: photo.id, removed: false });
+        }
+      }
+    } catch (err) {
+      console.error(err);
+      window.alert(err?.message || 'Could not update list. Please try again.');
+    } finally {
+      setAddToBusy(null);
+    }
+  };
+
+  const createAddToList = async (name) => {
+    const photo = addToPhoto;
+    if (!sessionId || !collection?.id || !photo?.id || !name?.trim() || addToCreating) return;
+    setAddToCreating(true);
+    try {
+      const created = await galleryService.createFavoriteList(collection.id, sessionId, name.trim());
+      if (!created?.id) throw new Error('Could not create list.');
+      await galleryService.toggleFavorite(sessionId, photo.id, true, created.id);
+      const lists = await galleryService.getFavoriteListsForSession(sessionId);
+      setAddToLists(lists || []);
+      setAddToMembers((prev) => [...prev, created.id]);
+    } catch (err) {
+      console.error(err);
+      window.alert(err?.message || 'Could not create list. Please try again.');
+    } finally {
+      setAddToCreating(false);
+    }
   };
 
   if (loading) {
@@ -675,29 +791,76 @@ export default function GallerySelectionDetail() {
               customRowHeight={galleryCustomRowHeight}
               onImageClick={() => {}}
               showDownload={false}
-              showFavorite={false}
+              showFavorite
+              favoritedPhotoIds={photos.map((p) => p.id)}
+              onFavorite={handleRemovePhoto}
+              showNoteButton={notesAllowed}
+              notedPhotoIds={photos.filter((p) => String(p.selectionComment || '').trim()).map((p) => p.id)}
+              onNoteClick={openNotePopup}
+              showClientShareButton
+              onShareClick={openOptionsMenu}
               showShare={false}
               showShop={storeOnSelection}
               onShop={storeOnSelection ? openShop : undefined}
-              pinTools
-              onRemove={handleRemovePhoto}
-              renderBelow={notesAllowed ? (photo) => (
-                <div className="selection-photo-comment">
-                  <textarea
-                    className="selection-photo-comment__input"
-                    rows={2}
-                    value={photo.selectionComment || ''}
-                    placeholder={t.selPhotoComment}
-                    aria-label={t.selPhotoComment}
-                    onChange={(e) => handleCommentChange(photo.id, e.target.value)}
-                  />
-                </div>
-              ) : undefined}
               forceShow
             />
           )}
         </div>
       </div>
+
+      {notePopup?.photo ? (
+        <PhotoNotePopup
+          lang={collection?.language}
+          anchorRect={notePopup.rect}
+          initialNote={photos.find((p) => p.id === notePopup.photo.id)?.selectionComment || ''}
+          saving={noteSaving}
+          onSave={savePhotoNote}
+          onDelete={deletePhotoNote}
+          onClose={() => {
+            if (!noteSaving) setNotePopup(null);
+          }}
+        />
+      ) : null}
+
+      {optionsMenu?.photo ? (
+        <PhotoOptionsMenu
+          lang={collection?.language}
+          anchorRect={optionsMenu.rect}
+          isFavorited
+          onRemove={() => {
+            const photo = optionsMenu.photo;
+            setOptionsMenu(null);
+            void handleRemovePhoto(photo);
+          }}
+          onAddTo={() => { void openAddToPanel(); }}
+          onClose={() => setOptionsMenu(null)}
+        />
+      ) : null}
+
+      {addToPhoto ? (
+        <AddToFavoritesPanel
+          lang={collection?.language}
+          photo={addToPhoto}
+          thumb={photoThumb(addToPhoto)}
+          lists={addToLists}
+          memberListIds={addToMembers}
+          busyListId={addToBusy}
+          creating={addToCreating}
+          onToggleList={toggleAddToMember}
+          onCreate={createAddToList}
+          onClose={() => {
+            if (!addToBusy && !addToCreating) setAddToPhoto(null);
+          }}
+        />
+      ) : null}
+
+      {noteToast ? (
+        <NoteSavedToast
+          lang={collection?.language}
+          thumb={noteToast.thumb}
+          onDone={() => setNoteToast(null)}
+        />
+      ) : null}
 
       {/* EMAIL FAVORITES MODAL */}
       {showEmailModal && (

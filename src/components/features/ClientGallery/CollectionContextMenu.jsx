@@ -62,7 +62,7 @@ export function CollectionContextMenu({
 
             <div className="dl-more-menu__rule" />
             <button type="button" className="dl-more-menu__item dl-more-menu__item--split" onClick={run(onArchive)}>
-                <span>Archive</span>
+                <span>Hidden</span>
                 {storageLabel ? <span className="dl-more-menu__meta">{storageLabel}</span> : null}
             </button>
             <button type="button" className="dl-more-menu__item dl-more-menu__item--danger" onClick={run(onDelete)}>

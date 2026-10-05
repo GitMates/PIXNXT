@@ -110,7 +110,41 @@
 }
 
 .gallery-masonry-fav-always .gallery-masonry-action-btn {
-  color: #C4703A;
+  background: rgba(22, 20, 18, 0.78);
+  color: #fff;
+}
+
+.gallery-masonry-fav-always .gallery-masonry-action-btn:hover {
+  background: rgba(22, 20, 18, 0.92);
+}
+
+/* Hover trio: note, heart, arrow — white glyphs on the photograph */
+.gallery-masonry-actions--trio {
+  z-index: 30;
+}
+
+.group:hover .gallery-masonry-actions--trio,
+.group:focus-within .gallery-masonry-actions--trio {
+  opacity: 1 !important;
+  transform: none !important;
+  pointer-events: auto !important;
+}
+
+.gallery-masonry-actions--trio .gallery-masonry-action-btn {
+  background: transparent;
+  color: #fff;
+  cursor: pointer;
+  pointer-events: auto;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.55));
+}
+
+.gallery-masonry-actions--trio .gallery-masonry-action-btn:hover {
+  background: rgba(255, 255, 255, 0.16);
+}
+
+.gallery-masonry-actions--trio .gallery-masonry-action-btn svg {
+  width: 16px;
+  height: 16px;
 }
 
 /* Phone layout (live gallery + Design tab preview). */

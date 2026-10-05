@@ -29,7 +29,7 @@ import { parseUrlPage } from './useAlbumWorkspace';
 import { AppLoader } from '../../components/ui/AppLoading';
 import './AlbumViewer.css';
 
-const SHARE_LINK_POLL_MS = 5000;
+const SHARE_LINK_POLL_MS = 120000;
 
 /**
  * Public share link: album preview + per-spread comments (no login required).

@@ -95,13 +95,8 @@ export async function getPhotos(photographerId, eventId) {
 }
 
 export async function getLibraryPhotos() {
-  const { events } = { events: await getEvents() };
-  const photos = [];
-  for (const event of events.slice(0, 50)) {
-    const data = await apiFetch(`/v1/guest/events/${event.id}/photos`).catch(() => null);
-    photos.push(...(data?.photos || []).map((p) => ({ ...p, event_id: event.id, event_name: event.name })));
-  }
-  return photos;
+  const data = await apiFetch('/v1/guest/library-photos');
+  return data?.photos || [];
 }
 
 export async function uploadGuestPhoto({ photographerId, eventId, file, position = 0, onProgress } = {}) {

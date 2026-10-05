@@ -10,6 +10,7 @@ import { photographerQuotaService, canUseAiSearch } from '../services/photograph
 import {
   handlePhotographerLiveUpdate,
   onPhotographerLimitsBroadcast,
+  photographerLimitsFingerprint,
   subscribePhotographerRow,
 } from '../lib/photographerLiveSync';
 import { collectLabelSuggestions, filterPhotosByAiSearch, filterPhotosByDateRange } from '../lib/photoAiSearch';
@@ -61,12 +62,16 @@ const PhotoLibrary = () => {
         });
     };
     checkAiSearch();
+    const limitsFpRef = { current: '' };
     // Instant admin -> photographer sync: AI search toggle applies live.
-    const offRow = subscribePhotographerRow(user.id, () => {
-      if (!cancelled) {
-        handlePhotographerLiveUpdate(user.id);
-        checkAiSearch();
-      }
+    // The 5s profile poll must not refetch quota when nothing changed.
+    const offRow = subscribePhotographerRow(user.id, (row) => {
+      if (cancelled) return;
+      const fp = row ? photographerLimitsFingerprint(row) : '';
+      if (fp && fp === limitsFpRef.current) return;
+      if (fp) limitsFpRef.current = fp;
+      handlePhotographerLiveUpdate(user.id);
+      checkAiSearch();
     });
     const offBroadcast = onPhotographerLimitsBroadcast(user.id, () => {
       if (!cancelled) {

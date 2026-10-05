@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useLayoutEffect, useMemo, useCallback, useRef } from 'react';
 import { motion as Motion } from 'framer-motion';
-import { Download, Heart, Share2, Play, ShoppingBag, ArrowDownToLine, X } from 'lucide-react';
+import { Download, Heart, Share2, Play, ShoppingBag, ArrowDownToLine, X, MessageCircle, ArrowRight } from 'lucide-react';
 import { cn } from '../../../../lib/utils';
 import { SmoothMediaImage } from '../../../ui/SmoothMediaImage';
 import { isGalleryVideo } from '../../../../lib/galleryMediaType';
@@ -54,6 +54,12 @@ export function MasonryGrid({
   showPrivateBadge = false,
   /** Render favorited hearts as non-interactive badges (e.g. shared selection links). */
   favoriteReadOnly = false,
+  /** Pixieset-style client overlays (public gallery): per-photo note + share menu. */
+  showNoteButton = false,
+  notedPhotoIds = [],
+  onNoteClick = null,
+  showClientShareButton = false,
+  onShareClick = null,
   activeCampaign = null,
   activeProducts = [],
   onVisitShop = null,
@@ -836,6 +842,20 @@ export function MasonryGrid({
           {/* Favourited heart — stays visible at rest (not inside the hover-only overlay) */}
           {showFavorite && isFav && !useClientActionBar && (
             <div className="gallery-masonry-actions gallery-masonry-fav-always absolute top-2.5 left-2.5 z-[14] flex gap-1.5">
+              {showNoteButton && notedPhotoIds?.some((nid) => String(nid) === String(photo.id)) ? (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    dismissTooltip();
+                    onNoteClick?.(photo, e.currentTarget);
+                  }}
+                  className="gallery-masonry-action-btn gallery-masonry-note-badge flex items-center justify-center rounded-full transition-all"
+                  aria-label="View note"
+                >
+                  <MessageCircle size={13} strokeWidth={1.75} />
+                </button>
+              ) : null}
               {favoriteReadOnly ? (
                 <span
                   className="gallery-masonry-action-btn gallery-masonry-action-btn--readonly flex items-center justify-center rounded-full"
@@ -854,7 +874,7 @@ export function MasonryGrid({
                 className="gallery-masonry-action-btn flex items-center justify-center rounded-full transition-all"
                 aria-label="Remove from favorites"
               >
-                <Heart size={13} strokeWidth={1.75} fill="currentColor" />
+                <Heart size={13} strokeWidth={1.75} fill="none" />
               </button>
               )}
             </div>
@@ -893,7 +913,7 @@ export function MasonryGrid({
             </div>
           ) : null}
 
-          {/* Overlay — gradient fades in on hover via CSS */}
+          {/* Overlay — gradient only. Action buttons sit outside it so clicks are not swallowed. */}
           <div className="gallery-masonry-tile-overlay absolute inset-0 z-[10]">
             {showPrivateBadge && isPrivate ? <PhotoPrivateBadge visible /> : null}
             {useClientActionBar ? (
@@ -922,12 +942,33 @@ export function MasonryGrid({
                   onShare?.(photo);
                 }}
               />
-            ) : (
-            <div className="gallery-masonry-actions absolute bottom-2.5 right-2.5 z-[12] flex gap-1.5">
+            ) : null}
+          </div>
+          {!useClientActionBar ? (
+            <div className={cn(
+              'gallery-masonry-actions absolute bottom-2.5 right-2.5 z-[30] flex gap-1.5',
+              (showNoteButton || showClientShareButton) && 'gallery-masonry-actions--trio',
+            )}>
+              {showNoteButton && (
+                <button
+                  type="button"
+                  onPointerDown={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    dismissTooltip();
+                    onNoteClick?.(photo, e.currentTarget);
+                  }}
+                  className="gallery-masonry-action-btn flex items-center justify-center rounded-full transition-all"
+                  aria-label="Add a note"
+                >
+                  <MessageCircle size={18} strokeWidth={1.75} />
+                </button>
+              )}
               {showFavorite && !favoriteReadOnly && (
                 <button
                   type="button"
-                  onClick={(e) => {
+                  onPointerDown={(e) => {
+                    e.preventDefault();
                     e.stopPropagation();
                     dismissTooltip();
                     onFavorite?.(photo);
@@ -935,7 +976,22 @@ export function MasonryGrid({
                   className="gallery-masonry-action-btn flex items-center justify-center rounded-full transition-all"
                   aria-label={isFav ? 'Remove from favorites' : 'Add to favorites'}
                 >
-                  <Heart size={13} strokeWidth={1.75} fill={isFav ? 'currentColor' : 'none'} style={isFav ? { color: '#C4703A' } : undefined} />
+                  <Heart size={18} strokeWidth={1.75} fill="none" />
+                </button>
+              )}
+              {showClientShareButton && (
+                <button
+                  type="button"
+                  onPointerDown={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    dismissTooltip();
+                    onShareClick?.(photo, e.currentTarget);
+                  }}
+                  className="gallery-masonry-action-btn flex items-center justify-center rounded-full transition-all"
+                  aria-label="Photo options"
+                >
+                  <ArrowRight size={18} strokeWidth={1.75} />
                 </button>
               )}
               {showDownload && (
@@ -988,8 +1044,7 @@ export function MasonryGrid({
                 </button>
               )}
             </div>
-            )}
-          </div>
+          ) : null}
           {isGalleryVideo(photo) ? (
             <button
               type="button"

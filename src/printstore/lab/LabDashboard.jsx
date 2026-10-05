@@ -14,8 +14,9 @@ export default function LabDashboard() {
       refreshOrders();
     }
     const interval = setInterval(() => {
+      if (document.visibilityState === 'hidden') return;
       if (refreshOrders) refreshOrders();
-    }, 30000);
+    }, 60000);
     return () => clearInterval(interval);
   }, [refreshOrders]);
 

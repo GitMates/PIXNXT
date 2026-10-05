@@ -670,14 +670,31 @@ export async function togglePhotoStar(id, isStarred) {
 
 // ---------- photographer profile ----------
 
+let ownProfileCache = { at: 0, profile: null };
+
 export async function getOwnFullProfile() {
+  if (ownProfileCache.profile && Date.now() - ownProfileCache.at < 30000 && !globalThis.__pixnxtUploading) {
+    return ownProfileCache.profile;
+  }
+  if (globalThis.__pixnxtUploading && ownProfileCache.profile) return ownProfileCache.profile;
   const data = await apiFetch('/v1/me/profile');
-  return data?.profile ?? null;
+  ownProfileCache = { at: Date.now(), profile: data?.profile ?? null };
+  return ownProfileCache.profile;
 }
 
 export async function getPhotographerProfile(photographerId) {
+  if (
+    ownProfileCache.profile &&
+    Date.now() - ownProfileCache.at < 30000 &&
+    (!photographerId || ownProfileCache.profile.id === photographerId)
+  ) {
+    return ownProfileCache.profile;
+  }
   const data = await apiFetch('/v1/me/profile').catch(() => null);
-  if (data?.profile && (!photographerId || data.profile.id === photographerId)) return data.profile;
+  if (data?.profile && (!photographerId || data.profile.id === photographerId)) {
+    ownProfileCache = { at: Date.now(), profile: data.profile };
+    return data.profile;
+  }
   if (!photographerId) return null;
   const pub = await apiFetch(`/v1/public/photographer/by-id/${photographerId}`).catch(() => null);
   return pub?.photographer ?? null;

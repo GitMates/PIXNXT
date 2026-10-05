@@ -10,14 +10,11 @@ export const COVER_STYLES: { id: CoverStyleId; name: string }[] = [
   { id: "left", name: "Left" },
   { id: "novel", name: "Novel" },
   { id: "vintage", name: "Vintage" },
-  { id: "frame", name: "Frame" },
   { id: "stripe", name: "Stripe" },
   { id: "divider", name: "Divider" },
-  { id: "stamp", name: "Stamp" },
   { id: "journal", name: "Journal" },
   { id: "outline", name: "Outline" },
   { id: "classic", name: "Classic" },
-  { id: "none", name: "None" },
 ];
 
 export const TYPOGRAPHY_OPTIONS: {

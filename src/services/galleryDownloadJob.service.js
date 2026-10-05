@@ -33,12 +33,20 @@ export function getGalleryDownloadFileUrl(token) {
 
 export async function pollGalleryDownloadJob(token, { intervalMs = 2500, timeoutMs = 120000 } = {}) {
   const started = Date.now();
+  let wait = intervalMs;
   while (Date.now() - started < timeoutMs) {
-    const job = await fetchGalleryDownloadJob(token);
-    if (job.status === 'ready' || job.status === 'failed' || job.status === 'expired') {
-      return job;
+    try {
+      const job = await fetchGalleryDownloadJob(token);
+      if (job.status === 'ready' || job.status === 'failed' || job.status === 'expired') {
+        return job;
+      }
+      wait = intervalMs;
+    } catch (err) {
+      const status = Number(err?.status ?? err?.statusCode) || 0;
+      if (status < 500 && status !== 0) throw err;
+      wait = Math.min(30000, wait * 2);
     }
-    await new Promise((resolve) => setTimeout(resolve, intervalMs));
+    await new Promise((resolve) => setTimeout(resolve, wait));
   }
   return fetchGalleryDownloadJob(token);
 }

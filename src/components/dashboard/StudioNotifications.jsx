@@ -114,8 +114,9 @@ export default function StudioNotifications({ userId, variant = 'default', sourc
     })();
 
     const pollId = window.setInterval(() => {
+      if (document.visibilityState === 'hidden') return;
       if (!cancelled) refreshItems();
-    }, 45000);
+    }, 120000);
 
     return () => {
       cancelled = true;

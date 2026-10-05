@@ -17,7 +17,6 @@ import './DesignWorkspace.css';
 const FEATURED_COVER_IDS: CoverStyleId[] = [
   'novel',
   'center',
-  'frame',
   'left',
   'stripe',
   'journal',
@@ -25,11 +24,9 @@ const FEATURED_COVER_IDS: CoverStyleId[] = [
 
 const MORE_COVER_IDS: CoverStyleId[] = [
   'classic',
-  'stamp',
   'vintage',
   'outline',
   'divider',
-  'none',
 ];
 
 function coversByIds(ids: CoverStyleId[]) {
@@ -275,22 +272,10 @@ export const DesignPanel: React.FC<DesignTabProps> = ({
     MORE_COVER_IDS.includes(settings.coverStyle)
   );
 
-  const activeFont = normalizeFontId(settings.fontFamily);
-  const activePalette = normalizePaletteId(settings.colorPalette);
-  const coverLabel =
-    COVER_STYLES.find((item) => item.id === settings.coverStyle)?.name ?? 'Novel';
-  const fontLabel =
-    TYPOGRAPHY_OPTIONS.find((item) => item.id === activeFont)?.name ?? 'Sans';
-  const paletteLabel =
-    COLOR_PALETTES.find((item) => item.id === activePalette)?.name ?? 'Light';
-  const gridStyleLabel = galleryGridStyleLabel(settings.grid.style);
-  const spacingLabel = settings.grid.spacing === 'large' ? 'large spacing' : 'regular spacing';
-  const navLabel = settings.grid.navigation === 'text' ? 'icon & text' : 'icon only';
-  const thumbLabel =
-    THUMBNAIL_SIZES.find((item) => item.id === settings.grid.size)?.name?.toLowerCase() ??
-    'regular';
+    const activeFont = normalizeFontId(settings.fontFamily);
+    const activePalette = normalizePaletteId(settings.colorPalette);
 
-  const imageStyle = coverImageCssStyle(coverPhotoUrl, coverFocalX, coverFocalY);
+    const imageStyle = coverImageCssStyle(coverPhotoUrl, coverFocalX, coverFocalY);
 
   const handleCoverChange = (id: CoverStyleId) => {
     onSettingsChange({ ...settings, coverStyle: id });
@@ -314,7 +299,7 @@ export const DesignPanel: React.FC<DesignTabProps> = ({
         <section className="cd-design-panel__section">
           <h3 className="cd-design-panel__section-title">Cover layout</h3>
 
-          <div className="cd-design-panel__cover-grid">
+          <div className={cn('cd-design-panel__cover-grid', !moreCoversOpen && 'is-five')}>
             {featuredCovers.map((style) => (
               <CoverLayoutCard
                 key={style.id}
@@ -437,15 +422,6 @@ export const DesignPanel: React.FC<DesignTabProps> = ({
         </section>
       </div>
 
-      <footer className="cd-design-panel__footer">
-        <p className="cd-design-panel__summary">
-          {coverLabel} · {fontLabel} · {paletteLabel} · {gridStyleLabel} · {thumbLabel} thumbnails ·{' '}
-          {spacingLabel} · {navLabel} · inherited from your last delivery.{' '}
-          <button type="button" className="cd-design-panel__reset">
-            reset
-          </button>
-        </p>
-      </footer>
     </aside>
   );
 };

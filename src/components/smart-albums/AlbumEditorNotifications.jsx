@@ -21,7 +21,7 @@ import { isCommentAudioAttachment } from './albumCommentAttachments';
 import { resolveFilmstripVisual, FilmstripThumb } from './AlbumSpreadFilmstrip';
 import { parseGridSizeAspect } from './albumGridSize';
 import { AppLoader } from '../ui/AppLoading';
-import { apiBase, getAccessToken } from '../../lib/api/client';
+import { subscribeSse } from '../../lib/api/client';
 import { smartAlbumsService } from '../../services/smartAlbums.service';
 
 function getNotificationLocationLabel(item, album, totalPages) {
@@ -201,65 +201,16 @@ export default function AlbumEditorNotifications({
         };
     }, [album?.id, refresh, refreshAlbumRow]);
 
-    // Live proof events (client approves / submits from their own device).
-    // The backend SSE closes after ~60s, so reconnect with backoff.
+    // Live proof events. subscribeSse waits out server errors instead of
+    // reconnecting every few seconds.
     useEffect(() => {
         const albumId = album?.id;
-        if (!albumId || typeof EventSource === 'undefined') return undefined;
-        let source = null;
-        let retryId = null;
-        let disposed = false;
-        const connect = () => {
-            if (disposed) return;
-            let token = null;
-            try {
-                token = getAccessToken();
-            } catch {
-                token = null;
-            }
-            if (!token) return;
-            let url = '';
-            try {
-                url = `${apiBase()}/v1/proofer/albums/${encodeURIComponent(albumId)}/events?access_token=${encodeURIComponent(token)}`;
-            } catch {
-                return;
-            }
-            try {
-                source = new EventSource(url);
-            } catch {
-                return;
-            }
-            const onUpdate = () => {
-                void refreshAlbumRow();
-            };
-            source.addEventListener('feedback-updated', onUpdate);
-            source.addEventListener('hello', () => {});
-            source.onerror = () => {
-                try {
-                    source?.close();
-                } catch {
-                    /* ignore */
-                }
-                source = null;
-                if (!disposed && !retryId) {
-                    retryId = window.setTimeout(() => {
-                        retryId = null;
-                        connect();
-                    }, 3000);
-                }
-            };
-        };
-        connect();
-        return () => {
-            disposed = true;
-            if (retryId) window.clearTimeout(retryId);
-            try {
-                source?.close();
-            } catch {
-                /* ignore */
-            }
-            source = null;
-        };
+        if (!albumId) return undefined;
+        return subscribeSse(`/v1/proofer/albums/${encodeURIComponent(albumId)}/events`, {
+            onEvent: (_data, _event, type) => {
+                if (type === 'feedback-updated') void refreshAlbumRow();
+            },
+        });
     }, [album?.id, refreshAlbumRow]);
 
     useLayoutEffect(() => {

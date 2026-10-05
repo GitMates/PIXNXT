@@ -132,14 +132,18 @@ export default function LabFrameWorkshop() {
       const { normalizeLabItemRow } = await import('./labOrderStatusService');
       const data = await apiFetch('/v1/printstore/orders');
       const ordersData = data?.orders || [];
-      const details = await Promise.all(
-        ordersData.map((o) =>
-          apiFetch(`/v1/printstore/orders/${encodeURIComponent(o.id)}`).catch(() => null)
-        )
-      );
-      const physicalItems = filterLabPhysicalItems(
-        details.flatMap((d) => d?.items || []).map(normalizeLabItemRow)
-      );
+      let itemRows;
+      if (Array.isArray(data?.items)) {
+        itemRows = data.items;
+      } else {
+        const details = await Promise.all(
+          ordersData.map((o) =>
+            apiFetch(`/v1/printstore/orders/${encodeURIComponent(o.id)}`).catch(() => null)
+          )
+        );
+        itemRows = details.flatMap((d) => d?.items || []);
+      }
+      const physicalItems = filterLabPhysicalItems(itemRows.map(normalizeLabItemRow));
       const labOrderIds = new Set(physicalItems.map((item) => item.order_id));
       setOrders(ordersData.filter((order) => labOrderIds.has(order.id)));
       setOrderItems(physicalItems);
@@ -153,7 +157,10 @@ export default function LabFrameWorkshop() {
 
   useEffect(() => {
     fetchFrameData();
-    const interval = setInterval(() => fetchFrameData(false), 30000);
+    const interval = setInterval(() => {
+      if (document.visibilityState === 'hidden') return;
+      fetchFrameData(false);
+    }, 60000);
     return () => clearInterval(interval);
   }, [fetchFrameData]);
 

@@ -10,7 +10,7 @@ const PROFILE_CACHE_PREFIX = 'photographer_profile_';
  * Instant quota/feature sync between admin and photographer, both directions.
  *
  * - Admin saves limits in User Management -> photographer's open app updates
- *   within ~a second (Workers SSE photographer events).
+ *   on the next shared profile poll (about 30s, sooner when the tab refocuses).
  * - Photographer uploads / creates deliveries (usage counters bump on their
  *   profile row) -> admin tables refresh.
  * - Same-browser tabs also sync instantly via BroadcastChannel + window event,
@@ -126,62 +126,98 @@ export function onPhotographerLimitsBroadcast(photographerIdOrNull, callback) {
   };
 }
 
+const liveChannels = new Map();
+
 function subscribePhotographers(filter, callback, { galleryId = null, pollMs } = {}) {
   if (typeof callback !== 'function') return () => {};
-  // Single-photographer (studio meters): poll often so admin limit edits show up fast.
-  // Admin roster (subscribeAllPhotographers): poll slowly — each tick used to
-  // re-fetch the full user list and flash "Fetching..." every few seconds.
+  // One shared timer per photographer (or one for the admin roster).
+  // A collection page used to start a separate 5s poll in the sidebar,
+  // the dashboard, and the photo library at the same time.
   const isSingleRow = Boolean(filter && filter.startsWith('id=eq.'));
-  const defaultPollMs = isSingleRow ? 5000 : 30000;
-  const interval = Math.max(isSingleRow ? 3000 : 15000, Number(pollMs) || defaultPollMs);
+  const key = galleryId ? `gal:${galleryId}` : isSingleRow ? `row:${filter}` : 'all';
+  const defaultPollMs = isSingleRow ? 30000 : 60000;
+  const interval = Math.max(isSingleRow ? 20000 : 45000, Number(pollMs) || defaultPollMs);
 
-  let stopped = false;
-  let stopSse = () => {};
-  let pollTimer = null;
-  const refresh = async () => {
-    if (stopped) return;
+  let entry = liveChannels.get(key);
+  if (!entry) {
+    entry = { listeners: new Set(), timer: null, refresh: null, onVis: null, stopSse: () => {}, failures: 0, quietUntil: 0 };
+    liveChannels.set(key, entry);
+    entry.refresh = async () => {
+      if (entry.listeners.size === 0) return;
+      if (globalThis.__pixnxtUploading) return;
+      if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
+      if (Date.now() < entry.quietUntil) return;
+      try {
+        if (galleryId) {
+          await apiFetch(`/v1/public/gallery/${encodeURIComponent(galleryId)}/photos?limit=1`, { auth: false });
+          entry.failures = 0;
+          entry.listeners.forEach((cb) => cb(null, { source: 'poll' }));
+          return;
+        }
+        if (isSingleRow) {
+          const id = filter.slice('id=eq.'.length);
+          const data = await apiFetch('/v1/me/profile');
+          entry.failures = 0;
+          if (data?.profile && (!id || data.profile.id === id)) {
+            entry.listeners.forEach((cb) => cb(data.profile, { source: 'poll' }));
+          }
+          return;
+        }
+        // Admin roster: listeners reload /photographers themselves.
+        entry.failures = 0;
+        entry.listeners.forEach((cb) => cb(null, { source: 'poll' }));
+      } catch (err) {
+        const status = Number(err?.status) || 0;
+        if (status >= 500 || status === 0) {
+          entry.failures += 1;
+          if (entry.failures >= 4) {
+            entry.quietUntil = Date.now() + 5 * 60_000;
+            entry.failures = 0;
+            return;
+          }
+          entry.quietUntil = Date.now() + Math.min(300000, 30000 * (2 ** (entry.failures - 1)));
+        }
+      }
+    };
     try {
       if (galleryId) {
-        await apiFetch(`/v1/public/gallery/${encodeURIComponent(galleryId)}/photos?limit=1`, { auth: false }).catch(() => null);
-      } else if (isSingleRow) {
-        const id = filter.slice('id=eq.'.length);
-        const data = await apiFetch('/v1/me/profile').catch(() => null);
-        if (data?.profile && (!id || data.profile.id === id)) callback(data.profile, { source: 'poll' });
-        return;
-      } else {
-        // Admin roster: no cheap change-detection endpoint — just nudge listeners.
-        // Keep this rare (30s) so pages don't look like they're stuck reloading.
-        await apiFetch('/v1/me/profile').catch(() => null);
+        entry.stopSse = subscribeSse(`/v1/public/gallery/${encodeURIComponent(galleryId)}/events`, {
+          onEvent: (_data, _event, type) => {
+            if (!type || type === 'gallery-updated') {
+              entry.listeners.forEach((cb) => cb(null, { source: 'sse', type: type || 'gallery-updated' }));
+            }
+          },
+        });
       }
-      callback(null, { source: 'poll' });
     } catch {
-      // polling is best-effort
+      // SSE optional — polling covers it
     }
-  };
-  try {
-    if (galleryId) {
-      stopSse = subscribeSse(`/v1/public/gallery/${encodeURIComponent(galleryId)}/events`, {
-        onEvent: (_data, _event, type) => {
-          if (stopped) return;
-          if (!type || type === 'gallery-updated') callback(null, { source: 'sse', type: type || 'gallery-updated' });
-        },
-      });
+    if (typeof document !== 'undefined') {
+      entry.onVis = () => {
+        if (document.visibilityState === 'visible') void entry.refresh();
+      };
+      document.addEventListener('visibilitychange', entry.onVis);
     }
-  } catch {
-    // SSE optional — polling covers it
+    // Immediate poll only for studio single-row / gallery SSE fallbacks.
+    // Admin all-photographers must not fire on mount (pages already fetch once).
+    if (isSingleRow || galleryId) void entry.refresh();
+    entry.timer = setInterval(() => { void entry.refresh(); }, interval);
   }
-  // Immediate poll only for studio single-row / gallery SSE fallbacks.
-  // Admin all-photographers must not fire on mount (pages already fetch once).
-  if (isSingleRow || galleryId) void refresh();
-  pollTimer = setInterval(refresh, interval);
+
+  entry.listeners.add(callback);
   return () => {
-    stopped = true;
+    entry.listeners.delete(callback);
+    if (entry.listeners.size > 0) return;
+    if (entry.timer) clearInterval(entry.timer);
     try {
-      stopSse?.();
+      entry.stopSse?.();
     } catch {
       /* ignore */
     }
-    if (pollTimer) clearInterval(pollTimer);
+    if (entry.onVis && typeof document !== 'undefined') {
+      document.removeEventListener('visibilitychange', entry.onVis);
+    }
+    liveChannels.delete(key);
   };
 }
 

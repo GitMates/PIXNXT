@@ -535,6 +535,11 @@ export const galleryService = {
         `Storage limit exceeded. Remaining storage space: ${formatSize(remainingBytes)}. This file size is ${formatSize(fileSize)}.`
       );
     }
+
+    if (globalThis.__pixnxtProfileCache?.data) {
+      globalThis.__pixnxtProfileCache.data.storage_used_bytes = usedBytes + fileSize;
+      globalThis.__pixnxtProfileCache.time = Date.now();
+    }
   },
 
   async _resolveUploadBasePath(photographerId, collectionId, setId) {
@@ -579,20 +584,19 @@ export const galleryService = {
     onInserted = null,
     options = {}
   ) {
-    const { signal } = options;
+    const { signal, overlapOriginal = true, skipQuota = false, quietQuota = false } = options;
     if (!collectionId || !photographerId) {
       throw new Error('Delivery or photographer is missing. Refresh the page and try again.');
     }
 
-    await this._assertStorageQuota(photographerId, file.size);
+    if (!skipQuota) await this._assertStorageQuota(photographerId, file.size);
 
     const mime = getFileMime(file);
     const fileExt = (file.name.split('.').pop() || 'jpg').toLowerCase();
     const fileName = `${Math.random().toString(36).substring(2)}-${Date.now()}.${fileExt}`;
     const basePath = await this._resolveUploadBasePath(photographerId, collectionId, setId);
-    const filePath = `${basePath}/original/${fileName}`;
-
     const isVideo = isVideoMime(mime);
+    const filePath = `${basePath}/${isVideo ? 'video' : 'original'}/${fileName}`;
     const isRaw = isRawImageFile(file);
     const mediaType = getUploadMediaType(file);
 
@@ -600,12 +604,47 @@ export const galleryService = {
     // with the derivative pipeline so it never slows uploads. Never throws.
     const exifDetailsTask = !isVideo ? extractImageDetails(file) : null;
 
+    // Originals start immediately. Thumb/web encode in a worker and upload
+    // alongside the original instead of blocking it.
+    let origPercent = 0;
+    let derivPercent = 0;
+    const reportOverlap = () => {
+      if (!overlapOriginal) return;
+      onProgress?.(Math.min(99, Math.round(origPercent * 0.8 + derivPercent * 0.2)));
+    };
+    const originalTask = overlapOriginal
+      ? (async () => {
+          let originalFile = file;
+          const uploadEdge = !isVideo && !isRaw ? getOriginalUploadMaxEdge() : null;
+          if (uploadEdge) {
+            originalFile = await compressImageForUpload(file, { maxEdge: uploadEdge }).catch(() => file);
+          }
+          const uploadBody =
+            originalFile.type === mime
+              ? originalFile
+              : new File([originalFile], originalFile.name, {
+                  type: mime,
+                  lastModified: originalFile.lastModified,
+                });
+          return storageService.upload(
+            filePath,
+            uploadBody,
+            (p) => {
+              origPercent = p;
+              reportOverlap();
+            },
+            signal
+          );
+        })()
+      : null;
+
     let webFile = null;
     let thumbFile = null;
     let dimensions = { width: null, height: null };
     let thumbnailBlob = null;
 
-    onProgress?.(5);
+    onProgress?.(overlapOriginal ? 2 : 5);
+    derivPercent = 5;
 
     if (!isVideo && !isRaw) {
       const [dim, variants] = await Promise.all([
@@ -644,7 +683,9 @@ export const galleryService = {
       }
     }
 
-    onProgress?.(20);
+    derivPercent = 25;
+    if (overlapOriginal) reportOverlap();
+    else onProgress?.(20);
 
     const fileNameJpg = fileName.replace(/\.[^.]+$/, '.jpg');
     const webPath = `${basePath}/web/${fileNameJpg}`;
@@ -658,7 +699,12 @@ export const galleryService = {
       webStoragePath = webPath;
       prepPromises.push(
         storageService.upload(webStoragePath, webFile, (p) => {
-          onProgress?.(20 + Math.round((p / 100) * 40));
+          if (overlapOriginal) {
+            derivPercent = 25 + p * 0.4;
+            reportOverlap();
+          } else {
+            onProgress?.(20 + Math.round((p / 100) * 40));
+          }
         }, signal)
       );
     }
@@ -666,7 +712,12 @@ export const galleryService = {
       thumbnailStoragePath = thumbnailPath;
       prepPromises.push(
         storageService.upload(thumbnailStoragePath, thumbFile, (p) => {
-          onProgress?.(60 + Math.round((p / 100) * 35));
+          if (overlapOriginal) {
+            derivPercent = 65 + p * 0.35;
+            reportOverlap();
+          } else {
+            onProgress?.(60 + Math.round((p / 100) * 35));
+          }
         }, signal)
       );
     }
@@ -710,16 +761,33 @@ export const galleryService = {
     if (onInserted) {
       onInserted(photoData);
     }
-    photographerQuotaService.invalidate(photographerId);
-    photographerQuotaService.notifyQuotaChanged();
+    if (!quietQuota) {
+      photographerQuotaService.invalidate(photographerId);
+      photographerQuotaService.notifyQuotaChanged();
+    }
+
+    let finalPhoto = photoData;
+    if (originalTask) {
+      const uploadResult = await originalTask;
+      try {
+        finalPhoto =
+          (await dbUpdatePhotoRow(photoData.id, {
+            full_url: uploadResult.url,
+            original_storage_path: filePath,
+          })) || { ...photoData, full_url: uploadResult.url, original_storage_path: filePath };
+      } catch (err) {
+        console.warn('Photo original finalize failed:', err?.message || err);
+        finalPhoto = { ...photoData, full_url: uploadResult.url, original_storage_path: filePath };
+      }
+    }
 
     onProgress?.(100);
 
     return {
-      photoData,
+      photoData: finalPhoto,
       uploadContext: {
         collectionId,
-        photoId: photoData.id,
+        photoId: finalPhoto.id,
         file,
         mime,
         filePath,
@@ -728,7 +796,8 @@ export const galleryService = {
         isVideo,
         isRaw,
         thumbnailBlob,
-        photoData,
+        originalDone: Boolean(originalTask),
+        photoData: finalPhoto,
       },
     };
   },
@@ -1004,9 +1073,12 @@ export const galleryService = {
       file,
       index,
       setId,
-      (p) => onProgress?.(Math.round((p / 100) * 20)),
-      onInserted
+      (p) => onProgress?.(p),
+      onInserted,
+      { overlapOriginal: true }
     );
+
+    if (uploadContext?.originalDone) return { ...photoData };
 
     const finalPhoto = await this.uploadPhotoOriginal(uploadContext, (p) =>
       onProgress?.(20 + Math.round((p / 100) * 80))
@@ -1159,9 +1231,8 @@ export const galleryService = {
       existing?.set_name || existing?.setName || null,
     );
     const basePath = `users/${photographerFolder}/${DELIVERY_R2_MODULE}/${collectionFolder}/photoset/${setFolder}`;
-    const filePath = `${basePath}/original/${fileName}`;
-
     const isVideo = isVideoMime(mime);
+    const filePath = `${basePath}/${isVideo ? 'video' : 'original'}/${fileName}`;
     const isRaw = isRawImageFile(file);
     const mediaType = getUploadMediaType(file);
 
@@ -1482,8 +1553,8 @@ export const galleryService = {
   /**
    * Toggle a photo as favorite
    */
-  async toggleFavorite(sessionId, photoId, isFavorite, listId = null) {
-    return (await workersGallery()).toggleFavorite(sessionId, photoId, isFavorite, listId);
+  async toggleFavorite(sessionId, photoId, isFavorite, listId = null, comment) {
+    return (await workersGallery()).toggleFavorite(sessionId, photoId, isFavorite, listId, comment);
   },
 
   /**

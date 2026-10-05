@@ -103,12 +103,17 @@ const LabApp = () => {
             const { normalizeLabItemRow } = await import('./labOrderStatusService');
             const data = await apiFetch('/v1/printstore/orders');
             const ordersData = data?.orders || [];
-            const details = await Promise.all(
-                ordersData.map((o) =>
-                    apiFetch(`/v1/printstore/orders/${encodeURIComponent(o.id)}`).catch(() => null)
-                )
-            );
-            const itemsData = (details.flatMap((d) => d?.items || [])).map(normalizeLabItemRow);
+            let itemsData;
+            if (Array.isArray(data?.items)) {
+                itemsData = data.items.map(normalizeLabItemRow);
+            } else {
+                const details = await Promise.all(
+                    ordersData.map((o) =>
+                        apiFetch(`/v1/printstore/orders/${encodeURIComponent(o.id)}`).catch(() => null)
+                    )
+                );
+                itemsData = details.flatMap((d) => d?.items || []).map(normalizeLabItemRow);
+            }
             const physicalItems = filterLabPhysicalItems(itemsData);
             const labOrderIds = new Set(physicalItems.map((item) => item.order_id));
             // Hide digital-only orders from the lab entirely

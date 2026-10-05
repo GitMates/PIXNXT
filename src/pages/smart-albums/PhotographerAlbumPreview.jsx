@@ -16,7 +16,7 @@ import { isClientShareLinkLive } from '../../lib/shareSmartAlbum';
 import { AppLoader } from '../../components/ui/AppLoading';
 import './AlbumViewer.css';
 
-const SHARE_LINK_POLL_MS = 5000;
+const SHARE_LINK_POLL_MS = 120000;
 
 /**
  * Album preview in its own tab (like collection gallery preview).

@@ -384,9 +384,45 @@ function stripHash(url) {
   return String(url).split('#')[0];
 }
 
+const COVER_CACHE_PREFIX = 'pixnxt_cover_hq_';
+const coverMemory = new Map();
+
+/** Remember the high-quality cover URL and warm the browser image cache. */
+export function rememberCollectionCover(collectionId, url) {
+  const src = resolveMediaUrl(stripHash(url));
+  if (!collectionId || !src || typeof window === 'undefined') return src || '';
+  coverMemory.set(String(collectionId), src);
+  try {
+    sessionStorage.setItem(`${COVER_CACHE_PREFIX}${collectionId}`, src);
+  } catch {
+    /* ignore quota */
+  }
+  try {
+    const img = new Image();
+    img.decoding = 'async';
+    img.src = src;
+  } catch {
+    /* ignore */
+  }
+  return src;
+}
+
+export function readCachedCollectionCover(collectionId) {
+  if (!collectionId) return '';
+  const mem = coverMemory.get(String(collectionId));
+  if (mem) return mem;
+  if (typeof window === 'undefined') return '';
+  try {
+    const stored = String(sessionStorage.getItem(`${COVER_CACHE_PREFIX}${collectionId}`) || '').trim();
+    if (stored) coverMemory.set(String(collectionId), stored);
+    return stored;
+  } catch {
+    return '';
+  }
+}
+
 /**
- * Ordered cover candidates for list cards: web → thumb → stored URL.
- * Deliveries board uses R2 /web/ images; /thumb/ is a fallback if web is missing.
+ * Ordered cover candidates: high-quality /web/ first, then the stored URL, then /thumb/.
  * Callers should advance on <img onError> so a missing derivative does not blank the card.
  */
 export function getCollectionCardCoverCandidates(collection) {
@@ -407,14 +443,16 @@ export function getCollectionCardCoverCandidates(collection) {
     const resolved = resolveMediaUrl(stripHash(raw));
     if (!resolved) continue;
     push(toWebDerivativeUrl(resolved));
+    if (!resolved.includes('/original/') && !resolved.includes('/thumb/')) push(resolved);
     push(toThumbDerivativeUrl(resolved));
-    if (!resolved.includes('/original/')) push(resolved);
   }
 
   return out;
 }
 
-/** Cover src for Client Gallery / Starred list cards (~227×124). */
+/** High-quality cover src for list cards. Falls back to the last cached web image. */
 export function getCollectionCardCoverSrc(collection) {
-  return getCollectionCardCoverCandidates(collection)[0] || '';
+  const live = getCollectionCardCoverCandidates(collection)[0] || '';
+  if (live && collection?.id) rememberCollectionCover(collection.id, live);
+  return live || readCachedCollectionCover(collection?.id);
 }

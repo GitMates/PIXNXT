@@ -585,6 +585,15 @@ function buildRecentWork({ collections, albums, events, apps }) {
         ? `Client Gallery · shared ${rel}`
         : `Client Gallery · draft · ${rel}`,
       coverUrl: coverOf(c),
+      coverCollection: {
+        id: c.id,
+        cover_url: c.cover_url,
+        cover: c.cover,
+        list_cover_url: c.list_cover_url,
+        cover_focal_x: c.cover_focal_x,
+        cover_focal_y: c.cover_focal_y,
+        cover_focals: c.cover_focals,
+      },
       focalX,
       focalY,
       gradient: 'linear-gradient(145deg, #4a2c6a 0%, #c45a3a 55%, #e8a060 100%)',

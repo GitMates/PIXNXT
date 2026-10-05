@@ -283,7 +283,14 @@ export function CollectionDashboardSidebar({
     };
 
     refreshUsage({ force: true });
-    const onUsage = () => refreshUsage({ force: true });
+    const onUsage = (event) => {
+      if (event?.detail?.local && typeof event.detail.bytes === 'number') {
+        setStorageBytes(event.detail.bytes);
+        return;
+      }
+      if (globalThis.__pixnxtUploading) return;
+      refreshUsage({ force: Boolean(event?.detail?.refresh) });
+    };
     window.addEventListener(STORAGE_CHANGED_EVENT, onUsage);
     window.addEventListener(QUOTA_CHANGED_EVENT, onUsage);
     return () => {

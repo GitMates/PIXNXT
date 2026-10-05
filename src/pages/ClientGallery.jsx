@@ -21,6 +21,31 @@ import { CollectionContextMenu } from '../components/features/ClientGallery/Coll
 import { DeleteDeliveryModal } from '../components/features/ClientGallery/DeleteDeliveryModal';
 import { runOptimisticDelete } from '../lib/optimisticDelete';
 import { getCollectionCardCoverSrc } from '../lib/photoDisplayUrl';
+
+const GALLERY_BOARD_PREFIX = 'pixnxt_cg_board_';
+
+function readGalleryBoard(userId) {
+  if (!userId || typeof sessionStorage === 'undefined') return null;
+  try {
+    const raw = sessionStorage.getItem(`${GALLERY_BOARD_PREFIX}${userId}`);
+    const parsed = raw ? JSON.parse(raw) : null;
+    return Array.isArray(parsed?.collections) ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeGalleryBoard(userId, collections, folders) {
+  if (!userId) return;
+  try {
+    sessionStorage.setItem(`${GALLERY_BOARD_PREFIX}${userId}`, JSON.stringify({
+      collections: collections || [],
+      folders: folders || [],
+    }));
+  } catch {
+    /* ignore quota */
+  }
+}
 import { FolderThumbGrid } from '../components/features/ClientGallery/FolderThumbGrid';
 import { EditCollectionModal } from '../components/features/ClientGallery/EditCollectionModal';
 import {
@@ -114,9 +139,10 @@ const ClientGallery = () => {
     const navigate = useNavigate();
     const location = useLocation();
     const { user } = useAuth();
-    const [collections, setCollections] = useState([]);
-    const [folders, setFolders] = useState([]);
-    const [loading, setLoading] = useState(true);
+    const cachedBoard = readGalleryBoard(user?.id);
+    const [collections, setCollections] = useState(cachedBoard?.collections || []);
+    const [folders, setFolders] = useState(cachedBoard?.folders || []);
+    const [loading, setLoading] = useState(!cachedBoard);
     const [error, setError] = useState(null);
     const [photographerProfile, setPhotographerProfile] = useState(null);
     const navigateNewCollection = () => navigate('/deliveries/create');
@@ -256,7 +282,7 @@ const ClientGallery = () => {
             if (!user) return;
             
             try {
-                setLoading(true);
+                if (!readGalleryBoard(user.id)) setLoading(true);
                 setError(null);
                 const [data, folderRows] = await Promise.all([
                     galleryService.getCollections(user.id),
@@ -268,11 +294,15 @@ const ClientGallery = () => {
                 } catch (extraErr) {
                     console.error('Delivery board extras failed:', extraErr);
                 }
-                setCollections(attachBoardExtras(data, extras));
+                const nextCollections = attachBoardExtras(data, extras);
+                setCollections(nextCollections);
                 setFolders(folderRows);
+                writeGalleryBoard(user.id, nextCollections, folderRows);
             } catch (err) {
                 console.error('Error fetching collections:', err);
-                setError('Failed to load deliveries. Please try again.');
+                if (!readGalleryBoard(user.id)) {
+                    setError('Failed to load deliveries. Please try again.');
+                }
             } finally {
                 setLoading(false);
             }

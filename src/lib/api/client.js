@@ -127,57 +127,98 @@ export function readWorkersResetToken() {
 /**
  * Subscribe to a Workers SSE endpoint (EventSource can't send headers, so an
  * explicit access token is appended as ?access_token= over HTTPS).
- * Returns an unsubscribe function. Auto-stops on error (caller polls anyway).
+ * Hidden tabs disconnect. A stream that never opens (D1 5xx) backs off and
+ * stops; a stream that already delivered events reconnects after a minute.
  */
-export function subscribeSse(path, { onEvent, query = {}, retryMs = 0 } = {}) {
+export function subscribeSse(path, { onEvent, query = {} } = {}) {
   if (typeof window === 'undefined' || typeof EventSource === 'undefined') {
     return () => {};
   }
   let source = null;
   let retryId = null;
   let disposed = false;
+  let sawEvent = false;
+  let failures = 0;
   const emit = (event, type) => {
     if (!event.data || event.data.startsWith(':')) return;
+    sawEvent = true;
+    failures = 0;
     try {
       onEvent?.(JSON.parse(event.data), event, type);
     } catch {
       onEvent?.(event.data, event, type);
     }
   };
+  const scheduleRetry = (opened) => {
+    if (disposed || retryId) return;
+    if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
+    let delay = 60000;
+    if (!opened) {
+      failures += 1;
+      // Four failures in a row (D1 5xx) and this tab stops calling.
+      if (failures >= 4) return;
+      delay = Math.min(300000, 30000 * (2 ** (failures - 1)));
+    }
+    retryId = window.setTimeout(() => {
+      retryId = null;
+      connect();
+    }, delay);
+  };
   const connect = () => {
     if (disposed) return;
+    if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
     const params = new URLSearchParams({ ...query });
     if (accessToken) params.set('access_token', accessToken);
     try {
       source = new EventSource(`${apiBase()}${path}?${params.toString()}`);
     } catch {
-      scheduleRetry();
+      scheduleRetry(false);
       return;
     }
     source.onmessage = (event) => emit(event);
+    source.addEventListener('hello', (event) => emit(event, 'hello'));
     source.addEventListener('feedback-updated', (event) => emit(event, 'feedback-updated'));
     source.addEventListener('gallery-updated', (event) => emit(event, 'gallery-updated'));
     source.onerror = () => {
+      const opened = sawEvent;
+      sawEvent = false;
       try {
         source?.close();
       } catch {
         // ignore
       }
       source = null;
-      // The backend closes streams after ~60s — reconnect so pushes keep flowing.
-      scheduleRetry();
+      scheduleRetry(opened);
     };
   };
-  const scheduleRetry = () => {
-    if (disposed || !retryMs || retryId) return;
-    retryId = window.setTimeout(() => {
-      retryId = null;
-      connect();
-    }, retryMs);
+  const onVis = () => {
+    if (disposed) return;
+    if (document.visibilityState === 'hidden') {
+      if (retryId) {
+        window.clearTimeout(retryId);
+        retryId = null;
+      }
+      try {
+        source?.close();
+      } catch {
+        // ignore
+      }
+      source = null;
+      return;
+    }
+    failures = 0;
+    sawEvent = false;
+    if (!source) connect();
   };
+  if (typeof document !== 'undefined') {
+    document.addEventListener('visibilitychange', onVis);
+  }
   connect();
   return () => {
     disposed = true;
+    if (typeof document !== 'undefined') {
+      document.removeEventListener('visibilitychange', onVis);
+    }
     if (retryId) window.clearTimeout(retryId);
     try {
       source?.close();

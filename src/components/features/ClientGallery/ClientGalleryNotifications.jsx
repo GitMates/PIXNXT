@@ -80,8 +80,9 @@ export default function ClientGalleryNotifications({ userId, variant = 'default'
     })();
 
     const pollId = window.setInterval(() => {
+      if (document.visibilityState === 'hidden') return;
       if (!cancelled) refreshItems();
-    }, 45000);
+    }, 120000);
 
     return () => {
       cancelled = true;

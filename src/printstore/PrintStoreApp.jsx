@@ -639,7 +639,10 @@ export default function PrintStoreApp() {
 
   useEffect(() => {
     fetchNotifCount();
-    const interval = setInterval(fetchNotifCount, 30000);
+    const interval = setInterval(() => {
+      if (document.visibilityState === 'hidden') return;
+      fetchNotifCount();
+    }, 60000);
     return () => clearInterval(interval);
   }, [sessionId]);
 
@@ -894,7 +897,10 @@ export default function PrintStoreApp() {
         console.error('Workers products poll error:', err);
       }
     };
-    const interval = setInterval(pollProducts, 30000);
+    const interval = setInterval(() => {
+      if (document.visibilityState === 'hidden') return;
+      pollProducts();
+    }, 60000);
     return () => clearInterval(interval);
   }, []);
 
@@ -932,7 +938,10 @@ export default function PrintStoreApp() {
           console.error('Workers cart poll error:', err);
         }
       };
-      const interval = setInterval(pollCart, 30000);
+      const interval = setInterval(() => {
+        if (document.visibilityState === 'hidden') return;
+        pollCart();
+      }, 60000);
       return () => clearInterval(interval);
   }, [sessionId]);
 

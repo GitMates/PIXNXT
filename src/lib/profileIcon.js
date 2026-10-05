@@ -3,15 +3,39 @@ import { resolveMediaUrl } from './photoDisplayUrl';
 const CACHE_PREFIX = 'pixnxt_profile_icon_';
 const preloaded = new Set();
 
-/** Prefer uploaded profile icon, then legacy avatar_url. */
+const PROFILE_ICON_FIELDS = ['profile_icon_url', 'avatar_url', 'profileIconUrl', 'picture'];
+
+/** Every stored profile-image field, resolved to a loadable URL. */
+export function profileIconCandidates(profile) {
+  if (!profile || typeof profile !== 'object') return [];
+  const out = [];
+  for (const key of PROFILE_ICON_FIELDS) {
+    const raw = profile[key];
+    if (typeof raw !== 'string' || !raw.trim()) continue;
+    const resolved = resolveMediaUrl(raw.trim());
+    if (resolved && !out.includes(resolved)) out.push(resolved);
+  }
+  return out;
+}
+
+/** Prefer uploaded profile icon, then legacy avatar_url / picture. */
 export function resolveProfileIconUrl(profile) {
-  if (!profile || typeof profile !== 'object') return '';
-  const raw =
-    (typeof profile.profile_icon_url === 'string' && profile.profile_icon_url.trim()) ||
-    (typeof profile.avatar_url === 'string' && profile.avatar_url.trim()) ||
-    (typeof profile.profileIconUrl === 'string' && profile.profileIconUrl.trim()) ||
-    '';
-  return resolveMediaUrl(raw) || '';
+  return profileIconCandidates(profile)[0] || '';
+}
+
+export function getStudioProfileIconCandidates(profile, userId) {
+  const live = profileIconCandidates(profile);
+  if (live.length) {
+    if (userId) writeCachedProfileIcon(userId, live[0]);
+    else preloadProfileIcon(live[0]);
+    return live;
+  }
+  const cached = readCachedProfileIcon(userId || profile?.id);
+  if (cached) {
+    preloadProfileIcon(cached);
+    return [cached];
+  }
+  return [];
 }
 
 export function readCachedProfileIcon(userId) {

@@ -39,7 +39,7 @@
   color: #8c827a;
 }
 
-.cdpw-search.neu-inset {
+.theme-mono .cdpw-search.neu-inset {
   position: relative;
   display: flex;
   align-items: center;
@@ -48,10 +48,22 @@
   min-height: 2.5rem;
   min-width: 0;
   flex-shrink: 1;
-  border: 0;
+  border: 1px solid #e6e1d9;
   border-radius: 9999px;
+  background: #fff;
+  box-shadow: none;
   padding: 0 0.75rem 0 2.25rem;
   box-sizing: border-box;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.theme-mono .cdpw-search.neu-inset:hover {
+  border-color: #cfc6ba;
+}
+
+.theme-mono .cdpw-search.neu-inset:focus-within {
+  border-color: #c8c0b6;
+  box-shadow: 0 0 0 3px rgba(208, 133, 82, 0.12);
 }
 
 .cdpw-search__icon {

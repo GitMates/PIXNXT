@@ -3,6 +3,7 @@ import { userStorageService } from './userStorage.service';
 export const QUOTA_CHANGED_EVENT = 'pixnxt-quota-changed';
 
 const quotaCache = new Map();
+const quotaInflight = new Map();
 
 function asLimit(value) {
   const n = Number(value);
@@ -298,10 +299,10 @@ function normalizeSnapshot(data) {
 }
 
 export const photographerQuotaService = {
-  notifyQuotaChanged() {
-    userStorageService.notifyStorageChanged();
+  notifyQuotaChanged(detail) {
+    userStorageService.notifyStorageChanged(detail);
     if (typeof window === 'undefined') return;
-    window.dispatchEvent(new CustomEvent(QUOTA_CHANGED_EVENT));
+    window.dispatchEvent(new CustomEvent(QUOTA_CHANGED_EVENT, { detail }));
   },
 
   /**
@@ -333,15 +334,30 @@ export const photographerQuotaService = {
     }
 
     const existing = quotaCache.get(photographerId);
+    // One read per batch. Uploads update the meter locally and refresh once when idle.
+    if (globalThis.__pixnxtUploading && existing) return existing.data;
     if (!force && existing && Date.now() - existing.time < 8000) {
       return existing.data;
     }
+    if (force && existing && Date.now() - existing.time < 20000) {
+      return existing.data;
+    }
 
-    const { apiFetch } = await import('../lib/api/client');
-    const data = await apiFetch('/v1/me/quota');
-    const snapshot = normalizeSnapshot(data?.quota ?? {});
-    quotaCache.set(photographerId, { data: snapshot, time: Date.now() });
-    return snapshot;
+    const inflightKey = `snap:${photographerId}`;
+    const inflight = quotaInflight.get(inflightKey);
+    if (inflight) return inflight;
+
+    const run = (async () => {
+      const { apiFetch } = await import('../lib/api/client');
+      const data = await apiFetch('/v1/me/quota');
+      const snapshot = normalizeSnapshot(data?.quota ?? {});
+      quotaCache.set(photographerId, { data: snapshot, time: Date.now() });
+      return snapshot;
+    })().finally(() => {
+      quotaInflight.delete(inflightKey);
+    });
+    quotaInflight.set(inflightKey, run);
+    return run;
   },
 
   invalidate(photographerId) {

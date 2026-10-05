@@ -298,11 +298,12 @@ export default function SmartAlbumNotifications({ userId, variant = 'default' })
         })();
 
         const pollId = window.setInterval(async () => {
+            if (document.visibilityState === 'hidden') return;
             const data = await reloadAlbums();
             if (!cancelled && data.length) {
                 await refreshItems(data);
             }
-        }, 45000);
+        }, 120000);
 
         return () => {
             cancelled = true;

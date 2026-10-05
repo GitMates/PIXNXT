@@ -61,9 +61,18 @@ function cacheStorageBytes(userId, bytes) {
  * Studio storage footer across all PIXNXT products (Workers: GET /v1/me/storage).
  */
 export const userStorageService = {
-  notifyStorageChanged() {
+  notifyStorageChanged(detail) {
     if (typeof window === 'undefined') return;
-    window.dispatchEvent(new CustomEvent(STORAGE_CHANGED_EVENT));
+    window.dispatchEvent(new CustomEvent(STORAGE_CHANGED_EVENT, { detail }));
+  },
+
+  /** Move the sidebar meter without GET /v1/me/storage. */
+  addLocalBytes(userId, delta) {
+    if (!userId) return 0;
+    const next = Math.max(0, this.getCachedStorageBytes(userId) + (Number(delta) || 0));
+    cacheStorageBytes(userId, next);
+    this.notifyStorageChanged({ local: true, bytes: next });
+    return next;
   },
 
   invalidateCachedStorage(userId) {
@@ -82,6 +91,9 @@ export const userStorageService = {
     if (existing) return existing;
 
     const run = (async () => {
+      if (globalThis.__pixnxtUploading) {
+        return userStorageService.getCachedStorageBytes(user.id);
+      }
       const { apiFetch } = await import('../lib/api/client');
       const data = await apiFetch('/v1/me/storage').catch(() => null);
       if (!data || data.totalBytes == null) {

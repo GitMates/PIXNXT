@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { getStudioProfileIconSrc, preloadProfileIcon } from '../../lib/profileIcon';
+import { getStudioProfileIconCandidates, preloadProfileIcon } from '../../lib/profileIcon';
 
 /**
  * Studio avatar: shows the uploaded profile icon when one exists,
@@ -17,17 +17,20 @@ export function StudioAvatar({
   style,
   priority = true,
 }) {
-  const resolved =
-    (typeof src === 'string' && src.trim()) ||
-    getStudioProfileIconSrc(profile, userId || profile?.id) ||
-    '';
-
-  const [failedUrl, setFailedUrl] = useState('');
-  const icon = resolved && resolved !== failedUrl ? resolved : '';
+  const explicit = typeof src === 'string' ? src.trim() : '';
+  const candidates = explicit
+    ? [explicit]
+    : getStudioProfileIconCandidates(profile, userId || profile?.id);
+  const [index, setIndex] = useState(0);
+  const icon = candidates[index] || '';
 
   useEffect(() => {
-    if (resolved) preloadProfileIcon(resolved);
-  }, [resolved]);
+    setIndex(0);
+  }, [explicit, profile?.profile_icon_url, profile?.avatar_url, profile?.picture, userId]);
+
+  useEffect(() => {
+    if (icon) preloadProfileIcon(icon);
+  }, [icon]);
 
   if (icon) {
     return (
@@ -39,7 +42,7 @@ export function StudioAvatar({
         loading={priority ? 'eager' : 'lazy'}
         fetchPriority={priority ? 'high' : 'auto'}
         referrerPolicy="no-referrer"
-        onError={() => setFailedUrl(icon)}
+        onError={() => setIndex((i) => i + 1)}
         style={{
           width: '100%',
           height: '100%',

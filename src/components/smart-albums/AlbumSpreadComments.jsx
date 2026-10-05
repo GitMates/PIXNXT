@@ -172,7 +172,10 @@ export default function AlbumSpreadComments({
     useEffect(() => {
         if (!isFooter || !messagesEnabled || !albumId || !showClientCompose) return undefined;
         syncComments();
-        const intervalId = window.setInterval(syncComments, 8000);
+        const intervalId = window.setInterval(() => {
+            if (document.visibilityState === 'hidden') return;
+            syncComments();
+        }, 30000);
         const onChanged = (e) => {
             if (e.detail?.albumId === albumId) syncComments();
         };

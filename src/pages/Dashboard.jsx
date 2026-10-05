@@ -9,6 +9,7 @@ import { getThemeMode, setThemeMode, THEME_CHANGE_EVENT } from '../lib/appearanc
 import { navigateToAccount } from '../lib/accountBackNav';
 import { buildShowcaseUrl } from '../lib/showcaseUrl';
 import AlbumListCoverThumb from '../components/smart-albums/AlbumListCoverThumb';
+import { CollectionCardCover } from '../components/features/ClientGallery/CollectionCardCover';
 import { AppLoader } from '../components/ui/AppLoading';
 import DashboardCommandSearch from '../components/dashboard/DashboardCommandSearch';
 import StudioNotifications from '../components/dashboard/StudioNotifications';
@@ -16,8 +17,35 @@ import { StudioAvatar } from '../components/ui/StudioAvatar';
 import { useAppLanguage } from '../context/AppLanguageContext';
 import { localizeAppText } from '../lib/app-languages';
 import { syncProfileIconCacheFromProfile, getStudioProfileIconSrc, preloadProfileIcon } from '../lib/profileIcon';
-import { coverImageCssStyle } from '../lib/focalPoint';
 import './Dashboard.css';
+
+const STUDIO_BOARD_PREFIX = 'pixnxt_studio_board_';
+
+function readStudioBoard(userId) {
+  if (!userId || typeof sessionStorage === 'undefined') return null;
+  try {
+    const raw = sessionStorage.getItem(`${STUDIO_BOARD_PREFIX}${userId}`);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeStudioBoard(userId, dash) {
+  if (!userId || !dash) return;
+  try {
+    sessionStorage.setItem(`${STUDIO_BOARD_PREFIX}${userId}`, JSON.stringify({
+      modules: dash.modules || [],
+      recentWork: dash.recentWork || [],
+      studioStats: dash.studioStats || [],
+      needsYou: dash.needsYou || [],
+      thisWeek: dash.thisWeek || [],
+      heroStatus: dash.heroStatus || '',
+    }));
+  } catch {
+    /* ignore quota */
+  }
+}
 
 const NEW_MENU = [
   {
@@ -309,26 +337,41 @@ const Dashboard = () => {
         } catch {
           /* ignore */
         }
-        setLoading(true);
-        const [profileData, dash] = await Promise.all([
-          galleryService.getPhotographerProfile(user.id),
-          loadStudioDashboard(user.id),
-        ]);
-        setProfile(profileData);
-        if (profileData) {
-          try {
-            localStorage.setItem(`photographer_profile_${user.id}`, JSON.stringify(profileData));
-          } catch {
-            /* ignore */
-          }
-          syncProfileIconCacheFromProfile(profileData);
+        const cachedBoard = readStudioBoard(user.id);
+        if (cachedBoard) {
+          setModules(cachedBoard.modules || []);
+          setRecentWork(cachedBoard.recentWork || []);
+          setStudioStats(cachedBoard.studioStats || []);
+          setNeedsYou(cachedBoard.needsYou || []);
+          setThisWeek(cachedBoard.thisWeek || []);
+          setHeroStatus(cachedBoard.heroStatus || '');
+          setLoading(false);
+        } else {
+          setLoading(true);
         }
+        try {
+          const profileData = await galleryService.getPhotographerProfile(user.id);
+          setProfile(profileData);
+          if (profileData) {
+            try {
+              localStorage.setItem(`photographer_profile_${user.id}`, JSON.stringify(profileData));
+            } catch {
+              /* ignore */
+            }
+            syncProfileIconCacheFromProfile(profileData);
+          }
+        } catch (e) {
+          console.error('Error loading profile:', e);
+        }
+        setLoading(false);
+        const dash = await loadStudioDashboard(user.id);
         setModules(dash.modules || []);
         setRecentWork(dash.recentWork || []);
         setStudioStats(dash.studioStats || []);
         setNeedsYou(dash.needsYou || []);
         setThisWeek(dash.thisWeek || []);
         setHeroStatus(dash.heroStatus || '');
+        writeStudioBoard(user.id, dash);
       } catch (e) {
         console.error('Error loading dashboard:', e);
       } finally {
@@ -608,12 +651,19 @@ const Dashboard = () => {
                   ) : (
                     <span
                       className="sd-recent-thumb"
-                      style={
-                        item.coverUrl
-                          ? coverImageCssStyle(item.coverUrl, item.focalX ?? 50, item.focalY ?? 50)
-                          : { background: item.gradient }
-                      }
-                    />
+                      style={item.coverUrl ? undefined : { background: item.gradient }}
+                    >
+                      {item.coverCollection ? (
+                        <CollectionCardCover collection={item.coverCollection} alt="" />
+                      ) : item.coverUrl ? (
+                        <img
+                          src={item.coverUrl}
+                          alt=""
+                          decoding="async"
+                          style={{ objectPosition: `${item.focalX ?? 50}% ${item.focalY ?? 50}%` }}
+                        />
+                      ) : null}
+                    </span>
                   )}
                   <span className="sd-recent-title">{item.title}</span>
                   <span className="sd-recent-meta">{item.meta}</span>

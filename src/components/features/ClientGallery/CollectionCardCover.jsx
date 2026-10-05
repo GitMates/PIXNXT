@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { getCollectionCardCoverCandidates } from '../../../lib/photoDisplayUrl';
+import { getCollectionCardCoverCandidates, readCachedCollectionCover, rememberCollectionCover } from '../../../lib/photoDisplayUrl';
 import { getCoverFocalForSurface } from '../../../lib/focalPoint';
 
 /**
@@ -17,7 +17,8 @@ export function CollectionCardCover({ collection, alt = '', className, style }) 
     setFailed(false);
   }, [collection?.id, collection?.cover_url, collection?.cover, collection?.list_cover_url]);
 
-  const src = !failed ? candidates[index] || '' : '';
+  const cached = readCachedCollectionCover(collection?.id);
+  const src = !failed ? (candidates[index] || cached) : cached;
   if (!src) return null;
 
   return (
@@ -28,6 +29,9 @@ export function CollectionCardCover({ collection, alt = '', className, style }) 
       style={{ objectPosition: `${cardFocal.x}% ${cardFocal.y}%`, ...style }}
       loading="lazy"
       decoding="async"
+      onLoad={() => {
+        if (collection?.id) rememberCollectionCover(collection.id, src);
+      }}
       onError={() => {
         if (index + 1 < candidates.length) {
           setIndex((i) => i + 1);

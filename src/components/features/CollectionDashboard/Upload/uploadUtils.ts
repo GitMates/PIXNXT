@@ -183,7 +183,8 @@ export function resolveOriginalStoragePath(
   const stem = match[3].replace(/\.[^.]+$/, '');
   const ext =
     (fileExt || photo.filename?.split('.').pop() || 'jpg').toLowerCase();
-  return `${basePath}/original/${stem}.${ext}`;
+  const folder = /^(mp4|webm|ogg|mov|m4v|mkv|avi|wmv)$/i.test(ext) ? 'video' : 'original';
+  return `${basePath}/${folder}/${stem}.${ext}`;
 }
 
 /** Photo row is in DB with web/thumb but original never finished (or full_url points at a derivative). */

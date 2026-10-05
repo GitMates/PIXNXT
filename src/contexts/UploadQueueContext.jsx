@@ -6,6 +6,8 @@ import React, {
   useState,
 } from 'react';
 import { galleryService } from '../services/gallery.service';
+import { userStorageService } from '../services/userStorage.service';
+import { photographerQuotaService } from '../services/photographerQuota.service';
 import { isImageMime, isVideoMime, getFileMime } from '../lib/fileMime';
 import { getUploadMediaKindFromFile } from '../components/features/CollectionDashboard/Upload/uploadUtils';
 import { isRawImageFile } from '../lib/rawImageFormats';
@@ -20,8 +22,8 @@ import {
 } from '../components/features/CollectionDashboard/Upload/uploadUtils';
 import { UploadQueueContext } from './uploadQueueContext';
 
-/** Small derivative PUTs — push concurrency hard (Pixieset-style preview-first). */
-const MAX_CONCURRENT_DERIVATIVES = 20;
+/** Each slot uploads the original immediately and the thumb/web pair beside it. */
+const MAX_CONCURRENT_DERIVATIVES = 10;
 /** Full originals share less bandwidth so they finish faster each. */
 const LARGE_FILE_BYTES = 25 * 1024 * 1024;
 const MAX_CONCURRENT_ORIGINALS_SMALL = 10;
@@ -219,17 +221,16 @@ export function UploadQueueProvider({ children }) {
           return;
         }
 
-        const { uploadContext } = await galleryService.uploadPhotoDerivatives(
+        const { uploadContext, photoData } = await galleryService.uploadPhotoDerivatives(
           collectionId,
           photographerId,
           uf.file,
           sortIndex,
           setId,
           (percent) => {
-            // Phase 1 occupies 0–25% of the per-file bar
             safePatch({
               status: 'uploading',
-              progress: Math.min(25, Math.round((percent / 100) * 25)),
+              progress: Math.max(0, Math.min(99, Math.round(percent))),
             });
           },
           (insertedPhoto) => {
@@ -237,10 +238,20 @@ export function UploadQueueProvider({ children }) {
               targetRef.current?.onPhotoUploaded?.(insertedPhoto);
             }
           },
-          { signal: controller.signal }
+          { signal: controller.signal, overlapOriginal: true, skipQuota: true, quietQuota: true }
         );
 
         if (session !== sessionRef.current) return;
+
+        if (uploadContext?.originalDone) {
+          originalContextByIdRef.current.delete(uf.id);
+          safePatch({ progress: 100, status: 'completed' });
+          targetRef.current?.onPhotoUploaded?.(photoData);
+          if (photographerId && uf.file?.size) {
+            userStorageService.addLocalBytes(photographerId, uf.file.size);
+          }
+          return;
+        }
 
         originalContextByIdRef.current.set(uf.id, uploadContext);
         safePatch({ status: 'waiting', progress: 25 });
@@ -314,6 +325,9 @@ export function UploadQueueProvider({ children }) {
         originalContextByIdRef.current.delete(uf.id);
         safePatch({ progress: 100, status: 'completed' });
         targetRef.current?.onPhotoUploaded?.(photoData);
+        if (uf.photographerId && uf.file?.size) {
+          userStorageService.addLocalBytes(uf.photographerId, uf.file.size);
+        }
       } catch (err) {
         if (isUploadCancelled(err) && pausedRef.current) {
           safePatch({ status: 'waiting', progress: Math.max(uf.progress ?? 25, 25) });
@@ -338,12 +352,20 @@ export function UploadQueueProvider({ children }) {
     [patchFile, notifyNotice]
   );
 
+  const noteQueueIdle = useCallback(() => {
+    if (pausedRef.current) return;
+    if (activeDerivativesRef.current > 0 || activeOriginalsRef.current > 0) return;
+    if (pendingDerivativesRef.current.length > 0 || pendingOriginalsRef.current.length > 0) return;
+    if (!globalThis.__pixnxtUploading) return;
+    globalThis.__pixnxtUploading = false;
+    photographerQuotaService.notifyQuotaChanged({ refresh: true });
+  }, []);
+
   const pumpQueue = useCallback(() => {
     if (pausedRef.current) return;
 
     pendingDerivativesRef.current = sortUploadQueueBySizeAsc(pendingDerivativesRef.current);
 
-    // Phase 1: finish ALL web/thumb work before any originals start
     while (
       activeDerivativesRef.current < MAX_CONCURRENT_DERIVATIVES &&
       pendingDerivativesRef.current.length > 0
@@ -360,10 +382,8 @@ export function UploadQueueProvider({ children }) {
       });
     }
 
-    const derivativesStillRunning =
-      pendingDerivativesRef.current.length > 0 || activeDerivativesRef.current > 0;
-    if (derivativesStillRunning) return;
-
+    // Originals are not gated on the rest of the batch. A resumed original
+    // starts while other files are still encoding thumb/web.
     pendingOriginalsRef.current = sortUploadQueueBySizeAsc(pendingOriginalsRef.current);
     const maxOriginals = getMaxOriginalConcurrent(
       stateRef.current.files,
@@ -385,7 +405,8 @@ export function UploadQueueProvider({ children }) {
         pumpQueueRef.current();
       });
     }
-  }, [runDerivativeUpload, runOriginalUpload]);
+    noteQueueIdle();
+  }, [runDerivativeUpload, runOriginalUpload, noteQueueIdle]);
 
   pumpQueueRef.current = pumpQueue;
 
@@ -551,6 +572,22 @@ export function UploadQueueProvider({ children }) {
       setUploadTargetSetId(setId);
       setActiveCollectionId(collectionId);
 
+      const batchBytes = [...accepted, ...resumable.map((item) => item.file)].reduce(
+        (sum, file) => sum + (file?.size || 0),
+        0
+      );
+      if (batchBytes > 0) {
+        try {
+          await galleryService._assertStorageQuota(photographerId, batchBytes);
+        } catch (err) {
+          const message = uploadErrorMessage(err);
+          const limitNotice = handleStorageLimitError(message);
+          notifyNotice(limitNotice?.title || 'Upload blocked', limitNotice?.message || message);
+          return false;
+        }
+      }
+      globalThis.__pixnxtUploading = true;
+
       const sortedAccepted = sortFilesBySizeAsc(accepted);
       const sortedResumable = [...resumable].sort((a, b) => a.file.size - b.file.size);
 
@@ -621,6 +658,7 @@ export function UploadQueueProvider({ children }) {
 
       const allNew = [...newUploadFiles, ...resumeUploadFiles.filter((f) => f.status !== 'error')];
       const erroredResume = resumeUploadFiles.filter((f) => f.status === 'error');
+      if (allNew.length === 0) globalThis.__pixnxtUploading = false;
 
       setState((prev) => ({
         ...prev,

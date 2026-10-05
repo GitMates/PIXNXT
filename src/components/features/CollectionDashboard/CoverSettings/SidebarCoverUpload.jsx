@@ -149,38 +149,39 @@ export function SidebarCoverUpload({
             <p className="cd-sidebar-cover-drop-hint">
               {isUpdating ? 'Updating cover…' : 'Drop to set cover'}
             </p>
-          ) : (
-            <div className="cd-sidebar-cover-actions">
-              {hasPhotos ? (
-                <>
-                  <button
-                    type="button"
-                    className="cd-sidebar-cover-action-btn cd-sidebar-cover-action-btn--primary"
-                    onClick={handleSelectFromCollection}
-                  >
-                    From delivery
-                  </button>
-                  <button
-                    type="button"
-                    className="cd-sidebar-cover-action-btn"
-                    onClick={handleBrowseClick}
-                  >
-                    {w.upload}
-                  </button>
-                </>
-              ) : (
-                <button
-                  type="button"
-                  className="cd-sidebar-cover-action-btn cd-sidebar-cover-action-btn--primary cd-sidebar-cover-action-btn--upload"
-                  onClick={handleBrowseClick}
-                >
-                  {w.uploadPhoto}
-                </button>
-              )}
-            </div>
-          )}
+          ) : null}
         </div>
       </div>
+      {isUpdating || isDragging ? null : (
+        <div className="cd-sidebar-cover-actions">
+          {hasPhotos ? (
+            <>
+              <button
+                type="button"
+                className="cd-sidebar-cover-action-btn cd-sidebar-cover-action-btn--primary"
+                onClick={handleSelectFromCollection}
+              >
+                From delivery
+              </button>
+              <button
+                type="button"
+                className="cd-sidebar-cover-action-btn"
+                onClick={handleBrowseClick}
+              >
+                {w.upload}
+              </button>
+            </>
+          ) : (
+            <button
+              type="button"
+              className="cd-sidebar-cover-action-btn cd-sidebar-cover-action-btn--primary cd-sidebar-cover-action-btn--upload"
+              onClick={handleBrowseClick}
+            >
+              {w.uploadPhoto}
+            </button>
+          )}
+        </div>
+      )}
       <span className="cd-sidebar-cover-field-label">{w.deliveryCover}</span>
     </>
   );

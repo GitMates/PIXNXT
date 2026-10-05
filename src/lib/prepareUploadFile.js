@@ -273,6 +273,32 @@ export async function compressImageVariants(file, options = {}) {
   // enhancement + forced sharpening so the web file mirrors the original.
   const enhanceRaw = options.enhanceRaw === true;
 
+  try {
+    const { canEncodeOffThread, encodeDerivativesOffThread } = await import('./derivativeEncodePool');
+    if (canEncodeOffThread()) {
+      let sharpen = 'none';
+      try {
+        sharpen = localStorage.getItem('sharpening_level') || 'none';
+        if (localStorage.getItem('sharpen_for_web') === 'false') sharpen = 'none';
+        else if (localStorage.getItem('sharpen_for_web') === 'true' && sharpen === 'none') sharpen = 'high';
+      } catch {
+        /* ignore */
+      }
+      const encoded = await encodeDerivativesOffThread(file, { ...options, sharpen });
+      if (encoded?.webFile && encoded?.thumbFile) {
+        const webFile =
+          enhanceRaw
+            ? encoded.webFile
+            : encoded.webResized || encoded.webFile.size < file.size * 0.95
+              ? encoded.webFile
+              : file;
+        return { webFile, thumbFile: encoded.thumbFile };
+      }
+    }
+  } catch (err) {
+    console.warn('prepareUploadFile: worker encode failed, using main thread', err);
+  }
+
   return withCompressSlot(async () => {
     try {
       const bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' });

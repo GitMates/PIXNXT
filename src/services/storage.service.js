@@ -6,6 +6,7 @@ import { apiBase, getAccessToken } from '../lib/api/client';
  * semantics, but the browser never holds storage credentials and legacy
  * `users/<folder>/…` keys are preserved server-side.
  */
+/** One OPTIONS for the whole batch: path travels in a header, not the query string. */
 function uploadViaWorkersApi(path, file, contentType, onProgress, abortSignal) {
   return new Promise((resolve, reject) => {
     if (abortSignal?.aborted) {
@@ -18,9 +19,9 @@ function uploadViaWorkersApi(path, file, contentType, onProgress, abortSignal) {
       return;
     }
     const xhr = new XMLHttpRequest();
-    const params = new URLSearchParams({ path });
-    xhr.open('PUT', `${apiBase()}/v1/r2/upload?${params.toString()}`, true);
+    xhr.open('PUT', `${apiBase()}/v1/r2/upload`, true);
     xhr.setRequestHeader('Content-Type', contentType);
+    xhr.setRequestHeader('X-Object-Key', path);
     xhr.setRequestHeader('Authorization', `Bearer ${token}`);
     xhr.withCredentials = true;
 
@@ -63,6 +64,103 @@ function uploadViaWorkersApi(path, file, contentType, onProgress, abortSignal) {
   });
 }
 
+/** null = not probed, false = Worker proxy, true = presigned R2. */
+let directUploadEnabled = null;
+const DIRECT_MIN_BYTES = 5 * 1024 * 1024;
+const DIRECT_PART_PARALLEL = 6;
+
+function xhrPut(url, body, contentType, onProgress, abortSignal, { wantEtag = false, sendType = true } = {}) {
+  return new Promise((resolve, reject) => {
+    if (abortSignal?.aborted) {
+      reject(new Error('Upload cancelled.'));
+      return;
+    }
+    const xhr = new XMLHttpRequest();
+    xhr.open('PUT', url, true);
+    if (sendType && contentType) xhr.setRequestHeader('Content-Type', contentType);
+    const onAbort = () => xhr.abort();
+    abortSignal?.addEventListener('abort', onAbort, { once: true });
+    const cleanup = () => abortSignal?.removeEventListener('abort', onAbort);
+    xhr.upload.onprogress = (event) => {
+      if (event.lengthComputable && onProgress) {
+        onProgress(Math.min(99, Math.round((event.loaded / event.total) * 100)));
+      }
+    };
+    xhr.onload = () => {
+      cleanup();
+      if (xhr.status >= 200 && xhr.status < 300) {
+        onProgress?.(100);
+        resolve(wantEtag ? xhr.getResponseHeader('ETag') || xhr.getResponseHeader('etag') || '' : null);
+        return;
+      }
+      reject(new Error(`Upload rejected (${xhr.status}).`));
+    };
+    xhr.onerror = () => {
+      cleanup();
+      reject(new Error('Network error uploading to storage.'));
+    };
+    xhr.onabort = () => {
+      cleanup();
+      reject(new Error('Upload cancelled.'));
+    };
+    xhr.send(body);
+  });
+}
+
+async function uploadDirect(path, file, contentType, onProgress, abortSignal) {
+  const { apiFetch } = await import('../lib/api/client');
+  const plan = await apiFetch('/v1/r2/direct', {
+    method: 'POST',
+    body: { path, contentType, size: file.size },
+  });
+  if (!plan?.enabled) {
+    directUploadEnabled = false;
+    return uploadViaWorkersApi(path, file, contentType, onProgress, abortSignal);
+  }
+  directUploadEnabled = true;
+  if (plan.mode === 'put' && plan.url) {
+    await xhrPut(plan.url, file, contentType, onProgress, abortSignal);
+    return { path: plan.path || path, url: storageService.getPublicUrl(plan.path || path) };
+  }
+  const parts = plan.parts || [];
+  if (!parts.length || !plan.uploadId) throw new Error('Direct upload plan was empty.');
+  const loaded = new Array(parts.length).fill(0);
+  const etags = new Array(parts.length);
+  const queue = parts.slice();
+  const report = () => {
+    const sum = loaded.reduce((acc, n) => acc + n, 0);
+    onProgress?.(Math.min(99, Math.round((sum / file.size) * 100)));
+  };
+  const run = async () => {
+    while (queue.length) {
+      const part = queue.shift();
+      if (!part) break;
+      const blob = file.slice(part.start, part.end);
+      const size = part.end - part.start;
+      const etag = await xhrPut(
+        part.url,
+        blob,
+        contentType,
+        (percent) => {
+          loaded[part.partNumber - 1] = (percent / 100) * size;
+          report();
+        },
+        abortSignal,
+        { wantEtag: true, sendType: false }
+      );
+      if (!etag) throw new Error('Missing part ETag. R2 bucket CORS must expose ETag.');
+      etags[part.partNumber - 1] = { partNumber: part.partNumber, etag };
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(DIRECT_PART_PARALLEL, parts.length) }, () => run()));
+  await apiFetch('/v1/r2/direct/complete', {
+    method: 'POST',
+    body: { path, uploadId: plan.uploadId, parts: etags.filter(Boolean) },
+  });
+  onProgress?.(100);
+  return { path: plan.path || path, url: storageService.getPublicUrl(plan.path || path) };
+}
+
 export const storageService = {
   /** @param {AbortSignal} [abortSignal] */
   async upload(path, file, onProgress, abortSignal) {
@@ -77,7 +175,17 @@ export const storageService = {
             });
 
       onProgress?.(2);
-      // Workers API signs/owns storage server-side — no client bucket env needed.
+      // Originals (and other files over 5 MB) go straight to R2 when an S3
+      // token is configured. Derivatives stay on the Worker proxy.
+      if (directUploadEnabled !== false && body.size >= DIRECT_MIN_BYTES) {
+        try {
+          return await uploadDirect(path, body, contentType, onProgress, abortSignal);
+        } catch (err) {
+          if (abortSignal?.aborted || /cancelled/i.test(err?.message || '')) throw err;
+          console.warn('Direct R2 upload failed, using Worker proxy', err);
+          directUploadEnabled = false;
+        }
+      }
       return await uploadViaWorkersApi(path, body, contentType, onProgress, abortSignal);
     } catch (error) {
       console.error('R2 Upload Error:', {

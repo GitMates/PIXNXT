@@ -398,6 +398,19 @@
   gap: 8px;
 }
 
+/* Five featured covers fill the rows. A 3-column grid left a blank sixth cell. */
+.cd-design-panel__cover-grid.is-five {
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+}
+
+.cd-design-panel__cover-grid.is-five > :nth-child(-n + 3) {
+  grid-column: span 2;
+}
+
+.cd-design-panel__cover-grid.is-five > :nth-child(n + 4) {
+  grid-column: span 3;
+}
+
 .cd-design-panel__cover-tab {
   display: flex;
   flex-direction: column;

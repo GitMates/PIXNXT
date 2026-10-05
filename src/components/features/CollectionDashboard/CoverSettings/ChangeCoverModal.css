@@ -736,6 +736,8 @@
 .cover-focal-actions {
   display: flex;
   align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
   gap: 10px;
   flex-shrink: 0;
 }

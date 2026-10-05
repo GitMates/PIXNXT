@@ -6,7 +6,7 @@ import { applyRemoteImageReplacements } from './albumImageReplacements';
 import { overwriteLocalPagesFromRemote } from './albumPagePhotos';
 import { overwriteLocalCollectionFromRemote } from './albumCollection';
 
-const DEFAULT_POLL_MS = 6000;
+const DEFAULT_POLL_MS = 120000;
 const DEBOUNCE_MS = 280;
 
 /** Dispatched after client/public preview overwrites local pages from cloud. */
