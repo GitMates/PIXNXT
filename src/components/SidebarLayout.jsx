@@ -261,6 +261,7 @@ const SidebarLayout = ({
         const applyRow = (row) => {
             if (row && typeof row === 'object') {
                 const fp = photographerLimitsFingerprint(row);
+                if (fp && fp === limitsFpRef.current) return;
                 setProfile((prev) => {
                     const next = { ...(prev || {}), ...row };
                     try {

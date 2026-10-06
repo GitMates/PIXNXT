@@ -66,8 +66,10 @@ function uploadViaWorkersApi(path, file, contentType, onProgress, abortSignal) {
 
 /** Worker request bodies stop at 100 MB on this account. Stay under that. */
 const WORKER_PROXY_MAX = 80 * 1024 * 1024;
-const WORKER_PART_BYTES = 64 * 1024 * 1024;
-const WORKER_PART_PARALLEL = 4;
+// 8 MiB parts survive the edge reset that killed 64 MB parts mid-send.
+const WORKER_PART_BYTES = 8 * 1024 * 1024;
+const WORKER_PART_PARALLEL = 3;
+const PART_ATTEMPTS = 5;
 
 /** null = not probed, false = Worker proxy, true = presigned R2. */
 let directUploadEnabled = null;
@@ -172,7 +174,46 @@ function xhrPart(path, uploadId, partNumber, blob, onProgress, abortSignal) {
   });
 }
 
-/** Files the Worker cannot take in one request are sent as 64 MB parts. */
+function retryablePartError(err) {
+  const msg = String(err?.message || '');
+  return /Network error uploading/i.test(msg) || /Upload rejected \(5\d\d\)/.test(msg);
+}
+
+function waitForRetry(ms, abortSignal) {
+  return new Promise((resolve, reject) => {
+    if (abortSignal?.aborted) {
+      reject(new Error('Upload cancelled.'));
+      return;
+    }
+    const timer = setTimeout(() => {
+      abortSignal?.removeEventListener('abort', onAbort);
+      resolve();
+    }, ms);
+    const onAbort = () => {
+      clearTimeout(timer);
+      reject(new Error('Upload cancelled.'));
+    };
+    abortSignal?.addEventListener('abort', onAbort, { once: true });
+  });
+}
+
+/** One part, retried when the edge resets the socket mid-send. */
+async function xhrPartReliable(path, uploadId, partNumber, blob, onProgress, abortSignal) {
+  let lastError = null;
+  for (let attempt = 0; attempt < PART_ATTEMPTS; attempt += 1) {
+    try {
+      return await xhrPart(path, uploadId, partNumber, blob, onProgress, abortSignal);
+    } catch (err) {
+      if (abortSignal?.aborted || /cancelled/i.test(err?.message || '')) throw err;
+      lastError = err;
+      if (!retryablePartError(err) || attempt === PART_ATTEMPTS - 1) throw err;
+      await waitForRetry(700 * (attempt + 1), abortSignal);
+    }
+  }
+  throw lastError || new Error('Network error uploading to storage.');
+}
+
+/** Files the Worker cannot take in one request are sent as 8 MB parts. */
 async function uploadViaWorkerParts(path, file, contentType, onProgress, abortSignal) {
   const { apiFetch } = await import('../lib/api/client');
   const started = await apiFetch('/v1/r2/multipart/start', {
@@ -186,18 +227,19 @@ async function uploadViaWorkerParts(path, file, contentType, onProgress, abortSi
   const loaded = new Array(partCount).fill(0);
   const etags = new Array(partCount);
   let cursor = 0;
+  let stopped = false;
   const report = () => {
     const sum = loaded.reduce((acc, n) => acc + n, 0);
     onProgress?.(Math.min(99, Math.round((sum / file.size) * 100)));
   };
   const run = async () => {
-    while (cursor < partCount) {
+    while (!stopped && cursor < partCount) {
       const index = cursor;
       cursor += 1;
       const start = index * partSize;
       const end = Math.min(file.size, start + partSize);
       const blob = file.slice(start, end);
-      const etag = await xhrPart(
+      const etag = await xhrPartReliable(
         path,
         uploadId,
         index + 1,
@@ -209,15 +251,28 @@ async function uploadViaWorkerParts(path, file, contentType, onProgress, abortSi
         abortSignal
       );
       etags[index] = { partNumber: index + 1, etag };
+      loaded[index] = end - start;
+      report();
     }
   };
-  await Promise.all(
-    Array.from({ length: Math.min(WORKER_PART_PARALLEL, partCount) }, () => run())
-  );
-  await apiFetch('/v1/r2/multipart/complete', {
-    method: 'POST',
-    body: { path, uploadId, parts: etags.filter(Boolean) },
-  });
+  try {
+    await Promise.all(
+      Array.from({ length: Math.min(WORKER_PART_PARALLEL, partCount) }, () => run())
+    );
+    await apiFetch('/v1/r2/multipart/complete', {
+      method: 'POST',
+      body: { path, uploadId, parts: etags.filter(Boolean) },
+    });
+  } catch (err) {
+    stopped = true;
+    if (!abortSignal?.aborted) {
+      await apiFetch('/v1/r2/multipart/abort', {
+        method: 'POST',
+        body: { path, uploadId },
+      }).catch(() => {});
+    }
+    throw err;
+  }
   onProgress?.(100);
   return { path, url: storageService.getPublicUrl(path), size: file.size };
 }

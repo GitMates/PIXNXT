@@ -15,6 +15,7 @@ import { photographerQuotaService, canUseNormalFaceRecognition } from '../servic
 import {
     handlePhotographerLiveUpdate,
     onPhotographerLimitsBroadcast,
+    photographerLimitsFingerprint,
     subscribePhotographerRow,
 } from '../lib/photographerLiveSync';
 import {
@@ -221,7 +222,14 @@ const CollectionDashboard = () => {
         };
         if (profile) setFaceAiEnabled(canUseNormalFaceRecognition(profile));
         void refreshFaceFlag(null);
+        const profilePollFpRef = { current: '' };
         const offRow = subscribePhotographerRow(user.id, (row) => {
+            // The shared profile poll fires about every 20s. An identical row
+            // used to setState here and in both sidebars, which re-rendered
+            // this whole page and made Chrome show "Page Unresponsive".
+            const fp = row && typeof row === 'object' ? photographerLimitsFingerprint(row) : '';
+            if (fp && fp === profilePollFpRef.current) return;
+            if (fp) profilePollFpRef.current = fp;
             void refreshFaceFlag(row);
             handlePhotographerLiveUpdate(user.id, row);
         });
@@ -356,6 +364,7 @@ const CollectionDashboard = () => {
     const marqueeSessionRef = useRef(null);
     const marqueeSuppressUntilRef = useRef(0);
     const marqueeScrollRafRef = useRef(null);
+    const marqueePaintRafRef = useRef(null);
     const [marqueeBoxStyle, setMarqueeBoxStyle] = useState(null);
     const [marqueeActive, setMarqueeActive] = useState(false);
 
@@ -369,30 +378,48 @@ const CollectionDashboard = () => {
             cancelAnimationFrame(marqueeScrollRafRef.current);
             marqueeScrollRafRef.current = null;
         }
+        if (marqueePaintRafRef.current != null) {
+            cancelAnimationFrame(marqueePaintRafRef.current);
+            marqueePaintRafRef.current = null;
+        }
     }, []);
 
     const paintMarquee = useCallback((session, clientX, clientY) => {
-        const box = marqueeBox(session.startX, session.startY, clientX, clientY);
-        setMarqueeBoxStyle({
-            left: box.left,
-            top: box.top,
-            width: box.width,
-            height: box.height,
-        });
-        const root = mediaSectionsRef.current;
-        if (!root) return;
-        const idByKey = new Map((photosForMarqueeRef.current || []).map((photo) => [String(photo.id), photo.id]));
-        const items = [];
-        root.querySelectorAll('[data-photo-id]').forEach((el) => {
-            const key = el.getAttribute('data-photo-id');
-            if (!key || !idByKey.has(key)) return;
-            const r = el.getBoundingClientRect();
-            items.push({
-                id: idByKey.get(key),
-                rect: { left: r.left, top: r.top, right: r.right, bottom: r.bottom },
+        session.clientX = clientX;
+        session.clientY = clientY;
+        // Pointer moves can fire hundreds of times a second. Painting on each
+        // one re-rendered the whole delivery page and froze the tab.
+        if (marqueePaintRafRef.current != null) return;
+        marqueePaintRafRef.current = requestAnimationFrame(() => {
+            marqueePaintRafRef.current = null;
+            const live = marqueeSessionRef.current;
+            if (!live?.active) return;
+            const box = marqueeBox(live.startX, live.startY, live.clientX, live.clientY);
+            setMarqueeBoxStyle({
+                left: box.left,
+                top: box.top,
+                width: box.width,
+                height: box.height,
+            });
+            const root = mediaSectionsRef.current;
+            if (!root) return;
+            const idByKey = new Map((photosForMarqueeRef.current || []).map((photo) => [String(photo.id), photo.id]));
+            const items = [];
+            root.querySelectorAll('[data-photo-id]').forEach((el) => {
+                const key = el.getAttribute('data-photo-id');
+                if (!key || !idByKey.has(key)) return;
+                const r = el.getBoundingClientRect();
+                items.push({
+                    id: idByKey.get(key),
+                    rect: { left: r.left, top: r.top, right: r.right, bottom: r.bottom },
+                });
+            });
+            const next = mergeMarqueeSelection(live.base, idsHittingMarquee(items, box), live.additive);
+            setSelectedPhotos((prev) => {
+                if (prev.length === next.length && prev.every((id, i) => id === next[i])) return prev;
+                return next;
             });
         });
-        setSelectedPhotos(mergeMarqueeSelection(session.base, idsHittingMarquee(items, box), session.additive));
     }, []);
 
     useEffect(() => {
@@ -1481,6 +1508,9 @@ const CollectionDashboard = () => {
     const favoriteDetailPhotoMenuRef = useRef(null);
     const designHydratedRef = useRef(false);
     const settingsHydratedRef = useRef(false);
+    // Stays false through the load render so opening a delivery does not
+    // immediately PATCH every settings group and re-render this page.
+    const autosaveArmedRef = useRef(false);
     const downloadSettingsSaveSigRef = useRef('');
     const slideshowColumnReadyRef = useRef(false);
     const designPersistRef = useRef({
@@ -1666,14 +1696,33 @@ const CollectionDashboard = () => {
     };
 
     useEffect(() => {
-        if (collectionId) {
+        if (!collectionId) return undefined;
+        let cancelled = false;
+        const run = () => {
+            if (cancelled) return;
             fetchFavoriteActivity();
             fetchDownloadActivity();
             fetchEmailRegistrationActivity();
             fetchGalleryOpenActivity();
             fetchStoreOrders();
             fetchReminders();
+        };
+        // These lists are not needed to show the photo grid. Running them
+        // during the first paint competed with clicks and froze the tab.
+        let idleId = null;
+        let timerId = null;
+        if (typeof window.requestIdleCallback === 'function') {
+            idleId = window.requestIdleCallback(run, { timeout: 2500 });
+        } else {
+            timerId = window.setTimeout(run, 800);
         }
+        return () => {
+            cancelled = true;
+            if (idleId != null && typeof window.cancelIdleCallback === 'function') {
+                window.cancelIdleCallback(idleId);
+            }
+            if (timerId != null) window.clearTimeout(timerId);
+        };
     }, [collectionId]);
 
     useEffect(() => {
@@ -2777,6 +2826,7 @@ const CollectionDashboard = () => {
             try {
                 designHydratedRef.current = false;
                 settingsHydratedRef.current = false;
+                autosaveArmedRef.current = false;
                 slideshowColumnReadyRef.current = false;
                 setLoading(true);
                 setError(null);
@@ -3036,30 +3086,33 @@ const CollectionDashboard = () => {
         }
         downloadSettingsSaveSigRef.current = '';
         let cancelled = false;
-        (async () => {
-            try {
-                const { rows, tableMissing } = await photoAiService.getMetadataForCollection(collectionId);
-                if (cancelled) return;
-                setPhotoAiRows(rows);
-                setPhotoAiTableMissing(tableMissing);
-                if (!tableMissing) {
-                    try {
-                        const cached = await photoAiService.getPeopleFromDb(collectionId, {
-                            includeHidden: true,
-                        });
-                        if (!cancelled && !cached.tableMissing && cached.people?.length) {
-                            setPhotoAiPeople(cached.people);
+        const timerId = window.setTimeout(() => {
+            void (async () => {
+                try {
+                    const { rows, tableMissing } = await photoAiService.getMetadataForCollection(collectionId);
+                    if (cancelled) return;
+                    setPhotoAiRows(rows);
+                    setPhotoAiTableMissing(tableMissing);
+                    if (!tableMissing && rows?.length) {
+                        try {
+                            const cached = await photoAiService.getPeopleFromDb(collectionId, {
+                                includeHidden: true,
+                            });
+                            if (!cancelled && !cached.tableMissing && cached.people?.length) {
+                                setPhotoAiPeople(cached.people);
+                            }
+                        } catch (_) {
+                            /* full people load follows via sync */
                         }
-                    } catch (_) {
-                        /* full people load follows via sync */
                     }
+                } catch (err) {
+                    console.warn('Photo AI metadata load failed:', err);
                 }
-            } catch (err) {
-                console.warn('Photo AI metadata load failed:', err);
-            }
-        })();
+            })();
+        }, 1200);
         return () => {
             cancelled = true;
+            window.clearTimeout(timerId);
         };
     }, [collectionId]);
 
@@ -3767,21 +3820,6 @@ const CollectionDashboard = () => {
         gdEvent?.id,
         loadPhotoAiPeople,
     ]);
-
-    useEffect(() => {
-        if (!collectionId || photoAiTableMissing) return;
-
-        // Load existing metadata and cached people without auto-indexing AWS Rekognition
-        void refreshPhotoAiMetadata().then(({ rows, tableMissing }) => {
-            if (!tableMissing && rows?.length) {
-                void photoAiService.getPeopleFromDb(collectionId, { includeHidden: true }).then((cached) => {
-                    if (!cached.tableMissing && cached.people?.length) {
-                        setPhotoAiPeople(cached.people);
-                    }
-                }).catch(() => {});
-            }
-        });
-    }, [collectionId, photoAiTableMissing, refreshPhotoAiMetadata]);
 
     // Get the active set object
     const activeSet = activeSetId ? sets.find(s => s.id === activeSetId) : null;
@@ -4564,6 +4602,7 @@ const CollectionDashboard = () => {
         }
 
         if (loading || !designHydratedRef.current || !collectionId) return undefined;
+        if (!autosaveArmedRef.current) return undefined;
 
         const patch = toDeliveryDesignPatch({
             coverStyle: selectedCoverStyle,
@@ -4658,6 +4697,7 @@ const CollectionDashboard = () => {
     // Auto-save general settings (slug + guest password only — privacy lives in Access autosave)
     useEffect(() => {
         if (!collectionId || loading || !settingsHydratedRef.current) return;
+        if (!autosaveArmedRef.current) return;
 
         const saveGeneralSettings = async () => {
             try {
@@ -4696,6 +4736,7 @@ const CollectionDashboard = () => {
     // Auto-save privacy / client exclusive access
     useEffect(() => {
         if (!collectionId || loading || !settingsHydratedRef.current) return;
+        if (!autosaveArmedRef.current) return;
 
         const savePrivacySettings = async () => {
             const plainGuest = String(collectionPassword || '').trim();
@@ -5092,6 +5133,7 @@ const CollectionDashboard = () => {
     // Auto-save download settings
     useEffect(() => {
         if (!collectionId || loading || !settingsHydratedRef.current) return;
+        if (!autosaveArmedRef.current) return;
 
         const timeoutId = setTimeout(() => {
             void persistDownloadSettings();
@@ -5124,16 +5166,24 @@ const CollectionDashboard = () => {
 
     useEffect(() => {
         if (collection?.gallery_download_enabled !== undefined) {
-            setGalleryDownload(collection.gallery_download_enabled);
+            setGalleryDownload((prev) => (
+                prev === collection.gallery_download_enabled ? prev : collection.gallery_download_enabled
+            ));
         }
         if (collection?.single_photo_download_enabled !== undefined) {
-            setSinglePhotoDownload(collection.single_photo_download_enabled);
+            setSinglePhotoDownload((prev) => (
+                prev === collection.single_photo_download_enabled ? prev : collection.single_photo_download_enabled
+            ));
         }
-        if (Array.isArray(collection?.selected_download_sets)) {
-            setSelectedDownloadSets(collection.selected_download_sets);
-        } else if (collection?.selected_download_sets == null) {
-            setSelectedDownloadSets([]);
-        }
+        const nextDownloadSets = Array.isArray(collection?.selected_download_sets)
+            ? collection.selected_download_sets
+            : [];
+        setSelectedDownloadSets((prev) => {
+            if (prev.length === nextDownloadSets.length && prev.every((id, i) => id === nextDownloadSets[i])) {
+                return prev;
+            }
+            return nextDownloadSets;
+        });
     }, [
         collection?.gallery_download_enabled,
         collection?.single_photo_download_enabled,
@@ -5143,6 +5193,7 @@ const CollectionDashboard = () => {
     // Auto-save general gallery visitor settings (slideshow, social sharing)
     useEffect(() => {
         if (!collectionId || loading || !settingsHydratedRef.current) return;
+        if (!autosaveArmedRef.current) return;
 
         const saveGeneralGallerySettings = async () => {
             cacheSlideshowEnabled(collectionId, slideshow);
@@ -5184,6 +5235,7 @@ const CollectionDashboard = () => {
     // Auto-save favorite settings
     useEffect(() => {
         if (!collectionId || loading || !settingsHydratedRef.current) return;
+        if (!autosaveArmedRef.current) return;
 
         const saveFavoriteSettings = async () => {
             const patch = {
@@ -5216,6 +5268,7 @@ const CollectionDashboard = () => {
     // Auto-save shop settings
     useEffect(() => {
         if (!collectionId || loading || !settingsHydratedRef.current) return;
+        if (!autosaveArmedRef.current) return;
 
         const saveShopSettings = async () => {
             const patch = {
@@ -5244,6 +5297,17 @@ const CollectionDashboard = () => {
         const timeoutId = setTimeout(saveShopSettings, 400);
         return () => clearTimeout(timeoutId);
     }, [storeEnabled, collection?.guest_prints_enabled, collection?.print_markup_percent, collection?.price_sheet_id, collectionId, collectionUrl, loading]);
+
+    // Arm autosave only after the hydration render. Declared after the
+    // autosave effects so those effects see the flag still false and skip
+    // the open-page PATCH burst.
+    useEffect(() => {
+        if (loading || !collectionId || !settingsHydratedRef.current || !designHydratedRef.current) {
+            autosaveArmedRef.current = false;
+            return;
+        }
+        autosaveArmedRef.current = true;
+    }, [loading, collectionId]);
 
     // Derived values
     const backTo = deliveryStudioBackPath({
