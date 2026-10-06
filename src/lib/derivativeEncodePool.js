@@ -2,7 +2,7 @@
  * Pool of encode workers. Original uploads stay on the main thread's network
  * stack while these produce web + thumb JPEGs.
  */
-const POOL_SIZE = 4;
+const POOL_SIZE = 6;
 
 let workers = [];
 let idle = [];
@@ -45,8 +45,21 @@ function spawn() {
     });
   };
   worker.onerror = () => {
+    const id = worker._jobId;
+    worker._jobId = null;
+    try { worker.terminate(); } catch { /* already dead */ }
     idle = idle.filter((w) => w !== worker);
     workers = workers.filter((w) => w !== worker);
+    const job = id != null ? pending.get(id) : null;
+    if (job) {
+      pending.delete(id);
+      job.reject(new Error('Derivative encode worker failed'));
+    }
+    if (waiters.length) {
+      idle.push(spawn());
+      const next = waiters.shift();
+      next();
+    }
   };
   workers.push(worker);
   return worker;
@@ -79,6 +92,7 @@ export function encodeDerivativesOffThread(file, options = {}) {
         idle.push(worker);
         return;
       }
+      worker._jobId = id;
       worker.postMessage({
         id,
         file,

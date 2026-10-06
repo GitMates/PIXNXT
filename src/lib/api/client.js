@@ -12,6 +12,19 @@ export function apiBase() {
   return base;
 }
 
+/**
+ * Local dev upload target. Google (and email) sessions set the refresh cookie
+ * on the API host, so auth must keep using apiBase(). File PUTs stay on the
+ * Vite proxy so they are same-origin and skip the cross-origin preflight.
+ */
+export function uploadApiBase() {
+  if (import.meta.env.DEV && typeof window !== 'undefined') {
+    const host = window.location.hostname;
+    if (host === 'localhost' || host === '127.0.0.1') return '';
+  }
+  return apiBase();
+}
+
 export const AUTH_SESSION_EXPIRED = 'AUTH_SESSION_EXPIRED';
 
 export class ApiError extends Error {

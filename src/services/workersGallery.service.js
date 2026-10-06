@@ -39,8 +39,21 @@ async function mapRows(rows) {
 
 export async function getCollections(photographerId) {
   if (!photographerId) return [];
-  const data = await apiFetch('/v1/galleries/dashboard');
+  const data = await apiFetch('/v1/galleries/dashboard?files=1');
   return mapRows((data?.galleries || []).filter((g) => g.photographer_id === photographerId));
+}
+
+/**
+ * Studio home board. The dashboard route also ships every photo filename,
+ * which stalls "Live deliveries" on accounts with a large library. This
+ * reads the delivery rows only.
+ */
+export async function getCollectionSummaries(photographerId) {
+  if (!photographerId) return [];
+  const data = await apiFetch('/v1/galleries?limit=100');
+  const rows = (data?.galleries || []).filter((g) => g.photographer_id === photographerId);
+  const { mapCollectionDashboardRow } = await maps();
+  return rows.map((r) => mapCollectionDashboardRow({ ...r, photos: r.photos ?? [] }));
 }
 
 export async function getDeliveryBoardExtras(collectionIds) {

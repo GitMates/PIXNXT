@@ -382,6 +382,8 @@ export default function CollectionPhotoSortableGrid({
             if (!isDraggable?.(index, displayPhotos[index])) return;
             if (e.button !== 0) return;
             if (e.target.closest(INTERACTIVE_SELECTOR)) return;
+            // Plain drag draws a selection box on the grid. Alt-drag still reorders.
+            if (!e.altKey) return;
 
             const wrap = wrapRefs.current[index];
             if (!wrap) return;

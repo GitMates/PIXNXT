@@ -111,6 +111,8 @@ const PHOTO_STORAGE_PATH_COLUMNS = [
 
 const collectionPathNameCache = new Map();
 const setPathNameCache = new Map();
+const collectionPathInflight = new Map();
+const setPathInflight = new Map();
 
 function safePathSegment(value, fallback = 'item') {
   return String(value || fallback)
@@ -127,14 +129,21 @@ async function getCollectionPathFolder(collectionId) {
   if (collectionPathNameCache.has(collectionId)) {
     return collectionPathNameCache.get(collectionId);
   }
-  try {
-    const gallery = await (await workersGallery()).getCollectionById(collectionId);
-    const folder = `${safePathSegment(gallery?.name, 'delivery')}__${collectionId}`;
-    collectionPathNameCache.set(collectionId, folder);
-    return folder;
-  } catch {
-    return `delivery__${collectionId}`;
-  }
+  if (collectionPathInflight.has(collectionId)) return collectionPathInflight.get(collectionId);
+  const run = (async () => {
+    try {
+      const gallery = await (await workersGallery()).getCollectionById(collectionId);
+      const folder = `${safePathSegment(gallery?.name, 'delivery')}__${collectionId}`;
+      collectionPathNameCache.set(collectionId, folder);
+      return folder;
+    } catch {
+      return `delivery__${collectionId}`;
+    } finally {
+      collectionPathInflight.delete(collectionId);
+    }
+  })();
+  collectionPathInflight.set(collectionId, run);
+  return run;
 }
 
 /**
@@ -168,23 +177,30 @@ async function getSetPathFolder(collectionId, setId, setNameHint = null) {
   if (setPathNameCache.has(setId)) {
     return setPathNameCache.get(setId);
   }
-  let folder = null;
-  if (collectionId) {
-    try {
-      const sets = await (await workersGallery()).getSets(collectionId);
-      const list = sets || [];
-      const known = list.some((s) => s.id === setId);
-      const siblings = known
-        ? list
-        : [...list, { id: setId, name: setNameHint || 'set' }];
-      folder = assignSetFolders(siblings).get(setId) || null;
-    } catch {
-      folder = null;
+  const inflightKey = `${collectionId || ''}:${setId}`;
+  if (setPathInflight.has(inflightKey)) return setPathInflight.get(inflightKey);
+  const run = (async () => {
+    let folder = null;
+    if (collectionId) {
+      try {
+        const sets = await (await workersGallery()).getSets(collectionId);
+        const list = sets || [];
+        const known = list.some((s) => s.id === setId);
+        const siblings = known
+          ? list
+          : [...list, { id: setId, name: setNameHint || 'set' }];
+        folder = assignSetFolders(siblings).get(setId) || null;
+      } catch {
+        folder = null;
+      }
     }
-  }
-  if (!folder) folder = safePathSegment(setNameHint, 'set');
-  setPathNameCache.set(setId, folder);
-  return folder;
+    if (!folder) folder = safePathSegment(setNameHint, 'set');
+    setPathNameCache.set(setId, folder);
+    setPathInflight.delete(inflightKey);
+    return folder;
+  })();
+  setPathInflight.set(inflightKey, run);
+  return run;
 }
 
 function clearSetPathFolderCache(setId = null) {
@@ -241,6 +257,11 @@ export const galleryService = {
    */
   async getCollections(photographerId) {
     return (await workersGallery()).getCollections(photographerId);
+  },
+
+  /** Delivery rows only — used by the studio home so stats are not blocked on photo filenames. */
+  async getCollectionSummaries(photographerId) {
+    return (await workersGallery()).getCollectionSummaries(photographerId);
   },
 
   /**
@@ -600,12 +621,9 @@ export const galleryService = {
     const isRaw = isRawImageFile(file);
     const mediaType = getUploadMediaType(file);
 
-    // Camera badge + Details (e.g. "Sony ILCE-7M3"): EXIF parses concurrently
-    // with the derivative pipeline so it never slows uploads. Never throws.
-    const exifDetailsTask = !isVideo ? extractImageDetails(file) : null;
-
     // Originals start immediately. Thumb/web encode in a worker and upload
-    // alongside the original instead of blocking it.
+    // alongside the original instead of blocking it. EXIF starts after the
+    // original PUT is queued so it cannot delay the first byte.
     let origPercent = 0;
     let derivPercent = 0;
     const reportOverlap = () => {
@@ -637,6 +655,10 @@ export const galleryService = {
           );
         })()
       : null;
+
+    // Camera badge + Details. Never throws, and never runs before the original
+    // upload has been kicked off.
+    const exifDetailsTask = !isVideo ? extractImageDetails(file) : null;
 
     let webFile = null;
     let thumbFile = null;
@@ -746,7 +768,7 @@ export const galleryService = {
       original_storage_path: null,
       web_storage_path: webStoragePath,
       thumbnail_storage_path: thumbnailStoragePath,
-      size_bytes: file.size,
+      size_bytes: 0,
       width: Number.isFinite(dimensions.width) ? dimensions.width : null,
       height: Number.isFinite(dimensions.height) ? dimensions.height : null,
       media_type: mediaType,
@@ -768,16 +790,36 @@ export const galleryService = {
 
     let finalPhoto = photoData;
     if (originalTask) {
-      const uploadResult = await originalTask;
+      let uploadResult;
+      try {
+        uploadResult = await originalTask;
+      } catch (err) {
+        if (!signal?.aborted) {
+          await this.deletePhotos([photoData.id]).catch(() => {});
+          if (err && typeof err === 'object') err.removedPhotoId = photoData.id;
+        }
+        throw err;
+      }
       try {
         finalPhoto =
           (await dbUpdatePhotoRow(photoData.id, {
             full_url: uploadResult.url,
             original_storage_path: filePath,
-          })) || { ...photoData, full_url: uploadResult.url, original_storage_path: filePath };
+            size_bytes: uploadResult.size ?? file.size,
+          })) || {
+            ...photoData,
+            full_url: uploadResult.url,
+            original_storage_path: filePath,
+            size_bytes: file.size,
+          };
       } catch (err) {
         console.warn('Photo original finalize failed:', err?.message || err);
-        finalPhoto = { ...photoData, full_url: uploadResult.url, original_storage_path: filePath };
+        finalPhoto = {
+          ...photoData,
+          full_url: uploadResult.url,
+          original_storage_path: filePath,
+          size_bytes: file.size,
+        };
       }
     }
 
@@ -1029,6 +1071,7 @@ export const galleryService = {
       finalPhoto = await dbUpdatePhotoRow(photoId, {
         full_url: uploadResult.url,
         original_storage_path: filePath,
+        size_bytes: uploadBody.size || file.size,
       });
     } catch (err) {
       console.warn('Photo original finalize select failed:', err?.message || err);

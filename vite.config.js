@@ -12,6 +12,14 @@ export default defineConfig(({ mode }) => {
   // Make server-only vars (AWS_*, etc.) available to dev API middleware
   Object.assign(process.env, env)
   const r2Public = env.VITE_R2_PUBLIC_URL?.replace(/\/+$/, '')
+  const apiProxyTarget = (env.VITE_API_URL || 'https://pixnxt-api.pixnxt.workers.dev').replace(/\/+$/, '')
+  const apiProxy = {
+    '/v1': {
+      target: apiProxyTarget,
+      changeOrigin: true,
+      secure: true,
+    },
+  }
 
   return {
     plugins: [
@@ -48,6 +56,7 @@ export default defineConfig(({ mode }) => {
       allowedHosts: 'all',
       ...(r2Public ? {
         proxy: {
+          ...apiProxy,
           '/api/r2-media': {
             target: r2Public,
             changeOrigin: true,
@@ -93,7 +102,7 @@ export default defineConfig(({ mode }) => {
             },
           },
         },
-      } : {}),
+      } : { proxy: apiProxy }),
     },
   }
 })

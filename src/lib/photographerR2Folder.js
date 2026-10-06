@@ -32,43 +32,59 @@ export {
 
 const folderCache = new Map();
 const variantCache = new Map();
+const folderInflight = new Map();
+const variantInflight = new Map();
 
 export async function getPhotographerR2Folder(photographerId) {
   if (!photographerId) return 'photographer';
   if (folderCache.has(photographerId)) return folderCache.get(photographerId);
+  if (folderInflight.has(photographerId)) return folderInflight.get(photographerId);
 
-  try {
-    let data = null;
-    const me = await apiFetch('/v1/me/profile').catch(() => null);
-    data = me?.profile?.id === photographerId ? me.profile : null;
-    if (!data) {
-      const pub = await apiFetch(`/v1/public/photographer/by-id/${photographerId}`).catch(() => null);
-      data = pub?.photographer ?? null;
+  const run = (async () => {
+    try {
+      let data = null;
+      const me = await apiFetch('/v1/me/profile').catch(() => null);
+      data = me?.profile?.id === photographerId ? me.profile : null;
+      if (!data) {
+        const pub = await apiFetch(`/v1/public/photographer/by-id/${photographerId}`).catch(() => null);
+        data = pub?.photographer ?? null;
+      }
+      const folder = resolvePhotographerR2Folder(data);
+      folderCache.set(photographerId, folder);
+      return folder;
+    } catch {
+      return safeR2PathSegment(photographerId, 'photographer');
+    } finally {
+      folderInflight.delete(photographerId);
     }
-    const folder = resolvePhotographerR2Folder(data);
-    folderCache.set(photographerId, folder);
-    return folder;
-  } catch {
-    return safeR2PathSegment(photographerId, 'photographer');
-  }
+  })();
+  folderInflight.set(photographerId, run);
+  return run;
 }
 
 export async function getPhotographerR2FolderVariants(photographerId) {
   if (!photographerId) return ['photographer'];
   if (variantCache.has(photographerId)) return variantCache.get(photographerId);
+  if (variantInflight.has(photographerId)) return variantInflight.get(photographerId);
 
-  try {
-    let data = null;
-    const me = await apiFetch('/v1/me/profile').catch(() => null);
-    data = me?.profile?.id === photographerId ? me.profile : null;
-    if (!data) {
-      const pub = await apiFetch(`/v1/public/photographer/by-id/${photographerId}`).catch(() => null);
-      data = pub?.photographer ?? null;
+  const run = (async () => {
+    try {
+      let data = null;
+      const me = await apiFetch('/v1/me/profile').catch(() => null);
+      data = me?.profile?.id === photographerId ? me.profile : null;
+      if (!data) {
+        const pub = await apiFetch(`/v1/public/photographer/by-id/${photographerId}`).catch(() => null);
+        data = pub?.photographer ?? null;
+      }
+      const variants = photographerR2FolderVariants(data);
+      variantCache.set(photographerId, variants);
+      return variants;
+    } catch {
+      return [safeR2PathSegment(photographerId, 'photographer')];
+    } finally {
+      variantInflight.delete(photographerId);
     }
-    const variants = photographerR2FolderVariants(data);
-    variantCache.set(photographerId, variants);
-    return variants;
-  } catch {
-    return [safeR2PathSegment(photographerId, 'photographer')];
-  }
+  })();
+  variantInflight.set(photographerId, run);
+  return run;
 }

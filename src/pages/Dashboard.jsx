@@ -323,6 +323,18 @@ const Dashboard = () => {
   }, []);
 
   useEffect(() => {
+    let cancelled = false;
+    const applyDash = (dash) => {
+      if (cancelled || !dash?.studioStats?.length) return;
+      setModules(dash.modules || []);
+      setRecentWork(dash.recentWork || []);
+      setStudioStats(dash.studioStats);
+      setNeedsYou(dash.needsYou || []);
+      setThisWeek(dash.thisWeek || []);
+      setHeroStatus(dash.heroStatus || '');
+      writeStudioBoard(user.id, dash);
+      setLoading(false);
+    };
     const load = async () => {
       if (!user) return;
       try {
@@ -338,47 +350,40 @@ const Dashboard = () => {
           /* ignore */
         }
         const cachedBoard = readStudioBoard(user.id);
-        if (cachedBoard) {
-          setModules(cachedBoard.modules || []);
-          setRecentWork(cachedBoard.recentWork || []);
-          setStudioStats(cachedBoard.studioStats || []);
-          setNeedsYou(cachedBoard.needsYou || []);
-          setThisWeek(cachedBoard.thisWeek || []);
-          setHeroStatus(cachedBoard.heroStatus || '');
-          setLoading(false);
+        if (cachedBoard?.studioStats?.length) {
+          applyDash(cachedBoard);
         } else {
           setLoading(true);
         }
+        setLoading(false);
+        const boardTask = loadStudioDashboard(user.id, applyDash);
         try {
           const profileData = await galleryService.getPhotographerProfile(user.id);
-          setProfile(profileData);
-          if (profileData) {
-            try {
-              localStorage.setItem(`photographer_profile_${user.id}`, JSON.stringify(profileData));
-            } catch {
-              /* ignore */
+          if (!cancelled) {
+            setProfile(profileData);
+            if (profileData) {
+              try {
+                localStorage.setItem(`photographer_profile_${user.id}`, JSON.stringify(profileData));
+              } catch {
+                /* ignore */
+              }
+              syncProfileIconCacheFromProfile(profileData);
             }
-            syncProfileIconCacheFromProfile(profileData);
           }
         } catch (e) {
           console.error('Error loading profile:', e);
         }
-        setLoading(false);
-        const dash = await loadStudioDashboard(user.id);
-        setModules(dash.modules || []);
-        setRecentWork(dash.recentWork || []);
-        setStudioStats(dash.studioStats || []);
-        setNeedsYou(dash.needsYou || []);
-        setThisWeek(dash.thisWeek || []);
-        setHeroStatus(dash.heroStatus || '');
-        writeStudioBoard(user.id, dash);
+        await boardTask;
       } catch (e) {
         console.error('Error loading dashboard:', e);
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     };
     load();
+    return () => {
+      cancelled = true;
+    };
   }, [user]);
 
   useEffect(() => {
@@ -686,7 +691,10 @@ const Dashboard = () => {
           </div>
           <div className="sd-studio">
             {(studioStats.length ? studioStats : [
-              { label: appT.dash.liveDeliveries, value: '—', sub: appT.dash.loadingStat },
+              { label: 'LIVE DELIVERIES', value: '—', sub: appT.dash.loadingStat },
+              { label: 'SHARED ALBUMS', value: '—', sub: appT.dash.loadingStat },
+              { label: 'PRINT LAB (MONTH)', value: '—', sub: appT.dash.loadingStat },
+              { label: 'GUEST EVENTS', value: '—', sub: appT.dash.loadingStat },
             ]).map((stat) => (
               <div key={stat.label} className="sd-studio-cell">
                 <span className="sd-studio-label">{tx(stat.label)}</span>

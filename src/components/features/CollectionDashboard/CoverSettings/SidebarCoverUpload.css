@@ -33,7 +33,8 @@
 }
 
 .cd-cover-image--empty .cd-sidebar-cover-dropzone {
-  height: 156px;
+  height: auto;
+  min-height: 156px;
   flex-shrink: 0;
 }
 
@@ -97,7 +98,7 @@
   align-items: center;
   justify-content: center;
   gap: 8px;
-  margin-top: 12px;
+  margin-top: 0;
 }
 
 .cd-sidebar-cover-actions .cd-sidebar-cover-action-btn:not(.cd-sidebar-cover-action-btn--upload) {

@@ -270,6 +270,7 @@ export function UploadQueueProvider({ children }) {
           return;
         }
         console.error('Derivative upload failed:', err);
+        if (err?.removedPhotoId) targetRef.current?.onPhotoRemoved?.(err.removedPhotoId);
         const message = uploadErrorMessage(err);
         const limitNotice = handleStorageLimitError(message);
         if (limitNotice) notifyNotice(limitNotice.title, limitNotice.message);
@@ -341,6 +342,10 @@ export function UploadQueueProvider({ children }) {
           return;
         }
         console.error('Original upload failed:', err);
+        if (uploadContext?.photoId) {
+          galleryService.deletePhotos([uploadContext.photoId]).catch(() => {});
+          targetRef.current?.onPhotoRemoved?.(uploadContext.photoId);
+        }
         const message = uploadErrorMessage(err);
         const limitNotice = handleStorageLimitError(message);
         if (limitNotice) notifyNotice(limitNotice.title, limitNotice.message);

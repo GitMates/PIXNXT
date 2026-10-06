@@ -179,12 +179,40 @@ function portalRecentItems() {
     .slice(0, 4);
 }
 
+function settleWithin(promise, ms, fallback) {
+  return new Promise((resolve) => {
+    let done = false;
+    const timer = setTimeout(() => {
+      if (done) return;
+      done = true;
+      resolve(fallback);
+    }, ms);
+    Promise.resolve(promise).then(
+      (value) => {
+        if (done) return;
+        done = true;
+        clearTimeout(timer);
+        resolve(value);
+      },
+      () => {
+        if (done) return;
+        done = true;
+        clearTimeout(timer);
+        resolve(fallback);
+      },
+    );
+  });
+}
+
 /**
  * Live module strip + recent work for the studio dashboard.
+ * Each source paints as it arrives. A slow album document or photo index
+ * cannot keep "Live deliveries" on Loading.
+ * @param {(dash: object) => void} [onPartial]
  */
-export async function loadStudioDashboard(photographerId) {
+export async function loadStudioDashboard(photographerId, onPartial) {
   if (!photographerId) {
-    return {
+    const empty = {
       modules: emptyModules(),
       recentWork: [],
       studioStats: emptyStudioStats(),
@@ -192,21 +220,57 @@ export async function loadStudioDashboard(photographerId) {
       thisWeek: [],
       heroStatus: 'Your studio is ready. Create a delivery to get started.',
     };
+    onPartial?.(empty);
+    return empty;
   }
 
-  const [collectionsRes, albumsRes, eventsRes, appsRes, overviewRes] = await Promise.allSettled([
-    galleryService.getCollections(photographerId),
-    smartAlbumsService.getAlbums(photographerId),
-    guestDeliveryService.getEvents(photographerId),
-    mobileGalleryService.getApps(photographerId),
-    loadStudioOverview(),
-  ]);
+  const collectionsP = galleryService.getCollectionSummaries(photographerId).catch(() => []);
+  const albumsP = smartAlbumsService.getAlbums(photographerId).catch(() => []);
+  const eventsP = guestDeliveryService.getEvents(photographerId).catch(() => []);
+  const appsP = mobileGalleryService.getApps(photographerId).catch(() => []);
+  const overviewP = loadStudioOverview();
 
-  const collections = collectionsRes.status === 'fulfilled' ? collectionsRes.value || [] : [];
-  const albums = albumsRes.status === 'fulfilled' ? albumsRes.value || [] : [];
-  const events = eventsRes.status === 'fulfilled' ? eventsRes.value || [] : [];
-  const apps = appsRes.status === 'fulfilled' ? appsRes.value || [] : [];
-  const overview = overviewRes.status === 'fulfilled' ? overviewRes.value : null;
+  let collections = [];
+  let albums = [];
+  let events = [];
+  let apps = [];
+  let overview = null;
+
+  const publish = () => {
+    const dash = composeStudioBoard({ collections, albums, events, apps, overview });
+    onPartial?.(dash);
+    return dash;
+  };
+
+  const watch = (promise, apply) => {
+    promise.then((value) => {
+      apply(value);
+      publish();
+    }).catch(() => {});
+  };
+
+  watch(collectionsP, (value) => { collections = value || []; });
+  watch(albumsP, (value) => { albums = value || []; });
+  watch(eventsP, (value) => { events = value || []; });
+  watch(appsP, (value) => { apps = value || []; });
+  watch(overviewP, (value) => { overview = value; });
+
+  const [c, a, e, p, o] = await Promise.all([
+    settleWithin(collectionsP, 8000, []),
+    settleWithin(albumsP, 8000, []),
+    settleWithin(eventsP, 8000, []),
+    settleWithin(appsP, 8000, []),
+    settleWithin(overviewP, 8000, null),
+  ]);
+  collections = c || [];
+  albums = a || [];
+  events = e || [];
+  apps = p || [];
+  overview = o;
+  return publish();
+}
+
+function composeStudioBoard({ collections, albums, events, apps, overview }) {
   const print = printLabStatsFromOverview(overview);
 
   const publishedDeliveries = collections.filter((c) => c.status === 'published');

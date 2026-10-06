@@ -1339,7 +1339,27 @@
 }
 
 .cd-photo-sortable-wrap--draggable {
-    cursor: grab;
+    cursor: default;
+}
+
+.cd-media-sections--selecting,
+.cd-media-sections--selecting .cd-photo-sortable-wrap {
+    cursor: crosshair;
+}
+
+.cd-photo-marquee {
+    position: fixed;
+    z-index: 80;
+    border: 1px solid #e07030;
+    background: rgba(224, 112, 48, 0.16);
+    pointer-events: none;
+    box-sizing: border-box;
+}
+
+.cd-photo-grid--manage img,
+.cd-photo-grid--manage video {
+    -webkit-user-drag: none;
+    user-select: none;
 }
 
 .cd-photo-sortable-wrap--draggable:active,

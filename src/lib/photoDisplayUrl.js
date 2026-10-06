@@ -1,16 +1,34 @@
 import { R2_PUBLIC_URL } from './r2';
+import { apiBase } from './api/client';
 import { isRawImageFilename } from './rawImageFormats';
 import { isBrowserDisplayableImageUrl } from './rawImagePreview';
+
+/**
+ * pub-*.r2.dev is not cached at the edge. Read those objects through the
+ * Worker media route, which sets a long Cache-Control and uses caches.default.
+ * A custom hostname in VITE_R2_PUBLIC_URL is left as-is.
+ */
+function cacheableMediaUrl(url) {
+  if (!url || !/\.r2\.dev\//i.test(url)) return url;
+  const path = url.replace(/^https?:\/\/[^/]+\//, '').replace(/^\/+/, '');
+  if (!path) return url;
+  try {
+    const base = apiBase();
+    return `${base}/v1/r2/media/${path}`;
+  } catch {
+    return url;
+  }
+}
 
 /** Ensure grid/lightbox URLs are absolute (legacy rows may store storage paths only). */
 export function resolveMediaUrl(url) {
   if (!url) return '';
   const trimmed = String(url).trim().split('#')[0];
   if (!trimmed) return '';
-  if (/^https?:\/\//i.test(trimmed)) return trimmed;
+  if (/^https?:\/\//i.test(trimmed)) return cacheableMediaUrl(trimmed);
   if (!R2_PUBLIC_URL) return trimmed;
   const base = R2_PUBLIC_URL.endsWith('/') ? R2_PUBLIC_URL : `${R2_PUBLIC_URL}/`;
-  return `${base}${trimmed.replace(/^\//, '')}`;
+  return cacheableMediaUrl(`${base}${trimmed.replace(/^\//, '')}`);
 }
 
 /**
