@@ -680,84 +680,81 @@ export const ChangeCoverModal: React.FC<ChangeCoverModalProps> = ({
             </div>
 
             <div className="cover-focal-bottom">
-              <div className="cover-focal-bottom__row">
-                <div className="cover-focal-appears">
-                  <p className="cover-focal-appears__title">Where it appears</p>
-                  <div className="cover-focal-previews">
-                    {COVER_FOCAL_SURFACES.map((surface) => {
-                      const point = focals[surface.id as CoverFocalSurfaceId] || { x: 50, y: 50 };
-                      const ratio = parseAspectRatio(surface.aspect);
-                      return (
-                        <button
-                          key={surface.id}
-                          type="button"
-                          className={cn(
-                            'cover-focal-preview',
-                            `cover-focal-preview--${surface.id}`,
-                            activeSurface === surface.id && 'is-active'
-                          )}
-                          onClick={() => setActiveSurface(surface.id as CoverFocalSurfaceId)}
+              <div className="cover-focal-appears">
+                <p className="cover-focal-appears__title">Where it appears</p>
+                <div className="cover-focal-previews">
+                  {COVER_FOCAL_SURFACES.map((surface) => {
+                    const point = focals[surface.id as CoverFocalSurfaceId] || { x: 50, y: 50 };
+                    const ratio = parseAspectRatio(surface.aspect);
+                    return (
+                      <button
+                        key={surface.id}
+                        type="button"
+                        className={cn(
+                          'cover-focal-preview',
+                          `cover-focal-preview--${surface.id}`,
+                          activeSurface === surface.id && 'is-active'
+                        )}
+                        onClick={() => setActiveSurface(surface.id as CoverFocalSurfaceId)}
+                      >
+                        <span
+                          className="cover-focal-preview__frame"
+                          style={{
+                            height: `${PREVIEW_TILE_HEIGHT}px`,
+                            width: `${Math.round(PREVIEW_TILE_HEIGHT * ratio)}px`,
+                          }}
                         >
-                          <span
-                            className="cover-focal-preview__frame"
-                            style={{
-                              height: `${PREVIEW_TILE_HEIGHT}px`,
-                              width: `${Math.round(PREVIEW_TILE_HEIGHT * ratio)}px`,
-                            }}
-                          >
-                            {editorSrc ? (
-                              <img
-                                src={editorSrc}
-                                alt=""
-                                draggable={false}
-                                style={{ objectPosition: `${point.x}% ${point.y}%` }}
-                              />
-                            ) : null}
-                          </span>
-                          <span className="cover-focal-preview__label">
-                            {APPEARS_SHORT_LABEL[surface.id] || surface.kicker}
-                          </span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                <div className="cover-focal-actions">
-                  <button type="button" className="cover-focal-btn" onClick={onClose} disabled={saving}>
-                    Cancel
-                  </button>
-                  <button
-                    type="button"
-                    className="cover-focal-tool-btn cover-focal-tool-btn--secondary"
-                    onClick={() => setView('pick')}
-                    disabled={saving}
-                  >
-                    Replace photo
-                  </button>
-                  {onRemove ? (
-                    <button
-                      type="button"
-                      className="cover-focal-tool-btn cover-focal-tool-btn--hairline"
-                      onClick={handleRemove}
-                      disabled={saving}
-                    >
-                      Remove
-                    </button>
-                  ) : null}
-                  <button
-                    type="button"
-                    className="cover-focal-btn cover-focal-btn--primary"
-                    onClick={handleUseCover}
-                    disabled={saving || !editorSrc || !isDirty}
-                  >
-                    {saving ? 'Saving…' : 'Save cover'}
-                  </button>
+                          {editorSrc ? (
+                            <img
+                              src={editorSrc}
+                              alt=""
+                              draggable={false}
+                              style={{ objectPosition: `${point.x}% ${point.y}%` }}
+                            />
+                          ) : null}
+                        </span>
+                        <span className="cover-focal-preview__label">
+                          {APPEARS_SHORT_LABEL[surface.id] || surface.kicker}
+                        </span>
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
               <p className="cover-focal-footnote">
                 Nothing is re-uploaded — the point is stored with the delivery.
               </p>
+              <div className="cover-focal-actions">
+                <button type="button" className="cover-focal-btn" onClick={onClose} disabled={saving}>
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="cover-focal-btn"
+                  onClick={() => setView('pick')}
+                  disabled={saving}
+                >
+                  Replace photo
+                </button>
+                {onRemove ? (
+                  <button
+                    type="button"
+                    className="cover-focal-btn cover-focal-btn--danger"
+                    onClick={handleRemove}
+                    disabled={saving}
+                  >
+                    Remove
+                  </button>
+                ) : null}
+                <button
+                  type="button"
+                  className="cover-focal-btn cover-focal-btn--primary"
+                  onClick={handleUseCover}
+                  disabled={saving || !editorSrc || !isDirty}
+                >
+                  {saving ? 'Saving…' : 'Save cover'}
+                </button>
+              </div>
             </div>
           </>
         )}

@@ -25,6 +25,7 @@ export function resolveMediaUrl(url) {
   if (!url) return '';
   const trimmed = String(url).trim().split('#')[0];
   if (!trimmed) return '';
+  if (/^(blob:|data:)/i.test(trimmed)) return trimmed;
   if (/^https?:\/\//i.test(trimmed)) return cacheableMediaUrl(trimmed);
   if (!R2_PUBLIC_URL) return trimmed;
   const base = R2_PUBLIC_URL.endsWith('/') ? R2_PUBLIC_URL : `${R2_PUBLIC_URL}/`;
@@ -288,7 +289,9 @@ export function getPhotoVideoSrc(photo) {
 
 export function getPhotoVideoPoster(photo) {
   if (!photo?.thumbnail_url) return undefined;
-  return resolveMediaUrl(photo.thumbnail_url);
+  const url = resolveMediaUrl(photo.thumbnail_url);
+  if (!url || !urlLooksLikeImage(url)) return undefined;
+  return url;
 }
 
 /**

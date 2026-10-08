@@ -4,6 +4,7 @@ import {
   getPhotoDisplayFallbacks,
   getPhotoGridDisplayUrl,
   getPhotoVideoPoster,
+  getPhotoVideoSrc,
   isRawMedia,
   isVideoMedia,
 } from '@/lib/photoDisplayUrl';
@@ -48,21 +49,53 @@ function ContainGridMedia({ photo, index, isVideo }) {
   );
 }
 
-function ContainGridVideo({ photo }) {
-  const poster = getPhotoVideoPoster(photo);
+function paintVideoCover(video) {
+  if (!video) return;
+  const duration = video.duration;
+  const target = Number.isFinite(duration) && duration > 0 ? Math.min(0.4, duration / 2) : 0.1;
+  if (Math.abs((video.currentTime || 0) - target) > 0.05) {
+    try {
+      video.currentTime = target;
+    } catch {
+      /* metadata not ready to seek yet */
+    }
+  }
+}
 
+/** Still frame from the file when no JPEG cover was saved. */
+function VideoCover({ photo, alt = '' }) {
+  const poster = getPhotoVideoPoster(photo);
+  const src = getPhotoVideoSrc(photo);
+  if (poster) {
+    return (
+      <img
+        src={poster}
+        alt={alt}
+        className="cd-photo-img cd-photo-video-thumb cd-photo-grid-contain-media smooth-media-img smooth-media-img--visible"
+        style={{ objectFit: 'contain', imageOrientation: 'from-image' }}
+      />
+    );
+  }
+  if (!src) {
+    return <span className="cd-video-fallback">Film</span>;
+  }
+  return (
+    <video
+      src={src}
+      className="cd-photo-img cd-photo-video-thumb cd-photo-grid-contain-media cd-video-cover"
+      muted
+      playsInline
+      preload="metadata"
+      onLoadedMetadata={(e) => paintVideoCover(e.currentTarget)}
+      onLoadedData={(e) => paintVideoCover(e.currentTarget)}
+    />
+  );
+}
+
+function ContainGridVideo({ photo }) {
   return (
     <span className="smooth-media-wrap" style={containWrapStyle}>
-      {poster ? (
-        <img
-          src={poster}
-          alt=""
-          className="cd-photo-img cd-photo-video-thumb cd-photo-grid-contain-media smooth-media-img smooth-media-img--visible"
-          style={{ objectFit: 'contain', imageOrientation: 'from-image' }}
-        />
-      ) : (
-        <span className="cd-video-fallback">Film</span>
-      )}
+      <VideoCover photo={photo} />
     </span>
   );
 }
@@ -94,18 +127,7 @@ export const CollectionGridPhoto = memo(function CollectionGridPhoto({
   }
 
   if (isVideoMedia(photo)) {
-    const poster = getPhotoVideoPoster(photo);
-    if (poster) {
-      return (
-        <img
-          src={poster}
-          alt={photo.filename || 'Video'}
-          className="cd-photo-img cd-photo-video-thumb"
-          style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }}
-        />
-      );
-    }
-    return <span className="cd-video-fallback">Film</span>;
+    return <VideoCover photo={photo} alt={photo.filename || 'Video'} />;
   }
 
   return (

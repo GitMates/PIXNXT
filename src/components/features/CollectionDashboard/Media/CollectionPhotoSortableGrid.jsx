@@ -443,6 +443,7 @@ export default function CollectionPhotoSortableGrid({
                         ref={(el) => {
                             wrapRefs.current[index] = el;
                         }}
+                        data-photo-id={photo.id}
                         className={`cd-photo-sortable-wrap${
                             isDragging ? ' cd-photo-sortable-wrap--dragging' : ''
                         }${canDrag ? ' cd-photo-sortable-wrap--draggable' : ''}`}

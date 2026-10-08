@@ -18,6 +18,10 @@ export default defineConfig(({ mode }) => {
       target: apiProxyTarget,
       changeOrigin: true,
       secure: true,
+      // Multi-GB uploads stay open for a long time. Node's default
+      // request timeout would cut the proxy connection.
+      timeout: 0,
+      proxyTimeout: 0,
     },
   }
 
@@ -27,6 +31,12 @@ export default defineConfig(({ mode }) => {
       {
         name: 'pixnxt-dev-api',
         configureServer(server) {
+          const httpServer = server.httpServer;
+          if (httpServer) {
+            httpServer.requestTimeout = 0;
+            httpServer.headersTimeout = 0;
+            httpServer.timeout = 0;
+          }
           server.middlewares.use(async (req, res, next) => {
             if (!req.url?.startsWith('/api/r2-upload')) return next()
             try {

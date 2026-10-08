@@ -68,7 +68,6 @@ export function CollectionMoreMenu({
   const [duplicateOpen, setDuplicateOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [setsLiveCount, setSetsLiveCount] = useState<number | null>(null);
   const [storageLabel, setStorageLabel] = useState<string>('');
   const [shortcutLabel, setShortcutLabel] = useState<string>('⌘D');
   const [statsLoading, setStatsLoading] = useState(false);
@@ -76,7 +75,6 @@ export function CollectionMoreMenu({
   // New menu feature states
   const [renameOpen, setRenameOpen] = useState(false);
   const [newName, setNewName] = useState(collectionName);
-  const [pushOpen, setPushOpen] = useState(false);
   const [archiveConfirmOpen, setArchiveConfirmOpen] = useState(false);
 
   // Sync rename input when collectionName changes
@@ -118,9 +116,6 @@ export function CollectionMoreMenu({
         setStatsLoading(true);
         const data = await galleryService.getCollectionById(collectionId);
         if (cancelled) return;
-        const setsCount = Array.isArray(data.sets) ? data.sets.length : 0;
-        setSetsLiveCount(setsCount);
-
         let bytes = 0;
         if (Number(data.total_size_bytes) > 0) {
           bytes = Number(data.total_size_bytes);
@@ -129,7 +124,7 @@ export function CollectionMoreMenu({
         }
         const label = formatStorageBytes(bytes);
         setStorageLabel(label);
-        console.debug('Collection stats loaded', { collectionId, setsCount, bytes, label });
+        console.debug('Collection stats loaded', { collectionId, bytes, label });
       } catch (err) {
         console.error('Failed to load collection stats:', err);
       } finally {
@@ -320,21 +315,6 @@ export function CollectionMoreMenu({
             <span>Rename</span>
           </button>
           <div className="cd-dropdown-divider" />
-          <div className="cd-dropdown-section-title">MOBILE APP</div>
-          <button
-            type="button"
-            className="cd-ctx-item"
-            role="menuitem"
-            onClick={() => {
-              closeAll();
-              setPushOpen(true);
-            }}
-          >
-            <span>Push to the app...</span>
-            <span className="cd-dropdown-right-label">{statsLoading ? 'Loading...' : (setsLiveCount != null ? `${setsLiveCount} sets live` : '—')}</span>
-          </button>
-
-          <div className="cd-dropdown-divider" />
           <div className="cd-dropdown-section-title">EXPORT</div>
           <button
             type="button"
@@ -445,33 +425,6 @@ export function CollectionMoreMenu({
               <div style={{ display: 'flex', gap: '8px', marginTop: '20px', justifyContent: 'flex-end' }}>
                 <button type="button" className="cd-basics-btn" onClick={() => setArchiveConfirmOpen(false)}>Cancel</button>
                 <button type="button" className="cd-basics-btn" style={{ backgroundColor: '#2c2520', color: '#fff' }} onClick={handleArchive} disabled={busy}>Hide</button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {pushOpen && (
-        <div className="cd-modal-overlay" onClick={() => setPushOpen(false)}>
-          <div className="cd-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '400px' }}>
-            <div className="cd-modal-header">
-              <h3 className="cd-modal-title">Mobile App Sync</h3>
-              <button type="button" className="cd-modal-close" onClick={() => setPushOpen(false)} aria-label="Close">
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                  <line x1="18" y1="6" x2="6" y2="18" />
-                  <line x1="6" y1="6" x2="18" y2="18" />
-                </svg>
-              </button>
-            </div>
-            <div className="cd-modal-body" style={{ padding: '24px' }}>
-              <p style={{ margin: 0, fontSize: '14.5px', color: '#555', lineHeight: 1.5 }}>
-                Pushing this delivery sets to the client mobile app.
-                {setsLiveCount != null
-                  ? ` (${setsLiveCount === 1 ? '1 set live' : `${setsLiveCount} sets live`})`
-                  : ''}
-              </p>
-              <div style={{ display: 'flex', gap: '8px', marginTop: '20px', justifyContent: 'flex-end' }}>
-                <button type="button" className="cd-basics-btn" style={{ backgroundColor: '#2c2520', color: '#fff' }} onClick={() => setPushOpen(false)}>Close</button>
               </div>
             </div>
           </div>

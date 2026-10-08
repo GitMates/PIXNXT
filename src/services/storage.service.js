@@ -1,6 +1,6 @@
 import { getFileMime } from '../lib/fileMime';
 import { R2_PUBLIC_URL } from '../lib/r2';
-import { uploadApiBase, getAccessToken } from '../lib/api/client';
+import { apiBase, uploadApiBase, getAccessToken } from '../lib/api/client';
 /**
  * Upload through the Workers API (flag on): same XHR progress/cancel
  * semantics, but the browser never holds storage credentials and legacy
@@ -126,9 +126,12 @@ function xhrPart(path, uploadId, partNumber, blob, onProgress, abortSignal) {
       reject(new Error('Sign in again to upload.'));
       return;
     }
-    const base = uploadApiBase();
+    // Large parts go straight to the API. The Vite proxy drops them with
+    // ERR_CONNECTION_TIMED_OUT once a multi-GB file is in flight.
+    const base = apiBase();
     const xhr = new XMLHttpRequest();
     xhr.open('PUT', `${base}/v1/r2/multipart/part`, true);
+    xhr.timeout = 180000;
     xhr.setRequestHeader('Content-Type', blob.type || 'application/octet-stream');
     xhr.setRequestHeader('X-Object-Key', path);
     xhr.setRequestHeader('X-Upload-Id', uploadId);
@@ -163,6 +166,10 @@ function xhrPart(path, uploadId, partNumber, blob, onProgress, abortSignal) {
       reject(new Error(`Upload rejected (${xhr.status}).`));
     };
     xhr.onerror = () => {
+      cleanup();
+      reject(new Error('Network error uploading to storage.'));
+    };
+    xhr.ontimeout = () => {
       cleanup();
       reject(new Error('Network error uploading to storage.'));
     };

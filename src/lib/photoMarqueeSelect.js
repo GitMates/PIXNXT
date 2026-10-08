@@ -40,3 +40,18 @@ export function mergeMarqueeSelection(base, hitIds, additive) {
   for (const id of hitIds) set.add(id);
   return [...set];
 }
+
+/** Point inside a scrolling pane, so a later layout shift keeps the same tiles. */
+export function clientToScroller(clientX, clientY, scrollerRect, scrollLeft, scrollTop) {
+  return {
+    x: clientX - scrollerRect.left + scrollLeft,
+    y: clientY - scrollerRect.top + scrollTop,
+  };
+}
+
+export function scrollerToClient(x, y, scrollerRect, scrollLeft, scrollTop) {
+  return {
+    x: x - scrollLeft + scrollerRect.left,
+    y: y - scrollTop + scrollerRect.top,
+  };
+}

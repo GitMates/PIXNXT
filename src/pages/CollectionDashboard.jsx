@@ -51,9 +51,11 @@ import { DeliveryFilmsView } from '../components/features/CollectionDashboard/Fi
 import { downloadPhotoFromR2 } from '../lib/downloadPhoto';
 import {
     idsHittingMarquee,
+    clientToScroller,
     marqueeActivated,
     marqueeBox,
     mergeMarqueeSelection,
+    scrollerToClient,
 } from '../lib/photoMarqueeSelect';
 import {
   resolvePhotosForDownloadActivity,
@@ -369,16 +371,16 @@ const CollectionDashboard = () => {
     const [marqueeBoxStyle, setMarqueeBoxStyle] = useState(null);
     const [marqueeActive, setMarqueeActive] = useState(false);
 
-    useEffect(() => {
-        selectedPhotosRef.current = selectedPhotos;
-        photosForMarqueeRef.current = photos;
-    }, [photos, selectedPhotos]);
+    selectedPhotosRef.current = selectedPhotos;
 
     const stopMarqueeScroll = useCallback(() => {
         if (marqueeScrollRafRef.current != null) {
             cancelAnimationFrame(marqueeScrollRafRef.current);
             marqueeScrollRafRef.current = null;
         }
+    }, []);
+
+    const cancelMarqueePaint = useCallback(() => {
         if (marqueePaintRafRef.current != null) {
             cancelAnimationFrame(marqueePaintRafRef.current);
             marqueePaintRafRef.current = null;
@@ -395,23 +397,53 @@ const CollectionDashboard = () => {
             marqueePaintRafRef.current = null;
             const live = marqueeSessionRef.current;
             if (!live?.active) return;
-            const box = marqueeBox(live.startX, live.startY, live.clientX, live.clientY);
-            setMarqueeBoxStyle({
-                left: box.left,
-                top: box.top,
-                width: box.width,
-                height: box.height,
+            const scroller = mediaSectionsRef.current?.closest('.cd-main-area') || null;
+            let originX = live.startX;
+            let originY = live.startY;
+            if (scroller && live.startContentX != null) {
+                const scrollerRect = scroller.getBoundingClientRect();
+                const origin = scrollerToClient(
+                    live.startContentX,
+                    live.startContentY,
+                    scrollerRect,
+                    scroller.scrollLeft,
+                    scroller.scrollTop
+                );
+                originX = origin.x;
+                originY = origin.y;
+            }
+            const box = marqueeBox(originX, originY, live.clientX, live.clientY);
+            setMarqueeBoxStyle((prev) => {
+                if (
+                    prev &&
+                    prev.left === box.left &&
+                    prev.top === box.top &&
+                    prev.width === box.width &&
+                    prev.height === box.height
+                ) {
+                    return prev;
+                }
+                return {
+                    position: 'fixed',
+                    left: box.left,
+                    top: box.top,
+                    width: box.width,
+                    height: box.height,
+                };
             });
             const root = mediaSectionsRef.current;
             if (!root) return;
             const idByKey = new Map((photosForMarqueeRef.current || []).map((photo) => [String(photo.id), photo.id]));
             const items = [];
-            root.querySelectorAll('[data-photo-id]').forEach((el) => {
+            const seen = new Set();
+            root.querySelectorAll('.cd-photo-sortable-wrap[data-photo-id]').forEach((el) => {
                 const key = el.getAttribute('data-photo-id');
-                if (!key || !idByKey.has(key)) return;
+                if (!key || seen.has(key)) return;
+                seen.add(key);
                 const r = el.getBoundingClientRect();
+                if (r.width < 1 || r.height < 1) return;
                 items.push({
-                    id: idByKey.get(key),
+                    id: idByKey.has(key) ? idByKey.get(key) : key,
                     rect: { left: r.left, top: r.top, right: r.right, bottom: r.bottom },
                 });
             });
@@ -438,6 +470,10 @@ const CollectionDashboard = () => {
                 session.active = true;
                 setMarqueeActive(true);
                 document.body.style.userSelect = 'none';
+                const root = mediaSectionsRef.current;
+                if (root) {
+                    try { root.setPointerCapture(e.pointerId); } catch { /* ignore */ }
+                }
             }
             if (!session.active) return;
             e.preventDefault();
@@ -475,6 +511,11 @@ const CollectionDashboard = () => {
             const session = marqueeSessionRef.current;
             if (!session || e.pointerId !== session.pointerId) return;
             stopMarqueeScroll();
+            cancelMarqueePaint();
+            const root = mediaSectionsRef.current;
+            if (root?.hasPointerCapture?.(e.pointerId)) {
+                try { root.releasePointerCapture(e.pointerId); } catch { /* ignore */ }
+            }
             if (session.active) {
                 marqueeSuppressUntilRef.current = performance.now() + 300;
             }
@@ -489,21 +530,38 @@ const CollectionDashboard = () => {
         window.addEventListener('pointercancel', onUp);
         return () => {
             stopMarqueeScroll();
+            cancelMarqueePaint();
             window.removeEventListener('pointermove', onMove);
             window.removeEventListener('pointerup', onUp);
             window.removeEventListener('pointercancel', onUp);
         };
-    }, [paintMarquee, stopMarqueeScroll]);
+    }, [cancelMarqueePaint, paintMarquee, stopMarqueeScroll]);
 
     const handleMarqueePointerDown = (e) => {
         if (e.button !== 0 || e.altKey) return;
         if (e.target.closest?.('button, a, input, label, .cd-photo-more-btn, .cd-photo-star, .cd-photo-check, .cd-photo-hover-tools, .cd-photo-menu')) {
             return;
         }
+        const scroller = mediaSectionsRef.current?.closest('.cd-main-area') || null;
+        let startContentX = e.clientX;
+        let startContentY = e.clientY;
+        if (scroller) {
+            const point = clientToScroller(
+                e.clientX,
+                e.clientY,
+                scroller.getBoundingClientRect(),
+                scroller.scrollLeft,
+                scroller.scrollTop
+            );
+            startContentX = point.x;
+            startContentY = point.y;
+        }
         marqueeSessionRef.current = {
             pointerId: e.pointerId,
             startX: e.clientX,
             startY: e.clientY,
+            startContentX,
+            startContentY,
             clientX: e.clientX,
             clientY: e.clientY,
             active: false,
@@ -512,6 +570,12 @@ const CollectionDashboard = () => {
             scrollVelocity: 0,
         };
     };
+
+    useLayoutEffect(() => {
+        const live = marqueeSessionRef.current;
+        if (!live?.active) return;
+        paintMarquee(live, live.clientX, live.clientY);
+    }, [marqueeActive, paintMarquee, selectedPhotos.length]);
 
     const handleMarqueeClickCapture = (e) => {
         if (performance.now() < marqueeSuppressUntilRef.current) {
@@ -575,7 +639,6 @@ const CollectionDashboard = () => {
     const [showRenameDeliveryModal, setShowRenameDeliveryModal] = useState(false);
     const [renameDeliveryName, setRenameDeliveryName] = useState('');
     const [showArchiveConfirmModal, setShowArchiveConfirmModal] = useState(false);
-    const [showPushToAppModal, setShowPushToAppModal] = useState(false);
     // SET STATES
     const [sets, setSets] = useState([]);
     const [activeSetId, setActiveSetId] = useState(null); // null = Highlights (all photos)
@@ -742,12 +805,6 @@ const CollectionDashboard = () => {
         const bytes = fromPhotos > 0 ? fromPhotos : fromCollection;
         return formatStorageBytes(bytes);
     }, [photos, collection?.total_size_bytes]);
-
-    const mobileAppSetsLiveCount = useMemo(() => {
-        const list = sortedSidebarSets.length > 0 ? sortedSidebarSets : sets;
-        if (!list.length) return 0;
-        return list.filter((set) => mobileAppSets[set.id] !== false).length;
-    }, [sortedSidebarSets, sets, mobileAppSets]);
 
     const deliveryMediaCounts = useMemo(() => countGalleryMedia(photos), [photos]);
 
@@ -3967,17 +4024,23 @@ const CollectionDashboard = () => {
                     (!f.collectionId || f.collectionId === collectionId) &&
                     (f.setId ?? null) === (viewSetId ?? null)
             )
-            .map((f) => ({
+            .map((f) => {
+                const mediaType = getUploadMediaType(f.file);
+                const preview = f.previewUrl || null;
+                return {
                 id: `upload-pending-${f.id}`,
                 filename: f.name,
-                full_url: f.previewUrl || '',
-                thumbnail_url: f.previewUrl || '',
-                media_type: getUploadMediaType(f.file),
+                full_url: preview,
+                thumbnail_url: mediaType === 'video' ? null : preview,
+                media_type: mediaType,
                 _uploadPending: true,
                 _uploadProgress: f.progress,
-            }));
+                };
+            });
         return [...searchFilteredPhotos, ...pending];
     }, [searchFilteredPhotos, uploadState.files, collectionId, highlightsEnabled, activeSetId, sets]);
+
+    photosForMarqueeRef.current = gridPhotos;
 
     const gridVideoPhotos = useMemo(() => partitionGalleryMedia(gridPhotos).videos, [gridPhotos]);
     const gridStillPhotos = useMemo(() => partitionGalleryMedia(gridPhotos).photos, [gridPhotos]);
@@ -5727,26 +5790,6 @@ const CollectionDashboard = () => {
                                     <span>{w.rename}</span>
                                 </button>
                                 <div className="cd-dropdown-divider" />
-                                <div className="cd-dropdown-section-title">{w.mobileApp}</div>
-                                <button
-                                    type="button"
-                                    className="cd-ctx-item"
-                                    role="menuitem"
-                                    onClick={() => {
-                                        setShowMoreDropdown(false);
-                                        setShowPresetsSubmenu(false);
-                                        setShowPushToAppModal(true);
-                                    }}
-                                >
-                                    <span>{w.pushToApp}</span>
-                                    <span className="cd-dropdown-right-label">
-                                        {mobileAppSetsLiveCount === 1
-                                            ? w.setsLive(1)
-                                            : w.setsLive(mobileAppSetsLiveCount)}
-                                    </span>
-                                </button>
-
-                                <div className="cd-dropdown-divider" />
                                 <div className="cd-dropdown-section-title">{w.export}</div>
                                 <button
                                     type="button"
@@ -6217,6 +6260,7 @@ const CollectionDashboard = () => {
                                         className={`cd-media-sections${marqueeActive ? ' cd-media-sections--selecting' : ''}`}
                                         ref={mediaSectionsRef}
                                         onPointerDown={handleMarqueePointerDown}
+                                        onDragStart={(e) => e.preventDefault()}
                                         onClickCapture={handleMarqueeClickCapture}
                                     >
                                     {(gridVideoPhotos.length && gridStillPhotos.length
@@ -7494,32 +7538,6 @@ const CollectionDashboard = () => {
                 </div>
             )}
 
-            {/* Push to App Modal */}
-            {showPushToAppModal && (
-                <div className="cd-modal-overlay" onClick={() => setShowPushToAppModal(false)}>
-                    <div className="cd-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '400px' }}>
-                        <div className="cd-modal-header">
-                            <h3 className="cd-modal-title">PUSH TO THE APP</h3>
-                            <button className="cd-modal-close" onClick={() => setShowPushToAppModal(false)}>
-                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
-                            </button>
-                        </div>
-                        <div className="cd-modal-body" style={{ padding: '24px' }}>
-                            <p style={{ margin: 0, fontSize: '14.5px', color: '#555', lineHeight: 1.5 }}>Push the sets from this delivery to the PIXNXT mobile app. Your client will receive a notification to view the gallery on their phone.</p>
-                            <p style={{ margin: '12px 0 0', fontSize: '13px', color: '#a39b92' }}>
-                                {mobileAppSetsLiveCount === 1
-                                    ? '1 set currently live in the app.'
-                                    : `${mobileAppSetsLiveCount} sets currently live in the app.`}
-                            </p>
-                            <div style={{ display: 'flex', gap: '8px', marginTop: '20px', justifyContent: 'flex-end' }}>
-                                <button className="cd-btn-secondary" onClick={() => setShowPushToAppModal(false)}>Cancel</button>
-                                <button className="cd-btn-primary" onClick={() => { setShowPushToAppModal(false); }}>Push to app</button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            )}
-
             {/* Face Recognise Confirm Modal */}
             {showFaceRecogniseModal && (
                 <div
@@ -7874,12 +7892,12 @@ const CollectionDashboard = () => {
 
                         {/* Image / Video / RAW */}
                         {isVideoMedia(lbPhoto) ? (
-                            lightboxImgFailed ? (
+                            lightboxImgFailed || !getPhotoVideoSrc(lbPhoto) ? (
                                 <div className="cd-lightbox-video-error" onClick={(e) => e.stopPropagation()}>
                                     {getPhotoVideoPoster(lbPhoto) ? (
                                         <img src={getPhotoVideoPoster(lbPhoto)} alt="" />
                                     ) : null}
-                                    <p>This video is saved, but the browser could not play it.</p>
+                                    <p>{getPhotoVideoSrc(lbPhoto) ? 'This video is saved, but the browser could not play it.' : 'This video is still uploading.'}</p>
                                 </div>
                             ) : (
                             <video

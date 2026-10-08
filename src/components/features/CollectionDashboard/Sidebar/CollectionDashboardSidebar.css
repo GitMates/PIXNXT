@@ -60,6 +60,11 @@
 .cdsb-cover-wrap .cd-cover-image--empty {
   height: auto;
   background: transparent;
+  overflow: visible;
+}
+
+.cdsb-cover-wrap:has(.cd-cover-image--empty) {
+  overflow: visible;
 }
 
 .cdsb-cover-wrap .cd-cover-image img {
