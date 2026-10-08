@@ -192,7 +192,7 @@ export function PhotoLightbox({
             initial={{ opacity: 0, scale: 0.992 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 0.85, ease: [0.22, 1, 0.36, 1] }}
-            className="relative flex h-full max-h-full w-full max-w-6xl items-center justify-center"
+            className="relative flex h-full min-h-0 max-h-full w-full max-w-6xl items-center justify-center"
           >
             <div className="photo-lightbox-media-stage">
               {showRawPlaceholder ? (

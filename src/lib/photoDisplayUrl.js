@@ -271,9 +271,19 @@ export function getPhotoDownloadFilename(photo, index = 0, usedNames = null) {
 /**
  * Video source for grid playback (prefer web-optimized).
  */
+function urlLooksLikeImage(url) {
+  return /\.(jpe?g|png|gif|webp|avif|bmp)(\?|#|$)/i.test(url || '');
+}
+
 export function getPhotoVideoSrc(photo) {
   if (!photo) return '';
-  return resolveMediaUrl(photo.web_url || photo.full_url || '');
+  const candidates = [photo.full_url, photo.web_url];
+  for (const raw of candidates) {
+    const url = resolveMediaUrl(raw);
+    if (!url || urlLooksLikeImage(url)) continue;
+    return url;
+  }
+  return '';
 }
 
 export function getPhotoVideoPoster(photo) {

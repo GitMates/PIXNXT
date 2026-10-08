@@ -1,10 +1,9 @@
-import React, { memo, useMemo, useState } from 'react';
+import React, { memo, useMemo } from 'react';
 import { SmoothMediaImage } from '@/components/ui/SmoothMediaImage';
 import {
   getPhotoDisplayFallbacks,
   getPhotoGridDisplayUrl,
   getPhotoVideoPoster,
-  getPhotoVideoSrc,
   isRawMedia,
   isVideoMedia,
 } from '@/lib/photoDisplayUrl';
@@ -50,42 +49,20 @@ function ContainGridMedia({ photo, index, isVideo }) {
 }
 
 function ContainGridVideo({ photo }) {
-  const [ready, setReady] = useState(false);
   const poster = getPhotoVideoPoster(photo);
 
   return (
     <span className="smooth-media-wrap" style={containWrapStyle}>
-      {!ready && <span className="smooth-media-shimmer" aria-hidden />}
-      {poster && !ready && (
+      {poster ? (
         <img
           src={poster}
           alt=""
-          aria-hidden
-          className="smooth-media-blur"
+          className="cd-photo-img cd-photo-video-thumb cd-photo-grid-contain-media smooth-media-img smooth-media-img--visible"
           style={{ objectFit: 'contain', imageOrientation: 'from-image' }}
         />
+      ) : (
+        <span className="cd-video-fallback">Film</span>
       )}
-      <video
-        src={getPhotoVideoSrc(photo)}
-        poster={poster}
-        className={`cd-photo-img cd-photo-video-thumb cd-photo-grid-contain-media smooth-media-img${ready ? ' smooth-media-img--visible' : ''}`}
-        style={{
-          width: '100%',
-          height: '100%',
-          objectFit: 'contain',
-          backgroundColor: '#fff',
-        }}
-        muted
-        loop
-        playsInline
-        preload="metadata"
-        onLoadedData={() => setReady(true)}
-        onMouseEnter={(e) => e.currentTarget.play().catch(() => {})}
-        onMouseLeave={(e) => {
-          e.currentTarget.pause();
-          e.currentTarget.currentTime = 0;
-        }}
-      />
     </span>
   );
 }
@@ -117,29 +94,18 @@ export const CollectionGridPhoto = memo(function CollectionGridPhoto({
   }
 
   if (isVideoMedia(photo)) {
-    return (
-      <video
-        src={getPhotoVideoSrc(photo)}
-        poster={getPhotoVideoPoster(photo)}
-        className="cd-photo-img cd-photo-video-thumb"
-        style={{
-          width: '100%',
-          height: '100%',
-          objectFit: 'contain',
-          display: 'block',
-          backgroundColor: '#fff',
-        }}
-        muted
-        loop
-        playsInline
-        preload="metadata"
-        onMouseEnter={(e) => e.currentTarget.play().catch(() => {})}
-        onMouseLeave={(e) => {
-          e.currentTarget.pause();
-          e.currentTarget.currentTime = 0;
-        }}
-      />
-    );
+    const poster = getPhotoVideoPoster(photo);
+    if (poster) {
+      return (
+        <img
+          src={poster}
+          alt={photo.filename || 'Video'}
+          className="cd-photo-img cd-photo-video-thumb"
+          style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }}
+        />
+      );
+    }
+    return <span className="cd-video-fallback">Film</span>;
   }
 
   return (

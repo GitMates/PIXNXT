@@ -133,6 +133,7 @@ import { RawPhotoPlaceholder } from '../components/features/CollectionDashboard/
 import {
     getPhotoFullDisplayUrl,
     getPhotoOriginalFileUrl,
+    getPhotoVideoPoster,
     getPhotoVideoSrc,
     hasRawDisplayPreview,
     isRawMedia,
@@ -7873,15 +7874,27 @@ const CollectionDashboard = () => {
 
                         {/* Image / Video / RAW */}
                         {isVideoMedia(lbPhoto) ? (
+                            lightboxImgFailed ? (
+                                <div className="cd-lightbox-video-error" onClick={(e) => e.stopPropagation()}>
+                                    {getPhotoVideoPoster(lbPhoto) ? (
+                                        <img src={getPhotoVideoPoster(lbPhoto)} alt="" />
+                                    ) : null}
+                                    <p>This video is saved, but the browser could not play it.</p>
+                                </div>
+                            ) : (
                             <video
-                                src={getPhotoVideoSrc(lbPhoto) || lbPhoto.full_url || lbPhoto.web_url}
-                                className="cd-lightbox-image"
-                                style={{ maxHeight: 'calc(100vh - 200px)', maxWidth: '100%', objectFit: 'contain' }}
+                                key={lbPhoto.id}
+                                src={getPhotoVideoSrc(lbPhoto)}
+                                poster={getPhotoVideoPoster(lbPhoto) || undefined}
+                                className="cd-lightbox-image cd-lightbox-video"
                                 controls
                                 autoPlay
                                 playsInline
+                                preload="metadata"
                                 onClick={(e) => e.stopPropagation()}
+                                onError={() => setLightboxImgFailed(true)}
                             />
+                            )
                         ) : (() => {
                             const lbSrc = getPhotoFullDisplayUrl(lbPhoto);
                             if (lbSrc && !lightboxImgFailed) {
