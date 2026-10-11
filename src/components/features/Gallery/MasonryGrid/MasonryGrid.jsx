@@ -4,7 +4,8 @@ import { Download, Heart, Share2, Play, ShoppingBag, ArrowDownToLine, X, Message
 import { cn } from '../../../../lib/utils';
 import { SmoothMediaImage } from '../../../ui/SmoothMediaImage';
 import { isGalleryVideo } from '../../../../lib/galleryMediaType';
-import { getPhotoVideoPoster, getPhotoVideoSrc, resolveMediaUrl, getWebResolutionUrl } from '../../../../lib/photoDisplayUrl';
+import { resolveMediaUrl, getWebResolutionUrl } from '../../../../lib/photoDisplayUrl';
+import { GalleryVideo } from '../GalleryVideo';
 import { PhotoPrivateControls, PhotoPrivateBadge } from '../../ClientExclusiveAccess';
 import {
   BannerBouquetSvg,
@@ -687,9 +688,7 @@ export function MasonryGrid({
   };
 
   const renderPhotoItem = (photo, index) => {
-    const src = isGalleryVideo(photo)
-      ? getPhotoVideoSrc(photo)
-      : getWebResolutionUrl(photo);
+    const src = isGalleryVideo(photo) ? '' : getWebResolutionUrl(photo);
     const aspectRatio = getPhotoAspectRatio(photo);
     const useFixedVideoTile = centerVideosLayout && isGalleryVideo(photo);
     const tileAspectRatio = useFixedVideoTile ? VIDEO_TILE_ASPECT : aspectRatio;
@@ -752,27 +751,20 @@ export function MasonryGrid({
             />
           ) : null}
           {isGalleryVideo(photo) ? (
-            <>
-            <video
-              src={src}
-              poster={getPhotoVideoPoster(photo)}
+            <GalleryVideo
+              photo={photo}
+              hoverPreview
+              fit="cover"
               className={cn(
                 'gallery-masonry-media',
                 useFixedVideoTile && 'gallery-masonry-media--video-fixed'
               )}
               style={
                 useFixedVideoTile || useVerticalTileFrame
-                  ? { objectFit: 'cover', width: '100%', height: '100%' }
-                  : { objectFit: 'cover', aspectRatio: String(tileAspectRatio) }
+                  ? { width: '100%', height: '100%' }
+                  : { aspectRatio: String(tileAspectRatio) }
               }
-              muted
-              loop
-              playsInline
-              preload="metadata"
-              onMouseEnter={(e) => e.currentTarget.play().catch(() => { })}
-              onMouseLeave={(e) => { e.currentTarget.pause(); e.currentTarget.currentTime = 0; }}
             />
-            </>
           ) : (
             <SmoothMediaImage
               src={src}

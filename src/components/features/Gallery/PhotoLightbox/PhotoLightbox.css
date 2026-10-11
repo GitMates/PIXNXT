@@ -40,9 +40,10 @@
 }
 
 .photo-lightbox-video {
-  width: auto;
+  width: 100%;
   height: auto;
-  max-height: 100%;
+  max-height: calc(100dvh - 8rem);
+  min-height: 240px;
   background-color: #000;
 }
 

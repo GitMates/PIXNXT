@@ -3,6 +3,7 @@ import { SmoothMediaImage } from '@/components/ui/SmoothMediaImage';
 import {
   getPhotoDisplayFallbacks,
   getPhotoGridDisplayUrl,
+  getPhotoStreamPhase,
   getPhotoVideoPoster,
   getPhotoVideoSrc,
   isRawMedia,
@@ -65,6 +66,7 @@ function paintVideoCover(video) {
 /** Still frame from the file when no JPEG cover was saved. */
 function VideoCover({ photo, alt = '' }) {
   const poster = getPhotoVideoPoster(photo);
+  const phase = getPhotoStreamPhase(photo);
   const src = getPhotoVideoSrc(photo);
   if (poster) {
     return (
@@ -76,7 +78,10 @@ function VideoCover({ photo, alt = '' }) {
       />
     );
   }
-  if (!src) {
+  if (phase === 'preparing') {
+    return <span className="cd-video-fallback">Preparing film</span>;
+  }
+  if (!src || phase === 'ready') {
     return <span className="cd-video-fallback">Film</span>;
   }
   return (

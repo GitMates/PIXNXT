@@ -36,7 +36,7 @@ import { renderMiniFrame } from '../../printstore/components/StoreHeader';
 import { GalleryBackToTop } from '../../components/features/Gallery/GalleryBackToTop/GalleryBackToTop';
 import { GalleryEmptyGrid } from '../../components/features/Gallery/GalleryEmptyGrid/GalleryEmptyGrid';
 import { smoothScrollToElement, smoothScrollToTop } from '../../lib/smoothGalleryScroll';
-import { getPhotoFullDisplayUrl, getWebResolutionUrl, resolveMediaUrl } from '../../lib/photoDisplayUrl';
+import { getPhotoFullDisplayUrl, getWebResolutionUrl, getPhotoStreamPhase, resolveMediaUrl } from '../../lib/photoDisplayUrl';
 import { stampCrashUser } from '../../lib/crashLogger';
 import { getStoreViewPhotoUrl, toStoreCartPhoto } from '../../lib/storePhotoQuality';
 import {
@@ -1780,6 +1780,21 @@ const GalleryView = () => {
       document.documentElement.lang = prev || 'en';
     };
   }, [collection?.language]);
+
+  const preparingFilmIds = (collection?.photos || [])
+    .filter((photo) => getPhotoStreamPhase(photo) === 'preparing')
+    .map((photo) => photo.id)
+    .join(',');
+
+  useEffect(() => {
+    if (!preparingFilmIds || !slug) return undefined;
+    const timer = setInterval(async () => {
+      const fresh = await galleryService.getCollectionBySlug(slug);
+      if (!fresh || fresh.needsPassword) return;
+      setCollection((prev) => (prev ? { ...prev, photos: fresh.photos || prev.photos } : prev));
+    }, 8000);
+    return () => clearInterval(timer);
+  }, [preparingFilmIds, slug]);
 
   useEffect(() => {
     const fetchGallery = async () => {

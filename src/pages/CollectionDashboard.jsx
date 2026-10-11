@@ -135,12 +135,14 @@ import { RawPhotoPlaceholder } from '../components/features/CollectionDashboard/
 import {
     getPhotoFullDisplayUrl,
     getPhotoOriginalFileUrl,
+    getPhotoStreamPhase,
     getPhotoVideoPoster,
     getPhotoVideoSrc,
     hasRawDisplayPreview,
     isRawMedia,
     isVideoMedia,
 } from '../lib/photoDisplayUrl';
+import { GalleryVideo } from '../components/features/Gallery/GalleryVideo';
 import { formatCoverDate, formatSidebarDeliveryDate, formatLastSavedTime } from '../lib/formatCoverDate.js';
 import { broadcastGalleryLive, GALLERY_LIVE_CHANNEL, subscribePersonLabelUpdates } from '../lib/galleryLiveSync';
 import { isDigitalDownloadEnabled } from '../lib/storePackages';
@@ -179,6 +181,29 @@ const CollectionDashboard = () => {
     const [collection, setCollection] = useState(null);
     const [photos, setPhotos] = useState([]);
     const [profile, setProfile] = useState(null);
+    const preparingFilmIds = photos
+        .filter((photo) => getPhotoStreamPhase(photo) === 'preparing')
+        .map((photo) => photo.id)
+        .join(',');
+
+    useEffect(() => {
+        if (!preparingFilmIds || !collectionId) return undefined;
+        const timer = setInterval(async () => {
+            const data = await galleryService.getCollectionDashboardData(collectionId);
+            const next = data?.photos || [];
+            if (!next.length) return;
+            setPhotos((prev) => prev.map((photo) => {
+                const fresh = next.find((row) => row.id === photo.id);
+                if (!fresh) return photo;
+                return {
+                    ...photo,
+                    stream_status: fresh.stream_status,
+                    stream_playback_hls: fresh.stream_playback_hls,
+                };
+            }));
+        }, 8000);
+        return () => clearInterval(timer);
+    }, [preparingFilmIds, collectionId]);
 
     useEffect(() => {
         if (!user?.id) {
@@ -7892,26 +7917,24 @@ const CollectionDashboard = () => {
 
                         {/* Image / Video / RAW */}
                         {isVideoMedia(lbPhoto) ? (
-                            lightboxImgFailed || !getPhotoVideoSrc(lbPhoto) ? (
-                                <div className="cd-lightbox-video-error" onClick={(e) => e.stopPropagation()}>
-                                    {getPhotoVideoPoster(lbPhoto) ? (
-                                        <img src={getPhotoVideoPoster(lbPhoto)} alt="" />
-                                    ) : null}
-                                    <p>{getPhotoVideoSrc(lbPhoto) ? 'This video is saved, but the browser could not play it.' : 'This video is still uploading.'}</p>
-                                </div>
-                            ) : (
-                            <video
-                                key={lbPhoto.id}
-                                src={getPhotoVideoSrc(lbPhoto)}
-                                poster={getPhotoVideoPoster(lbPhoto) || undefined}
+                            getPhotoStreamPhase(lbPhoto) === 'preparing' || getPhotoVideoSrc(lbPhoto) ? (
+                            <GalleryVideo
+                                key={`${lbPhoto.id}-${getPhotoStreamPhase(lbPhoto)}`}
+                                photo={lbPhoto}
+                                filmPlayback={collection?.film_playback === 'highest' ? 'highest' : 'adapt'}
                                 className="cd-lightbox-image cd-lightbox-video"
                                 controls
                                 autoPlay
                                 playsInline
-                                preload="metadata"
                                 onClick={(e) => e.stopPropagation()}
-                                onError={() => setLightboxImgFailed(true)}
                             />
+                            ) : (
+                            <div className="cd-lightbox-video-error" onClick={(e) => e.stopPropagation()}>
+                                {getPhotoVideoPoster(lbPhoto) ? (
+                                    <img src={getPhotoVideoPoster(lbPhoto)} alt="" />
+                                ) : null}
+                                <p>{lightboxImgFailed ? 'This video is saved, but the browser could not play it.' : 'This video is still uploading.'}</p>
+                            </div>
                             )
                         ) : (() => {
                             const lbSrc = getPhotoFullDisplayUrl(lbPhoto);

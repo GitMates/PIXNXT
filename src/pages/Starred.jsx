@@ -5,7 +5,7 @@ import SidebarLayout from '../components/SidebarLayout';
 import { useAuth } from '../hooks/useAuth';
 import { galleryService } from '../services/gallery.service';
 import { CollectionCardCover } from '../components/features/ClientGallery/CollectionCardCover';
-import { getPhotoGridDisplayUrl, getPhotoVideoSrc, getCollectionCardCoverSrc } from '../lib/photoDisplayUrl';
+import { getPhotoGridDisplayUrl, getPhotoStreamPhase, getPhotoVideoPoster, getCollectionCardCoverSrc } from '../lib/photoDisplayUrl';
 import { formatStorageBytes } from '../utils/formatStorageBytes';
 import { isGalleryVideo } from '../lib/galleryMediaType';
 import {
@@ -198,7 +198,9 @@ const Starred = () => {
                     <div className="st-photo-grid">
                         {photos.map((photo) => {
                             const isVideo = isGalleryVideo(photo);
-                            const src = isVideo ? getPhotoVideoSrc(photo) : getPhotoGridDisplayUrl(photo);
+                            const poster = isVideo ? getPhotoVideoPoster(photo) : '';
+                            const preparing = isVideo && getPhotoStreamPhase(photo) === 'preparing';
+                            const src = isVideo ? '' : getPhotoGridDisplayUrl(photo);
                             const collectionName = photo.collection?.name || 'Delivery';
                             return (
                                 <div
@@ -207,12 +209,14 @@ const Starred = () => {
                                     onClick={() => openPhotoCollection(photo)}
                                 >
                                     <div className="st-photo-thumb">
-                                        {src ? (
-                                            isVideo ? (
-                                                <video src={src} muted playsInline preload="metadata" />
+                                        {isVideo ? (
+                                            poster ? (
+                                                <img src={poster} alt={photo.filename || 'Film'} loading="lazy" />
                                             ) : (
-                                                <img src={src} alt={photo.filename || 'Starred photo'} loading="lazy" />
+                                                <span className="st-photo-fallback">{preparing ? 'Preparing film' : 'Film'}</span>
                                             )
+                                        ) : src ? (
+                                            <img src={src} alt={photo.filename || 'Starred photo'} loading="lazy" />
                                         ) : (
                                             <div className="st-photo-placeholder" />
                                         )}

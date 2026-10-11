@@ -10,10 +10,12 @@ import { isGalleryVideo } from '../../../../lib/galleryMediaType';
 import {
   getPhotoDisplayFallbacks,
   getPhotoFullDisplayUrl,
+  getPhotoStreamPhase,
   getPhotoVideoSrc,
   isRawMedia,
   isVideoMedia,
 } from '../../../../lib/photoDisplayUrl';
+import { GalleryVideo } from '../GalleryVideo';
 import { RawPhotoPlaceholder } from '../../CollectionDashboard/Media/RawPhotoPlaceholder';
 import { AppLoader } from '../../../ui/AppLoading';
 import './PhotoLightbox.css';
@@ -197,20 +199,19 @@ export function PhotoLightbox({
             <div className="photo-lightbox-media-stage">
               {showRawPlaceholder ? (
                 <RawPhotoPlaceholder variant="lightbox" label="Preview loading…" />
+              ) : isCurrentVideo && currentPhoto ? (
+                <div className="photo-lightbox-media-wrap photo-lightbox-media-wrap--video">
+                  <GalleryVideo
+                    key={`${currentPhoto.id}-${getPhotoStreamPhase(currentPhoto)}`}
+                    photo={currentPhoto}
+                    filmPlayback={filmPlayback}
+                    className="photo-lightbox-video"
+                    controls
+                    autoPlay
+                    playsInline
+                  />
+                </div>
               ) : currentMediaUrl ? (
-                isCurrentVideo ? (
-                  <div className="photo-lightbox-media-wrap photo-lightbox-media-wrap--video">
-                    <video
-                      key={currentMediaUrl}
-                      src={currentMediaUrl}
-                      className="photo-lightbox-video"
-                      controls
-                      autoPlay
-                      playsInline
-                      preload={filmPlayback === 'highest' ? 'auto' : 'metadata'}
-                    />
-                  </div>
-                ) : (
                   <div className="photo-lightbox-media-wrap">
                     <img
                       key={`${currentIndex}-${currentMediaUrl}`}
@@ -303,7 +304,6 @@ export function PhotoLightbox({
                       </div>
                     </div>
                   </div>
-                )
               ) : (
                 <AppLoader label="Loading photo" variant="compact" className="opacity-80" />
               )}

@@ -276,8 +276,20 @@ function urlLooksLikeImage(url) {
   return /\.(jpe?g|png|gif|webp|avif|bmp)(\?|#|$)/i.test(url || '');
 }
 
+/** ready = HLS, preparing = encode in progress, file = play the R2 original. */
+export function getPhotoStreamPhase(photo) {
+  if (!isVideoMedia(photo)) return 'file';
+  const status = String(photo.stream_status || '');
+  if (status === 'ready' && photo.stream_playback_hls) return 'ready';
+  if (status === 'pending' || status === 'processing' || status === 'queued') return 'preparing';
+  return 'file';
+}
+
 export function getPhotoVideoSrc(photo) {
   if (!photo) return '';
+  const phase = getPhotoStreamPhase(photo);
+  if (phase === 'ready') return String(photo.stream_playback_hls);
+  if (phase === 'preparing') return '';
   const candidates = [photo.full_url, photo.web_url];
   for (const raw of candidates) {
     const url = resolveMediaUrl(raw);
@@ -287,11 +299,20 @@ export function getPhotoVideoSrc(photo) {
   return '';
 }
 
+/** Still frame Cloudflare Stream generates for a ready film. */
+export function getStreamThumbnailUrl(photo) {
+  const hls = String(photo?.stream_playback_hls || '');
+  const match = hls.match(/^(https:\/\/[^/]+)\/([a-z0-9]+)\/manifest\/video\.m3u8/i);
+  if (!match) return undefined;
+  return `${match[1]}/${match[2]}/thumbnails/thumbnail.jpg?time=1s&height=720`;
+}
+
 export function getPhotoVideoPoster(photo) {
-  if (!photo?.thumbnail_url) return undefined;
-  const url = resolveMediaUrl(photo.thumbnail_url);
-  if (!url || !urlLooksLikeImage(url)) return undefined;
-  return url;
+  if (photo?.thumbnail_url) {
+    const url = resolveMediaUrl(photo.thumbnail_url);
+    if (url && urlLooksLikeImage(url)) return url;
+  }
+  return getStreamThumbnailUrl(photo);
 }
 
 /**
@@ -305,6 +326,12 @@ export function getPhotoDisplayFallbacks(photo, preferOriginalAspect = false) {
     return [resolveMediaUrl(photo.watermarked_url)];
   }
   if (isVideoMedia(photo)) {
+    const phase = getPhotoStreamPhase(photo);
+    if (phase === 'preparing') return [];
+    if (phase === 'ready') {
+      const hls = String(photo.stream_playback_hls || '');
+      return hls ? [hls] : [];
+    }
     return getPhotoDownloadUrlCandidates(photo);
   }
   if (isRawMedia(photo)) {
