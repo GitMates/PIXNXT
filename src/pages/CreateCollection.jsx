@@ -1,15 +1,183 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import SidebarLayout from '../components/SidebarLayout';
 import { DatePicker } from '../components/ui/DatePicker';
-import { ClientGallerySelect } from '../components/features/ClientGallery/ClientGallerySelect';
 import { useAuth } from '../hooks/useAuth';
 import { galleryService } from '../services/gallery.service';
 import { guestDeliveryService } from '../services/guestDelivery.service';
 import { photographerQuotaService } from '../services/photographerQuota.service';
 import { resolveUploadDefaults } from '../lib/uploadDefaults';
+import { getPublicGalleryUrl } from '../lib/publicSiteUrl';
 import '../styles/clientGalleryTheme.css';
-import '../styles/collectionDashboardTheme.css';
-import './CreateCollection.css';
+import './NewDelivery.css';
+
+const PRESET_ORDER = ['wedding', 'shoot', 'corporate'];
+
+const PRESETS = {
+    wedding: {
+        label: 'Wedding',
+        hint: 'Guests on, watermark, 90 days',
+        guests: true,
+        access: 'Anyone with the link',
+        wm: 'On',
+        expiry: '90 days after publishing',
+        lang: 'English',
+        privacy: 'public',
+        watermark_enabled: 1,
+        email_capture_enabled: 0,
+        language: 'english',
+    },
+    shoot: {
+        label: 'Shoot',
+        hint: 'Client only, watermark, 60 days',
+        guests: false,
+        access: 'Anyone with the link',
+        wm: 'On',
+        expiry: '60 days after publishing',
+        lang: 'English',
+        privacy: 'public',
+        watermark_enabled: 1,
+        email_capture_enabled: 0,
+        language: 'english',
+    },
+    corporate: {
+        label: 'Corporate',
+        hint: 'Named emails, no watermark',
+        guests: false,
+        access: 'Named email addresses only',
+        wm: 'Off',
+        expiry: '30 days after publishing',
+        lang: 'English',
+        privacy: 'public',
+        watermark_enabled: 0,
+        email_capture_enabled: 1,
+        language: 'english',
+    },
+};
+
+const PRINT_LEAD_DAYS = 3;
+const DAY_MS = 86400000;
+
+function deliverySlug(text) {
+    return String(text || '')
+        .toLowerCase()
+        .replace(/&/g, ' ')
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '')
+        .slice(0, 28)
+        .replace(/-+$/g, '');
+}
+
+function startOfToday() {
+    const date = new Date();
+    date.setHours(0, 0, 0, 0);
+    return date;
+}
+
+function addDays(date, days) {
+    return new Date(date.getTime() + days * DAY_MS);
+}
+
+function daysUntil(date) {
+    return Math.round((date.getTime() - startOfToday().getTime()) / DAY_MS);
+}
+
+function formatPrintDay(date) {
+    return date.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'long' });
+}
+
+function awayLabel(date) {
+    const n = daysUntil(date);
+    if (n < 0) return `${Math.abs(n)} ${Math.abs(n) === 1 ? 'day ago' : 'days ago'}`;
+    if (n === 0) return 'today';
+    if (n === 1) return 'tomorrow';
+    return `${n} days away`;
+}
+
+function printBand(eventDate) {
+    if (!eventDate) {
+        return { tone: 'ok', text: '—' };
+    }
+    const event = new Date(`${eventDate}T00:00:00`);
+    if (Number.isNaN(event.getTime())) return { tone: 'ok', text: '—' };
+    const by = addDays(event, -PRINT_LEAD_DAYS);
+    const n = daysUntil(by);
+    if (n < 0) {
+        return {
+            tone: 'past',
+            text: `Needed by ${formatPrintDay(by)} — that has passed. Print it yourself today.`,
+        };
+    }
+    if (n <= 1) {
+        return {
+            tone: 'tight',
+            text: `By ${formatPrintDay(by)} — ${awayLabel(by)}. No printer will turn this round.`,
+        };
+    }
+    return {
+        tone: 'ok',
+        text: `Print by ${formatPrintDay(by)} — ${awayLabel(by)}`,
+    };
+}
+
+function galleryAddressPrefix() {
+    try {
+        const url = new URL(getPublicGalleryUrl('preview'));
+        const path = url.pathname.replace(/\/preview\/?$/, '').replace(/\/$/, '');
+        return `${url.host}${path}/`;
+    } catch {
+        return 'gallery/';
+    }
+}
+
+function StandeeArt() {
+    return (
+        <svg className="nd-ga" viewBox="0 0 80 100" width="178" height="222" role="img" aria-label="An unstyled standee on a floor stand with a table card beside it">
+            <ellipse className="nd-ga-shadow" cx="36" cy="88" rx="26" ry="3.4" />
+            <ellipse className="nd-ga-shadow" cx="68" cy="86" rx="9" ry="2" />
+            <rect className="nd-ga-sheet" x="12" y="4" width="48" height="64" rx="2.5" />
+            <rect className="nd-ga-bar" x="28" y="9.5" width="16" height="2.6" rx="1.3" />
+            <rect className="nd-ga-bar" data-weak x="31" y="13.6" width="10" height="1.4" rx=".7" />
+            <rect className="nd-ga-bar" data-weak x="22" y="18.4" width="28" height=".8" rx=".4" />
+            <rect className="nd-ga-panel" x="25" y="22" width="22" height="22" rx="1.5" />
+            <g className="nd-ga-mod">
+                <rect x="27" y="24" width="5" height="5" rx=".6" />
+                <rect x="40" y="24" width="5" height="5" rx=".6" />
+                <rect x="27" y="37" width="5" height="5" rx=".6" />
+                <rect x="34.5" y="24" width="2" height="2" />
+                <rect x="34.5" y="29.5" width="2" height="2" />
+                <rect x="31" y="32.5" width="2" height="2" />
+                <rect x="37" y="33.5" width="2" height="2" />
+                <rect x="40" y="30.5" width="2" height="2" />
+                <rect x="43.5" y="34" width="2" height="2" />
+                <rect x="34.5" y="37" width="2" height="2" />
+                <rect x="40" y="40" width="2" height="2" />
+                <rect x="43.5" y="37.5" width="2" height="2" />
+            </g>
+            <rect className="nd-ga-bar" x="22" y="48.4" width="28" height="2.6" rx="1.3" />
+            <rect className="nd-ga-bar" data-weak x="28" y="54" width="16" height="1.8" rx=".9" />
+            <rect className="nd-ga-bar" data-weak x="25" y="60" width="22" height="1.4" rx=".7" />
+            <rect className="nd-ga-bar" data-weak x="30" y="63.6" width="12" height="1.1" rx=".55" />
+            <rect className="nd-ga-stem" x="34" y="68" width="4" height="16" rx="1" />
+            <ellipse className="nd-ga-base" cx="36" cy="85" rx="12" ry="2.8" />
+            <g transform="rotate(7 68 72)">
+                <rect className="nd-ga-sheet" x="59" y="58" width="18" height="26" rx="1.5" />
+                <rect className="nd-ga-bar" data-weak x="63" y="60.6" width="10" height="1.2" rx=".6" />
+                <rect className="nd-ga-panel" x="62.5" y="64" width="11" height="11" rx=".8" />
+                <g className="nd-ga-mod">
+                    <rect x="63.5" y="65" width="2.6" height="2.6" rx=".4" />
+                    <rect x="69.9" y="65" width="2.6" height="2.6" rx=".4" />
+                    <rect x="63.5" y="71.4" width="2.6" height="2.6" rx=".4" />
+                    <rect x="67.5" y="69" width="1.3" height="1.3" />
+                    <rect x="70.5" y="71" width="1.3" height="1.3" />
+                </g>
+                <rect className="nd-ga-bar" x="62.5" y="78" width="11" height="1.4" rx=".7" />
+                <rect className="nd-ga-bar" data-weak x="65" y="81" width="6" height="1.4" rx=".7" />
+            </g>
+            <text className="nd-ga-label" x="36" y="96">A3 entrance · A5 tables</text>
+        </svg>
+    );
+}
 
 const CreateCollection = () => {
     const navigate = useNavigate();
@@ -18,77 +186,74 @@ const CreateCollection = () => {
     const { user } = useAuth();
     const [name, setName] = useState('');
     const [date, setDate] = useState('');
-    const [preset, setPreset] = useState('default');
+    const [presetId, setPresetId] = useState('shoot');
     const [guestDeliveryEnabled, setGuestDeliveryEnabled] = useState(false);
-    const [presets, setPresets] = useState([]);
-    const [presetOptions, setPresetOptions] = useState([{ value: 'default', label: 'Default' }]);
+    const [studioName, setStudioName] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [error, setError] = useState(null);
 
     useEffect(() => {
-        if (!user) return;
-        const fetchPresets = async () => {
-            try {
-                const data = await galleryService.getPresets(user.id);
-                if (data) {
-                    setPresets(data);
-                    const options = [
-                        { value: 'default', label: 'Default' },
-                        ...data.map(p => ({ value: p.id, label: p.name }))
-                    ];
-                    setPresetOptions(options);
-                }
-            } catch (err) {
-                console.error("Failed to load presets", err);
-            }
+        if (!user?.id) return undefined;
+        let cancelled = false;
+        galleryService.getPhotographerProfile(user.id).then((profile) => {
+            if (cancelled || !profile) return;
+            const label = profile.business_name || profile.display_name || '';
+            if (label) setStudioName(label);
+        }).catch(() => {});
+        return () => {
+            cancelled = true;
         };
-        fetchPresets();
-    }, [user]);
+    }, [user?.id]);
 
-    const generateSlug = (text) => {
-        return text
-            .toLowerCase()
-            .trim()
-            .replace(/[^\w ]+/g, '')
-            .replace(/ +/g, '-');
+    const preset = PRESETS[presetId] || PRESETS.wedding;
+    const slug = deliverySlug(name);
+    const addressPrefix = useMemo(() => galleryAddressPrefix(), []);
+    const band = printBand(date);
+
+    const handleClose = () => {
+        if (folderId) navigate(`/folders/${folderId}`);
+        else navigate('/client-gallery');
     };
 
-    const handleCreate = async (e) => {
-        e.preventDefault();
+    const pickPreset = (id) => {
+        const next = PRESETS[id];
+        if (!next) return;
+        setPresetId(id);
+        setGuestDeliveryEnabled(next.guests);
+    };
+
+    const onPresetKeyDown = (event, id) => {
+        const index = PRESET_ORDER.indexOf(id);
+        let next = null;
+        if (event.key === 'ArrowRight' || event.key === 'ArrowDown') {
+            next = PRESET_ORDER[(index + 1) % PRESET_ORDER.length];
+        } else if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') {
+            next = PRESET_ORDER[(index - 1 + PRESET_ORDER.length) % PRESET_ORDER.length];
+        } else {
+            return;
+        }
+        event.preventDefault();
+        pickPreset(next);
+        document.getElementById(`nd-preset-${next}`)?.focus();
+    };
+
+    const handleCreate = async (event) => {
+        event.preventDefault();
         if (!user) {
             setError('You must be logged in to create a delivery.');
             return;
         }
-        
+        const trimmed = name.trim();
+        if (!trimmed) return;
+
         setIsSubmitting(true);
         setError(null);
-        
-        try {
-            const collectionSlug = `${generateSlug(name)}-${Date.now().toString(36)}`;
-            let presetSettings = {};
-            if (preset !== 'default') {
-                const selectedPreset = presets.find(p => p.id === preset);
-                if (selectedPreset && selectedPreset.settings) {
-                    const ps = selectedPreset.settings;
-                    presetSettings = {
-                        font_family: ps.typography || 'sans_1',
-                        color_palette: ps.colorTheme || 'light_1',
-                        grid_style: ps.gridStyle || 'vertical',
-                        thumbnail_size: ps.thumbnailSize || 'regular',
-                        grid_spacing: ps.gridSpacing || 'regular',
-                        nav_style: (ps.navigationStyle === 'text' || ps.navigationStyle === 'icon_text') ? 'icons_labels' : 'icons',
-                        privacy: ps.collectionPassword ? 'password' : 'public',
-                        cover_layout: ps.coverStyle || 'novel',
-                        cover_style: 'photo',
-                    };
-                }
-            }
 
+        try {
             const prefs = resolveUploadDefaults(null);
-            const collectionData = {
+            const base = {
                 photographer_id: user.id,
-                name,
-                slug: collectionSlug,
+                name: trimmed,
                 event_date: date || null,
                 status: 'draft',
                 font_family: 'sans_1',
@@ -97,36 +262,43 @@ const CreateCollection = () => {
                 thumbnail_size: 'regular',
                 grid_spacing: 'regular',
                 nav_style: 'icons',
-                privacy: 'public',
+                privacy: preset.privacy,
                 cover_style: 'photo',
-                guest_delivery_enabled: guestDeliveryEnabled,
                 cover_layout: 'novel',
+                guest_delivery_enabled: guestDeliveryEnabled,
+                watermark_enabled: preset.watermark_enabled,
+                email_capture_enabled: preset.email_capture_enabled,
+                language: preset.language || prefs.defaultLanguage || 'english',
                 show_filenames: prefs.filenameDisplay === 'show',
-                language: prefs.defaultLanguage || 'english',
                 ...(folderId ? { folder_id: folderId } : {}),
-                ...presetSettings,
             };
 
-            // Creation quota only — face switches (Find People / face matching)
-            // must not block delivery creation. They only hide the
-            // Find People button and gate actual face scans.
             await photographerQuotaService.assertCreationDeliveryQuota(user.id, 1);
 
-            const newCollection = await galleryService.createCollection(collectionData);
-            // Record creation usage (backend also live-counts creations).
+            let collectionSlug = slug || `delivery-${Date.now().toString(36)}`;
+            let created;
+            try {
+                created = await galleryService.createCollection({ ...base, slug: collectionSlug });
+            } catch (err) {
+                const message = String(err?.message || '');
+                if (!/already exists/i.test(message)) throw err;
+                collectionSlug = `${(slug || 'delivery').slice(0, 22)}-${Date.now().toString(36).slice(-4)}`;
+                created = await galleryService.createCollection({ ...base, slug: collectionSlug });
+            }
+
             void photographerQuotaService.recordUsage(user.id, 'delivery', 1).catch(() => {});
 
             if (guestDeliveryEnabled) {
                 await guestDeliveryService.createLinkedEvent({
-                    collectionId: newCollection.id,
+                    collectionId: created.id,
                     photographerId: user.id,
-                    name,
+                    name: trimmed,
                     eventDate: date || null,
                     slug: collectionSlug,
                 });
             }
-            
-            navigate(`/deliveries/manage?id=${newCollection.id}`);
+
+            navigate(`/deliveries/manage?id=${created.id}`);
         } catch (err) {
             console.error('Error creating collection:', err);
             const message = err.message || 'Failed to create delivery. Please try again.';
@@ -139,184 +311,157 @@ const CreateCollection = () => {
         }
     };
 
-    const handleClose = () => {
-        if (folderId) {
-            navigate(`/folders/${folderId}`);
-        } else {
-            navigate('/client-gallery');
-        }
-    };
-
+    const studioLabel = studioName || 'Your studio';
     const canSubmit = Boolean(name.trim()) && !isSubmitting;
 
     return (
-        <div className="cc-page theme-mono cd-dashboard-shell">
-            <header className="cc-header">
-                <div className="cc-header-left">
-                    <button type="button" className="cc-back-btn" onClick={handleClose} title="Back" aria-label="Back">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+        <SidebarLayout>
+            <div className="nd-page">
+                <header className="nd-head">
+                    <button type="button" className="nd-back" onClick={handleClose} aria-label="Back to deliveries">
+                        <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
+                            <path d="M9.5 4 5.5 8l4 4" />
+                        </svg>
                     </button>
-                    <div className="cc-header-copy">
-                        <h1 className="cc-header-title">New Delivery</h1>
-                        <p className="cc-header-sub">Set up a gallery for your client</p>
+                    <div>
+                        <h1>New delivery</h1>
+                        <div className="nd-where">Client Gallery · {studioLabel}</div>
                     </div>
-                </div>
-                <p className="cc-header-meta">Draft · editable after create</p>
-            </header>
+                </header>
 
-            <main className="cc-main">
-                <div className="cc-form-container">
-                    <div className="cc-form-card">
-                        <div className="cc-form-intro">
-                            <div className="cc-form-intro__icon" aria-hidden>
-                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
-                                    <rect x="3" y="3" width="18" height="18" rx="2" />
-                                    <circle cx="9" cy="9" r="2" />
-                                    <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" />
-                                </svg>
+                <div className="nd-splitwrap">
+                    <div className="nd-split" data-col={guestDeliveryEnabled ? 'true' : 'false'}>
+                        <form className="nd-form" onSubmit={handleCreate}>
+                            <div className="nd-field nd-field--name">
+                                <label htmlFor="nd-name">Delivery name</label>
+                                <input
+                                    id="nd-name"
+                                    className="nd-input"
+                                    type="text"
+                                    placeholder="Aditi & Rajat"
+                                    value={name}
+                                    onChange={(e) => setName(e.target.value)}
+                                    autoComplete="off"
+                                    autoFocus
+                                    maxLength={120}
+                                    required
+                                />
+                                <div className="nd-addr" data-empty={slug ? undefined : ''}>
+                                    <span className="nd-addr-host">{addressPrefix}</span>
+                                    <em>{slug || '…'}</em>
+                                </div>
                             </div>
-                            <div className="cc-form-intro__copy">
-                                <p className="cc-form-eyebrow">Client gallery</p>
-                                <h2 className="cc-form-heading">Delivery details</h2>
-                                <p className="cc-form-lead">
-                                    Name it, date it, pick a preset — the rest comes after.
-                                </p>
-                            </div>
-                        </div>
 
-                        {error && (
-                            <div className="cc-error-message" role="alert">
-                                {error}
-                            </div>
-                        )}
-
-                        <form onSubmit={handleCreate} className="cc-form">
-                            <div className="cc-form-grid">
-                            <section className="cc-section" aria-labelledby="cc-section-basics">
-                                <div className="cc-section-head">
-                                    <h3 id="cc-section-basics" className="cc-section-title">Basics</h3>
-                                    <span className="cc-section-rule" aria-hidden />
-                                </div>
-
-                                <div className="cc-form-group">
-                                    <div className="cc-label-row">
-                                        <label className="cc-label" htmlFor="collection-name">Delivery name</label>
-                                        <span>
-                                            <span className="cc-label-hint">Required</span>
-                                            <span className="cc-label-count"> · {name.trim().length}/120</span>
-                                        </span>
-                                    </div>
-                                    <div className="cc-input-shell cc-input-shell--field">
-                                        <input
-                                            id="collection-name"
-                                            type="text"
-                                            className="cc-input"
-                                            placeholder="e.g. Wedding of Sarah & James"
-                                            value={name}
-                                            onChange={(e) => setName(e.target.value)}
-                                            required
-                                            autoFocus
-                                            maxLength={120}
-                                            autoComplete="off"
-                                        />
-                                    </div>
-                                </div>
-
-                                <div className="cc-form-group cc-form-group--last">
-                                    <label className="cc-label" htmlFor="collection-date">Event date</label>
-                                    <div className="cc-input-shell cc-input-shell--field cc-input-shell--rounded" id="collection-date">
-                                        <DatePicker
-                                            value={date}
-                                            onChange={setDate}
-                                            placeholder="Select event date"
-                                        />
-                                    </div>
-                                    <p className="cc-field-hint">Optional — shown on the cover and in client emails.</p>
-                                </div>
-                            </section>
-
-                            <section className="cc-section" aria-labelledby="cc-section-options">
-                                <div className="cc-section-head">
-                                    <h3 id="cc-section-options" className="cc-section-title">Options</h3>
-                                    <span className="cc-section-rule" aria-hidden />
-                                </div>
-
-                                <div className="cc-form-group">
-                                    <label className="cc-label">Preset</label>
-                                    <ClientGallerySelect
-                                        value={preset}
-                                        onChange={setPreset}
-                                        aria-label="Delivery preset"
-                                        options={presetOptions}
+                            <div className="nd-field">
+                                <label id="nd-date-lbl">Event date</label>
+                                <div className="nd-date" aria-labelledby="nd-date-lbl">
+                                    <DatePicker
+                                        value={date}
+                                        onChange={setDate}
+                                        placeholder="Select event date"
                                     />
-                                    <p className="cc-field-hint">Applies starting design and privacy from a saved preset.</p>
                                 </div>
-
-                                <div className={`cc-form-group cc-form-group--toggle${guestDeliveryEnabled ? ' is-active' : ''}`}>
-                                    <div className="cc-toggle-icon" aria-hidden>
-                                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
-                                            <rect x="3" y="3" width="7" height="7" rx="1" />
-                                            <rect x="14" y="3" width="7" height="7" rx="1" />
-                                            <rect x="3" y="14" width="7" height="7" rx="1" />
-                                            <path d="M17 14v3h3" />
-                                            <path d="M14 17h3v3" />
-                                        </svg>
-                                    </div>
-                                    <label className="cc-label cc-toggle-row">
-                                        <span className="cc-toggle-copy">
-                                            <span className="cc-toggle-title">Guest delivery</span>
-                                            <span className="cc-toggle-desc">QR registration with selfie matching</span>
-                                        </span>
-                                        <button
-                                            type="button"
-                                            role="switch"
-                                            aria-checked={guestDeliveryEnabled}
-                                            className={`cc-toggle ${guestDeliveryEnabled ? 'cc-toggle--on' : ''}`}
-                                            onClick={() => setGuestDeliveryEnabled((v) => !v)}
-                                        >
-                                            <span className="cc-toggle-thumb" />
-                                        </button>
-                                    </label>
-                                    {guestDeliveryEnabled && (
-                                        <p className="cc-hint">Guests register via QR with a selfie. After you publish, matched photos are emailed as personal gallery links.</p>
-                                    )}
-                                </div>
-                            </section>
                             </div>
 
-                            <div className="cc-actions">
-                                <button type="submit" className="cc-submit-btn" disabled={!canSubmit}>
-                                    {isSubmitting ? (
-                                        <>
-                                            <span className="cc-submit-spinner" aria-hidden />
-                                            Creating…
-                                        </>
-                                    ) : (
-                                        <>
-                                            {name.trim() ? (
-                                                <>
-                                                    Create <span className="cc-submit-name">“{name.trim().length > 24 ? `${name.trim().slice(0, 24)}…` : name.trim()}”</span>
-                                                </>
-                                            ) : (
-                                                'Create delivery'
-                                            )}
-                                            <svg className="cc-submit-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                                                <path d="M5 12h14" />
-                                                <path d="m12 5 7 7-7 7" />
-                                            </svg>
-                                        </>
-                                    )}
+                            <div className="nd-field">
+                                <label id="nd-preset-lbl">Preset</label>
+                                <div className="nd-presets" role="radiogroup" aria-labelledby="nd-preset-lbl">
+                                    {PRESET_ORDER.map((id) => {
+                                        const item = PRESETS[id];
+                                        const selected = id === presetId;
+                                        return (
+                                            <button
+                                                key={id}
+                                                id={`nd-preset-${id}`}
+                                                type="button"
+                                                className="nd-preset"
+                                                role="radio"
+                                                aria-checked={selected}
+                                                tabIndex={selected ? 0 : -1}
+                                                onClick={() => pickPreset(id)}
+                                                onKeyDown={(e) => onPresetKeyDown(e, id)}
+                                            >
+                                                <b>{item.label}</b>
+                                                <span>{item.hint}</span>
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                                <div className="nd-sets">
+                                    <h4>What {preset.label} sets</h4>
+                                    <div className="nd-setrow"><span className="k">Who can open it</span><span className="v">{preset.access}</span></div>
+                                    <div className="nd-setrow"><span className="k">Watermark</span><span className="v">{preset.wm}</span></div>
+                                    <div className="nd-setrow"><span className="k">Gallery closes</span><span className="v">{preset.expiry}</span></div>
+                                    <div className="nd-setrow"><span className="k">Language</span><span className="v">{preset.lang}</span></div>
+                                </div>
+                            </div>
+
+                            <div className="nd-addon" data-on={guestDeliveryEnabled ? 'true' : 'false'}>
+                                <div className="col">
+                                    <div className="lbl">Also deliver to guests at the event</div>
+                                    <div className="dsc">
+                                        {guestDeliveryEnabled ? (
+                                            'Guests get their own link. Your client’s gallery is unaffected.'
+                                        ) : (
+                                            <>
+                                                Guests scan a printed code at the venue and get photographs on WhatsApp.{' '}
+                                                <b>You print the code — it has to exist before the event.</b>
+                                            </>
+                                        )}
+                                    </div>
+                                </div>
+                                <button
+                                    type="button"
+                                    className="nd-switch"
+                                    role="switch"
+                                    aria-checked={guestDeliveryEnabled}
+                                    aria-label="Also deliver to guests at the event"
+                                    onClick={() => setGuestDeliveryEnabled((on) => !on)}
+                                />
+                            </div>
+
+                            <div className="nd-actions">
+                                {error ? <p className="nd-error" role="alert">{error}</p> : null}
+                                <button type="submit" className="nd-btn nd-btn--primary" disabled={!canSubmit}>
+                                    {isSubmitting ? 'Creating…' : 'Create delivery'}
                                 </button>
-                                <button type="button" className="cc-cancel-btn" onClick={handleClose}>
+                                <button type="button" className="nd-btn nd-btn--ghost" onClick={handleClose}>
                                     Cancel
                                 </button>
                             </div>
                         </form>
-                    </div>
 
+                        {guestDeliveryEnabled ? (
+                            <aside className="nd-side" aria-label="What guests get">
+                                <div className="nd-preview">
+                                    <div className="nd-pv-head">
+                                        What guests get
+                                        <span className="right">Three designs</span>
+                                    </div>
+                                    <div className="nd-pv-body">
+                                        <StandeeArt />
+                                        <div className="nd-pv-t">A standee and table cards</div>
+                                        <div className="nd-pv-d">
+                                            Made in one click once this delivery exists, carrying this event&apos;s own code.{' '}
+                                            <b>You pick one of three designs</b> when you make it.
+                                        </div>
+                                        <div className="nd-gband" data-tone={band.tone}>{band.text}</div>
+                                    </div>
+                                    <div className="nd-gsteps">
+                                        <div className="nd-gstep"><b>You print</b> the standee for the entrance and cards for the tables.</div>
+                                        <div className="nd-gstep"><b>Guests scan</b> and leave a WhatsApp number. Nothing to install.</div>
+                                        <div className="nd-gstep"><b>Photographs arrive</b> when you publish — every number lands in <i>People</i>.</div>
+                                    </div>
+                                    <div className="nd-pv-foot">
+                                        Whether each guest gets <b>only the photographs they appear in</b> is set inside the delivery, on the Guests tab. You choose the design — <b>Classic, Modern or Festive</b> — on the screen where the artwork is made.
+                                    </div>
+                                </div>
+                            </aside>
+                        ) : null}
+                    </div>
                 </div>
-            </main>
-        </div>
+            </div>
+        </SidebarLayout>
     );
 };
 
