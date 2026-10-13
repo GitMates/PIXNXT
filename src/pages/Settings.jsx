@@ -29,6 +29,12 @@ import {
     parsePresetSettings,
     sortDeliveryTemplates,
 } from '../lib/deliveryTemplates';
+import {
+    StandeeSheet,
+    STANDEE_DESIGNS,
+    STANDEE_LANGUAGES,
+    STANDEE_SIZES,
+} from '../components/guest-delivery/StandeeSheet';
 import './Settings.css';
 import './ClientGallery.css';
 
@@ -314,38 +320,6 @@ const PlaceholderTab = ({ title, desc, link, linkText }) => {
 };
 
 /* ── Guest Delivery (static defaults UI) ── */
-const GD_REG_CLOSE_OPTIONS = [
-    {
-        value: '48h',
-        title: '48 hours after the event date',
-        desc: 'Covers the late arrival, the friend who was shown a photo, and the guest who scanned but did not finish.',
-        recommended: true,
-    },
-    {
-        value: 'custom',
-        title: 'A set time you choose per delivery',
-        desc: 'For multi-day weddings where the code stays up across three functions.',
-    },
-    {
-        value: 'on_publish',
-        title: 'When you publish the photos',
-        desc: "Today's behaviour. Anyone scanning after you publish gets a request form, not a dead end.",
-    },
-];
-
-const GD_CHANNEL_OPTIONS = [
-    {
-        value: 'whatsapp_email',
-        title: 'WhatsApp, with email as a fallback',
-        desc: 'The guest chooses at registration. Recommended for India.',
-    },
-    {
-        value: 'email',
-        title: 'Email only',
-        desc: 'For studios shooting outside WhatsApp markets.',
-    },
-];
-
 const GD_ARRIVAL_OPTIONS = [
     { value: 'same_evening', label: 'Same evening' },
     { value: 'next_day', label: 'Next day' },
@@ -354,85 +328,33 @@ const GD_ARRIVAL_OPTIONS = [
     { value: 'custom', label: 'Custom' },
 ];
 
-const GD_STANDEE_OPTIONS = [
-    { value: 'classic', title: 'Classic', desc: 'Serif, ivory, quiet', icon: 'classic' },
-    { value: 'modern', title: 'Modern', desc: 'Sans, high contrast', icon: 'modern' },
-    { value: 'festive', title: 'Festive', desc: 'Marigold, ornamental', icon: 'festive' },
-];
-
-const GD_LANGUAGE_OPTIONS = [
-    { value: 'en', label: 'English' },
-    { value: 'ta', label: 'Tamil' },
-    { value: 'hi', label: 'Hindi' },
-    { value: 'te', label: 'Telugu' },
-    { value: 'more', label: '+ 6 more' },
-];
-
-function GdStandeeIcon({ type }) {
-    if (type === 'classic') {
-        return (
-            <svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden>
-                <rect x="3" y="3" width="9" height="9" rx="1.5" stroke="#8c857e" strokeWidth="1.5" />
-                <rect x="16" y="3" width="9" height="9" rx="1.5" stroke="#8c857e" strokeWidth="1.5" />
-                <rect x="3" y="16" width="9" height="9" rx="1.5" stroke="#8c857e" strokeWidth="1.5" />
-                <rect x="16" y="16" width="9" height="9" rx="1.5" stroke="#8c857e" strokeWidth="1.5" />
-            </svg>
-        );
-    }
-    if (type === 'modern') {
-        return (
-            <svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden>
-                <rect x="4" y="4" width="20" height="20" rx="3" stroke="#8c857e" strokeWidth="1.5" />
-                <path d="M14 9v10M9 14h10" stroke="#8c857e" strokeWidth="1.5" strokeLinecap="round" />
-            </svg>
-        );
-    }
-    return (
-        <svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden>
-            <path
-                d="M14 4.5l2.4 6.2 6.6.4-5.1 4.3 1.7 6.4L14 18.4l-5.6 3.4 1.7-6.4-5.1-4.3 6.6-.4L14 4.5z"
-                stroke="#8c857e"
-                strokeWidth="1.5"
-                strokeLinejoin="round"
-            />
-        </svg>
-    );
-}
-
 const GuestDeliveryTab = ({ profile, updateProfile }) => {
     const navigate = useNavigate();
     const { saveStatus, saving, setSaving, markSaved } = useSettingsSaveStatus();
-    const [enabled, setEnabled] = useState(false);
-    const [regClose, setRegClose] = useState('48h');
-    const [autoBatches, setAutoBatches] = useState(true);
-    const [channel, setChannel] = useState('whatsapp_email');
+    const [channel, setChannel] = useState('whatsapp');
     const [arrival, setArrival] = useState('next_day');
-    const [slipMessage, setSlipMessage] = useState(true);
     const [standee, setStandee] = useState('classic');
     const [languages, setLanguages] = useState(['en', 'ta']);
 
     useEffect(() => {
         if (!profile) return;
         const d = resolveGuestDeliveryDefaults(profile);
-        setEnabled(d.enabled);
-        setRegClose(d.regClose);
-        setAutoBatches(d.autoBatches);
-        setChannel(d.channel);
+        setChannel('whatsapp');
         setArrival(d.arrival);
-        setSlipMessage(d.slipMessage);
         setStandee(d.standee);
         setLanguages(d.languages);
     }, [profile?.id, profile?.guest_delivery_defaults]);
 
     const persist = useCallback(async (patch) => {
         if (!profile?.id || saving) return;
+        const stored = resolveGuestDeliveryDefaults(profile);
         const payload = guestDeliveryPayload({
-            enabled,
-            regClose,
-            autoBatches,
+            enabled: stored.enabled,
+            regClose: stored.regClose,
+            autoBatches: stored.autoBatches,
             channel,
             arrival,
-            slipMessage,
+            slipMessage: stored.slipMessage,
             standee,
             languages,
             ...patch,
@@ -449,14 +371,10 @@ const GuestDeliveryTab = ({ profile, updateProfile }) => {
             setSaving(false);
         }
     }, [
-        profile?.id,
+        profile,
         saving,
-        enabled,
-        regClose,
-        autoBatches,
         channel,
         arrival,
-        slipMessage,
         standee,
         languages,
         updateProfile,
@@ -465,23 +383,18 @@ const GuestDeliveryTab = ({ profile, updateProfile }) => {
     ]);
 
     const apply = (patch) => {
-        if ('enabled' in patch) setEnabled(patch.enabled);
-        if ('regClose' in patch) setRegClose(patch.regClose);
-        if ('autoBatches' in patch) setAutoBatches(patch.autoBatches);
         if ('channel' in patch) setChannel(patch.channel);
         if ('arrival' in patch) setArrival(patch.arrival);
-        if ('slipMessage' in patch) setSlipMessage(patch.slipMessage);
         if ('standee' in patch) setStandee(patch.standee);
         if ('languages' in patch) setLanguages(patch.languages);
         persist(patch);
     };
 
     const toggleLanguage = (value) => {
-        if (value === 'more') return;
         setLanguages((prev) => {
-            const next = prev.includes(value)
-                ? prev.filter((v) => v !== value)
-                : [...prev, value];
+            const has = prev.includes(value);
+            if (has && prev.length === 1) return prev;
+            const next = has ? prev.filter((v) => v !== value) : [...prev, value];
             persist({ languages: next });
             return next;
         });
@@ -518,132 +431,122 @@ const GuestDeliveryTab = ({ profile, updateProfile }) => {
             </div>
 
             <section className="gd-section">
-                <span className="gd-overline">REGISTRATION</span>
-
-                <div className="gd-setting">
-                    <div className="gd-setting-head">
-                        <span className="gd-label">Turn on Guest Delivery for new deliveries</span>
-                        <button
-                            type="button"
-                            className={`settings-toggle ${enabled ? 'settings-toggle--on' : ''}`}
-                            onClick={() => apply({ enabled: !enabled })}
-                            aria-pressed={enabled}
-                            aria-label="Turn on Guest Delivery for new deliveries"
-                        >
-                            <span className="settings-toggle-thumb" />
-                        </button>
-                    </div>
-                    <p className="gd-desc">
-                        Off by default. A corporate shoot or a studio portrait has no guests to match.
-                    </p>
-                </div>
-
-                <div className="gd-divider" />
+                <span className="gd-overline">THE CODE GUESTS SCAN</span>
 
                 <div className="gd-block">
-                    <span className="gd-label">Registration closes</span>
+                    <span className="gd-label">Default standee design</span>
                     <p className="gd-desc">
-                        When guests can no longer sign up. Publishing photos and closing registration are
-                        separate events — a guest arriving late at the reception must still be able to scan.
+                        Three designs. A3 and A5 share a shape; the venue screen and the phone card turn the
+                        layout instead of letterboxing it. Names, the date and the code are filled in on each
+                        delivery — the boards below use a sample so you can judge the design.
                     </p>
-                    <div className="gd-radio-cards">
-                        {GD_REG_CLOSE_OPTIONS.map((opt) => {
-                            const active = regClose === opt.value;
+                    <div className="gd-designs" role="radiogroup" aria-label="Default standee design">
+                        {STANDEE_DESIGNS.map((opt) => {
+                            const active = standee === opt.value;
                             return (
                                 <button
                                     key={opt.value}
                                     type="button"
-                                    className={`gd-radio-card${active ? ' gd-radio-card--active' : ''}`}
-                                    onClick={() => apply({ regClose: opt.value })}
-                                    aria-pressed={active}
+                                    role="radio"
+                                    className={`gd-design-card${active ? ' is-active' : ''}`}
+                                    onClick={() => apply({ standee: opt.value })}
+                                    aria-checked={active}
                                 >
-                                    <span className="gd-radio-circle" aria-hidden>
-                                        {active ? <span className="gd-radio-dot" /> : null}
+                                    <span className="gd-design-cap">
+                                        <b>{opt.title}</b>
+                                        <span>{opt.kicker}</span>
                                     </span>
-                                    <span className="gd-radio-copy">
-                                        <span className="gd-radio-title">{opt.title}</span>
-                                        <span className="gd-radio-desc">
-                                            {opt.desc}
-                                            {opt.recommended ? (
-                                                <>
-                                                    {' '}
-                                                    <span className="gd-radio-rec">Recommended.</span>
-                                                </>
-                                            ) : null}
-                                        </span>
-                                    </span>
+                                    <StandeeSheet
+                                        design={opt.value}
+                                        ratio="a"
+                                        languages={languages}
+                                        arrival={arrival}
+                                        crops
+                                    />
+                                    <span className="gd-design-note">{opt.note}</span>
                                 </button>
                             );
                         })}
                     </div>
                 </div>
 
-                <div className="gd-setting gd-setting--spaced">
-                    <div className="gd-setting-head">
-                        <span className="gd-label">Send later batches automatically</span>
-                        <button
-                            type="button"
-                            className={`settings-toggle ${autoBatches ? 'settings-toggle--on' : ''}`}
-                            onClick={() => apply({ autoBatches: !autoBatches })}
-                            aria-pressed={autoBatches}
-                            aria-label="Send later batches automatically"
-                        >
-                            <span className="settings-toggle-thumb" />
-                        </button>
-                    </div>
+                <div className="gd-block gd-block--spaced">
+                    <span className="gd-label">Four sizes</span>
                     <p className="gd-desc">
-                        You upload over three days. Each time you publish, guests already registered get
-                        only what is new — never a duplicate of what they already have.
+                        The selected design, ready for an A3 standee, an A5 table card, a 16:9 venue screen
+                        and a 9:16 phone card.
                     </p>
+                    <div className="gd-sizes">
+                        {STANDEE_SIZES.map((size) => (
+                            <div key={size.id} className={`gd-size ${size.className}`}>
+                                <StandeeSheet
+                                    design={standee}
+                                    ratio={size.ratio}
+                                    languages={languages}
+                                    arrival={arrival}
+                                />
+                                <p className="gd-size-cap">
+                                    <b>{size.title}</b>
+                                    {size.detail}
+                                    <em>{size.measure}</em>
+                                </p>
+                            </div>
+                        ))}
+                    </div>
                 </div>
-            </section>
 
-            <div className="gd-divider" />
+                <div className="gd-divider" />
 
-            <section className="gd-section">
-                <span className="gd-overline">HOW PHOTOS REACH A GUEST</span>
+                <div className="gd-block">
+                    <span className="gd-label">Language</span>
+                    <p className="gd-desc">
+                        The scan instruction repeats in each language you select. Everything else stays in
+                        English.
+                    </p>
+                    <div className="gd-pills">
+                        {STANDEE_LANGUAGES.map((opt) => {
+                            const active = languages.includes(opt.value);
+                            return (
+                                <button
+                                    key={opt.value}
+                                    type="button"
+                                    className={`gd-pill${active ? ' gd-pill--active' : ''}`}
+                                    onClick={() => toggleLanguage(opt.value)}
+                                    aria-pressed={active}
+                                >
+                                    {opt.label}
+                                </button>
+                            );
+                        })}
+                    </div>
+                    {languages.length >= 4 ? (
+                        <p className="gd-lang-warn">
+                            Four languages is past the limit on A5. The scan line stops being an instruction
+                            and becomes a paragraph. Four is the ceiling on A3; three on A5.
+                        </p>
+                    ) : null}
+                </div>
+
+                <div className="gd-divider" />
 
                 <div className="gd-block">
                     <span className="gd-label">Channel</span>
                     <p className="gd-desc">
-                        WhatsApp first, email always offered. A guest who gives only an email address is never
-                        a dead end.
+                        WhatsApp only. Photos arrive as a link to the guest&apos;s own page, never as images
+                        pasted into the chat. The page carries your name and the print offer.
                     </p>
-                    <div className="gd-radio-cards">
-                        {GD_CHANNEL_OPTIONS.map((opt) => {
-                            const active = channel === opt.value;
-                            return (
-                                <button
-                                    key={opt.value}
-                                    type="button"
-                                    className={`gd-radio-card${active ? ' gd-radio-card--active' : ''}`}
-                                    onClick={() => apply({ channel: opt.value })}
-                                    aria-pressed={active}
-                                >
-                                    <span className="gd-radio-circle" aria-hidden>
-                                        {active ? <span className="gd-radio-dot" /> : null}
-                                    </span>
-                                    <span className="gd-radio-copy">
-                                        <span className="gd-radio-title">{opt.title}</span>
-                                        <span className="gd-radio-desc">{opt.desc}</span>
-                                    </span>
-                                </button>
-                            );
-                        })}
+                    <div className="gd-pills">
+                        <span className="gd-pill gd-pill--active" aria-current="true">WhatsApp</span>
                     </div>
-                    <p className="gd-footnote">
-                        Photos always arrive as a link to their own page, never as images pasted into the chat.
-                        The page carries your name and the print offer; a chat attachment carries neither.
-                    </p>
                 </div>
 
                 <div className="gd-divider" />
 
                 <div className="gd-block">
-                    <span className="gd-label">Tell guests when photos will arrive</span>
+                    <span className="gd-label">Delivery date</span>
                     <p className="gd-desc">
-                        Printed on the standee, the registration screen and the confirmation message. A guest
-                        who knows photos arrive Thursday does not stop you mid-reception to ask.
+                        When the photographs are delivered. Printed on the standee, the registration screen
+                        and the confirmation message.
                     </p>
                     <div className="gd-pills">
                         {GD_ARRIVAL_OPTIONS.map((opt) => {
@@ -654,88 +557,6 @@ const GuestDeliveryTab = ({ profile, updateProfile }) => {
                                     type="button"
                                     className={`gd-pill${active ? ' gd-pill--active' : ''}`}
                                     onClick={() => apply({ arrival: opt.value })}
-                                    aria-pressed={active}
-                                >
-                                    {opt.label}
-                                </button>
-                            );
-                        })}
-                    </div>
-                </div>
-
-                <div className="gd-setting gd-setting--spaced">
-                    <div className="gd-setting-head">
-                        <span className="gd-label">Message guests if it slips</span>
-                        <button
-                            type="button"
-                            className={`settings-toggle ${slipMessage ? 'settings-toggle--on' : ''}`}
-                            onClick={() => apply({ slipMessage: !slipMessage })}
-                            aria-pressed={slipMessage}
-                            aria-label="Message guests if it slips"
-                        >
-                            <span className="settings-toggle-thumb" />
-                        </button>
-                    </div>
-                    <p className="gd-desc">
-                        If you pass the date you promised, guests get one message with a new one. Silence
-                        is what generates the calls.
-                    </p>
-                </div>
-            </section>
-
-            <div className="gd-divider" />
-
-            <section className="gd-section">
-                <span className="gd-overline">THE CODE GUESTS SCAN</span>
-
-                <div className="gd-block">
-                    <span className="gd-label">Default standee design</span>
-                    <p className="gd-desc">
-                        Ready to print at A3 and A5, plus a 16:9 venue screen and a 9:16 version for the
-                        couple&apos;s status. You should never take a bare code to a printer.
-                    </p>
-                    <div className="gd-standee-grid">
-                        {GD_STANDEE_OPTIONS.map((opt) => {
-                            const active = standee === opt.value;
-                            return (
-                                <button
-                                    key={opt.value}
-                                    type="button"
-                                    className={`gd-standee-card${active ? ' gd-standee-card--active' : ''}`}
-                                    onClick={() => apply({ standee: opt.value })}
-                                    aria-pressed={active}
-                                >
-                                    <span className="gd-standee-preview">
-                                        <GdStandeeIcon type={opt.icon} />
-                                    </span>
-                                    <span className="gd-standee-meta">
-                                        <span className="gd-standee-title">{opt.title}</span>
-                                        <span className="gd-standee-desc">{opt.desc}</span>
-                                    </span>
-                                </button>
-                            );
-                        })}
-                    </div>
-                    <p className="gd-footnote">
-                        Studio marks, event details, an editable headline, and the scan line repeated in every
-                        language you select. Bare SVG is also exported for a designer.
-                    </p>
-                </div>
-
-                <div className="gd-block gd-block--spaced">
-                    <span className="gd-label">Languages on the standee</span>
-                    <p className="gd-desc">
-                        The scan instruction repeats in each. Everything else stays in English.
-                    </p>
-                    <div className="gd-pills">
-                        {GD_LANGUAGE_OPTIONS.map((opt) => {
-                            const active = languages.includes(opt.value);
-                            return (
-                                <button
-                                    key={opt.value}
-                                    type="button"
-                                    className={`gd-pill${active ? ' gd-pill--active' : ''}`}
-                                    onClick={() => toggleLanguage(opt.value)}
                                     aria-pressed={active}
                                 >
                                     {opt.label}

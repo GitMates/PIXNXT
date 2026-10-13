@@ -4324,6 +4324,27 @@ body.dark-theme .gd-standee-card--active .gd-standee-preview {
   background: var(--surface-sunk);
 }
 
+body.dark-theme .gd-design-card {
+  background: var(--surface);
+  border-color: var(--gd-box-border, var(--border));
+  color: var(--ink-body);
+}
+
+body.dark-theme .gd-design-card:hover {
+  border-color: var(--gd-box-hover-border, #555);
+}
+
+body.dark-theme .gd-design-cap b,
+body.dark-theme .gd-size-cap b {
+  color: var(--ink);
+}
+
+body.dark-theme .gd-design-cap span,
+body.dark-theme .gd-design-note,
+body.dark-theme .gd-size-cap {
+  color: var(--ink-muted);
+}
+
 body.dark-theme .settings-row {
   border-bottom-color: var(--border);
 }
