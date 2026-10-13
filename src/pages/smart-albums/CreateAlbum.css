@@ -1049,12 +1049,23 @@
   color: var(--ink-body, #44403c);
 }
 
-.sa-create-wizard-main {
+.sa-create-wizard-page .sa-create-wizard-main {
   max-width: 760px !important;
   margin: 0 auto !important;
   width: 100% !important;
   padding: 20px 24px 64px !important;
   align-items: stretch !important;
+  align-self: stretch;
+  min-height: 0;
+  flex: 1 1 auto;
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.sa-create-wizard-page .sa-preview-grid {
+  max-height: none;
+  overflow: visible;
 }
 
 .sa-create-wizard {

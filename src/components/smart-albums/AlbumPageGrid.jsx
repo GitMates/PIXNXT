@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import AlbumDisplayImage from './AlbumDisplayImage';
 import { getAlbumLayoutPhotoCount } from './albumCollection';
 import { getGridSlotPhoto, getPagePhotoOverride, getSpreadPhotoOverride, hasGridSlotPhoto } from './albumPagePhotos';
 import {
@@ -49,14 +50,12 @@ function GridPhoto({
     }
 
     const img = (
-        <img
+        <AlbumDisplayImage
             key={`${displaySrc || 'empty'}-r${photoRevision}`}
             src={displaySrc}
-            alt=""
             className="ab-grid-cell-photo"
-            draggable={false}
             style={photoTransformStyle(transform, { panoramic })}
-            onError={() => {
+            onExhausted={() => {
                 if (!useSampleFallback && sampleSrc && src !== sampleSrc) {
                     setUseSampleFallback(true);
                 }

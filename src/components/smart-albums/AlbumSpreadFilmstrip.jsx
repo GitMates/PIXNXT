@@ -18,6 +18,7 @@ import {
     albumShowsLeatherCover,
 } from './albumSpreadUtils';
 import { getSpreadLeftPageIndex } from './albumSpreadGrid';
+import AlbumDisplayImage from './AlbumDisplayImage';
 import {
     getGridSlotPhoto,
     getInsideCoverRightPhotoSrc,
@@ -153,7 +154,7 @@ export function FilmstripThumb({ visual, album, wrapLayout = null, coverTransfor
     } = visual;
 
     if (showSpreadFull) {
-        return <img src={spreadSrc} alt="" draggable={false} />;
+        return <AlbumDisplayImage src={spreadSrc} alt="" />;
     }
 
     if (isCover || isEndSpread) {
@@ -182,7 +183,7 @@ export function FilmstripThumb({ visual, album, wrapLayout = null, coverTransfor
                 : 'ae-spread-filmstrip__thumb--cover-half--back';
             return (
                 <span className={`ae-spread-filmstrip__thumb--cover-half ${sideClass}`}>
-                    <img src={src} alt="" draggable={false} />
+                    <AlbumDisplayImage src={src} alt="" />
                 </span>
             );
         }
@@ -193,14 +194,14 @@ export function FilmstripThumb({ visual, album, wrapLayout = null, coverTransfor
         <>
             <span className="ae-spread-filmstrip__page">
                 {leftSrc ? (
-                    <img src={leftSrc} alt="" draggable={false} />
+                    <AlbumDisplayImage src={leftSrc} alt="" />
                 ) : (
                     <span className="ae-spread-filmstrip__ph" />
                 )}
             </span>
             <span className="ae-spread-filmstrip__page">
                 {rightSrc ? (
-                    <img src={rightSrc} alt="" draggable={false} />
+                    <AlbumDisplayImage src={rightSrc} alt="" />
                 ) : (
                     <span className="ae-spread-filmstrip__ph" />
                 )}

@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useSta
 import { createPortal } from 'react-dom';
 import SafeHtmlFlipBook from './SafeHtmlFlipBook';
 import AlbumFlipPage from './AlbumFlipPage';
+import AlbumDisplayImage from './AlbumDisplayImage';
 import {
     getGridSlotPhoto,
     getInsideCoverRightPhotoSrc,
@@ -10,7 +11,6 @@ import {
     resolveCoverImageSrc,
 } from './albumPagePhotos';
 import { getSpreadLeftPageIndex } from './albumSpreadGrid';
-import { canDeleteSpreadAtLeftPage } from './albumDeleteSpread';
 import {
     flipbookIndexToStoragePage,
     getAlbumSpreadOptions,
@@ -120,7 +120,7 @@ function OverviewCoverPhoto({ src, placeholderClass = '' }) {
             />
         );
     }
-    return <img src={src} alt="" loading="lazy" draggable={false} />;
+    return <AlbumDisplayImage src={src} alt="" draggable={false} />;
 }
 
 function OverviewBookWrapSegment({ src, side, layout, transform }) {
@@ -223,9 +223,6 @@ const AlbumBook = ({
     photoRevision = 0,
     /** Bump only when spread photo bytes change — remounts HTMLFlipBook (stale page-flip DOM). */
     photoContentEpoch = 0,
-    canAddPages = false,
-    onAddPages,
-    onDeleteSpread,
     onReorderOverviewSpread,
     pageCountBusy = false,
     showGridComments = false,
@@ -974,16 +971,6 @@ const AlbumBook = ({
     }, [gotoOpen, closeGoto, updateGotoPopupPos]);
 
     const canDragOverviewSpreads = Boolean(editable && onReorderOverviewSpread && !pageCountBusy);
-
-    const overviewDeleteLeftPage = useMemo(() => {
-        const { left } = getSpreadPages(overviewTargetSpreadIndex, totalPages, spreadOpts);
-        return left;
-    }, [overviewTargetSpreadIndex, totalPages, spreadOpts]);
-
-    const canDeleteOverviewSpread = useMemo(() => {
-        if (!onDeleteSpread) return false;
-        return canDeleteSpreadAtLeftPage(overviewDeleteLeftPage, totalPages, spreadOpts);
-    }, [onDeleteSpread, overviewDeleteLeftPage, totalPages, spreadOpts]);
 
     const handleOverviewItemActivate = useCallback(
         (overviewSpreadIndex) => {
@@ -2685,7 +2672,7 @@ const AlbumBook = ({
                                     <span className="ab-overview-thumb ab-overview-thumb--spread">
                                         {showSpreadFull ? (
                                             <span className="ab-overview-page ab-overview-page--spread-full">
-                                                <img src={spreadSrc} alt="" draggable={false} />
+                                                <AlbumDisplayImage src={spreadSrc} alt="" />
                                             </span>
                                         ) : isCover && bookWrapSrc ? (
                                             <span className="ab-overview-page ab-overview-page--cover-single">
@@ -2725,7 +2712,7 @@ const AlbumBook = ({
                                             <>
                                                 <span className="ab-overview-page">
                                                     {leftSrc ? (
-                                                        <img src={leftSrc} alt="" draggable={false} />
+                                                        <AlbumDisplayImage src={leftSrc} alt="" />
                                                     ) : (
                                                         <span
                                                             className={`ab-overview-placeholder${
@@ -2739,11 +2726,7 @@ const AlbumBook = ({
                                                 {!spreadSrc && (
                                                     <span className="ab-overview-page">
                                                         {rightSrc ? (
-                                                            <img
-                                                                src={rightSrc}
-                                                                alt=""
-                                                                draggable={false}
-                                                            />
+                                                            <AlbumDisplayImage src={rightSrc} alt="" />
                                                         ) : (
                                                             <span
                                                                 className={`ab-overview-placeholder${
@@ -2769,49 +2752,6 @@ const AlbumBook = ({
                             );
                         }}
                     />
-                    {(canAddPages || canDeleteOverviewSpread) && (
-                        <div className="ab-overview-actions">
-                            {canAddPages && onAddPages && (
-                                <button
-                                    type="button"
-                                    className="ab-overview-item ab-overview-item--add"
-                                    disabled={pageCountBusy}
-                                    onClick={async (e) => {
-                                        e.stopPropagation();
-                                        await onAddPages();
-                                    }}
-                                >
-                                    <span className="ab-overview-thumb ab-overview-thumb--add">
-                                        <span className="ab-overview-add-plus">+</span>
-                                    </span>
-                                    <span className="ab-overview-label">
-                                        {pageCountBusy ? 'Adding...' : 'Add spread'}
-                                    </span>
-                                </button>
-                            )}
-                            {canDeleteOverviewSpread && onDeleteSpread && (
-                                <button
-                                    type="button"
-                                    className="ab-overview-item ab-overview-item--remove"
-                                    disabled={pageCountBusy}
-                                    onClick={async (e) => {
-                                        e.stopPropagation();
-                                        await onDeleteSpread(overviewDeleteLeftPage);
-                                        setOverviewOpen(false);
-                                    }}
-                                >
-                                    <span className="ab-overview-thumb ab-overview-thumb--remove">
-                                        <span className="ab-overview-add-plus ab-overview-remove-minus">
-                                            −
-                                        </span>
-                                    </span>
-                                    <span className="ab-overview-label">
-                                        {pageCountBusy ? 'Removing...' : 'Remove spread'}
-                                    </span>
-                                </button>
-                            )}
-                        </div>
-                    )}
                     </div>
                 </div>,
                 document.body

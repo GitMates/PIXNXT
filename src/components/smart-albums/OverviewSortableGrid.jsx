@@ -125,11 +125,11 @@ export default function OverviewSortableGrid({
 
     const handlePointerDown = useCallback(
         (e, index) => {
-            if (disabled) return;
             if (e.button !== 0) return;
 
-            // Locked thumbs: click-to-select only (no drag session).
-            if (!isDraggable?.(index)) {
+            // Preview and locked thumbs (cover, back) are not draggable.
+            // A click still opens that spread. `disabled` only turns dragging off.
+            if (disabled || !isDraggable?.(index)) {
                 onItemActivate?.(index);
                 return;
             }

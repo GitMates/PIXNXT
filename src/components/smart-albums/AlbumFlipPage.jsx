@@ -12,6 +12,7 @@ import {
     photoTransformStyle,
 } from './albumPageTransforms';
 import { getSampleImageForPage } from './sampleAlbumImages';
+import AlbumDisplayImage from './AlbumDisplayImage';
 import AlbumPageGrid from './AlbumPageGrid';
 import AlbumPhotoPinLayer from './AlbumPhotoPinLayer';
 import './AlbumPhotoPins.css';
@@ -119,13 +120,11 @@ function PagePhoto({ src, pageNum, showSamples, className = '', photoRevision = 
     }
 
     return (
-        <img
+        <AlbumDisplayImage
             key={`${displaySrc}-r${photoRevision}`}
             src={displaySrc}
-            alt=""
             className={`ab-page-photo${className ? ` ${className}` : ''}`}
-            draggable={false}
-            onError={() => {
+            onExhausted={() => {
                 if (!useSampleFallback && sampleSrc && src !== sampleSrc) {
                     setUseSampleFallback(true);
                 }
@@ -468,7 +467,10 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
 
     const isPreBackHalfLeft = useHalfSpreadLayout && preBackSpreadRole === 'half-left';
     const preBackPhotoSrc = isPreBackHalfLeft
-        ? (albumId && getPagePhotoOverride(albumId, pageNum)) || src
+        ? (albumId &&
+              (getPagePhotoOverride(albumId, pageNum) ||
+                  getSpreadPhotoOverride(albumId, spreadLeftForPage))) ||
+          src
         : null;
     const preBackTransform = isPreBackHalfLeft && albumId
         ? getPagePhotoTransform(albumId, pageNum)
@@ -627,12 +629,10 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
                         onRemovePin={liveOnPinRemove}
                     >
                         {insideCoverPhotoSrc ? (
-                            <img
+                            <AlbumDisplayImage
                                 key={`${insideCoverPhotoSrc}-r${livePhotoRevision}`}
                                 src={insideCoverPhotoSrc}
-                                alt=""
                                 className="ab-page-photo ab-page-photo--full"
-                                draggable={false}
                                 style={photoTransformStyle(insideCoverTransform)}
                             />
                         ) : (
@@ -779,12 +779,10 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
                         onRemovePin={liveOnPinRemove}
                     >
                         {preBackPhotoSrc ? (
-                            <img
+                            <AlbumDisplayImage
                                 key={`${preBackPhotoSrc}-r${livePhotoRevision}`}
                                 src={preBackPhotoSrc}
-                                alt=""
                                 className="ab-page-photo ab-page-photo--full"
-                                draggable={false}
                                 style={photoTransformStyle(preBackTransform)}
                             />
                         ) : (

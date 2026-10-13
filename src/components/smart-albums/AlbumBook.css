@@ -884,6 +884,24 @@
   overflow: hidden;
 }
 
+.ab-flip-page--half-photo-left .ab-photo-pin-layer {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.ab-flip-page--half-photo-left img.ab-page-photo,
+.ab-flip-page--half-photo-left img.ab-page-photo--full {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  object-fit: cover;
+  object-position: center;
+}
+
 .ab-flip-page--single-photo {
   position: relative;
   background: #fff;
