@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import SidebarLayout from '../components/SidebarLayout';
 import { DatePicker } from '../components/ui/DatePicker';
@@ -8,52 +8,17 @@ import { guestDeliveryService } from '../services/guestDelivery.service';
 import { photographerQuotaService } from '../services/photographerQuota.service';
 import { resolveUploadDefaults } from '../lib/uploadDefaults';
 import { getPublicGalleryUrl } from '../lib/publicSiteUrl';
+import {
+    builtinTemplatesFromList,
+    describeTemplate,
+    ensureDefaultDeliveryTemplates,
+    preferredTemplateKey,
+    presetToDeliveryPatch,
+} from '../lib/deliveryTemplates';
 import '../styles/clientGalleryTheme.css';
 import './NewDelivery.css';
 
-const PRESET_ORDER = ['wedding', 'shoot', 'corporate'];
-
-const PRESETS = {
-    wedding: {
-        label: 'Wedding',
-        hint: 'Guests on, watermark, 90 days',
-        guests: true,
-        access: 'Anyone with the link',
-        wm: 'On',
-        expiry: '90 days after publishing',
-        lang: 'English',
-        privacy: 'public',
-        watermark_enabled: 1,
-        email_capture_enabled: 0,
-        language: 'english',
-    },
-    shoot: {
-        label: 'Shoot',
-        hint: 'Client only, watermark, 60 days',
-        guests: false,
-        access: 'Anyone with the link',
-        wm: 'On',
-        expiry: '60 days after publishing',
-        lang: 'English',
-        privacy: 'public',
-        watermark_enabled: 1,
-        email_capture_enabled: 0,
-        language: 'english',
-    },
-    corporate: {
-        label: 'Corporate',
-        hint: 'Named emails, no watermark',
-        guests: false,
-        access: 'Named email addresses only',
-        wm: 'Off',
-        expiry: '30 days after publishing',
-        lang: 'English',
-        privacy: 'public',
-        watermark_enabled: 0,
-        email_capture_enabled: 1,
-        language: 'english',
-    },
-};
+const PRESET_ORDER = ['wedding', 'shoot'];
 
 const PRINT_LEAD_DAYS = 3;
 const DAY_MS = 86400000;
@@ -185,12 +150,15 @@ const CreateCollection = () => {
     const folderId = searchParams.get('folderId');
     const { user } = useAuth();
     const [name, setName] = useState('');
+    const [nameFocused, setNameFocused] = useState(true);
     const [date, setDate] = useState('');
-    const [presetId, setPresetId] = useState('shoot');
-    const [guestDeliveryEnabled, setGuestDeliveryEnabled] = useState(false);
+    const [templates, setTemplates] = useState(() => builtinTemplatesFromList([]));
+    const [presetKey, setPresetKey] = useState('wedding');
+    const [guestDeliveryEnabled, setGuestDeliveryEnabled] = useState(true);
     const [studioName, setStudioName] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [error, setError] = useState(null);
+    const presetTouched = useRef(false);
 
     useEffect(() => {
         if (!user?.id) return undefined;
@@ -200,12 +168,28 @@ const CreateCollection = () => {
             const label = profile.business_name || profile.display_name || '';
             if (label) setStudioName(label);
         }).catch(() => {});
+        ensureDefaultDeliveryTemplates()
+            .then((rows) => {
+                if (cancelled) return;
+                const next = builtinTemplatesFromList(rows);
+                setTemplates(next);
+                if (!presetTouched.current) {
+                    const key = preferredTemplateKey(next);
+                    const chosen = next.find((template) => template.key === key) || next[0];
+                    setPresetKey(chosen?.key || 'wedding');
+                    setGuestDeliveryEnabled(Boolean(chosen?.settings?.guestDelivery));
+                }
+            })
+            .catch((err) => {
+                console.error('Error loading delivery templates:', err);
+            });
         return () => {
             cancelled = true;
         };
     }, [user?.id]);
 
-    const preset = PRESETS[presetId] || PRESETS.wedding;
+    const preset = templates.find((template) => template.key === presetKey) || templates[0];
+    const summary = describeTemplate(preset?.settings);
     const slug = deliverySlug(name);
     const addressPrefix = useMemo(() => galleryAddressPrefix(), []);
     const band = printBand(date);
@@ -215,11 +199,12 @@ const CreateCollection = () => {
         else navigate('/client-gallery');
     };
 
-    const pickPreset = (id) => {
-        const next = PRESETS[id];
+    const pickPreset = (key) => {
+        const next = templates.find((template) => template.key === key);
         if (!next) return;
-        setPresetId(id);
-        setGuestDeliveryEnabled(next.guests);
+        presetTouched.current = true;
+        setPresetKey(key);
+        setGuestDeliveryEnabled(Boolean(next.settings?.guestDelivery));
     };
 
     const onPresetKeyDown = (event, id) => {
@@ -250,26 +235,16 @@ const CreateCollection = () => {
         setError(null);
 
         try {
+            const fromTemplate = presetToDeliveryPatch(preset?.settings, preset?.id);
             const prefs = resolveUploadDefaults(null);
             const base = {
+                ...fromTemplate,
                 photographer_id: user.id,
                 name: trimmed,
                 event_date: date || null,
                 status: 'draft',
-                font_family: 'sans_1',
-                color_palette: 'light_1',
-                grid_style: 'vertical',
-                thumbnail_size: 'regular',
-                grid_spacing: 'regular',
-                nav_style: 'icons',
-                privacy: preset.privacy,
-                cover_style: 'photo',
-                cover_layout: 'novel',
-                guest_delivery_enabled: guestDeliveryEnabled,
-                watermark_enabled: preset.watermark_enabled,
-                email_capture_enabled: preset.email_capture_enabled,
-                language: preset.language || prefs.defaultLanguage || 'english',
                 show_filenames: prefs.filenameDisplay === 'show',
+                guest_delivery_enabled: guestDeliveryEnabled ? 1 : 0,
                 ...(folderId ? { folder_id: folderId } : {}),
             };
 
@@ -330,7 +305,7 @@ const CreateCollection = () => {
                 </header>
 
                 <div className="nd-splitwrap">
-                    <div className="nd-split" data-col={guestDeliveryEnabled ? 'true' : 'false'}>
+                    <div className="nd-split">
                         <form className="nd-form" onSubmit={handleCreate}>
                             <div className="nd-field nd-field--name">
                                 <label htmlFor="nd-name">Delivery name</label>
@@ -338,9 +313,11 @@ const CreateCollection = () => {
                                     id="nd-name"
                                     className="nd-input"
                                     type="text"
-                                    placeholder="Aditi & Rajat"
+                                    placeholder={nameFocused ? '' : 'Aditi & Rajat'}
                                     value={name}
                                     onChange={(e) => setName(e.target.value)}
+                                    onFocus={() => setNameFocused(true)}
+                                    onBlur={() => setNameFocused(false)}
                                     autoComplete="off"
                                     autoFocus
                                     maxLength={120}
@@ -365,34 +342,45 @@ const CreateCollection = () => {
 
                             <div className="nd-field">
                                 <label id="nd-preset-lbl">Preset</label>
-                                <div className="nd-presets" role="radiogroup" aria-labelledby="nd-preset-lbl">
-                                    {PRESET_ORDER.map((id) => {
-                                        const item = PRESETS[id];
-                                        const selected = id === presetId;
-                                        return (
-                                            <button
-                                                key={id}
-                                                id={`nd-preset-${id}`}
-                                                type="button"
-                                                className="nd-preset"
-                                                role="radio"
-                                                aria-checked={selected}
-                                                tabIndex={selected ? 0 : -1}
-                                                onClick={() => pickPreset(id)}
-                                                onKeyDown={(e) => onPresetKeyDown(e, id)}
-                                            >
-                                                <b>{item.label}</b>
-                                                <span>{item.hint}</span>
-                                            </button>
-                                        );
-                                    })}
+                                <div className="nd-presets">
+                                    <div className="nd-presets-choices" role="radiogroup" aria-labelledby="nd-preset-lbl">
+                                        {PRESET_ORDER.map((key) => {
+                                            const item = templates.find((template) => template.key === key);
+                                            const detail = describeTemplate(item?.settings);
+                                            const selected = key === preset?.key;
+                                            return (
+                                                <button
+                                                    key={key}
+                                                    id={`nd-preset-${key}`}
+                                                    type="button"
+                                                    className="nd-preset"
+                                                    role="radio"
+                                                    aria-checked={selected}
+                                                    tabIndex={selected ? 0 : -1}
+                                                    onClick={() => pickPreset(key)}
+                                                    onKeyDown={(e) => onPresetKeyDown(e, key)}
+                                                >
+                                                    <b>{item?.name || key}</b>
+                                                    <span>{detail.hint}</span>
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                    <button
+                                        type="button"
+                                        className="nd-preset nd-preset--own"
+                                        onClick={() => navigate('/settings/delivery-templates')}
+                                    >
+                                        <b>Create or choose your own</b>
+                                        <span>Delivery templates</span>
+                                    </button>
                                 </div>
                                 <div className="nd-sets">
-                                    <h4>What {preset.label} sets</h4>
-                                    <div className="nd-setrow"><span className="k">Who can open it</span><span className="v">{preset.access}</span></div>
-                                    <div className="nd-setrow"><span className="k">Watermark</span><span className="v">{preset.wm}</span></div>
-                                    <div className="nd-setrow"><span className="k">Gallery closes</span><span className="v">{preset.expiry}</span></div>
-                                    <div className="nd-setrow"><span className="k">Language</span><span className="v">{preset.lang}</span></div>
+                                    <h4>What {preset?.name || 'this preset'} sets</h4>
+                                    <div className="nd-setrow"><span className="k">Who can open it</span><span className="v">{summary.access}</span></div>
+                                    <div className="nd-setrow"><span className="k">Watermark</span><span className="v">{summary.wm}</span></div>
+                                    <div className="nd-setrow"><span className="k">Gallery closes</span><span className="v">{summary.expiry}</span></div>
+                                    <div className="nd-setrow"><span className="k">Language</span><span className="v">{summary.lang}</span></div>
                                 </div>
                             </div>
 
@@ -430,10 +418,9 @@ const CreateCollection = () => {
                                 </button>
                             </div>
                         </form>
-
+                        <aside className="nd-side" aria-label="What guests get" data-on={guestDeliveryEnabled ? 'true' : 'false'}>
                         {guestDeliveryEnabled ? (
-                            <aside className="nd-side" aria-label="What guests get">
-                                <div className="nd-preview">
+                            <div className="nd-preview">
                                     <div className="nd-pv-head">
                                         What guests get
                                         <span className="right">Three designs</span>
@@ -455,9 +442,9 @@ const CreateCollection = () => {
                                     <div className="nd-pv-foot">
                                         Whether each guest gets <b>only the photographs they appear in</b> is set inside the delivery, on the Guests tab. You choose the design — <b>Classic, Modern or Festive</b> — on the screen where the artwork is made.
                                     </div>
-                                </div>
-                            </aside>
+                            </div>
                         ) : null}
+                        </aside>
                     </div>
                 </div>
             </div>

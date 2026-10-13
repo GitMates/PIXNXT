@@ -13,6 +13,7 @@ import {
   TYPOGRAPHY_OPTIONS,
   COLOR_PALETTES,
 } from '../constants/designOptions';
+import { builtinKeyOf, builtinSettings } from '../lib/deliveryTemplates';
 
 const PRESET_LIST_PATH = '/settings/delivery-templates';
 
@@ -47,6 +48,9 @@ export default function PresetEditor() {
     slideshow: true,
     socialSharing: true,
     language: 'English',
+    watermarkEnabled: false,
+    guestDelivery: false,
+    galleryCloseDays: 0,
     coverStyle: 'center',
     typography: 'sans',
     colorTheme: 'light',
@@ -88,7 +92,10 @@ export default function PresetEditor() {
           : rawSettings;
         if (parsedSettings) {
           setSettings((prev) => {
-            const next = { ...prev, ...parsedSettings };
+            const key = builtinKeyOf({ name: found?.name, settings: parsedSettings });
+            const base = key ? builtinSettings(key) : {};
+            const next = { ...prev, ...base, ...parsedSettings };
+            if (key) next.builtinKey = key;
             if (next.showOnShowcase === undefined && next.showOnHomepage !== undefined) {
               next.showOnShowcase = next.showOnHomepage;
             }
@@ -194,11 +201,33 @@ export default function PresetEditor() {
                 <p className="help-text">Separate photo sets by comma. e.g. Highlights, Reception, Getting Ready</p>
               </div>
 
+              <div className="form-group form-group-spaced">
+                <label>Watermark</label>
+                <div className="toggle-row">
+                  <button
+                    type="button"
+                    className={`toggle-switch ${settings.watermarkEnabled ? 'on' : ''}`}
+                    onClick={() => setSettings({ ...settings, watermarkEnabled: !settings.watermarkEnabled })}
+                  >
+                    <div className="toggle-handle" />
+                  </button>
+                  <span className="toggle-label">{settings.watermarkEnabled ? 'On' : 'Off'}</span>
+                </div>
+                <p className="help-text">New deliveries from this template start with watermarking on or off.</p>
+              </div>
+
               <div className="form-group">
                 <label>Default Watermark</label>
                 <select 
                   value={settings.defaultWatermark || ''} 
-                  onChange={e => setSettings({...settings, defaultWatermark: e.target.value})}
+                  onChange={e => {
+                    const value = e.target.value;
+                    setSettings({
+                      ...settings,
+                      defaultWatermark: value,
+                      watermarkEnabled: value ? true : settings.watermarkEnabled,
+                    });
+                  }}
                 >
                   <option value="">No watermark</option>
                   {watermarks.map(wm => (
@@ -206,6 +235,36 @@ export default function PresetEditor() {
                   ))}
                 </select>
                 <p className="help-text">Set the default watermark to apply to photos. Manage watermarks in App Settings.</p>
+              </div>
+
+              <div className="form-group form-group-spaced">
+                <label>Guest delivery</label>
+                <div className="toggle-row">
+                  <button
+                    type="button"
+                    className={`toggle-switch ${settings.guestDelivery ? 'on' : ''}`}
+                    onClick={() => setSettings({ ...settings, guestDelivery: !settings.guestDelivery })}
+                  >
+                    <div className="toggle-handle" />
+                  </button>
+                  <span className="toggle-label">{settings.guestDelivery ? 'On' : 'Off'}</span>
+                </div>
+                <p className="help-text">Also deliver to guests at the event. New deliveries start with this choice.</p>
+              </div>
+
+              <div className="form-group">
+                <label>Gallery closes</label>
+                <select
+                  value={String(settings.galleryCloseDays ?? 0)}
+                  onChange={(e) => setSettings({ ...settings, galleryCloseDays: Number(e.target.value) || 0 })}
+                >
+                  <option value="0">Does not close</option>
+                  <option value="30">30 days after publishing</option>
+                  <option value="60">60 days after publishing</option>
+                  <option value="90">90 days after publishing</option>
+                  <option value="180">180 days after publishing</option>
+                </select>
+                <p className="help-text">Shown on New delivery, and saved with this template.</p>
               </div>
 
               <div className="form-group form-group-spaced">

@@ -23,6 +23,12 @@ import {
     normalizeEnquiryFields,
 } from '../components/features/Settings';
 import { AppLoader } from '../components/ui/AppLoading';
+import {
+    ensureDefaultDeliveryTemplates,
+    isProtectedTemplate,
+    parsePresetSettings,
+    sortDeliveryTemplates,
+} from '../lib/deliveryTemplates';
 import './Settings.css';
 import './ClientGallery.css';
 
@@ -1089,6 +1095,8 @@ const presetSummaryLine = (settings = {}) => {
     parts.push(s.favoritePhotos !== false ? 'favorites on' : 'favorites off');
     if (s.storeStatus === false) parts.push('store off');
     else parts.push('store on');
+    const closeDays = Number(s.galleryCloseDays);
+    if (Number.isFinite(closeDays) && closeDays > 0) parts.push(`closes in ${closeDays} days`);
     return parts.join(' · ');
 };
 
@@ -1102,8 +1110,11 @@ const PresetsTab = ({ profile }) => {
     const fetchPresets = useCallback(async () => {
         if (!profile?.id) return;
         try {
-            const { listPresets } = await import('../services/workersGallery.service');
-            setPresets(await listPresets());
+            const rows = await ensureDefaultDeliveryTemplates();
+            setPresets(sortDeliveryTemplates(rows).map((preset) => ({
+                ...preset,
+                settings: parsePresetSettings(preset.settings),
+            })));
         } catch (err) {
             console.error('Error loading presets:', err);
         } finally {
@@ -1132,7 +1143,10 @@ const PresetsTab = ({ profile }) => {
                 isDefault: presets.length === 0,
             });
             if (created) {
-                setPresets((prev) => [...prev, created]);
+                setPresets((prev) => sortDeliveryTemplates([
+                    ...prev,
+                    { ...created, settings: parsePresetSettings(created.settings) },
+                ]));
                 setNewPresetName('');
                 setShowAddForm(false);
                 navigate(`/settings/presets/${created.id}`);
@@ -1197,7 +1211,7 @@ const PresetsTab = ({ profile }) => {
                                 >
                                     Edit
                                 </button>
-                                {!isDefault ? (
+                                {!isProtectedTemplate(preset) ? (
                                     <button
                                         type="button"
                                         className="dt-delete-btn"

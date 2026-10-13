@@ -1125,6 +1125,11 @@ export async function createPreset(name, settings) {
   return data?.preset;
 }
 
+export async function updatePreset(id, patch) {
+  const data = await apiFetch(`/v1/engage/presets/${id}`, { method: 'PATCH', body: patch });
+  return data?.preset;
+}
+
 export async function deletePreset(id) {
   await apiFetch(`/v1/engage/presets/${id}`, { method: 'DELETE' });
 }
