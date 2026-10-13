@@ -142,6 +142,10 @@ const handlePlaceOrderWorkers = async ({
   setSavedShippingAddress,
   setHasPlacedOrder,
   setCheckoutState,
+  paymentIntentId,
+  paymentProvider = 'stripe',
+  razorpayOrderId,
+  amountPaise,
 }) => {
   const subtotal = cartItems.reduce((acc, item) => acc + item.unitPrice * item.quantity, 0);
   const allDigital = cartItems.length > 0 && cartItems.every(i => DIGITAL_PRODUCT_TYPES.includes(i.productId));
@@ -203,8 +207,9 @@ const handlePlaceOrderWorkers = async ({
           ...(item.options || {}),
         }
       })),
-      paymentIntentId: 'mock_pi_' + Math.random().toString(36).substr(2, 9),
-      paymentProvider: 'stripe',
+      paymentIntentId: paymentIntentId || ('mock_pi_' + Math.random().toString(36).substr(2, 9)),
+      paymentProvider,
+      ...(razorpayOrderId ? { razorpayOrderId } : {}),
     },
   });
   const orderId = data?.order?.id;
@@ -264,10 +269,10 @@ const handlePlaceOrderWorkers = async ({
       phone: shippingDetails.phone || '',
       country: 'India'
     },
-    shipping_amount: shipping,
-    tax_amount: tax,
+    shipping_amount: amountPaise ? Math.max(0, amountPaise / 100 - subtotal) : shipping,
+    tax_amount: amountPaise ? 0 : tax,
     subtotal: subtotal,
-    total: total,
+    total: amountPaise ? amountPaise / 100 : total,
     created_at: new Date().toISOString(),
     items: cartItems.map(item => ({
       productId: item.productId,
@@ -1462,6 +1467,13 @@ export default function PrintStoreApp() {
         throw new Error("No photographer ID resolved. Order cannot be placed.");
       }
 
+      const { payPrintStoreOrder } = await import('../lib/razorpayCheckout');
+      const payment = await payPrintStoreOrder({
+        items: cartItems,
+        email: shippingDetails.email,
+        name: photographer?.business_name || photographer?.display_name || 'PIXNXT',
+      });
+
       await handlePlaceOrderWorkers({
         shippingDetails,
         cartItems,
@@ -1473,10 +1485,16 @@ export default function PrintStoreApp() {
         setSavedShippingAddress,
         setHasPlacedOrder,
         setCheckoutState,
+        paymentIntentId: payment.paymentId,
+        paymentProvider: 'razorpay',
+        razorpayOrderId: payment.razorpayOrderId,
+        amountPaise: payment.amountPaise,
       });
     } catch (err) {
       console.error("Failed to place print store order:", err);
-      alert("Failed to place order: " + err.message);
+      if (!/cancel/i.test(String(err?.message || ''))) {
+        alert("Failed to place order: " + err.message);
+      }
       throw err;
     }
   };
