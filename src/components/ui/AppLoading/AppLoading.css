@@ -440,13 +440,13 @@
 
 body.dark-theme .app-loader__label,
 body.dark-theme .app-loader__label--sans {
-  color: #c4bdb4;
+  color: var(--text-body);
 }
 
 body.dark-theme .app-loader--page,
 body.dark-theme .app-loader--page-short {
-  background: #0e0d0c;
-  color: #ece9e2;
+  background: var(--bg-app);
+  color: var(--text-primary);
 }
 
 /* Common page loading wrappers sitting on cream by default */
@@ -469,16 +469,16 @@ body.dark-theme .dt-loading.app-loader,
 body.dark-theme .selections-loading.app-loader,
 body.dark-theme .preset-editor-loading.app-loader {
   background: transparent;
-  color: #c4bdb4;
+  color: var(--text-body);
 }
 
 body.dark-theme .app-shimmer-bone {
-  background: linear-gradient(90deg, #2a2826 0%, #34312e 42%, #2a2826 84%);
+  background: linear-gradient(90deg, var(--bg-surface-hover) 0%, var(--bg-surface-hover) 42%, var(--bg-surface-hover) 84%);
   background-size: 200% 100%;
 }
 
 body.dark-theme .app-spinner__mark {
-  color: #d4a574;
+  color: var(--accent-secondary);
 }
 
 body.dark-theme .app-spinner-ring,
@@ -493,8 +493,8 @@ body.dark-theme .ya-avatar-spinner {
   background: conic-gradient(
     from 210deg,
     rgba(212, 165, 116, 0.14) 0deg,
-    #d4a574 300deg,
-    #c49a5c 360deg
+    var(--accent-primary) 300deg,
+    var(--accent-primary) 360deg
   );
 }
 

@@ -286,44 +286,44 @@
 /* Dark theme — never inherit --ink (white) onto light CTAs */
 body.dark-theme .auth-page .auth-submit,
 body.dark-theme .auth-submit {
-  background: #ece9e2 !important;
-  color: #141210 !important;
+  background: var(--accent-primary) !important;
+  color: var(--text-heading) !important;
 }
 
 body.dark-theme .auth-page .auth-submit:hover:not(:disabled),
 body.dark-theme .auth-submit:hover:not(:disabled) {
-  background: #ffffff !important;
-  color: #141210 !important;
+  background: var(--accent-primary-hover) !important;
+  color: var(--text-heading) !important;
 }
 
 body.dark-theme .auth-page .auth-google,
 body.dark-theme .auth-google {
-  background: #1c1b18 !important;
-  border-color: #3a3733 !important;
-  color: #ece9e2 !important;
+  background: var(--bg-surface) !important;
+  border-color: var(--border-card) !important;
+  color: var(--text-primary) !important;
 }
 
 body.dark-theme .auth-page .auth-google:hover:not(:disabled),
 body.dark-theme .auth-google:hover:not(:disabled) {
-  background: #252320 !important;
-  color: #f3f0ea !important;
+  background: var(--bg-surface-hover) !important;
+  color: var(--text-primary) !important;
 }
 
 body.dark-theme .auth-page .auth-or::before,
 body.dark-theme .auth-page .auth-or::after,
 body.dark-theme .auth-or::before,
 body.dark-theme .auth-or::after {
-  background: #333029 !important;
+  background: var(--bg-surface-hover) !important;
 }
 
 body.dark-theme .auth-page .auth-or,
 body.dark-theme .auth-or {
-  color: #a19c91 !important;
+  color: var(--text-secondary) !important;
 }
 
 body.dark-theme .auth-page__confirm-banner {
-  background: #1a2a20 !important;
-  color: #b8d4bc !important;
+  background: var(--bg-surface-hover) !important;
+  color: var(--text-body) !important;
 }
 
 body.dark-theme .auth-dialog-overlay {
@@ -331,18 +331,18 @@ body.dark-theme .auth-dialog-overlay {
 }
 
 body.dark-theme .auth-dialog {
-  background: #161513 !important;
-  border: 1px solid #2e2c29 !important;
-  color: #ece9e2 !important;
+  background: var(--bg-surface) !important;
+  border: 1px solid var(--border-card) !important;
+  color: var(--text-primary) !important;
   box-shadow: 0 24px 64px rgba(0, 0, 0, 0.55) !important;
 }
 
 body.dark-theme .auth-dialog__title {
-  color: #f3f0ea !important;
+  color: var(--text-primary) !important;
 }
 
 body.dark-theme .auth-dialog__body {
-  color: #a19c91 !important;
+  color: var(--text-secondary) !important;
 }
 
 .auth-toggle {

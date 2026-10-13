@@ -190,57 +190,57 @@ body.dark-theme .cpm-backdrop {
 }
 
 body.dark-theme .cpm-dialog {
-  background: #161513;
-  border: 1px solid #2e2c29;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-card);
   box-shadow: 0 24px 64px rgba(0, 0, 0, 0.55);
-  color: #ece9e2;
+  color: var(--text-primary);
 }
 
 body.dark-theme .cpm-header,
 body.dark-theme .cpm-footer {
-  border-color: #2e2c29;
+  border-color: var(--border-card);
 }
 
 body.dark-theme .cpm-title {
-  color: #f3f0ea;
+  color: var(--text-primary);
 }
 
 body.dark-theme .cpm-subtitle,
 body.dark-theme .cpm-empty p {
-  color: #a19c91;
+  color: var(--text-secondary);
 }
 
 body.dark-theme .cpm-close {
-  background: #252320;
-  color: #c4bbb2;
+  background: var(--bg-surface-hover);
+  color: var(--text-body);
 }
 
 body.dark-theme .cpm-close:hover {
-  background: #2e2c29;
-  color: #ece9e2;
+  background: var(--bg-surface-hover);
+  color: var(--text-primary);
 }
 
 body.dark-theme .cpm-thumb {
-  background: #1a1917;
+  background: var(--bg-surface);
 }
 
 body.dark-theme .cpm-btn-primary {
-  background: #ece9e2;
-  color: #141210;
+  background: var(--accent-primary);
+  color: var(--text-heading);
 }
 
 body.dark-theme .cpm-btn-primary:hover:not(:disabled) {
-  background: #ffffff;
+  background: var(--accent-primary-hover);
 }
 
 body.dark-theme .cpm-btn-secondary {
-  background: #1c1b18;
-  color: #ece9e2;
-  border-color: #3a3733;
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  border-color: var(--border-card);
 }
 
 body.dark-theme .cpm-btn-secondary:hover:not(:disabled) {
-  background: #252320;
+  background: var(--bg-surface-hover);
 }
 
 @keyframes cpm-fade-in {

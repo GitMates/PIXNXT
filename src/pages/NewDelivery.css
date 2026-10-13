@@ -27,17 +27,17 @@
 }
 
 body.dark-theme .nd-page {
-  --nd-canvas: #121110;
-  --nd-surface: #1C1B19;
-  --nd-sunk: #252320;
-  --nd-ink: #F5F3F0;
+  --nd-canvas: var(--bg-surface);
+  --nd-surface: var(--bg-surface);
+  --nd-sunk: var(--bg-surface-hover);
+  --nd-ink: var(--text-primary);
   --nd-body: #D6D2CC;
-  --nd-muted: #A29A91;
+  --nd-muted: var(--text-secondary);
   --nd-icon: #6E665E;
   --nd-line: rgba(255, 255, 255, 0.10);
   --nd-line-strong: rgba(255, 255, 255, 0.20);
-  --nd-accent: #D08544;
-  --nd-accent-text: #E09A5C;
+  --nd-accent: var(--accent-primary);
+  --nd-accent-text: var(--accent-primary);
   --nd-accent-wash: rgba(208, 133, 68, 0.16);
   --nd-warn: #DFB25C;
   --nd-stop: #E08C82;

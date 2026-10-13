@@ -4748,12 +4748,12 @@
 
     /* Dark theme icon bar on mobile */
     body.dark-theme .cd-icon-bar {
-        background-color: #1a0f08 !important;
-        border-bottom: 2px solid #3b271a !important;
+        background-color: var(--bg-surface) !important;
+        border-bottom: 2px solid var(--border-card) !important;
     }
 
     body.dark-theme .cd-icon-bar-btn.active {
-        border-bottom-color: #dcb394 !important;
+        border-bottom-color: var(--border-active) !important;
     }
 
     /* --- Task 1: Hide sidebar toggle (left arrow) on mobile --- */
@@ -7529,7 +7529,7 @@
 @media (prefers-reduced-motion: reduce) {
     body.dark-theme .cd-delivery-loader__bone,
     body.dark-theme .theme-mono.cd-dashboard-shell .cd-delivery-loader__bone {
-        background: #2a2825 !important;
+        background: var(--bg-surface-hover) !important;
         animation: none !important;
     }
 }

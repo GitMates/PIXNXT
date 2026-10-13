@@ -156,7 +156,7 @@ body.dark-theme .cdsb-storage__bar,
 body.dark-theme .theme-mono.cd-dashboard-shell .cdsb-storage__bar,
 body.dark-theme .sb-storage__bar,
 body.dark-theme .theme-mono.cg-shell .sb-storage__bar {
-  background: #2a2a2a !important;
+  background: var(--bg-surface-hover) !important;
 }
 
 body.dark-theme .aqm-row__fill,
@@ -168,13 +168,13 @@ body.dark-theme .cdsb-storage__bar-fill,
 body.dark-theme .theme-mono.cd-dashboard-shell .cdsb-storage__bar-fill,
 body.dark-theme .sb-storage__bar-fill,
 body.dark-theme .theme-mono.cg-shell .sb-storage__bar-fill {
-  background: #ffffff !important;
+  background: var(--accent-primary) !important;
 }
 
 body.dark-theme .aqm-row__fill--over,
 body.dark-theme .cdsb-storage .aqm-row__fill--over,
 body.dark-theme .theme-mono.cd-dashboard-shell .aqm-row__fill--over {
-  background: #c45a3a !important;
+  background: var(--accent-primary) !important;
 }
 
 body.dark-theme .aqm-row__fill--at-limit,
@@ -186,32 +186,32 @@ body.dark-theme .theme-mono.cd-dashboard-shell .aqm-row__fill--at-limit {
 body.dark-theme .aqm-row__label,
 body.dark-theme .cdsb-storage .aqm-row__label,
 body.dark-theme .theme-mono.cd-dashboard-shell .aqm-row__label {
-  color: #c4bbb2 !important;
+  color: var(--text-body) !important;
 }
 
 body.dark-theme .aqm-row__meta,
 body.dark-theme .cdsb-storage .aqm-row__meta,
 body.dark-theme .theme-mono.cd-dashboard-shell .aqm-row__meta {
-  color: #ece9e2 !important;
+  color: var(--text-primary) !important;
 }
 
 body.dark-theme .aqm-row__meta--over,
 body.dark-theme .cdsb-storage .aqm-row__meta--over,
 body.dark-theme .theme-mono.cd-dashboard-shell .aqm-row__meta--over {
-  color: #e08a6a !important;
+  color: var(--accent-secondary) !important;
 }
 
 body.dark-theme .aqm-row__meta--at-limit,
 body.dark-theme .cdsb-storage .aqm-row__meta--at-limit,
 body.dark-theme .theme-mono.cd-dashboard-shell .aqm-row__meta--at-limit {
-  color: #e0b090 !important;
+  color: var(--accent-secondary) !important;
 }
 
 body.dark-theme .aqm-toggle {
-  color: #c4bbb2 !important;
+  color: var(--text-body) !important;
 }
 
 body.dark-theme .aqm-toggle:hover {
   background: rgba(255, 255, 255, 0.08) !important;
-  color: #f3f0ea !important;
+  color: var(--text-primary) !important;
 }

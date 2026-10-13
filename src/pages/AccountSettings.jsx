@@ -225,7 +225,7 @@ export default function AccountSettings() {
         };
 
         return (
-            <div className="theme-mono cg-shell studio-shell">
+            <div className={`theme-mono cg-shell studio-shell${activeTab === 'billing' ? ' studio-shell--billing' : ''}`}>
                 <aside className="studio-shell__aside">
                     <button
                         type="button"

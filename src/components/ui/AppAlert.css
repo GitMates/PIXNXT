@@ -113,36 +113,36 @@ body.dark-theme .pixnxt-alert-overlay {
 }
 
 body.dark-theme .pixnxt-alert {
-  background-color: #1c1b18;
-  border-color: #3a3733;
+  background-color: var(--bg-surface);
+  border-color: var(--border-card);
   box-shadow: 0 24px 64px -12px rgba(0, 0, 0, 0.7);
 }
 
 body.dark-theme .pixnxt-alert__title {
-  color: #f3f0ea;
+  color: var(--text-primary);
 }
 
 body.dark-theme .pixnxt-alert__message {
-  color: #d4cdc4;
+  color: var(--text-body);
 }
 
 body.dark-theme .pixnxt-alert__cancel {
-  color: #d4cdc4;
-  border-color: #3a3733;
+  color: var(--text-body);
+  border-color: var(--border-card);
 }
 
 body.dark-theme .pixnxt-alert__cancel:hover {
-  background-color: #2a2825;
-  color: #f3f0ea;
+  background-color: var(--bg-surface-hover);
+  color: var(--text-primary);
 }
 
 body.dark-theme .pixnxt-alert__ok {
-  background-color: #d08552;
-  color: #fff;
+  background-color: var(--accent-primary);
+  color: var(--text-heading);
 }
 
 body.dark-theme .pixnxt-alert__ok:hover {
-  background-color: #c07442;
+  background-color: var(--accent-primary-hover);
 }
 
 body.dark-theme .pixnxt-alert__ok--danger {

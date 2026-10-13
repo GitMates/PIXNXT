@@ -1,6 +1,6 @@
 /**
  * Light-theme toggle overrides — grey off track, terracotta on, white thumb.
- * Mirrors appearanceDarkTheme.css; tokens live in typography.css (:root).
+ * Mirrors appearanceDarkTheme.css; color tokens live in themeTokens.css.
  */
 
 /* ── Track OFF ─────────────────────────────────────────── */

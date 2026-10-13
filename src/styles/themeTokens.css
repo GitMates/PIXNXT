@@ -1,0 +1,136 @@
+/**
+ * PIXNXT color palette. This is the only file to edit when a color changes.
+ * Light values are on :root. Dark values are on body.dark-theme.
+ * Feature CSS must use these variables. A raw hex will not follow a palette edit.
+ * Spec: .cursor/rules/dark_theme_guidelines.md
+ */
+
+:root {
+  /* Album Proofer / product chrome — light */
+  --canvas: #f7f6f2;
+  --bg: var(--canvas);
+  --surface: #ffffff;
+  --surface-sunk: #f0efeb;
+  --ink: #1d1916;
+  --ink-body: #44403c;
+  --ink-muted: #857f7b;
+  --border: #e5e2dc;
+  --box-line: var(--border);
+  --accent: #bf7b47;
+  --accent-text: #a86c3c;
+  --ok-fg: #597f5d;
+  --warn-fg: #997735;
+  --idle-fg: #8a8580;
+  --stop-fg: #8d3a32;
+  --proof-surround: #ebeae6;
+
+  --status-revision: var(--warn-fg);
+  --status-awaiting: var(--warn-fg);
+  --status-feedback: var(--warn-fg);
+  --status-approved: var(--ok-fg);
+  --status-draft: var(--idle-fg);
+  --status-paused: var(--idle-fg);
+
+  --toggle-track-off: #d4d0cb;
+  --toggle-track-on: #bf6d2f;
+  --toggle-thumb: #ffffff;
+  --toggle-thumb-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  --toggle-track-inset: inset 0 1px 2px rgba(0, 0, 0, 0.06);
+
+  /* Same names as dark, so one component rule works in both themes */
+  --bg-app: var(--canvas);
+  --bg-sidebar: var(--surface);
+  --bg-surface: var(--surface);
+  --bg-surface-hover: var(--surface-sunk);
+  --bg-modal: var(--surface);
+  --border-color: var(--border);
+  --border-card: var(--border);
+  --border-subtle: var(--border);
+  --border-input: var(--border);
+  --border-active: var(--accent);
+  --border-focus: var(--accent);
+  --text-primary: var(--ink);
+  --text-heading: var(--ink);
+  --text-body: var(--ink-body);
+  --text-secondary: var(--ink-muted);
+  --text-muted: var(--ink-muted);
+  --text-sub: var(--ink-muted);
+  --icon-default: var(--ink-muted);
+  --icon-active: var(--accent);
+  --accent-primary: var(--accent);
+  --accent-primary-hover: var(--accent-text);
+  --accent-subtle: #f3ebe3;
+  --accent-secondary: var(--warn-fg);
+  --banner-bg: #f6f1ea;
+  --banner-border: #e5d5c4;
+  --banner-text: #6b4e3d;
+}
+
+body.dark-theme {
+  color-scheme: dark;
+
+  /* Guideline surfaces */
+  --bg-app: #121212;
+  --bg-sidebar: #181818;
+  --bg-surface: #1e1e1e;
+  --bg-surface-hover: #262626;
+  --bg-modal: #2a2a2a;
+
+  --border-color: #292929;
+  --border-subtle: #292929;
+  --border-card: #2c2c2c;
+  --border-input: #2e2e2e;
+  --border-active: #b8682b;
+  --border-focus: #3a2e2b;
+
+  --text-primary: #f1f1f1;
+  --text-heading: #ffffff;
+  --text-body: #d1d1d1;
+  --text-secondary: #a0a0a0;
+  --text-muted: #6e6e6e;
+  --text-sub: #8c8c8c;
+
+  --icon-default: #b0b0b0;
+  --icon-active: #b8682b;
+
+  --accent-primary: #b8682b;
+  --accent-primary-hover: #9a5622;
+  --accent-subtle: #2a1c12;
+  --accent-secondary: #d4a373;
+
+  --banner-bg: #241d1b;
+  --banner-border: #4a332c;
+  --banner-text: #e6c2b8;
+
+  --toggle-track-off: #333333;
+  --toggle-track-on: var(--accent-primary);
+  --toggle-thumb: #ffffff;
+
+  /* Names already used across the app */
+  --canvas: var(--bg-app);
+  --bg: var(--bg-app);
+  --surface: var(--bg-surface);
+  --surface-sunk: var(--bg-sidebar);
+  --ink: var(--text-heading);
+  --ink-body: var(--text-body);
+  --ink-muted: var(--text-secondary);
+  --border: var(--border-color);
+  --box-line: var(--border-color);
+  --accent: var(--accent-primary);
+  --accent-text: var(--accent-primary);
+  --warn-fg: var(--accent-secondary);
+  --idle-fg: var(--text-muted);
+  --ok-fg: #4ade80;
+  --stop-fg: #f87171;
+  --proof-surround: var(--bg-app);
+
+  --status-revision: var(--warn-fg);
+  --status-awaiting: var(--warn-fg);
+  --status-feedback: var(--warn-fg);
+  --status-approved: var(--ok-fg);
+  --status-draft: var(--idle-fg);
+  --status-paused: var(--idle-fg);
+
+  background-color: var(--bg-app);
+  color: var(--text-body);
+}

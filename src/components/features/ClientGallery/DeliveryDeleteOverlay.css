@@ -140,7 +140,7 @@
 }
 
 body.dark-theme .dl-row.is-deleting {
-  background: #1f1d1a;
+  background: var(--bg-surface);
 }
 
 body.dark-theme .dl-delete-overlay-card__veil {

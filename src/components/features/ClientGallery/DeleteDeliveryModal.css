@@ -270,66 +270,66 @@ body.dark-theme .dl-delete-overlay {
 }
 
 body.dark-theme .dl-delete-modal {
-  background: #1c1c1c;
+  background: var(--bg-surface);
   box-shadow: 0 16px 48px rgba(0, 0, 0, 0.45);
 }
 
 body.dark-theme .dl-delete-eyebrow {
-  color: #737373;
+  color: var(--text-muted);
 }
 
 body.dark-theme .dl-delete-close {
-  color: #737373;
+  color: var(--text-muted);
 }
 
 body.dark-theme .dl-delete-close:hover:not(:disabled) {
   background: rgba(255, 255, 255, 0.08);
-  color: #d4d4d4;
+  color: var(--text-primary);
 }
 
 body.dark-theme .dl-delete-title {
-  color: #ece9e2;
+  color: var(--text-primary);
 }
 
 body.dark-theme .dl-delete-warning {
-  border-color: #4a3a32;
+  border-color: var(--border-card);
   background: rgba(196, 106, 58, 0.12);
 }
 
 body.dark-theme .dl-delete-warning-icon {
-  color: #e89a72;
+  color: var(--accent-secondary);
 }
 
 body.dark-theme .dl-delete-warning-text {
-  color: #a19c91;
+  color: var(--text-secondary);
 }
 
 body.dark-theme .dl-delete-warning-text p:first-child {
-  color: #d4cfc6;
+  color: var(--text-body);
 }
 
 body.dark-theme .dl-delete-accept {
-  border-color: #3a3330;
-  background: #242220;
+  border-color: var(--border-card);
+  background: var(--bg-surface-hover);
 }
 
 body.dark-theme .dl-delete-accept:hover {
-  border-color: #4a433f;
-  background: #2a2825;
+  border-color: var(--border-card);
+  background: var(--bg-surface-hover);
 }
 
 body.dark-theme .dl-delete-accept.is-checked {
-  border-color: #5c4a40;
+  border-color: var(--border-card);
   box-shadow: inset 0 0 0 1px rgba(196, 106, 58, 0.15);
 }
 
 body.dark-theme .dl-delete-accept-box {
-  border-color: #5c5650;
-  background: #1c1c1c;
+  border-color: var(--border-card);
+  background: var(--bg-surface);
 }
 
 body.dark-theme .dl-delete-accept-label {
-  color: #d4cfc6;
+  color: var(--text-body);
 }
 
 body.dark-theme .dl-delete-footer {
@@ -337,19 +337,19 @@ body.dark-theme .dl-delete-footer {
 }
 
 body.dark-theme .dl-delete-cancel {
-  border-color: #3a3330;
-  background: #242220;
-  color: #d4d4d4;
+  border-color: var(--border-card);
+  background: var(--bg-surface-hover);
+  color: var(--text-primary);
 }
 
 body.dark-theme .dl-delete-cancel:hover:not(:disabled) {
-  background: #2a2825;
+  background: var(--bg-surface-hover);
 }
 
 body.dark-theme .dl-delete-confirm {
-  background: #c46a3a;
+  background: var(--accent-primary);
 }
 
 body.dark-theme .dl-delete-confirm:hover:not(:disabled) {
-  background: #d47a4a;
+  background: var(--accent-primary-hover);
 }
