@@ -1047,6 +1047,11 @@
   background: var(--sa-wizard-canvas) !important;
   font-family: var(--font-sans) !important;
   color: var(--ink-body, #44403c);
+  /* .cc-page locks the screen at 100dvh and clips the spread list. Grow with the list so the window scrolls. */
+  height: auto !important;
+  max-height: none !important;
+  min-height: 100dvh;
+  overflow: visible !important;
 }
 
 .sa-create-wizard-page .sa-create-wizard-main {
@@ -1056,16 +1061,16 @@
   padding: 20px 24px 64px !important;
   align-items: stretch !important;
   align-self: stretch;
+  height: auto !important;
+  max-height: none !important;
   min-height: 0;
-  flex: 1 1 auto;
-  overflow-x: hidden;
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
+  flex: none !important;
+  overflow: visible !important;
 }
 
 .sa-create-wizard-page .sa-preview-grid {
-  max-height: none;
-  overflow: visible;
+  max-height: none !important;
+  overflow: visible !important;
 }
 
 .sa-create-wizard {

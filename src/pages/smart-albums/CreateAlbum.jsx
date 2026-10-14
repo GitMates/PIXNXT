@@ -343,11 +343,17 @@ const CreateAlbum = () => {
         const body = document.body;
         const prevHtmlOverflow = html.style.overflow;
         const prevBodyOverflow = body.style.overflow;
-        html.style.overflow = '';
-        body.style.overflow = '';
+        const prevHtmlHeight = html.style.height;
+        const prevBodyHeight = body.style.height;
+        html.style.overflow = 'auto';
+        body.style.overflow = 'auto';
+        html.style.height = 'auto';
+        body.style.height = 'auto';
         return () => {
             html.style.overflow = prevHtmlOverflow;
             body.style.overflow = prevBodyOverflow;
+            html.style.height = prevHtmlHeight;
+            body.style.height = prevBodyHeight;
         };
     }, []);
 
