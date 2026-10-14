@@ -60,6 +60,37 @@
   color: inherit;
 }
 
+.gd-standee .st-gem {
+  display: block;
+  width: 8cqw;
+  height: 8cqw;
+  color: inherit;
+}
+
+.gd-standee .st-word {
+  display: grid;
+  justify-items: center;
+  gap: 0.35cqw;
+  max-width: 80%;
+}
+
+.gd-standee .st-word b {
+  font-family: var(--display);
+  font-size: 4.4cqw;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  line-height: 1.05;
+}
+
+.gd-standee .st-word span {
+  font-family: var(--ui);
+  font-size: 1.45cqw;
+  font-weight: 600;
+  letter-spacing: 0.34em;
+  text-transform: uppercase;
+  opacity: 0.6;
+}
+
 .gd-standee .st-event {
   font-family: var(--ui);
   font-size: 2.5cqw;
@@ -132,10 +163,13 @@
   border-radius: 1.2cqw;
 }
 
-.gd-standee .st-qrbox svg {
+.gd-standee .st-qrbox svg,
+.gd-standee .st-qrbox img {
   display: block;
   width: 40cqw;
   height: 40cqw;
+  object-fit: contain;
+  background: #fff;
 }
 
 .gd-standee .st-typed {
@@ -260,7 +294,8 @@
   gap: 2.4cqw;
 }
 
-.gd-standee .stand[data-design='modern'] .st-qrbox svg {
+.gd-standee .stand[data-design='modern'] .st-qrbox svg,
+.gd-standee .stand[data-design='modern'] .st-qrbox img {
   width: 40cqw;
   height: 40cqw;
 }
@@ -447,7 +482,8 @@
   padding: 7% 6%;
 }
 
-.gd-standee .stand[data-ratio='wide'] .st-qrbox svg {
+.gd-standee .stand[data-ratio='wide'] .st-qrbox svg,
+.gd-standee .stand[data-ratio='wide'] .st-qrbox img {
   width: 20cqw;
   height: 20cqw;
 }
@@ -462,6 +498,19 @@
 
 .gd-standee .stand[data-ratio='wide'] .st-markart {
   width: 17cqw;
+}
+
+.gd-standee .stand[data-ratio='wide'] .st-gem {
+  width: 4.2cqw;
+  height: 4.2cqw;
+}
+
+.gd-standee .stand[data-ratio='wide'] .st-word b {
+  font-size: 2.6cqw;
+}
+
+.gd-standee .stand[data-ratio='wide'] .st-word span {
+  font-size: 1cqw;
 }
 
 .gd-standee .stand[data-ratio='wide'] .st-brand {
@@ -519,7 +568,8 @@
   font-size: 1.5cqw;
 }
 
-.gd-standee .stand[data-ratio='wide'][data-design='modern'] .st-qrbox svg {
+.gd-standee .stand[data-ratio='wide'][data-design='modern'] .st-qrbox svg,
+.gd-standee .stand[data-ratio='wide'][data-design='modern'] .st-qrbox img {
   width: 17cqw;
   height: 17cqw;
 }
@@ -543,7 +593,8 @@
   line-height: 1.4;
 }
 
-.gd-standee .stand[data-ratio='tall'] .st-qrbox svg {
+.gd-standee .stand[data-ratio='tall'] .st-qrbox svg,
+.gd-standee .stand[data-ratio='tall'] .st-qrbox img {
   width: 44cqw;
   height: 44cqw;
 }

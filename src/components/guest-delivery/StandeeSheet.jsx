@@ -47,7 +47,56 @@ function orderedScanLines(languages) {
     return ordered.map((code) => SCAN[code]);
 }
 
-function Mark() {
+function parseCalendarDate(value) {
+    if (!value) return null;
+    const match = String(value).match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (match) return new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function formatCalendarDate(date, withWeekday) {
+    return date.toLocaleDateString('en-GB', {
+        weekday: withWeekday ? 'long' : undefined,
+        day: 'numeric',
+        month: 'long',
+        year: withWeekday ? undefined : 'numeric',
+    });
+}
+
+function promiseFor(arrival, eventDateValue, customDate) {
+    if (arrival === 'custom') {
+        const picked = parseCalendarDate(customDate);
+        if (!picked) return 'Photographs on the date you set';
+        return `Photographs on ${formatCalendarDate(picked)}`;
+    }
+    const date = parseCalendarDate(eventDateValue);
+    if (!date) return STANDEE_PROMISE[arrival] || STANDEE_PROMISE.next_day;
+    if (arrival === 'same_evening') return 'Photographs the same evening';
+    if (arrival === 'within_3_days') return 'Photographs within 3 days';
+    if (arrival === 'within_week') return 'Photographs within a week';
+    const next = new Date(date);
+    next.setDate(next.getDate() + 1);
+    return `Photographs by ${formatCalendarDate(next, true)}`;
+}
+
+function Mark({ studioName, studioLine }) {
+    if (studioName) {
+        return (
+            <div className="st-brand" data-part="mark">
+                <svg className="st-gem" viewBox="0 0 30 30" aria-hidden="true">
+                    <g fill="none" stroke="currentColor" strokeWidth="1.6">
+                        <rect x="5.8" y="5.8" width="18.4" height="18.4" rx="3.4" transform="rotate(45 15 15)" />
+                    </g>
+                    <circle cx="15" cy="15" r="3.6" fill="currentColor" />
+                </svg>
+                <div className="st-word">
+                    <b>{studioName}</b>
+                    {studioLine ? <span>{studioLine}</span> : null}
+                </div>
+            </div>
+        );
+    }
     return (
         <div className="st-brand" data-part="mark">
             <svg className="st-markart" viewBox="0 0 132 30" role="img" aria-label="Karakovan">
@@ -82,13 +131,23 @@ function Mark() {
     );
 }
 
-function Intro() {
+function Intro({ content }) {
+    const sample = !content.eventName && !content.eventDateLabel;
     return (
         <>
-            <Mark />
+            <Mark studioName={content.studioName} studioLine={content.studioLine} />
             <div className="st-rule" />
             <div className="st-event">
-                <b>Aditi &amp; Rajat</b> · 18 March 2026
+                {sample ? (
+                    <>
+                        <b>Aditi &amp; Rajat</b> · 18 March 2026
+                    </>
+                ) : (
+                    <>
+                        <b>{content.eventName || 'This delivery'}</b>
+                        {content.eventDateLabel ? ` · ${content.eventDateLabel}` : null}
+                    </>
+                )}
             </div>
             <div className="st-head">{HEADLINE}</div>
             <div className="st-line">{SUBLINE}</div>
@@ -96,14 +155,18 @@ function Intro() {
     );
 }
 
-function CodePanel() {
+function CodePanel({ content }) {
     return (
         <div className="st-qrbox">
-            <svg viewBox="0 0 29 29" role="img" aria-label="The code for this delivery">
-                <rect width="29" height="29" fill="#fff" />
-                <path d={QR_PATH} fill="#000" />
-            </svg>
-            <div className="st-typed">{TYPED}</div>
+            {content.qrSrc ? (
+                <img src={content.qrSrc} alt="" />
+            ) : (
+                <svg viewBox="0 0 29 29" role="img" aria-label="The code for this delivery">
+                    <rect width="29" height="29" fill="#fff" />
+                    <path d={QR_PATH} fill="#000" />
+                </svg>
+            )}
+            <div className="st-typed">{content.codeLabel || TYPED}</div>
         </div>
     );
 }
@@ -156,9 +219,27 @@ export function StandeeSheet({
     languages = ['en', 'ta'],
     arrival = 'next_day',
     crops = false,
+    studioName,
+    studioLine = 'Photography',
+    eventName,
+    eventDateLabel,
+    eventDateValue,
+    codeLabel,
+    qrSrc,
+    customDate,
 }) {
     const rawId = useId().replace(/:/g, '');
-    const promise = STANDEE_PROMISE[arrival] || STANDEE_PROMISE.next_day;
+    const promise = eventDateValue || customDate
+        ? promiseFor(arrival, eventDateValue, customDate)
+        : (STANDEE_PROMISE[arrival] || STANDEE_PROMISE.next_day);
+    const content = {
+        studioName,
+        studioLine,
+        eventName,
+        eventDateLabel,
+        codeLabel,
+        qrSrc,
+    };
     const safeDesign = design === 'modern' || design === 'festive' ? design : 'classic';
 
     let sheet;
@@ -166,10 +247,10 @@ export function StandeeSheet({
         sheet = (
             <div className="st-sheet">
                 <div className="st-top">
-                    <Intro />
+                    <Intro content={content} />
                 </div>
                 <div className="st-mid">
-                    <CodePanel />
+                    <CodePanel content={content} />
                     <div className="st-side">
                         <ScanLines languages={languages} />
                         <div className="st-foot">
@@ -188,10 +269,10 @@ export function StandeeSheet({
                 <FestiveBand patternId={`${rawId}-top`} edge="top" />
                 <FestiveBand patternId={`${rawId}-bot`} edge="bottom" />
                 <div className="st-top">
-                    <Intro />
+                    <Intro content={content} />
                 </div>
                 <div className="st-mid">
-                    <CodePanel />
+                    <CodePanel content={content} />
                 </div>
                 <div className="st-end">
                     <ScanLines languages={languages} />
@@ -207,10 +288,10 @@ export function StandeeSheet({
             <div className="st-sheet">
                 <div className="st-frame" />
                 <div className="st-top">
-                    <Intro />
+                    <Intro content={content} />
                 </div>
                 <div className="st-mid">
-                    <CodePanel />
+                    <CodePanel content={content} />
                 </div>
                 <div className="st-end">
                     <ScanLines languages={languages} />

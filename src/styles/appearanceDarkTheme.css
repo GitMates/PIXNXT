@@ -5106,8 +5106,16 @@ body.dark-theme .theme-mono.cd-dashboard-shell .cd-topbar-save {
   color: var(--cd-muted);
 }
 
-body.dark-theme .theme-mono.cd-dashboard-shell .cd-shell-brand__back:hover {
-  color: var(--cd-foreground);
+body.dark-theme .theme-mono.cd-dashboard-shell .cd-shell-brand__back,
+body.dark-theme .theme-mono.cd-dashboard-shell .cd-shell-brand__back:visited {
+  background: transparent !important;
+  color: var(--icon-default) !important;
+}
+
+body.dark-theme .theme-mono.cd-dashboard-shell .cd-shell-brand__back:hover,
+body.dark-theme .theme-mono.cd-dashboard-shell .cd-shell-brand__back:visited:hover {
+  background: var(--bg-surface-hover) !important;
+  color: var(--text-primary) !important;
 }
 
 body.dark-theme .theme-mono.cd-dashboard-shell .cdsb-cover-wrap,
@@ -6538,16 +6546,16 @@ body.dark-theme .gd-qr-overlay {
 
 body.dark-theme .gd-qr-modal,
 body.dark-theme .gd-qr-modal--studio {
-  --gd-bg: var(--bg-surface);
+  --gd-bg: var(--bg-modal);
   --gd-panel: var(--bg-surface);
   --gd-white: var(--bg-surface);
   --gd-line: var(--border-card);
-  --gd-chip: var(--bg-surface-hover);
+  --gd-chip: var(--border-card);
   --gd-ink: var(--text-primary);
   --gd-muted: var(--text-secondary);
-  --gd-kicker: var(--text-secondary);
+  --gd-kicker: var(--text-sub);
   --gd-toggle: var(--accent-primary);
-  background: var(--bg-surface) !important;
+  background: var(--bg-modal) !important;
   color: var(--text-primary) !important;
   box-shadow: 0 24px 64px rgba(0, 0, 0, 0.55);
   border: 1px solid var(--border-card);
@@ -6576,8 +6584,12 @@ body.dark-theme .gd-qr-stats strong {
 
 body.dark-theme .gd-qr-head,
 body.dark-theme .gd-qr-footer {
-  background: var(--bg-surface) !important;
+  background: var(--bg-modal) !important;
   border-color: var(--border-card) !important;
+}
+
+body.dark-theme .gd-qr-body {
+  scrollbar-color: var(--border-card) transparent;
 }
 
 body.dark-theme .gd-qr-panel,
@@ -6593,8 +6605,8 @@ body.dark-theme .gd-qr-code img {
 }
 
 body.dark-theme .gd-qr-link-row {
-  background: var(--bg-surface) !important;
-  border-color: var(--border-card) !important;
+  background: var(--bg-app) !important;
+  border: 1px solid var(--border-input) !important;
 }
 
 body.dark-theme .gd-qr-link-input {
@@ -6612,8 +6624,15 @@ body.dark-theme .gd-qr-btn-ghost {
 }
 
 body.dark-theme .gd-qr-lang.is-on {
-  background: var(--bg-surface-hover) !important;
+  background: var(--accent-subtle) !important;
   border-color: var(--border-active) !important;
+  color: var(--accent-primary) !important;
+}
+
+body.dark-theme .gd-qr-copy-btn:hover,
+body.dark-theme .gd-qr-dl:hover:not(:disabled),
+body.dark-theme .gd-qr-btn-ghost:hover {
+  background: var(--bg-surface-hover) !important;
   color: var(--text-primary) !important;
 }
 
@@ -6628,7 +6647,27 @@ body.dark-theme .gd-qr-btn-solid:hover {
 }
 
 body.dark-theme .gd-qr-venue-card {
+  background: var(--bg-surface) !important;
   border-bottom-color: var(--border-card) !important;
+}
+
+body.dark-theme .gd-qr-venue-card.is-selected {
+  background: var(--accent-subtle) !important;
+  box-shadow: inset 3px 0 0 var(--accent-primary) !important;
+}
+
+body.dark-theme .gd-qr-venue-card.is-selected .gd-qr-venue-copy strong,
+body.dark-theme .gd-qr-venue-card.is-selected .gd-qr-venue-icon {
+  color: var(--accent-primary) !important;
+}
+
+body.dark-theme .gd-qr-venue-icon {
+  color: var(--icon-default) !important;
+}
+
+body.dark-theme .gd-qr-field-label,
+body.dark-theme .gd-qr-defaults-note {
+  color: var(--text-secondary) !important;
 }
 
 body.dark-theme .gd-qr-toggle {
@@ -7711,10 +7750,15 @@ body.dark-theme .theme-mono.cd-dashboard-shell .soa-drawer {
 
 /* Guest delivery QR / published popups extras */
 body.dark-theme .gd-pub-popup,
-body.dark-theme .gd-qr-modal,
-body.dark-theme .theme-mono.cd-dashboard-shell .gd-pub-popup,
-body.dark-theme .theme-mono.cd-dashboard-shell .gd-qr-modal {
+body.dark-theme .theme-mono.cd-dashboard-shell .gd-pub-popup {
   background: var(--bg-surface) !important;
+  border-color: var(--border-card) !important;
+  color: var(--text-primary) !important;
+}
+
+body.dark-theme .gd-qr-modal,
+body.dark-theme .theme-mono.cd-dashboard-shell .gd-qr-modal {
+  background: var(--bg-modal) !important;
   border-color: var(--border-card) !important;
   color: var(--text-primary) !important;
 }

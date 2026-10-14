@@ -225,8 +225,13 @@
     transition: color 0.2s;
 }
 
-.dp-quick-search button:hover {
+.dp-quick-search button:hover:not(:disabled) {
     color: #12b8a6;
+}
+
+.dp-quick-search button:disabled {
+    opacity: 0.4;
+    cursor: default;
 }
 
 /* Responsive adjustments */

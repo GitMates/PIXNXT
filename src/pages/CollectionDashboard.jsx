@@ -83,6 +83,7 @@ import '../components/features/CollectionDashboard/GuestDeliveryQrModal.css';
 import { GuestDeliveryPublishedPopup } from '../components/features/CollectionDashboard/GuestDeliveryPublishedPopup';
 import '../components/features/CollectionDashboard/GuestDeliveryPublishedPopup.css';
 import { guestDeliveryService } from '../services/guestDelivery.service';
+import { guestDeliveryEventSettings } from '../lib/studioDefaults';
 import { guestDeliveryPublishService } from '../services/guestDeliveryPublish.service';
 import EventGuestsPanel from '../components/guest-delivery/EventGuestsPanel';
 import '../pages/guest-delivery/GuestDelivery.css';
@@ -3147,12 +3148,32 @@ const CollectionDashboard = () => {
                 let ev = await guestDeliveryService.getEventByCollectionId(collectionId);
                 const ownerId = collection?.photographer_id || user?.id;
                 if (!ev && ownerId && collection?.name) {
+                    if (!profile) return;
                     ev = await guestDeliveryService.createLinkedEvent({
                         collectionId,
                         photographerId: ownerId,
                         name: collection.name,
                         eventDate: collection.event_date || null,
                         slug: collection.slug,
+                        settings: guestDeliveryEventSettings(profile),
+                    });
+                } else if (ev?.id && ownerId && !ev.settings?.standee) {
+                    if (!profile) {
+                        if (!cancelled) setGdEvent(ev);
+                        return;
+                    }
+                    const seeded = guestDeliveryEventSettings(profile);
+                    const own = ev.settings || {};
+                    ev = await guestDeliveryService.updateEvent(ownerId, ev.id, {
+                        settings: {
+                            ...seeded,
+                            ...own,
+                            standee: own.standee || seeded.standee,
+                            arrival: own.arrival || seeded.arrival,
+                            languages: Array.isArray(own.languages) && own.languages.length
+                                ? own.languages
+                                : seeded.languages,
+                        },
                     });
                 }
                 if (!cancelled) setGdEvent(ev);
@@ -3169,6 +3190,7 @@ const CollectionDashboard = () => {
         collection?.slug,
         collection?.event_date,
         user?.id,
+        profile,
     ]);
 
     useEffect(() => {
@@ -7405,6 +7427,8 @@ const CollectionDashboard = () => {
                     guests={guestDeliveryGuests}
                     photographerId={gdEvent.photographer_id || collection?.photographer_id || user?.id}
                     photographerProfile={profile}
+                    deliveryName={collection?.name}
+                    deliveryDate={collection?.event_date}
                     onClose={() => setShowGdQrModal(false)}
                     onOpenGuestList={() => setActiveSidebarTab('guests')}
                     onEventUpdated={setGdEvent}

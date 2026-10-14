@@ -47,6 +47,37 @@ export function resolveAccessDefaults(profile) {
 }
 
 /** Snapshot helpers for persisting current UI state. */
+/** Options copied onto a new delivery's guest event. Later settings changes do not rewrite it. */
+export function guestDeliveryEventSettings(profile) {
+    const d = resolveGuestDeliveryDefaults(profile);
+    return {
+        languages: d.languages,
+        standee: d.standee,
+        arrival: d.arrival,
+        channel: 'whatsapp',
+        regClose: d.regClose,
+        autoBatches: d.autoBatches,
+        slipMessage: d.slipMessage,
+    };
+}
+
+/** This delivery's saved options, filled from the studio default where the delivery has none yet. */
+export function resolveDeliveryGuestSettings(event, profile) {
+    const studio = guestDeliveryEventSettings(profile);
+    const own = event?.settings && typeof event.settings === 'object' ? event.settings : {};
+    const languages = Array.isArray(own.languages) && own.languages.length
+        ? own.languages
+        : studio.languages;
+    return {
+        ...studio,
+        ...own,
+        languages: languages.includes('en') ? languages : ['en', ...languages],
+        standee: own.standee || studio.standee,
+        arrival: own.arrival || studio.arrival,
+        channel: 'whatsapp',
+    };
+}
+
 export function guestDeliveryPayload(state) {
     return {
         enabled: !!state.enabled,

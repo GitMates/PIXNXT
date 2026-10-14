@@ -44,11 +44,19 @@ export const guestDeliveryService = {
     return;
   },
 
-  async createLinkedEvent({ collectionId, photographerId, name, eventDate, slug }) {
+  async createLinkedEvent({ collectionId, photographerId, name, eventDate, slug, settings }) {
     const data = await (await workersGuest()).createLinkedEvent({ collectionId, photographerId, name, eventDate, slug });
     photographerQuotaService.invalidate(photographerId);
     photographerQuotaService.notifyQuotaChanged();
-    return data;
+    if (!settings || !data?.id) return data;
+    try {
+      return await this.updateEvent(photographerId, data.id, {
+        settings: { ...(data.settings || {}), ...settings },
+      });
+    } catch (err) {
+      console.error('Could not apply guest delivery defaults:', err);
+      return data;
+    }
   },
 
   async getEventByCollectionId(collectionId) {

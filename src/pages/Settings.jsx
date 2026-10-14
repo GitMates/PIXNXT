@@ -44,6 +44,7 @@ const PRIMARY_TABS = [
         label: 'Delivering photos',
         items: [
             { id: 'delivery-messages', label: 'Delivery & messages' },
+            { id: 'guest-delivery', label: 'Guest delivery' },
             { id: 'face-matching', label: 'Face matching', badge: 'NEW' },
             { id: 'access-defaults', label: 'Access defaults' },
         ],
@@ -145,9 +146,7 @@ const Settings = () => {
             navigate('/settings/delivery-messages', { replace: true });
             return;
         }
-        if (activeTab === 'guest-delivery') {
-            navigate('/settings/delivery-messages', { replace: true });
-        } else if (activeTab === 'presets') {
+        if (activeTab === 'presets') {
             navigate('/settings/delivery-templates', { replace: true });
         } else if (activeTab === 'watermark') {
             navigate('/settings/protection', { replace: true });
@@ -405,7 +404,8 @@ const GuestDeliveryTab = ({ profile, updateProfile }) => {
         <div className="gd-panel">
             <p className="gd-lead">
                 Guests at the event scan a code, register with a selfie, and receive their own photos on
-                WhatsApp. These are the defaults every new delivery starts with.
+                WhatsApp. These choices are the default for every new Client Gallery delivery. Change them
+                for one delivery from its Guest registration QR.
             </p>
 
             <div className="gd-info-box">

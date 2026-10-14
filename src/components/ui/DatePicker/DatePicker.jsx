@@ -12,6 +12,8 @@ const DatePicker = ({
   disablePastDates = false,
   showQuickSearch = true,
   displayFormat = null,
+  portalZIndex = 4000,
+  minDate = null,
 }) => {
   const parseDateLocal = (dateStr) => {
     if (!dateStr || typeof dateStr !== 'string' || dateStr === "Invalid Date") {
@@ -106,6 +108,19 @@ const DatePicker = ({
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
+  const minimumDate = useMemo(() => {
+    const parsed = parseDateLocal(minDate);
+    if (!parsed) return null;
+    parsed.setHours(0, 0, 0, 0);
+    return parsed;
+  }, [minDate]);
+
+  const isBlocked = (date) => {
+    if (disablePastDates && date < today) return true;
+    if (minimumDate && date < minimumDate) return true;
+    return false;
+  };
+
   const selectedDate = useMemo(() => {
     if (!value) return null;
     return parseDateLocal(value);
@@ -140,7 +155,8 @@ const DatePicker = ({
 
   const handleDateSelect = (day) => {
     const newDate = new Date(viewDate.getFullYear(), viewDate.getMonth(), day);
-    if (disablePastDates && newDate < today) return;
+    newDate.setHours(0, 0, 0, 0);
+    if (isBlocked(newDate)) return;
     
     onChange(formatDate(newDate));
     setIsOpen(false);
@@ -157,6 +173,8 @@ const DatePicker = ({
       case '1y': newDate.setFullYear(newDate.getFullYear() + 1); break;
       default: break;
     }
+    newDate.setHours(0, 0, 0, 0);
+    if (isBlocked(newDate)) return;
     onChange(formatDate(newDate));
     setIsOpen(false);
   };
@@ -185,7 +203,7 @@ const DatePicker = ({
       const currentIterDate = new Date(year, month, d);
       currentIterDate.setHours(0, 0, 0, 0);
       
-      const isPast = disablePastDates && currentIterDate < today;
+      const isPast = isBlocked(currentIterDate);
       const isSelected = selectedDate && currentIterDate.getTime() === selectedDate.getTime();
       const isToday = currentIterDate.getTime() === today.getTime();
       
@@ -240,7 +258,7 @@ const DatePicker = ({
         <div
           ref={dropdownRef}
           className={cn('dp-dropdown', 'dp-dropdown--portal', !showQuickSearch && 'dp-dropdown--simple')}
-          style={{ top: dropdownPos.top, left: dropdownPos.left, width: dropdownPos.width }}
+          style={{ top: dropdownPos.top, left: dropdownPos.left, width: dropdownPos.width, zIndex: portalZIndex }}
         >
           <div className="dp-calendar-section">
             <div className="calendar-header">
@@ -281,7 +299,7 @@ const DatePicker = ({
                   className="dp-calendar-footer-btn"
                   onClick={(e) => {
                     e.stopPropagation();
-                    onChange(formatDate(today));
+                    if (!isBlocked(today)) onChange(formatDate(today));
                     setIsOpen(false);
                   }}
                 >
@@ -294,11 +312,27 @@ const DatePicker = ({
           {showQuickSearch && (
             <div className="dp-quick-search">
               <div className="quick-search-label">QUICK SEARCH</div>
-              <button type="button" onClick={() => handleQuickSearch('1w')}>1 week from now</button>
-              <button type="button" onClick={() => handleQuickSearch('2w')}>2 weeks from now</button>
-              <button type="button" onClick={() => handleQuickSearch('1m')}>1 month from now</button>
-              <button type="button" onClick={() => handleQuickSearch('6m')}>6 months from now</button>
-              <button type="button" onClick={() => handleQuickSearch('1y')}>1 year from now</button>
+              {[
+                ['1w', '1 week from now'],
+                ['2w', '2 weeks from now'],
+                ['1m', '1 month from now'],
+                ['6m', '6 months from now'],
+                ['1y', '1 year from now'],
+              ].map(([type, label]) => {
+                const candidate = new Date();
+                candidate.setHours(0, 0, 0, 0);
+                if (type === '1w') candidate.setDate(candidate.getDate() + 7);
+                if (type === '2w') candidate.setDate(candidate.getDate() + 14);
+                if (type === '1m') candidate.setMonth(candidate.getMonth() + 1);
+                if (type === '6m') candidate.setMonth(candidate.getMonth() + 6);
+                if (type === '1y') candidate.setFullYear(candidate.getFullYear() + 1);
+                const blocked = isBlocked(candidate);
+                return (
+                  <button key={type} type="button" disabled={blocked} onClick={() => handleQuickSearch(type)}>
+                    {label}
+                  </button>
+                );
+              })}
             </div>
           )}
         </div>

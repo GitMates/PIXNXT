@@ -120,6 +120,97 @@
   padding: 22px 22px 16px;
 }
 
+.gd-qr-sheet {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 16px;
+}
+
+.gd-qr-sheet .gd-standee .proof {
+  padding: 12px;
+  background: transparent;
+}
+
+.gd-qr-sheet--a3 {
+  width: min(280px, 100%);
+  margin-inline: auto;
+}
+
+.gd-qr-sheet--a5 {
+  width: min(188px, 72%);
+  margin-inline: auto;
+}
+
+.gd-qr-sheet--wide {
+  width: 100%;
+}
+
+.gd-qr-sheet--tall {
+  width: min(156px, 48%);
+  margin-inline: auto;
+}
+
+.gd-qr-export {
+  position: fixed;
+  left: 0;
+  top: 0;
+  opacity: 0;
+  pointer-events: none;
+  z-index: -1;
+}
+
+.gd-qr-date {
+  margin-top: 10px;
+}
+
+.gd-qr-date .custom-datepicker {
+  width: 100%;
+}
+
+.gd-qr-date .dp-input-field {
+  height: auto;
+  min-height: 46px;
+  padding: 11px 16px;
+  border: 1px solid var(--border-card);
+  border-radius: 10px;
+  background: var(--bg-surface);
+  box-shadow: none;
+}
+
+.gd-qr-date .dp-input-field.focused {
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 0 3px var(--accent-subtle);
+}
+
+.gd-qr-date .dp-value {
+  font-size: 14px;
+  font-family: inherit;
+  color: var(--text-primary);
+}
+
+.gd-qr-date .dp-value.placeholder,
+.gd-qr-date .dp-icon {
+  color: var(--text-secondary);
+}
+
+.gd-qr-date .dp-icon {
+  width: 18px;
+  height: 18px;
+}
+
+.gd-qr-date-note {
+  margin: 8px 0 0;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--text-secondary);
+}
+
+.gd-qr-export .gd-standee .proof {
+  padding: 0;
+  background: transparent;
+  border-radius: 0;
+}
+
 .gd-qr-code {
   display: flex;
   justify-content: center;
@@ -169,7 +260,7 @@
 }
 
 .gd-qr-copy-btn:hover {
-  background: #3a3630;
+  background: var(--bg-surface-hover);
 }
 
 .gd-qr-kicker {
@@ -195,13 +286,33 @@
 .gd-qr-venue-card {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 12px 14px;
+  gap: 8px;
+  padding: 8px 10px 8px 8px;
   margin: 0;
   background: var(--gd-white);
   border: none;
   border-bottom: 1px solid var(--gd-line);
   border-radius: 0;
+}
+
+.gd-qr-venue-card.is-selected {
+  background: var(--accent-subtle);
+  box-shadow: inset 3px 0 0 var(--accent-primary);
+}
+
+.gd-qr-venue-pick {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+  min-width: 0;
+  padding: 4px 6px;
+  border: none;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  color: inherit;
+  font: inherit;
 }
 
 .gd-qr-venue-card:last-child {
@@ -215,7 +326,7 @@
   width: 32px;
   height: 32px;
   flex-shrink: 0;
-  color: #a4a3a1;
+  color: var(--icon-default);
 }
 
 .gd-qr-venue-copy {
@@ -293,7 +404,7 @@
   margin-top: 1px;
   border: none;
   border-radius: 999px;
-  background: #d4d0cb;
+  background: var(--toggle-track-off);
   cursor: pointer;
   padding: 3px;
 }
@@ -354,6 +465,20 @@
   margin-bottom: 16px;
 }
 
+.gd-qr-defaults-note {
+  margin: 0 0 12px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--gd-muted);
+}
+
+.gd-qr-field-label {
+  margin: 12px 0 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--gd-ink);
+}
+
 .gd-qr-lang-row {
   display: flex;
   flex-wrap: wrap;
@@ -374,9 +499,9 @@
 }
 
 .gd-qr-lang.is-on {
-  background: var(--gd-white);
-  border-color: #c8c7c3;
-  color: var(--gd-ink);
+  background: var(--accent-subtle);
+  border-color: var(--border-active);
+  color: var(--accent-primary);
 }
 
 .gd-qr-help {
@@ -444,7 +569,7 @@
 }
 
 .gd-qr-btn-solid:hover {
-  background: #3a3630;
+  background: var(--accent-primary-hover);
 }
 
 @media (max-height: 820px) {

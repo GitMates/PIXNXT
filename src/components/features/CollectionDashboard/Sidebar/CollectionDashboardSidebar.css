@@ -731,13 +731,14 @@
   box-sizing: border-box;
 }
 
-.cd-shell-brand__back:hover {
-  background: #eae7e1;
-  color: #1a1a1a;
+.cd-shell-brand__back:hover,
+.cd-shell-brand__back:visited:hover {
+  background: var(--bg-surface-hover);
+  color: var(--text-primary);
 }
 
 .cd-shell-brand__back:visited {
-  color: #8c827a;
+  color: var(--icon-default);
 }
 
 .cd-shell-brand__text {

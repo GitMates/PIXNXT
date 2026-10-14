@@ -7,6 +7,7 @@ import { galleryService } from '../services/gallery.service';
 import { guestDeliveryService } from '../services/guestDelivery.service';
 import { photographerQuotaService } from '../services/photographerQuota.service';
 import { resolveUploadDefaults } from '../lib/uploadDefaults';
+import { guestDeliveryEventSettings } from '../lib/studioDefaults';
 import { getPublicGalleryUrl } from '../lib/publicSiteUrl';
 import {
     deliveryTemplatesFromList,
@@ -286,6 +287,7 @@ const CreateCollection = () => {
     const [presetKey, setPresetKey] = useState('wedding');
     const [guestDeliveryEnabled, setGuestDeliveryEnabled] = useState(true);
     const [studioName, setStudioName] = useState('');
+    const guestProfileRef = useRef(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [error, setError] = useState(null);
     const presetTouched = useRef(false);
@@ -295,6 +297,7 @@ const CreateCollection = () => {
         let cancelled = false;
         galleryService.getPhotographerProfile(user.id).then((profile) => {
             if (cancelled || !profile) return;
+            guestProfileRef.current = profile;
             const label = profile.business_name || profile.display_name || '';
             if (label) setStudioName(label);
         }).catch(() => {});
@@ -385,6 +388,7 @@ const CreateCollection = () => {
                     name: trimmed,
                     eventDate: date || null,
                     slug: collectionSlug,
+                    settings: guestDeliveryEventSettings(guestProfileRef.current),
                 });
             }
 
