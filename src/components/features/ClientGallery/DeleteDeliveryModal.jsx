@@ -9,6 +9,11 @@ export function DeleteDeliveryModal({
   busy = false,
   onClose,
   onConfirm,
+  eyebrow = 'Delete delivery',
+  fallbackTitle = 'Delete this delivery?',
+  warningDetail = 'All photographs, films, and past activity will be permanently removed from your studio.',
+  acceptLabel = 'I accept that this delivery will be permanently deleted',
+  confirmLabel = 'Delete delivery',
 }) {
   const [accepted, setAccepted] = useState(false);
 
@@ -30,7 +35,7 @@ export function DeleteDeliveryModal({
   if (!isOpen) return null;
 
   const trimmedName = name?.trim();
-  const title = trimmedName ? `Delete “${trimmedName}”?` : 'Delete this delivery?';
+  const title = trimmedName ? `Delete “${trimmedName}”?` : fallbackTitle;
 
   return createPortal(
     <div
@@ -49,7 +54,7 @@ export function DeleteDeliveryModal({
         onClick={(e) => e.stopPropagation()}
       >
         <div className="dl-delete-header">
-          <p className="dl-delete-eyebrow">Delete delivery</p>
+          <p className="dl-delete-eyebrow">{eyebrow}</p>
           <button
             type="button"
             className="dl-delete-close"
@@ -70,10 +75,7 @@ export function DeleteDeliveryModal({
             <AlertTriangle className="dl-delete-warning-icon" size={18} strokeWidth={2} aria-hidden />
             <div className="dl-delete-warning-text">
               <p>This cannot be undone.</p>
-              <p>
-                All photographs, films, and past activity will be permanently removed from your
-                studio.
-              </p>
+              <p>{warningDetail}</p>
             </div>
           </div>
 
@@ -98,9 +100,7 @@ export function DeleteDeliveryModal({
                 </svg>
               ) : null}
             </span>
-            <span className="dl-delete-accept-label">
-              I accept that this delivery will be permanently deleted
-            </span>
+            <span className="dl-delete-accept-label">{acceptLabel}</span>
           </label>
         </div>
 
@@ -125,7 +125,7 @@ export function DeleteDeliveryModal({
                 Deleting…
               </>
             ) : (
-              'Delete delivery'
+              confirmLabel
             )}
           </button>
         </div>

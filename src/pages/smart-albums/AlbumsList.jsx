@@ -25,6 +25,7 @@ import AlbumStatusFilterPopover, {
     normalizeStatusFilters,
 } from '../../components/smart-albums/AlbumStatusFilterPopover';
 import { AppToast, useAppToast } from '../../components/ui/AppToast';
+import { DeleteDeliveryModal } from '../../components/features/ClientGallery/DeleteDeliveryModal';
 import { runOptimisticDelete } from '../../lib/optimisticDelete';
 import '../../components/portal/portal.css';
 import '../../components/smart-albums/AlbumStatusFilterPopover.css';
@@ -154,6 +155,7 @@ const AlbumsList = ({ starredOnly = false, proofFilter = 'all' }) => {
     const [editAlbum, setEditAlbum] = useState(null);
     const [editSaving, setEditSaving] = useState(false);
     const [settingsAlbum, setSettingsAlbum] = useState(null);
+    const [pendingDelete, setPendingDelete] = useState(null);
     const [settingsAnchor, setSettingsAnchor] = useState(null);
     const [remindingAlbumId, setRemindingAlbumId] = useState(null);
     const [leavingAlbumIds, setLeavingAlbumIds] = useState(() => new Set());
@@ -321,6 +323,17 @@ const AlbumsList = ({ starredOnly = false, proofFilter = 'all' }) => {
     );
 
     const handleDeleteAlbum = (album) => {
+        if (!album?.id) return;
+        closeContextMenu();
+        setSettingsAlbum(null);
+        setSettingsAnchor(null);
+        setPendingDelete(album);
+    };
+
+    const handleConfirmDeleteAlbum = () => {
+        const album = pendingDelete;
+        if (!album) return;
+        setPendingDelete(null);
         deleteAlbumOptimistically(album);
     };
 
@@ -1019,7 +1032,7 @@ const AlbumsList = ({ starredOnly = false, proofFilter = 'all' }) => {
                     if (settingsAlbum) openDuplicateAlbum(settingsAlbum);
                 }}
                 onDelete={() => {
-                    if (settingsAlbum) deleteAlbumOptimistically(settingsAlbum);
+                    if (settingsAlbum) handleDeleteAlbum(settingsAlbum);
                 }}
                 onShareByEmail={() => {
                     if (settingsAlbum) handleShareByEmail(settingsAlbum);
@@ -1037,6 +1050,17 @@ const AlbumsList = ({ starredOnly = false, proofFilter = 'all' }) => {
                     if (settingsAlbum) handleShareWhatsApp(settingsAlbum);
                     setSettingsAlbum(null);
                 }}
+            />
+            <DeleteDeliveryModal
+                isOpen={Boolean(pendingDelete)}
+                name={pendingDelete?.name}
+                onClose={() => setPendingDelete(null)}
+                onConfirm={handleConfirmDeleteAlbum}
+                eyebrow="Delete album"
+                fallbackTitle="Delete this album?"
+                warningDetail="The album, its spreads, and past proofing activity will be permanently removed from your studio."
+                acceptLabel="I accept that this album will be permanently deleted"
+                confirmLabel="Delete album"
             />
             <AppToast toast={toast} onDismiss={clearToast} />
         </main>
