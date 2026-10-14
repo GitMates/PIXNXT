@@ -86,6 +86,9 @@ export const products: Product[] = [
   },
 ]
 
+/** Vault and Sales stay in the app. Hidden from the Print Lab menu for now. */
+export const PRINT_LAB_SHOW_VAULT_AND_SALES = false
+
 /** In-product left-nav for the shared SidebarLayout shell. */
 export const productNavItems: Record<string, ProductNavItem[]> = {
   "client-gallery": [
@@ -244,20 +247,25 @@ export const productNavItems: Record<string, ProductNavItem[]> = {
       icon: Download,
       section: "work",
     },
-    {
-      label: "Vault",
-      href: "/store/vault",
-      match: (p) => p.startsWith("/store/vault"),
-      icon: Lock,
-      section: "work",
-    },
-    {
-      label: "Sales",
-      href: "/store/sales",
-      match: (p) => p.startsWith("/store/sales"),
-      icon: Gift,
-      section: "work",
-    },
+    // Flip this on when Vault and Sales return to the Print Lab menu.
+    ...(PRINT_LAB_SHOW_VAULT_AND_SALES
+      ? [
+          {
+            label: "Vault",
+            href: "/store/vault",
+            match: (p: string) => p.startsWith("/store/vault"),
+            icon: Lock,
+            section: "work" as const,
+          },
+          {
+            label: "Sales",
+            href: "/store/sales",
+            match: (p: string) => p.startsWith("/store/sales"),
+            icon: Gift,
+            section: "work" as const,
+          },
+        ]
+      : []),
   ],
 }
 

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { useLocation } from 'react-router-dom';
+import { Navigate, useLocation } from 'react-router-dom';
+import { PRINT_LAB_SHOW_VAULT_AND_SALES } from '../lib/products';
 import { useAuth } from '../hooks/useAuth';
 import { galleryService } from '../services/gallery.service';
 import { storageService } from '../services/storage.service';
@@ -1746,6 +1747,13 @@ export default function StoreDashboard() {
 
     return null;
   };
+
+  if (
+    !PRINT_LAB_SHOW_VAULT_AND_SALES &&
+    (location.pathname.startsWith('/store/vault') || location.pathname.startsWith('/store/sales'))
+  ) {
+    return <Navigate to="/store/orders" replace />;
+  }
 
   return (
     <SidebarLayout
