@@ -508,8 +508,13 @@ export function getCollectionCardCoverCandidates(collection) {
   return out;
 }
 
+function hasChosenCover(collection) {
+  return Boolean(collection?.cover_url || collection?.cover || collection?.list_cover_url);
+}
+
 /** High-quality cover src for list cards. Falls back to the last cached web image. */
 export function getCollectionCardCoverSrc(collection) {
+  if (!hasChosenCover(collection)) return '';
   const live = getCollectionCardCoverCandidates(collection)[0] || '';
   if (live && collection?.id) rememberCollectionCover(collection.id, live);
   return live || readCachedCollectionCover(collection?.id);

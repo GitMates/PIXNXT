@@ -167,10 +167,3 @@ export function deliveryBoardSummary(collections) {
   }
   return { lead: '', rest: 'Everything is moving.' };
 }
-
-export function coverFallbackIndex(id) {
-  const s = String(id || '');
-  let h = 0;
-  for (let i = 0; i < s.length; i += 1) h = (h * 31 + s.charCodeAt(i)) >>> 0;
-  return h % 6;
-}

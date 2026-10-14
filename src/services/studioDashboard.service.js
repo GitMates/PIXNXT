@@ -13,6 +13,7 @@ import { getCoverFocalForSurface, stripMediaUrlHash } from '../lib/focalPoint';
 import { getCollectionCardCoverSrc } from '../lib/photoDisplayUrl';
 import { INITIAL_STAGES } from '../components/portal/portalData';
 import { isHiddenStudioPath, isVisibleModule } from '../lib/releasedModules';
+import { defaultCoverGradient } from '../lib/defaultCoverGradient';
 import {
   LAB_PIPELINE_STEPS,
 } from '../printstore/lab/labOrderStatus';
@@ -170,7 +171,7 @@ function portalRecentItems() {
         title: card.clientName,
         meta: `Portal · ${stage.title}`,
         coverUrl: null,
-        gradient: 'linear-gradient(145deg, #2a3a4a 0%, #5a7a8a 45%, #c8b090 100%)',
+        gradient: defaultCoverGradient(card.id),
         at: card.eventDate || null,
         sortAt: card.eventDate ? new Date(card.eventDate).getTime() : 0,
         route: '/portal',
@@ -664,7 +665,7 @@ function buildRecentWork({ collections, albums, events, apps }) {
       },
       focalX,
       focalY,
-      gradient: 'linear-gradient(145deg, #4a2c6a 0%, #c45a3a 55%, #e8a060 100%)',
+      gradient: defaultCoverGradient(c.id),
       sortAt: new Date(at || 0).getTime(),
       route: `/deliveries/manage?id=${c.id}`,
       type: 'client-gallery',
@@ -688,7 +689,7 @@ function buildRecentWork({ collections, albums, events, apps }) {
       meta,
       album: merged,
       coverUrl: null,
-      gradient: 'linear-gradient(145deg, #3d2a1f 0%, #8b5a3c 50%, #c4a07a 100%)',
+      gradient: defaultCoverGradient(a.id),
       sortAt: new Date(at || merged.updated_at || merged.created_at || 0).getTime(),
       route: `/album-proofer/album/${a.id}`,
       type: 'album-proofer',
@@ -707,7 +708,7 @@ function buildRecentWork({ collections, albums, events, apps }) {
           ? `Guest Delivery · ${pending ? `${pending} guests · ` : ''}${rel}`
           : `Guest Delivery · draft · ${rel}`,
       coverUrl: coverOf(e),
-      gradient: 'linear-gradient(145deg, #5a2a1a 0%, #a85830 50%, #d4a060 100%)',
+      gradient: defaultCoverGradient(e.id),
       sortAt: new Date(at || 0).getTime(),
       route: `/guest-delivery/event/${e.id}`,
       type: 'guest-delivery',
@@ -722,7 +723,7 @@ function buildRecentWork({ collections, albums, events, apps }) {
       title: a.name || 'Untitled app',
       meta: `Mobile Gallery · ${a.status === 'published' ? 'live' : 'draft'} · ${rel}`,
       coverUrl: coverOf(a),
-      gradient: 'linear-gradient(145deg, #1f3a4a 0%, #3a6a7a 50%, #c4b080 100%)',
+      gradient: defaultCoverGradient(a.id),
       sortAt: new Date(at || 0).getTime(),
       route: `/mobile-gallery/app/${a.id}`,
       type: 'mobile-gallery',

@@ -412,6 +412,7 @@
 }
 
 .sd-avatar {
+  position: relative;
   width: 38px;
   height: 38px;
   border: 1.5px solid #1a1614;
@@ -427,6 +428,29 @@
   cursor: pointer;
   display: grid;
   place-items: center;
+  box-shadow: none;
+}
+
+/* Logo art often doesn't cover the full circle. A dark fill then reads as a
+   thick shadow along the top of the mark. Pin the image to the circle and
+   keep the fallback initials on the dark disc. */
+.sd-avatar img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+  display: block;
+  background: #fff;
+  box-shadow: none;
+  filter: none;
+}
+
+.sd-avatar:has(img) {
+  background: #fff;
+  border-color: transparent;
+  box-shadow: none;
 }
 
 .sd-avatar--sm {
@@ -1526,6 +1550,14 @@ body.dark-theme .sd-avatar {
   background: var(--bg-surface-hover);
   color: var(--text-heading);
   border-color: rgba(245, 244, 241, 0.35);
+}
+
+body.dark-theme .sd-avatar:has(img),
+body.dark-theme .sd-avatar img {
+  background: #fff;
+  border-color: transparent;
+  box-shadow: none;
+  filter: none;
 }
 
 /* Search */

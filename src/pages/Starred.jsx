@@ -6,6 +6,7 @@ import { useAuth } from '../hooks/useAuth';
 import { galleryService } from '../services/gallery.service';
 import { CollectionCardCover } from '../components/features/ClientGallery/CollectionCardCover';
 import { getPhotoGridDisplayUrl, getPhotoStreamPhase, getPhotoVideoPoster, getCollectionCardCoverSrc } from '../lib/photoDisplayUrl';
+import { defaultCoverGradient } from '../lib/defaultCoverGradient';
 import { formatStorageBytes } from '../utils/formatStorageBytes';
 import { isGalleryVideo } from '../lib/galleryMediaType';
 import {
@@ -154,9 +155,10 @@ const Starred = () => {
                                     {getCoverSrc(collection) ? (
                                         <CollectionCardCover collection={collection} alt={collection.name} />
                                     ) : (
-                                        <div className="cg-style-38">
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#ccc" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
-                                        </div>
+                                        <div
+                                            className="cg-style-38"
+                                            style={{ background: defaultCoverGradient(collection.id) }}
+                                        />
                                     )}
                                     <svg
                                         className="cg-style-76 opacity-100 drop-shadow-[0_2px_4px_rgba(0,0,0,0.2)]"

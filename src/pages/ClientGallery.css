@@ -1255,12 +1255,6 @@
   width: 100%;
   height: 100%;
 }
-.dl-cover-fallback--0 { background: linear-gradient(135deg, #e8b56a, #f3d5b0 48%, #c9895a); }
-.dl-cover-fallback--1 { background: linear-gradient(135deg, #8f6a4a, #c4a07a 50%, #6d4c36); }
-.dl-cover-fallback--2 { background: linear-gradient(135deg, #9caf8a, #c9d6bc 50%, #6f8464); }
-.dl-cover-fallback--3 { background: linear-gradient(135deg, #8a7a9c, #c5b8cf 48%, #6a5a78); }
-.dl-cover-fallback--4 { background: linear-gradient(135deg, #d4a373, #ead2b4 50%, #b07a4a); }
-.dl-cover-fallback--5 { background: linear-gradient(160deg, #5c4a40, #a88b72 55%, #3f322c); }
 
 .dl-badge {
   position: absolute;

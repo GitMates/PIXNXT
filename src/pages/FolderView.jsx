@@ -11,6 +11,7 @@ import { CollectionContextMenu } from '../components/features/ClientGallery/Coll
 import { DeleteDeliveryModal } from '../components/features/ClientGallery/DeleteDeliveryModal';
 import { runOptimisticDelete } from '../lib/optimisticDelete';
 import { getCollectionCardCoverSrc } from '../lib/photoDisplayUrl';
+import { defaultCoverGradient } from '../lib/defaultCoverGradient';
 import { EditCollectionModal } from '../components/features/ClientGallery/EditCollectionModal';
 import {
   CollectionDirectLinkModal,
@@ -576,13 +577,10 @@ const FolderView = () => {
                 {getCoverSrc(collection) ? (
                   <CollectionCardCover collection={collection} alt={collection.name} />
                 ) : (
-                  <div className="cg-style-38">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#ccc" strokeWidth="1.5">
-                      <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
-                      <circle cx="8.5" cy="8.5" r="1.5" />
-                      <polyline points="21 15 16 10 5 21" />
-                    </svg>
-                  </div>
+                  <div
+                    className="cg-style-38"
+                    style={{ background: defaultCoverGradient(collection.id) }}
+                  />
                 )}
                 <div
                   className={`cg-style-75 ${selectedCards.includes(collection.id) ? 'border-[#8BDFDD] bg-[#8BDFDD] opacity-100' : 'border-white/85 bg-black/15 opacity-0 group-hover:opacity-100'}`}
@@ -644,7 +642,10 @@ const FolderView = () => {
                   {getCoverSrc(collection) ? (
                     <CollectionCardCover collection={collection} alt="" />
                   ) : (
-                    <div className="cg-style-38" />
+                    <div
+                      className="cg-style-38"
+                      style={{ background: defaultCoverGradient(collection.id) }}
+                    />
                   )}
                 </div>
                 <div className="cg-style-54">

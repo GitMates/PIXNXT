@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { galleryService } from '../../../services/gallery.service';
 import { CollectionCardCover } from '../ClientGallery/CollectionCardCover';
 import { showcasePhotoCount } from '../../../lib/showcaseFeature';
+import { defaultCoverGradient } from '../../../lib/defaultCoverGradient';
 import { AppLoader } from '../../ui/AppLoading';
 
 const MAX_FEATURED = 6;
@@ -166,7 +167,11 @@ export function FeaturedDeliveriesModal({ open, photographerId, onClose, onSaved
                     title={locked ? 'PIN-protected deliveries cannot be featured' : undefined}
                   >
                     <div className="set-feature-card__media">
-                      <div className="set-feature-card__placeholder" aria-hidden />
+                      <div
+                        className="set-feature-card__placeholder"
+                        style={{ background: defaultCoverGradient(col.id) }}
+                        aria-hidden
+                      />
                       <CollectionCardCover collection={col} alt="" className="set-feature-card__img" />
                       <span className={`set-feature-card__check${isOn ? ' is-on' : ''}`} aria-hidden>
                         {isOn ? (

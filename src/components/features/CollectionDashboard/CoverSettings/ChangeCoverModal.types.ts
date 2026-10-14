@@ -15,6 +15,8 @@ export interface ChangeCoverModalProps {
   onClose: () => void;
   photos: Photo[];
   coverUrl?: string | null;
+  /** Delivery id. Empty canvas uses the same default gradient as the lists. */
+  deliveryId?: string | null;
   coverPhoto?: Photo | null;
   initialFocals?: CoverFocals;
   initialView?: ChangeCoverModalView;

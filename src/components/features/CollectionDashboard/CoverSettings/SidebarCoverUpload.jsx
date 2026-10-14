@@ -10,6 +10,7 @@ import {
 } from '../../../../lib/coverPhotoDrag';
 import './SidebarCoverUpload.css';
 import { useAppLanguage } from '../../../../context/AppLanguageContext';
+import { defaultCoverGradient } from '../../../../lib/defaultCoverGradient';
 
 const COVER_DROP_ICON = (
   <svg
@@ -41,6 +42,7 @@ function isCoverImageFile(file) {
  */
 export function SidebarCoverUpload({
   coverUrl,
+  collectionId,
   coverFocalX = 50,
   coverFocalY = 50,
   isUpdating = false,
@@ -137,9 +139,11 @@ export function SidebarCoverUpload({
       <div
         className={cn(
           'cd-sidebar-cover-dropzone',
+          collectionId && 'cd-sidebar-cover-dropzone--gradient',
           isDragging && 'dragging',
           isUpdating && 'uploading'
         )}
+        style={collectionId ? { background: defaultCoverGradient(collectionId) } : undefined}
       >
         <div className="cd-sidebar-cover-empty-main">
           <div className="cd-sidebar-cover-drop-icon" aria-hidden>

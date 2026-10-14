@@ -9,32 +9,11 @@ async function maps() {
   return { mapCollectionDashboardRow: mod.mapCollectionDashboardRow };
 }
 
-async function attachCovers(collections) {
-  const missing = (collections || []).filter((c) => !c.cover_url && !c.cover && (c.photo_count ?? 0) > 0);
-  await Promise.all(
-    missing.slice(0, 20).map(async (c) => {
-      try {
-        const data = await apiFetch(`/v1/galleries/${c.id}/photos?limit=1`);
-        const first = data?.photos?.[0];
-        const thumb = first?.thumbnail_url || first?.web_url || first?.full_url || null;
-        if (thumb) {
-          c.cover_url = thumb;
-          c.list_cover_url = thumb;
-        }
-      } catch {
-        // cover stays empty — grid handles missing covers
-      }
-    }),
-  );
-  return collections;
-}
-
 async function mapRows(rows) {
   const { mapCollectionDashboardRow } = await maps();
-  const mapped = (rows || []).map((r) =>
+  return (rows || []).map((r) =>
     mapCollectionDashboardRow({ ...r, photos: r.photos ?? [] }),
   );
-  return attachCovers(mapped);
 }
 
 export async function getCollections(photographerId) {
@@ -205,9 +184,7 @@ export async function getPublicCollections(photographerId, fallbackSlug = '') {
   if (!slug) return [];
   const data = await apiFetch(`/v1/public/showcase/${encodeURIComponent(slug)}`).catch(() => null);
   const galleries = data?.galleries || [];
-  return attachCovers(
-    galleries.map((g) => ({ ...g, photographer_id: photographerId, photo_count: g.photo_count ?? 0 })),
-  );
+  return galleries.map((g) => ({ ...g, photographer_id: photographerId, photo_count: g.photo_count ?? 0 }));
 }
 
 export async function submitShowcaseEnquiry({ photographerId, name, email, message }) {

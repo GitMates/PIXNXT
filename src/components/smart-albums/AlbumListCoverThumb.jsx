@@ -21,6 +21,7 @@ import { getCoverLeatherSurfaceStyle } from './coverLeatherSurface';
 import { parseGridSizeAspect } from './albumGridSize';
 import { getBookWrapSpineLayout } from './bookWrapSpine';
 import BookWrapSpineImage from './BookWrapSpineImage';
+import { defaultCoverGradient } from '../../lib/defaultCoverGradient';
 import './AlbumListCoverThumb.css';
 
 function resolveThumbSrc(album) {
@@ -165,14 +166,17 @@ export default function AlbumListCoverThumb({ album, alt = '', variant = 'grid' 
 
     if (!src || photoFailed) {
         return (
-            <div className={`${rootClass} cg-style-38 sa-album-thumb-placeholder`}>
+            <div
+                className={`${rootClass} cg-style-38 sa-album-thumb-placeholder`}
+                style={{ background: defaultCoverGradient(album?.id) }}
+            >
                 <svg
                     xmlns="http://www.w3.org/2000/svg"
                     width="32"
                     height="32"
                     viewBox="0 0 24 24"
                     fill="none"
-                    stroke="#ccc"
+                    stroke="rgba(255,255,255,0.88)"
                     strokeWidth="1.5"
                     strokeLinecap="round"
                     strokeLinejoin="round"

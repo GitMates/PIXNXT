@@ -5990,6 +5990,7 @@ const CollectionDashboard = () => {
             <div className="cd-layout-body">
                 <CollectionDashboardSidebar
                     coverUrl={collection?.cover_url}
+                    collectionId={collection?.id}
                     coverFocalX={collectionFocals.desktop?.x ?? collectionFocal.x}
                     coverFocalY={collectionFocals.desktop?.y ?? collectionFocal.y}
                     isCoverUploading={isCoverUploading}
@@ -7166,6 +7167,7 @@ const CollectionDashboard = () => {
                 onClose={closeCoverModal}
                 photos={coverModalPhotos}
                 coverUrl={collection?.cover_url}
+                deliveryId={collection?.id}
                 coverPhoto={coverModalPhotoOverride || coverPhoto}
                 initialFocals={collectionFocals}
                 initialView={coverModalInitialView}

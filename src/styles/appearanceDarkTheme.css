@@ -7595,8 +7595,8 @@ body.dark-theme .theme-mono.cd-dashboard-shell .cd-cover-modal-dropzone.dragging
   border-color: var(--accent-primary-hover) !important;
 }
 
-body.dark-theme .cd-sidebar-cover-dropzone,
-body.dark-theme .theme-mono.cd-dashboard-shell .cd-sidebar-cover-dropzone {
+body.dark-theme .cd-sidebar-cover-dropzone:not(.cd-sidebar-cover-dropzone--gradient),
+body.dark-theme .theme-mono.cd-dashboard-shell .cd-sidebar-cover-dropzone:not(.cd-sidebar-cover-dropzone--gradient) {
   background: var(--bg-sidebar) !important;
   border-color: var(--border-card) !important;
   color: var(--text-secondary) !important;

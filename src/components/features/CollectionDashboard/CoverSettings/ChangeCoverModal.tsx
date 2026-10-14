@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { ChangeCoverModalProps, CoverFocalPoint, CoverFocalSurfaceId, CoverFocals, Photo } from './ChangeCoverModal.types';
+import { defaultCoverGradient } from '../../../../lib/defaultCoverGradient';
 import { cn } from '../../../../lib/utils';
 import { isGalleryImagePhoto } from '../../../../lib/coverPhotoDrag';
 import { getPhotoFullDisplayUrl, getPhotoGridDisplayUrl } from '../../../../lib/photoDisplayUrl';
@@ -97,6 +98,7 @@ export const ChangeCoverModal: React.FC<ChangeCoverModalProps> = ({
   onClose,
   photos,
   coverUrl,
+  deliveryId,
   coverPhoto,
   initialFocals,
   initialView = 'edit',
@@ -668,7 +670,10 @@ export const ChangeCoverModal: React.FC<ChangeCoverModalProps> = ({
                     </div>
                   </div>
                 ) : (
-                  <div className="cover-focal-stage__canvas cover-focal-stage__canvas--empty">
+                  <div
+                    className="cover-focal-stage__canvas cover-focal-stage__canvas--empty"
+                    style={deliveryId ? { background: defaultCoverGradient(deliveryId) } : undefined}
+                  >
                     <div className="cover-focal-crosshair" style={{ left: '50%', top: '50%' }}>
                       <span className="cover-focal-crosshair__ring" />
                     </div>

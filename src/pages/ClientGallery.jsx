@@ -73,12 +73,12 @@ import {
     filterFoldersForSearch,
 } from '../utils/filterClientGallerySearch';
 import { getFolderStudioUrl } from '../lib/folderStudioUrl';
+import { defaultCoverGradient } from '../lib/defaultCoverGradient';
 import {
     DELIVERY_SHOW_FILTERS,
     DELIVERY_SORT_OPTIONS,
     countDeliveriesByShow,
     countStillsAndFilms,
-    coverFallbackIndex,
     deliveryAttentionBadge,
     deliveryBoardSummary,
     deliveryUiStatus,
@@ -924,7 +924,8 @@ const ClientGallery = () => {
                                                     <CollectionCardCover collection={collection} alt="" />
                                                 ) : (
                                                     <div
-                                                        className={`dl-cover-fallback dl-cover-fallback--${coverFallbackIndex(collection.id)}`}
+                                                        className="dl-cover-fallback"
+                                                        style={{ background: defaultCoverGradient(collection.id) }}
                                                         aria-hidden
                                                     />
                                                 )}
@@ -1048,7 +1049,8 @@ const ClientGallery = () => {
                                                         <CollectionCardCover collection={collection} alt="" />
                                                     ) : (
                                                         <div
-                                                            className={`dl-cover-fallback dl-cover-fallback--${coverFallbackIndex(collection.id)}`}
+                                                            className="dl-cover-fallback"
+                                                            style={{ background: defaultCoverGradient(collection.id) }}
                                                             aria-hidden
                                                         />
                                                     )}

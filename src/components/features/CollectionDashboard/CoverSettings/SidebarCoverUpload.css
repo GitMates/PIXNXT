@@ -84,6 +84,11 @@
   color: #b5aea0;
 }
 
+.cd-sidebar-cover-dropzone--gradient .cd-sidebar-cover-drop-icon,
+.cd-sidebar-cover-dropzone--gradient .cd-sidebar-cover-drop-hint {
+  color: rgba(255, 255, 255, 0.92);
+}
+
 .cd-sidebar-cover-drop-hint {
   margin: 0;
   font-size: 13px;

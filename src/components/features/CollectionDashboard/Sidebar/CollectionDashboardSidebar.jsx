@@ -179,6 +179,7 @@ function NestedTabItem({ active, label, count, onClick }) {
 
 export function CollectionDashboardSidebar({
   coverUrl,
+  collectionId,
   coverFocalX,
   coverFocalY,
   isCoverUploading,
@@ -365,6 +366,7 @@ export function CollectionDashboardSidebar({
       <div className="cdsb-cover-wrap">
         <SidebarCoverUpload
           coverUrl={coverUrl}
+          collectionId={collectionId}
           coverFocalX={coverFocalX}
           coverFocalY={coverFocalY}
           isUpdating={isCoverUploading}

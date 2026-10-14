@@ -7,6 +7,7 @@ import { CollectionCardCover } from '../components/features/ClientGallery/Collec
 import { useAuth } from '../hooks/useAuth';
 import { galleryService } from '../services/gallery.service';
 import { getCollectionCardCoverSrc } from '../lib/photoDisplayUrl';
+import { defaultCoverGradient } from '../lib/defaultCoverGradient';
 import { buildShowcaseUrl } from '../lib/showcaseUrl';
 import { categoryTagsFromCollection } from '../lib/categoryTags';
 import { buildGmailComposeUrl } from '../lib/gmailComposeUrl';
@@ -1097,7 +1098,10 @@ const Showcase = () => {
                                 className="sc-tile__img"
                               />
                             ) : (
-                              <div className="sc-tile__placeholder" />
+                              <div
+                                className="sc-tile__placeholder"
+                                style={{ background: defaultCoverGradient(col.id) }}
+                              />
                             )}
                             <span className="sc-tile__count">{photoCountLabel(col)}</span>
                             <button
@@ -1522,7 +1526,10 @@ const Showcase = () => {
                       {getCollectionCardCoverSrc(col) ? (
                         <CollectionCardCover collection={col} alt="" />
                       ) : (
-                        <div className="sc-tile__placeholder" />
+                        <div
+                          className="sc-tile__placeholder"
+                          style={{ background: defaultCoverGradient(col.id) }}
+                        />
                       )}
                     </div>
                     <div className="sc-pick__copy">

@@ -6,6 +6,7 @@ import { getGuestDeliveryDbErrorMessage } from '../../lib/guestDeliveryDbError';
 import CreateEventModal from '../../components/guest-delivery/CreateEventModal';
 import { ClientGallerySearchField } from '../../components/features/ClientGallery/ClientGalleryPageShell';
 import { AppLoader } from '../../components/ui/AppLoading';
+import { defaultCoverGradient } from '../../lib/defaultCoverGradient';
 import './GuestDelivery.css';
 
 function getEventInitial(name) {
@@ -195,7 +196,10 @@ export default function GuestDeliveryEventsList() {
               role="button"
               tabIndex={0}
             >
-              <div className="gd-event-card-thumb">
+              <div
+                className="gd-event-card-thumb"
+                style={event.cover_image_url ? undefined : { background: defaultCoverGradient(event.id) }}
+              >
                 {event.cover_image_url ? (
                   <img src={event.cover_image_url} alt="" />
                 ) : (

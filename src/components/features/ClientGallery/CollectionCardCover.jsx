@@ -17,7 +17,10 @@ export function CollectionCardCover({ collection, alt = '', className, style }) 
     setFailed(false);
   }, [collection?.id, collection?.cover_url, collection?.cover, collection?.list_cover_url]);
 
-  const cached = readCachedCollectionCover(collection?.id);
+  const hasChosenCover = Boolean(
+    collection?.cover_url || collection?.cover || collection?.list_cover_url,
+  );
+  const cached = hasChosenCover ? readCachedCollectionCover(collection?.id) : '';
   const src = !failed ? (candidates[index] || cached) : cached;
   if (!src) return null;
 

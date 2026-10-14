@@ -5,6 +5,7 @@ import { sortCollections } from '../../utils/sortCollections';
 import { CollectionCardCover } from '../../components/features/ClientGallery/CollectionCardCover';
 import { ShowcaseEnquiryForm } from '../../components/features/Showcase/ShowcaseEnquiryForm';
 import { getCollectionCardCoverSrc } from '../../lib/photoDisplayUrl';
+import { defaultCoverGradient } from '../../lib/defaultCoverGradient';
 import { AppLoader } from '../../components/ui/AppLoading';
 import { shouldShowPixnxtBranding } from '../../lib/pixnxtBranding';
 
@@ -438,9 +439,7 @@ const CollectionList = ({ slug, photographerProfile = null }) => {
                         style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                       />
                     ) : (
-                      <div style={{ width:'100%', height:'100%', display:'flex', alignItems:'center', justifyContent:'center', background:'#f5f5f5' }}>
-                        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#ccc" strokeWidth="1" strokeLinecap="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
-                      </div>
+                      <div style={{ width:'100%', height:'100%', background: defaultCoverGradient(col.id) }} />
                     )}
                   </div>
 
