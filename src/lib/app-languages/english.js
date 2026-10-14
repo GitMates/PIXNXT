@@ -263,7 +263,7 @@ export const englishAppStrings = {
     guestsNeed: (n) => (n === 1 ? '1 guest needs review or delivery' : `${n} guests need review or delivery`),
     albumsNeed: (n) => (n === 1 ? '1 album needs attention' : `${n} albums need attention`),
     guestsReview: (n) => (n === 1 ? '1 guest needs review' : `${n} guests need review`),
-    stillUnopened: (n) => (n === 1 ? '1 delivery is still unopened' : `${n} deliveries are still unopened`),
+    stillUnopened: (n) => (n === 1 ? '1 delivery still unopened' : `${n} deliveries still unopened`),
     itemsNeed: (n) => (n === 1 ? '1 item needs you' : `${n} items need you`),
     allClearRest: 'Everything looks clear — no clients waiting on you.',
   },

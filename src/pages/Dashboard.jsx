@@ -263,6 +263,16 @@ function formatTodayLine() {
   });
 }
 
+function heroLines(text) {
+  const raw = String(text || '').trim();
+  const splitAt = raw.indexOf('. ');
+  if (splitAt < 0) return { date: raw, detail: '' };
+  const date = raw.slice(0, splitAt);
+  let detail = raw.slice(splitAt + 2);
+  if (/^\d/.test(detail)) detail = detail.replace(/, /g, ' · ').replace(/\.$/, '');
+  return { date, detail };
+}
+
 function storageLimitBytes(profile) {
   if (profile?.storage_limit_bytes) return profile.storage_limit_bytes;
   const tier = String(profile?.plan || '').toLowerCase();
@@ -564,7 +574,15 @@ const Dashboard = () => {
               {greetingLine(appT, firstName)}
             </h1>
             <p className="sd-status">
-              {heroStatus ? tx(heroStatus) : `${formatTodayLine()}. ${appT.dash.studioReady}`}
+              {(() => {
+                const lines = heroLines(heroStatus ? tx(heroStatus) : `${formatTodayLine()}. ${appT.dash.studioReady}`);
+                return (
+                  <>
+                    {lines.date ? <span className="sd-status-date">{lines.date}</span> : null}
+                    {lines.detail ? <span className="sd-status-detail">{lines.detail}</span> : null}
+                  </>
+                );
+              })()}
             </p>
           </div>
 

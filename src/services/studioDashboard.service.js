@@ -627,10 +627,12 @@ function buildHeroStatus({ needsYou, waitingAlbums, needReview, unopened, publis
     return `${formatTodayLineBase()}. Everything looks clear — no clients waiting on you.`;
   }
   const bits = [];
-  if (waitingAlbums.length) bits.push(`${waitingAlbums.length} album${waitingAlbums.length === 1 ? '' : 's'} need attention`);
-  if (unopened) bits.push(`${unopened} deliver${unopened === 1 ? 'y is' : 'ies are'} still unopened`);
-  const detail = bits.length ? bits.join(', ') : `${actionCount} item${actionCount === 1 ? '' : 's'} need you`;
-  return `${formatTodayLineBase()}. ${detail}.`;
+  if (waitingAlbums.length) {
+    bits.push(waitingAlbums.length === 1 ? '1 album needs attention' : `${waitingAlbums.length} albums need attention`);
+  }
+  if (unopened) bits.push(unopened === 1 ? '1 delivery still unopened' : `${unopened} deliveries still unopened`);
+  const detail = bits.length ? bits.join(' · ') : `${actionCount} item${actionCount === 1 ? '' : 's'} need you`;
+  return `${formatTodayLineBase()}. ${detail}`;
 }
 
 function formatTodayLineBase() {

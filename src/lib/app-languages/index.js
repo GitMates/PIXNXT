@@ -50,9 +50,9 @@ function localizeFragment(t, s) {
   if ((m = /^(\d+) unopened$/.exec(s))) return p.unopened(Number(m[1]));
   if ((m = /^(\d+) need review$/.exec(s))) return p.needReview(Number(m[1]));
   if ((m = /^(\d+) guests? need review or delivery$/.exec(s))) return p.guestsNeed(Number(m[1]));
-  if ((m = /^(\d+) albums? need attention$/.exec(s))) return p.albumsNeed(Number(m[1]));
+  if ((m = /^(\d+) albums? needs? attention$/.exec(s))) return p.albumsNeed(Number(m[1]));
   if ((m = /^(\d+) guests? need review$/.exec(s))) return p.guestsReview(Number(m[1]));
-  if ((m = /^(\d+) deliver(?:y is|ies are) still unopened$/.exec(s))) return p.stillUnopened(Number(m[1]));
+  if ((m = /^(\d+) deliver(?:y|ies)(?: is| are)? still unopened$/.exec(s))) return p.stillUnopened(Number(m[1]));
   if ((m = /^(\d+) items? need you$/.exec(s))) return p.itemsNeed(Number(m[1]));
   return s;
 }
@@ -71,10 +71,12 @@ export function localizeAppText(t, text) {
   if (dot > 0) {
     const head = s.slice(0, dot);
     const rest = s.slice(dot + 2).replace(/\.$/, '');
-    const bits = rest.split(', ');
+    const sep = rest.includes(' · ') ? ' · ' : ', ';
+    const bits = rest.split(sep);
     const next = bits.map((bit) => localizeFragment(t, bit));
     if (next.some((bit, i) => bit !== bits[i])) {
-      return `${head}. ${next.join(', ')}.`;
+      const tail = sep === ' · ' ? '' : '.';
+      return `${head}. ${next.join(sep)}${tail}`;
     }
   }
   return s;

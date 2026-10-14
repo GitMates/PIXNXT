@@ -635,12 +635,15 @@
 }
 
 .sd-status {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
   margin: 12px 0 0;
   max-width: 54ch;
   font-family: var(--sd-font);
   font-size: 15px;
   font-weight: 400;
-  line-height: 1.55;
+  line-height: 1.45;
   color: var(--sd-body);
 }
 
@@ -812,15 +815,15 @@
   display: flex;
   flex-direction: column;
   gap: 2px;
-  min-width: 0;
+  min-width: max-content;
   flex: 1 1 auto;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .sd-module-title {
   display: inline-block;
-  width: fit-content;
-  max-width: 100%;
+  width: max-content;
+  max-width: none;
   font-family: var(--sd-display);
   font-size: 17px;
   font-weight: 500;
@@ -829,8 +832,8 @@
   color: var(--sd-ink);
   font-variation-settings: 'SOFT' 0, 'WONK' 1;
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  overflow: visible;
+  text-overflow: unset;
   background-image: linear-gradient(currentColor, currentColor);
   background-position: 0 100%;
   background-repeat: no-repeat;
@@ -857,7 +860,8 @@
   display: inline-flex;
   align-items: center;
   gap: 7px;
-  flex-shrink: 0;
+  flex-shrink: 1;
+  min-width: 0;
   margin-left: auto;
   padding: 0;
   border-radius: 0;
@@ -867,6 +871,8 @@
   font-weight: 600;
   letter-spacing: 0;
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .sd-dot {
