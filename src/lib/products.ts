@@ -12,6 +12,12 @@ import {
   Clock3,
   CheckCircle2,
   PanelLeft,
+  Package,
+  DollarSign,
+  Layers,
+  Download,
+  Lock,
+  Gift,
   type LucideIcon,
 } from "lucide-react"
 import {
@@ -207,6 +213,50 @@ export const productNavItems: Record<string, ProductNavItem[]> = {
       match: (p) => p.startsWith("/mobile-gallery/settings"),
       icon: Settings,
       section: "studio",
+    },
+  ],
+  "print-lab": [
+    {
+      label: "Orders",
+      href: "/store/orders",
+      match: (p) => p === "/store" || p === "/store/" || p.startsWith("/store/orders"),
+      icon: Package,
+      section: "work",
+    },
+    {
+      label: "Price List",
+      href: "/store/pricing",
+      match: (p) => p.startsWith("/store/pricing"),
+      icon: DollarSign,
+      section: "work",
+    },
+    {
+      label: "Products",
+      href: "/store/products",
+      match: (p) => p.startsWith("/store/products"),
+      icon: Layers,
+      section: "work",
+    },
+    {
+      label: "Digital Download",
+      href: "/store/digital",
+      match: (p) => p.startsWith("/store/digital"),
+      icon: Download,
+      section: "work",
+    },
+    {
+      label: "Vault",
+      href: "/store/vault",
+      match: (p) => p.startsWith("/store/vault"),
+      icon: Lock,
+      section: "work",
+    },
+    {
+      label: "Sales",
+      href: "/store/sales",
+      match: (p) => p.startsWith("/store/sales"),
+      icon: Gift,
+      section: "work",
     },
   ],
 }

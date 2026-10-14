@@ -1,0 +1,171 @@
+/**
+ * Print Lab pages share the studio palette.
+ * Tokens come from themeTokens.css, so light matches Client Gallery
+ * and dark matches the studio dark theme.
+ * .pl-artwork keeps print mocks, banners, and device previews in their own colors.
+ */
+
+.store-dashboard-main {
+  color: var(--text-body);
+}
+
+.store-dashboard-main :where(h1, h2, h3, h4) {
+  color: var(--text-heading);
+}
+
+.store-dashboard-main .store-dashboard-title {
+  color: var(--text-heading);
+}
+
+.store-dashboard-main .store-dashboard-subtitle,
+.store-dashboard-main .results-count-label {
+  color: var(--text-secondary);
+}
+
+.store-dashboard-main input,
+.store-dashboard-main select,
+.store-dashboard-main textarea {
+  background-color: var(--bg-surface) !important;
+  color: var(--text-primary) !important;
+  border: 1px solid var(--border-input) !important;
+  box-shadow: none !important;
+}
+
+.store-dashboard-main input::placeholder,
+.store-dashboard-main textarea::placeholder {
+  color: var(--text-muted);
+}
+
+.store-dashboard-main input:focus,
+.store-dashboard-main select:focus,
+.store-dashboard-main textarea:focus {
+  border-color: var(--border-active) !important;
+  outline: none;
+}
+
+.store-dashboard-main select option {
+  background-color: var(--bg-surface);
+  color: var(--text-primary);
+}
+
+.store-dashboard-main input[type="checkbox"] {
+  accent-color: var(--accent-primary);
+}
+
+/* Light glass panels, white cards, and gray slabs become theme surfaces. */
+.store-dashboard-main [style*="background-color: rgba(255, 255, 255"]:not(.pl-artwork, .pl-artwork *, .pl-knob),
+.store-dashboard-main [style*="background: rgba(255, 255, 255"]:not(.pl-artwork, .pl-artwork *, .pl-knob),
+.store-dashboard-main [style*="background-color: rgb(255, 255, 255)"]:not(.pl-artwork, .pl-artwork *, .pl-knob),
+.store-dashboard-main [style*="background: rgb(255, 255, 255)"]:not(.pl-artwork, .pl-artwork *, .pl-knob),
+.store-dashboard-main [style*="background-color: rgb(249, 249, 249)"]:not(.pl-artwork, .pl-artwork *),
+.store-dashboard-main [style*="background-color: rgb(250, 250, 250)"]:not(.pl-artwork, .pl-artwork *),
+.store-dashboard-main [style*="background-color: rgb(248, 250, 252)"]:not(.pl-artwork, .pl-artwork *),
+.store-dashboard-main [style*="background: rgb(248, 250, 252)"]:not(.pl-artwork, .pl-artwork *),
+.store-dashboard-main [style*="background-color: rgb(241, 245, 249)"]:not(.pl-artwork, .pl-artwork *),
+.store-dashboard-main [style*="background-color: rgb(239, 239, 239)"]:not(.pl-artwork, .pl-artwork *),
+.store-dashboard-main [style*="background-color: rgb(229, 229, 229)"]:not(.pl-artwork, .pl-artwork *),
+.store-dashboard-main [style*="background-color: rgb(245, 245, 245)"]:not(.pl-artwork, .pl-artwork *),
+.store-dashboard-main [style*="background-color: rgb(240, 240, 240)"]:not(.pl-artwork, .pl-artwork *),
+.store-dashboard-main [style*="241, 245, 249"]:not(.pl-artwork, .pl-artwork *) {
+  background-color: var(--bg-surface) !important;
+  background-image: none;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  box-shadow: none !important;
+}
+
+.store-dashboard-main [style*="209, 250, 229"]:not(.pl-artwork, .pl-artwork *),
+.store-dashboard-main [style*="167, 243, 208"]:not(.pl-artwork, .pl-artwork *) {
+  background-color: var(--accent-subtle) !important;
+  border-color: var(--border-active) !important;
+  color: var(--accent-primary) !important;
+}
+
+.store-dashboard-main [style*="color: rgb(17, 17, 17)"]:not(.pl-artwork, .pl-artwork *),
+.store-dashboard-main [style*="color: rgb(26, 26, 26)"]:not(.pl-artwork, .pl-artwork *),
+.store-dashboard-main [style*="color: rgb(44, 44, 44)"]:not(.pl-artwork, .pl-artwork *),
+.store-dashboard-main [style*="color: rgb(44, 44, 45)"]:not(.pl-artwork, .pl-artwork *),
+.store-dashboard-main [style*="color: rgb(51, 51, 51)"]:not(.pl-artwork, .pl-artwork *),
+.store-dashboard-main [style*="color: #111"]:not(.pl-artwork, .pl-artwork *),
+.store-dashboard-main [style*="color: #1a1a1a"]:not(.pl-artwork, .pl-artwork *) {
+  color: var(--text-primary) !important;
+}
+
+.store-dashboard-main [style*="color: rgb(100, 116, 139)"]:not(.pl-artwork, .pl-artwork *),
+.store-dashboard-main [style*="color: rgb(102, 102, 102)"]:not(.pl-artwork, .pl-artwork *),
+.store-dashboard-main [style*="color: rgb(113, 113, 122)"]:not(.pl-artwork, .pl-artwork *),
+.store-dashboard-main [style*="color: rgb(116, 116, 116)"]:not(.pl-artwork, .pl-artwork *),
+.store-dashboard-main [style*="color: rgb(148, 163, 184)"]:not(.pl-artwork, .pl-artwork *),
+.store-dashboard-main [style*="color: rgb(71, 85, 105)"]:not(.pl-artwork, .pl-artwork *),
+.store-dashboard-main [style*="color: rgb(51, 65, 85)"]:not(.pl-artwork, .pl-artwork *),
+.store-dashboard-main [style*="color: rgb(85, 85, 85)"]:not(.pl-artwork, .pl-artwork *),
+.store-dashboard-main [style*="color: #64748b"]:not(.pl-artwork, .pl-artwork *),
+.store-dashboard-main [style*="color: #666"]:not(.pl-artwork, .pl-artwork *),
+.store-dashboard-main [style*="color: #71717A"]:not(.pl-artwork, .pl-artwork *) {
+  color: var(--text-secondary) !important;
+}
+
+.store-dashboard-main [style*="color: rgb(6, 95, 70)"]:not(.pl-artwork, .pl-artwork *),
+.store-dashboard-main [style*="color: rgb(5, 150, 105)"]:not(.pl-artwork, .pl-artwork *) {
+  color: var(--accent-primary) !important;
+}
+
+.store-dashboard-main [style*="border: 1px solid rgba(0, 0, 0"]:not(.pl-artwork, .pl-artwork *),
+.store-dashboard-main [style*="border: 1px solid rgb(220, 220, 220)"]:not(.pl-artwork, .pl-artwork *),
+.store-dashboard-main [style*="border: 1px solid rgb(226, 232, 240)"]:not(.pl-artwork, .pl-artwork *),
+.store-dashboard-main [style*="border: 1px solid rgb(119, 119, 119)"]:not(.pl-artwork, .pl-artwork *),
+.store-dashboard-main [style*="border-bottom: 1px solid rgba(0, 0, 0"]:not(.pl-artwork, .pl-artwork *),
+.store-dashboard-main [style*="border-bottom: 1px solid rgb(226, 232, 240)"]:not(.pl-artwork, .pl-artwork *),
+.store-dashboard-main [style*="border-top: 1px solid rgba(0, 0, 0"]:not(.pl-artwork, .pl-artwork *) {
+  border-color: var(--border-card) !important;
+}
+
+.store-dashboard-main [style*="2px solid rgb(26, 26, 26)"]:not(.pl-artwork, .pl-artwork *),
+.store-dashboard-main [style*="2px solid #1a1a1a"]:not(.pl-artwork, .pl-artwork *) {
+  border-color: var(--border-active) !important;
+}
+
+.store-dashboard-main button[style*="background-color: rgb(17, 17, 17)"]:not(.pl-artwork, .pl-artwork *),
+.store-dashboard-main button[style*="background-color: #111"]:not(.pl-artwork, .pl-artwork *) {
+  background-color: var(--accent-primary) !important;
+  color: var(--toggle-thumb) !important;
+  border-color: transparent !important;
+}
+
+.store-dashboard-main button[style*="background-color: rgb(17, 17, 17)"]:hover:not(.pl-artwork, .pl-artwork *),
+.store-dashboard-main button[style*="background-color: #111"]:hover:not(.pl-artwork, .pl-artwork *) {
+  background-color: var(--accent-primary-hover) !important;
+}
+
+.store-dashboard-main .pl-knob {
+  background-color: var(--toggle-thumb) !important;
+  box-shadow: var(--toggle-thumb-shadow);
+}
+
+.store-dashboard-main .order-view-toggle-btn,
+.store-dashboard-main .shipping-details-card,
+.store-dashboard-main .order-details-drawer-row {
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  border-color: var(--border-card);
+}
+
+.store-dashboard-main .order-view-toggle-btn:hover {
+  background: var(--bg-surface-hover);
+  border-color: var(--border-active);
+  color: var(--text-primary);
+}
+
+.store-dashboard-main .details-box-title,
+.store-dashboard-main .shipping-detail-col .value-text {
+  color: var(--text-primary);
+}
+
+.store-dashboard-main .shipping-detail-col .label-heading,
+.store-dashboard-main .no-records-row {
+  color: var(--text-secondary);
+}
+
+.store-dashboard-main .order-details-wrapper {
+  border-bottom-color: var(--border-card);
+}

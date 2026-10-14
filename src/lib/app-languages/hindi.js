@@ -12,6 +12,12 @@ export const hindiAppStrings = {
     'Pipeline / Leads': 'पाइपलाइन / लीड्स',
     'Studio Calendar': 'स्टूडियो कैलेंडर',
     Apps: 'ऐप्स',
+    Orders: 'ऑर्डर',
+    'Price List': 'प्राइस लिस्ट',
+    Products: 'प्रोडक्ट्स',
+    'Digital Download': 'डिजिटल डाउनलोड',
+    Vault: 'वॉल्ट',
+    Sales: 'सेल्स',
   },
   sections: {
     work: 'काम',

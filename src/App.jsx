@@ -372,7 +372,7 @@ function App() {
             <Route path="usage" element={<AdminUsageManagement />} />
           </Route>
           <Route path="/printstore" element={<ErrorBoundary><PrintStoreApp /></ErrorBoundary>} />
-          <Route path="/store/orders" element={<ProtectedRoute><StoreDashboard /></ProtectedRoute>} />
+          <Route path="/store/*" element={<ProtectedRoute><StoreDashboard /></ProtectedRoute>} />
           <Route path="/lab/*" element={<LabApp />} />
           <Route path="/photographer" element={<PhotographerApp />} />
           <Route path="/dev/rekognition" element={<ProtectedRoute><RekognitionTest /></ProtectedRoute>} />

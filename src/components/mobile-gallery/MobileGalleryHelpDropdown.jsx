@@ -83,10 +83,7 @@ const MobileGalleryHelpDropdown = ({ open, onToggle, onClose, triggerClassName =
                   key={article.id}
                   type="button"
                   className="mg-help-article"
-                  onClick={() => {
-                    onClose();
-                    window.open('https://help.pixieset.com/', '_blank', 'noopener,noreferrer');
-                  }}
+                  onClick={onClose}
                 >
                   <span className="mg-help-article-title">{article.title}</span>
                   <span className="mg-help-article-desc">{article.description}</span>
@@ -94,16 +91,6 @@ const MobileGalleryHelpDropdown = ({ open, onToggle, onClose, triggerClassName =
               ))
             )}
           </div>
-          <button
-            type="button"
-            className="mg-help-browse"
-            onClick={() => {
-              onClose();
-              window.open('https://help.pixieset.com/', '_blank', 'noopener,noreferrer');
-            }}
-          >
-            Browse Help Center
-          </button>
           <div className="mg-help-footer">
             <button
               type="button"

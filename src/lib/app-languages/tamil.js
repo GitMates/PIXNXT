@@ -12,6 +12,12 @@ export const tamilAppStrings = {
     'Pipeline / Leads': 'பைப்லைன் / லீடுகள்',
     'Studio Calendar': 'ஸ்டூடியோ காலண்டர்',
     Apps: 'ஆப்ஸ்',
+    Orders: 'ஆர்டர்கள்',
+    'Price List': 'விலை பட்டியல்',
+    Products: 'தயாரிப்புகள்',
+    'Digital Download': 'டிஜிட்டல் பதிவிறக்கம்',
+    Vault: 'வால்ட்',
+    Sales: 'விற்பனை',
   },
   sections: {
     work: 'பணி',

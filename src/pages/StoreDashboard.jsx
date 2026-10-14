@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useLocation } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { galleryService } from '../services/gallery.service';
 import { storageService } from '../services/storage.service';
@@ -19,13 +19,9 @@ import {
   persistSalesCampaignsLocally,
   SALES_CAMPAIGNS_STORAGE_KEY,
 } from '../lib/salesCampaignBanner';
-import {
-  ShoppingBag, Settings, ChevronDown, ChevronUp,
-  LogOut, User, Gift, DollarSign, Package, ChevronLeft, ChevronRight, Eye, Mail, Phone,
-  Search, Bell, Home, PanelLeftClose, PanelLeftOpen, Layers, ToggleLeft, ToggleRight
-} from 'lucide-react';
-import helpPng from '../assets/icons/help.png';
-import notificationPng from '../assets/icons/notification.png';
+import { Search } from 'lucide-react';
+import SidebarLayout from '../components/SidebarLayout';
+import { STUDIO_NOTIFICATION_SOURCES } from '../services/studioNotifications';
 import StorePurchaseTable, { DIGITAL_CATALOG_PRODUCT_TYPES } from '../components/store/StorePurchaseTable';
 import {
   STORE_PACKAGE_CATEGORIES,
@@ -39,6 +35,7 @@ import {
 import { broadcastGalleryLive } from '../lib/galleryLiveSync';
 import './Dashboard.css';
 import '../printstore/PrintStore.css';
+import '../printstore/storeDashboardTheme.css';
 import '../styles/clientGalleryTheme.css';
 
 // Module-level caching to prevent loading indicators when navigating routes
@@ -48,13 +45,18 @@ let cachedCollections = null;
 let cachedPhotos = null;
 let cachedProducts = null;
 
+function printLabTabFromPath(pathname) {
+  if (pathname.startsWith('/store/pricing')) return 'pricing';
+  if (pathname.startsWith('/store/products')) return 'products';
+  if (pathname.startsWith('/store/digital')) return 'digital_downloads';
+  if (pathname.startsWith('/store/vault')) return 'settings';
+  if (pathname.startsWith('/store/sales')) return 'sales';
+  return 'orders';
+}
+
 export default function StoreDashboard() {
   const { user } = useAuth();
-  const navigate = useNavigate();
-
-  const [profile, setProfile] = useState(null);
-  const [profileOpen, setProfileOpen] = useState(false);
-  const profileRef = useRef(null);
+  const location = useLocation();
 
   const [orders, setOrders] = useState(() => cachedOrders || []);
   const [orderItems, setOrderItems] = useState(() => cachedOrderItems || []);
@@ -64,9 +66,7 @@ export default function StoreDashboard() {
 
   const [expandedOrderId, setExpandedOrderId] = useState(null);
 
-  // View tabs
-  const [activeViewTab, setActiveViewTab] = useState('orders');
-  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const activeViewTab = printLabTabFromPath(location.pathname);
 
   // Pricing State
   const [products, setProducts] = useState(() => cachedProducts || []);
@@ -608,27 +608,12 @@ export default function StoreDashboard() {
   const [globalSearch, setGlobalSearch] = useState('');
   const [productStatusFilter, setProductStatusFilter] = useState('all');
 
-  // Load profile
   useEffect(() => {
-    // Clear page caching when user logs out or changes
     cachedOrders = null;
     cachedOrderItems = null;
     cachedCollections = null;
     cachedPhotos = null;
     cachedProducts = null;
-
-    async function loadProfile() {
-      if (!user) return;
-      try {
-        // GET /v1/me/profile — full photographers row (branding/settings).
-        const { apiFetch } = await import('../lib/api/client');
-        const data = await apiFetch('/v1/me/profile').catch(() => null);
-        if (data?.profile) setProfile(data.profile);
-      } catch (e) {
-        console.error("Error loading profile:", e);
-      }
-    }
-    loadProfile();
   }, [user]);
 
   // Load all data from database
@@ -1347,17 +1332,6 @@ export default function StoreDashboard() {
     }
   };
 
-  // Close profile dropdown on outside click
-  useEffect(() => {
-    function handleClickOutside(event) {
-      if (profileRef.current && !profileRef.current.contains(event.target)) {
-        setProfileOpen(false);
-      }
-    }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
-
   // Map photo ID → Collection name
   const photoToCollectionMap = useMemo(() => {
     const map = {};
@@ -1555,14 +1529,6 @@ export default function StoreDashboard() {
 
   const toggleRow = (orderId) => {
     setExpandedOrderId(expandedOrderId === orderId ? null : orderId);
-  };
-
-  const handleLogout = async () => {
-    // auth.service signOut goes to the Workers backend.
-    const { signOut } = await import('../services/auth.service');
-    await signOut().catch(() => {});
-    localStorage.removeItem('pixnxt_session');
-    navigate('/auth');
   };
 
   // Format date and time from created_at
@@ -1782,159 +1748,10 @@ export default function StoreDashboard() {
   };
 
   return (
-    <div className="store-dashboard-wrapper theme-mono">
-      {/* Top Navbar — same as client gallery / Dashboard */}
-      <nav className="dash-navbar" style={{ position: 'fixed', top: 0, left: 0, right: 0, zIndex: 1000 }}>
-        <div className="dash-navbar-left">
-          <Link to="/dashboard" className="dash-logo">PIXNXT</Link>
-        </div>
-
-        <div className="dash-navbar-right">
-          {/* Icons removed per user request: Help and Notifications */}
-
-          <div className="dash-profile-wrapper" ref={profileRef}>
-            <button
-              className="dash-profile-btn"
-              onClick={() => setProfileOpen(!profileOpen)}
-              title="Profile"
-            >
-              {profile?.display_name?.charAt(0).toUpperCase() || user?.email?.charAt(0).toUpperCase() || 'U'}
-            </button>
-
-            {profileOpen && (
-              <div className="dash-profile-dropdown">
-                <div className="dash-dropdown-header">
-                  <div className="dash-dropdown-avatar">
-                    {profile?.display_name?.charAt(0).toUpperCase() || user?.email?.charAt(0).toUpperCase() || 'U'}
-                  </div>
-                  <div className="dash-dropdown-user-info">
-                    <h4>{profile?.display_name || 'Photographer'}</h4>
-                    <p>{user?.email || 'No email'}</p>
-                  </div>
-                </div>
-                <div className="dash-dropdown-items">
-                  <button className="dash-dropdown-item" style={{ borderRadius: '4px' }}>
-                    <Gift size={16} style={{ marginRight: '8px' }} /> Refer a studio
-                  </button>
-                  <div className="dash-dropdown-divider" />
-                  <button className="dash-dropdown-item" onClick={() => navigate('/settings')} style={{ borderRadius: '4px' }}>
-                    <User size={16} style={{ marginRight: '8px' }} /> Profile
-                  </button>
-                  <button className="dash-dropdown-item" onClick={handleLogout} style={{ borderRadius: '4px' }}>
-                    <LogOut size={16} style={{ marginRight: '8px' }} /> Logout
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      </nav>
-
-      {/* Main Layout */}
-      <div className="store-dashboard-layout" style={{ marginTop: '76px' }}>
-        {/* Sidebar — client gallery dark theme */}
-        <aside
-          className="store-dashboard-sidebar"
-          style={{ width: isSidebarCollapsed ? '64px' : '240px', transition: 'width 0.25s ease' }}
-        >
-          {!isSidebarCollapsed && (
-            <div className="sidebar-header-title" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', borderBottom: '1px solid #e0e0e0', paddingBottom: '20px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <ShoppingBag size={18} />
-                <span>Store Manager</span>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <button
-                  type="button"
-                  className="neu-circle relative inline-flex size-8 items-center justify-center rounded-full text-[#71717A] hover:text-[#1A1A1A]"
-                  style={{
-                    width: '32px',
-                    height: '32px',
-                    borderRadius: '50%',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    border: 'none',
-                    cursor: 'pointer',
-                    position: 'relative'
-                  }}
-                  title="Notifications"
-                >
-                  <Bell size={16} />
-                  <span style={{ position: 'absolute', right: '8px', top: '8px', width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#1A1A1A' }} />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => navigate('/dashboard')}
-                  className="neu-circle inline-flex size-8 items-center justify-center rounded-full text-[#71717A] hover:text-[#1A1A1A]"
-                  style={{
-                    width: '32px',
-                    height: '32px',
-                    borderRadius: '50%',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    border: 'none',
-                    cursor: 'pointer'
-                  }}
-                  title="Home"
-                >
-                  <Home size={16} />
-                </button>
-              </div>
-            </div>
-          )}
-          <ul className="sidebar-menu" style={isSidebarCollapsed ? { alignItems: 'center', paddingLeft: 0, paddingRight: 0 } : {}}>
-            <li className={activeViewTab === 'orders' ? 'active' : ''}>
-              <Link to="#" onClick={(e) => { e.preventDefault(); setActiveViewTab('orders'); }} title="Orders" style={isSidebarCollapsed ? { justifyContent: 'center', paddingLeft: '0', paddingRight: '0' } : {}}>
-                <Package size={18} />
-                {!isSidebarCollapsed && <span>Orders</span>}
-              </Link>
-            </li>
-            <li className={activeViewTab === 'pricing' ? 'active' : ''}>
-              <Link to="#" onClick={(e) => { e.preventDefault(); setActiveViewTab('pricing'); }} title="Price List" style={isSidebarCollapsed ? { justifyContent: 'center', paddingLeft: '0', paddingRight: '0' } : {}}>
-                <DollarSign size={18} />
-                {!isSidebarCollapsed && <span>Price List</span>}
-              </Link>
-            </li>
-            <li className={activeViewTab === 'products' ? 'active' : ''}>
-              <Link to="#" onClick={(e) => { e.preventDefault(); setActiveViewTab('products'); }} title="Products" style={isSidebarCollapsed ? { justifyContent: 'center', paddingLeft: '0', paddingRight: '0' } : {}}>
-                <Layers size={18} />
-                {!isSidebarCollapsed && <span>Products</span>}
-              </Link>
-            </li>
-            <li className={activeViewTab === 'digital_downloads' ? 'active' : ''}>
-              <Link to="#" onClick={(e) => { e.preventDefault(); setActiveViewTab('digital_downloads'); }} title="Digital Downloads" style={isSidebarCollapsed ? { justifyContent: 'center', paddingLeft: '0', paddingRight: '0' } : {}}>
-                <ShoppingBag size={18} />
-                {!isSidebarCollapsed && <span>Digital Download</span>}
-              </Link>
-            </li>
-            <li className={activeViewTab === 'settings' ? 'active' : ''}>
-              <Link to="#" onClick={(e) => { e.preventDefault(); setActiveViewTab('settings'); }} title="Vault" style={isSidebarCollapsed ? { justifyContent: 'center', paddingLeft: '0', paddingRight: '0' } : {}}>
-                <Settings size={18} />
-                {!isSidebarCollapsed && <span>Vault</span>}
-              </Link>
-            </li>
-            <li className={activeViewTab === 'sales' ? 'active' : ''}>
-              <Link to="#" onClick={(e) => { e.preventDefault(); setActiveViewTab('sales'); }} title="Sales" style={isSidebarCollapsed ? { justifyContent: 'center', paddingLeft: '0', paddingRight: '0' } : {}}>
-                <Gift size={18} />
-                {!isSidebarCollapsed && <span>Sales</span>}
-              </Link>
-            </li>
-          </ul>
-          <div className="store-dashboard-sidebar-footer">
-            <button
-              type="button"
-              className="store-dashboard-sidebar-toggle"
-              onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-              title={isSidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-            >
-              {isSidebarCollapsed ? <PanelLeftOpen size={16} /> : <PanelLeftClose size={16} />}
-            </button>
-          </div>
-        </aside>
-
-        {/* Content Area */}
+    <SidebarLayout
+      productId="print-lab"
+      notificationSources={[STUDIO_NOTIFICATION_SOURCES.PRINT_LAB]}
+    >
         <main className="store-dashboard-main">
           {activeViewTab === 'orders' ? (
             <div className="store-dashboard-content">
@@ -2515,7 +2332,7 @@ export default function StoreDashboard() {
                         </div>
 
                         {/* Visual Frame */}
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '120px', width: '100%' }}>
+                        <div className="pl-artwork" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '120px', width: '100%' }}>
                           {renderCardFrame()}
                         </div>
 
@@ -2867,17 +2684,17 @@ export default function StoreDashboard() {
                           border: 'none',
                           cursor: 'pointer',
                           position: 'relative',
-                          backgroundColor: globalDigitalEnabled ? '#059669' : '#cbd5e1',
+                          backgroundColor: globalDigitalEnabled ? 'var(--toggle-track-on)' : 'var(--toggle-track-off)',
                           transition: 'background-color 0.3s ease',
                           padding: 0,
                           flexShrink: 0
                         }}
                       >
-                        <div style={{
+                        <div className="pl-knob" style={{
                           width: '22px',
                           height: '22px',
                           borderRadius: '50%',
-                          backgroundColor: '#fff',
+                          backgroundColor: 'var(--toggle-thumb)',
                           boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
                           position: 'absolute',
                           top: '3px',
@@ -3214,18 +3031,18 @@ export default function StoreDashboard() {
                         border: 'none',
                         cursor: 'pointer',
                         position: 'relative',
-                        backgroundColor: p.is_visible ? '#059669' : '#cbd5e1',
+                        backgroundColor: p.is_visible ? 'var(--toggle-track-on)' : 'var(--toggle-track-off)',
                         transition: 'background-color 0.3s ease',
                         padding: 0,
                         flexShrink: 0
                       }}
                       title={p.is_visible ? 'Click to hide from Print Lab' : 'Click to show in Print Lab'}
                     >
-                      <div style={{
+                      <div className="pl-knob" style={{
                         width: '22px',
                         height: '22px',
                         borderRadius: '50%',
-                        backgroundColor: '#fff',
+                        backgroundColor: 'var(--toggle-thumb)',
                         boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
                         position: 'absolute',
                         top: '3px',
@@ -3421,7 +3238,7 @@ export default function StoreDashboard() {
                         </div>
 
                         {/* Banner preview grid */}
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '20px', flexWrap: 'wrap', flex: 1, justifyContent: 'flex-end' }}>
+                        <div className="pl-artwork" style={{ display: 'flex', alignItems: 'center', gap: '20px', flexWrap: 'wrap', flex: 1, justifyContent: 'flex-end' }}>
                           {[
                             {
                               key: 'text_banner',
@@ -3596,7 +3413,7 @@ export default function StoreDashboard() {
                         </div>
 
                         {/* Email / WhatsApp preview grid */}
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '20px', flexWrap: 'wrap', flex: 1, justifyContent: 'flex-end' }}>
+                        <div className="pl-artwork" style={{ display: 'flex', alignItems: 'center', gap: '20px', flexWrap: 'wrap', flex: 1, justifyContent: 'flex-end' }}>
                           {[
                             { key: 'announcement', label: 'Announcement' },
                             { key: 'reminder_1w', label: 'Reminder 1 Week' },
@@ -5294,7 +5111,7 @@ export default function StoreDashboard() {
 
                           {activeModal === 'edit_email' && previewChannel === 'email' ? (
                             /* ─── EMAIL LIVE PREVIEW ─── */
-                            <div style={{ width: '100%', display: 'flex', justifyContent: 'center' }}>
+                            <div className="pl-artwork" style={{ width: '100%', display: 'flex', justifyContent: 'center' }}>
                               <div style={{
                                 width: '100%',
                                 maxWidth: '520px',
@@ -5430,7 +5247,7 @@ export default function StoreDashboard() {
                             </div>
                           ) : activeModal === 'edit_email' && previewChannel === 'whatsapp' ? (
                             /* ─── WHATSAPP LIVE PREVIEW (SMARTPHONE VIEW) ─── */
-                            <div style={{ width: '100%', display: 'flex', justifyContent: 'center' }}>
+                            <div className="pl-artwork" style={{ width: '100%', display: 'flex', justifyContent: 'center' }}>
                               <div style={{
                                 width: '300px',
                                 height: '510px',
@@ -5543,7 +5360,7 @@ export default function StoreDashboard() {
                           ) : (
                             /* ─── BANNER LIVE PREVIEWS ─── */
                             <>
-                              <div style={{ width: '100%', display: 'flex', justifyContent: 'center' }}>
+                              <div className="pl-artwork" style={{ width: '100%', display: 'flex', justifyContent: 'center' }}>
                                 <div style={{ width: '100%', maxWidth: '520px', border: '1px solid #dcdcdc', borderRadius: '2px', overflow: 'hidden', backgroundColor: '#fff', boxSizing: 'border-box', position: 'relative' }}>
                                   {/* Browser bar */}
                                   <div style={{ height: '32px', backgroundColor: '#fafafa', display: 'flex', alignItems: 'center', padding: '0 16px', justifyContent: 'space-between', borderBottom: '1px solid #eaeaea' }}>
@@ -6135,7 +5952,7 @@ export default function StoreDashboard() {
                 <div style={{ backgroundColor: '#fff', padding: '32px', borderRadius: '12px', border: '1px solid rgba(0,0,0,0.06)', boxShadow: '0 2px 8px rgba(0,0,0,0.01)' }}>
                   <div style={{ borderBottom: '1px solid rgba(0,0,0,0.08)', paddingBottom: '16px', marginBottom: '24px' }}>
                     <h3 style={{ margin: '0 0 4px 0', fontSize: '16px', fontWeight: 700, color: '#111' }}>Permanent Vault & Extension Plans</h3>
-                    <p style={{ margin: 0, fontSize: '13px', color: '#64748b' }}>Allow gallery visitors to pay to extend gallery access or unlock permanent lifetime storage (inspired by Pic-Time).</p>
+                    <p style={{ margin: 0, fontSize: '13px', color: '#64748b' }}>Allow gallery visitors to pay to extend gallery access or unlock permanent lifetime storage.</p>
                   </div>
 
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
@@ -6150,17 +5967,17 @@ export default function StoreDashboard() {
                           border: 'none',
                           cursor: 'pointer',
                           position: 'relative',
-                          backgroundColor: globalVaultEnabled ? '#059669' : '#cbd5e1',
+                          backgroundColor: globalVaultEnabled ? 'var(--toggle-track-on)' : 'var(--toggle-track-off)',
                           transition: 'background-color 0.3s ease',
                           padding: 0,
                           flexShrink: 0
                         }}
                       >
-                        <div style={{
+                        <div className="pl-knob" style={{
                           width: '22px',
                           height: '22px',
                           borderRadius: '50%',
-                          backgroundColor: '#fff',
+                          backgroundColor: 'var(--toggle-thumb)',
                           boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
                           position: 'absolute',
                           top: '3px',
@@ -6294,7 +6111,9 @@ export default function StoreDashboard() {
                 {expandedBannerPreview.key !== 'photo_banner' && expandedBannerPreview.key !== 'store_rotator' && (
                   <div style={{ marginBottom: '28px' }}>
                     <div style={{ fontSize: '9px', fontWeight: 700, color: '#b5b5b5', letterSpacing: '0.08em', marginBottom: '8px', textTransform: 'uppercase', fontFamily: "var(--font-sans)" }}>Desktop View</div>
-                    {renderHighFidelityBanner(expandedBannerPreview.key, expandedBannerPreview.banner, false)}
+                    <div className="pl-artwork">
+                      {renderHighFidelityBanner(expandedBannerPreview.key, expandedBannerPreview.banner, false)}
+                    </div>
                   </div>
                 )}
 
@@ -6305,7 +6124,9 @@ export default function StoreDashboard() {
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'center' }}>
                     <div style={{ width: expandedBannerPreview.key === 'text_banner' ? '100%' : '320px', border: '1px solid #ddd', borderRadius: '0px', overflow: 'hidden' }}>
+                    <div className="pl-artwork">
                       {renderHighFidelityBanner(expandedBannerPreview.key, expandedBannerPreview.banner, true)}
+                    </div>
                     </div>
                   </div>
                 </div>
@@ -6314,7 +6135,6 @@ export default function StoreDashboard() {
           </div>
         )}
         </main>
-      </div>
-    </div>
+    </SidebarLayout>
   );
 }

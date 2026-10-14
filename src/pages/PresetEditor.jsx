@@ -883,7 +883,7 @@ export default function PresetEditor() {
                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
                     <span>Activate Store</span>
                   </div>
-                  <p>Setup Pixieset Store to start selling prints, digital downloads, and more directly from your deliveries.</p>
+                  <p>Set up Print Lab to start selling prints, digital downloads, and more directly from your deliveries.</p>
                   <button className="action-link" style={{ fontSize: '14px', marginTop: '4px' }}>Get Started</button>
                 </div>
               </div>

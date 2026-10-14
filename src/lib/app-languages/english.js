@@ -12,6 +12,12 @@ export const englishAppStrings = {
     'Pipeline / Leads': 'Pipeline / Leads',
     'Studio Calendar': 'Studio Calendar',
     Apps: 'Apps',
+    Orders: 'Orders',
+    'Price List': 'Price List',
+    Products: 'Products',
+    'Digital Download': 'Digital Download',
+    Vault: 'Vault',
+    Sales: 'Sales',
   },
   sections: {
     work: 'Work',

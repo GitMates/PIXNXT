@@ -64,15 +64,7 @@ export const ClientExclusiveAccessSettings: React.FC<ClientExclusiveAccessSettin
           </div>
         </div>
         <p className="settings-desc small">
-          Give clients exclusive access to sets and the ability to mark photos private.{' '}
-          <a
-            className="settings-link"
-            href="https://galleries.pixieset.com/collections/114473140/settings/privacy"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Learn more
-          </a>
+          Give clients exclusive access to sets and the ability to mark photos private.
         </p>
       </div>
 

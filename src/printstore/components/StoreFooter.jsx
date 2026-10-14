@@ -23,7 +23,7 @@ export default function StoreFooter({ photographer }) {
 
       {/* Links Row */}
       <div className="footer-links-row">
-        <span>Powered by Pic-Time</span>
+        <span>Powered by PIXNXT</span>
         <a href="#terms" className="footer-link" onClick={(e) => { e.preventDefault(); alert("Terms of Service (Mock Link)"); }}>
           Terms of Service
         </a>
