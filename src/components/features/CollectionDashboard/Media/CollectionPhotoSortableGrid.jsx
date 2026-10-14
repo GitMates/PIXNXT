@@ -382,14 +382,13 @@ export default function CollectionPhotoSortableGrid({
             if (!isDraggable?.(index, displayPhotos[index])) return;
             if (e.button !== 0) return;
             if (e.target.closest(INTERACTIVE_SELECTOR)) return;
-            // Plain drag draws a selection box on the grid. Alt-drag still reorders.
-            if (!e.altKey) return;
+            // Grabbing a photo reorders it. Empty-grid drags still draw the selection box.
+            e.stopPropagation();
 
             const wrap = wrapRefs.current[index];
             if (!wrap) return;
 
-            // Do not preventDefault/stopPropagation here — that suppresses the click
-            // used by cd-photo-card to toggle selection. Capture starts after drag threshold.
+            // Do not preventDefault — that would cancel the click used to select a photo.
             dragMovedRef.current = false;
 
             const scroller = getScrollParent(mergedGridRef.current);

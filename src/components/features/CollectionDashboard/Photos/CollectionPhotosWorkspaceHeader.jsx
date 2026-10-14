@@ -64,6 +64,7 @@ export function CollectionPhotosWorkspaceHeader({
   onSearchQueryChange,
   sortField,
   sortReverse,
+  manualOrder = false,
   onSortFieldChange,
   onSortReverseChange,
   showFilename,
@@ -106,7 +107,7 @@ export function CollectionPhotosWorkspaceHeader({
     indexedCount > 0 ||
     people.length > 0 ||
     Boolean(selfiePreview);
-  const sortTriggerLabel = sortFieldLabel(sortField);
+  const sortTriggerLabel = manualOrder ? 'Custom' : sortFieldLabel(sortField);
 
   return (
     <div className="cdpw">
@@ -180,7 +181,7 @@ export function CollectionPhotosWorkspaceHeader({
               {PHOTO_SORT_FIELDS.map((option) => (
                 <SortRadio
                   key={option.id}
-                  checked={sortField === option.id}
+                  checked={!manualOrder && sortField === option.id}
                   label={option.label}
                   onSelect={() => onSortFieldChange(option.id)}
                 />

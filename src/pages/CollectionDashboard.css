@@ -1388,7 +1388,7 @@
 }
 
 .cd-photo-sortable-wrap--draggable {
-    cursor: default;
+    cursor: grab;
 }
 
 .cd-media-sections--selecting,

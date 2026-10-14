@@ -564,7 +564,7 @@ const CollectionDashboard = () => {
 
     const handleMarqueePointerDown = (e) => {
         if (e.button !== 0 || e.altKey) return;
-        if (e.target.closest?.('button, a, input, label, .cd-photo-more-btn, .cd-photo-star, .cd-photo-check, .cd-photo-hover-tools, .cd-photo-menu')) {
+        if (e.target.closest?.('button, a, input, label, .cd-photo-card, .cd-photo-sortable-wrap, .cd-photo-more-btn, .cd-photo-star, .cd-photo-check, .cd-photo-hover-tools, .cd-photo-menu')) {
             return;
         }
         const scroller = mediaSectionsRef.current?.closest('.cd-main-area') || null;
@@ -663,6 +663,10 @@ const CollectionDashboard = () => {
     const [deleteDeliveryBusy, setDeleteDeliveryBusy] = useState(false);
     const [showRenameDeliveryModal, setShowRenameDeliveryModal] = useState(false);
     const [renameDeliveryName, setRenameDeliveryName] = useState('');
+    const [editingDeliveryName, setEditingDeliveryName] = useState(false);
+    const [deliveryNameDraft, setDeliveryNameDraft] = useState('');
+    const deliveryNameInputRef = useRef(null);
+    const skipDeliveryNameCommitRef = useRef(false);
     const [showArchiveConfirmModal, setShowArchiveConfirmModal] = useState(false);
     // SET STATES
     const [sets, setSets] = useState([]);
@@ -1608,6 +1612,10 @@ const CollectionDashboard = () => {
             navigation: 'icon',
         },
     });
+    const sortOptionRef = useRef(sortOption);
+    const collectionDesignRef = useRef(collection?.design_options ?? null);
+    sortOptionRef.current = sortOption;
+    collectionDesignRef.current = collection?.design_options ?? null;
     const favoriteActivitySortMenuRef = useRef(null);
 
 
@@ -2986,7 +2994,9 @@ const CollectionDashboard = () => {
                         }
                         : fromDb));
 
-                const normalizedSort = normalizeGalleryPhotoSort(data.gallery_photo_sort);
+                const normalizedSort = normalizeGalleryPhotoSort(
+                    data.design_options?.gallery_photo_sort ?? data.gallery_photo_sort
+                );
                 setSortOption(normalizedSort);
                 const sortUi = optionToSortUi(normalizedSort);
                 if (sortUi) {
@@ -4099,7 +4109,12 @@ const CollectionDashboard = () => {
             nav: gridSettings.navigation,
             slideshow: slideshow ? '1' : '0',
             socialSharing: socialSharing ? '1' : '0',
+            sort: sortOption,
         });
+        const orderIds = sortedPhotos
+            .filter((photo) => photo?.id && !photo._uploadPending)
+            .map((photo) => photo.id);
+        if (orderIds.length) params.set('order', orderIds.join(','));
         const galleryUrl = getCollectionShareUrl(collectionUrl, profile);
         const joiner = galleryUrl.includes('?') ? '&' : '?';
         window.open(`${galleryUrl}${joiner}${params.toString()}`, '_blank', 'noopener,noreferrer');
@@ -4113,6 +4128,8 @@ const CollectionDashboard = () => {
         gridSettings.navigation,
         slideshow,
         socialSharing,
+        sortOption,
+        sortedPhotos,
         collectionUrl,
         profile,
     ]);
@@ -4658,21 +4675,87 @@ const CollectionDashboard = () => {
                 await Promise.all(
                     realPhotos.map((p, index) => galleryService.updatePhoto(p.id, { position: index }))
                 );
-                if (collection?.gallery_photo_sort !== 'custom') {
-                    await galleryService.updateCollection(collectionId, { gallery_photo_sort: 'custom' });
-                }
+                const setKey = activeSetId || 'highlights';
+                const orderedIds = realPhotos.map((photo) => photo.id);
+                const design_options = {
+                    ...(collectionDesignRef.current && typeof collectionDesignRef.current === 'object' ? collectionDesignRef.current : {}),
+                    gallery_photo_sort: 'custom',
+                    photo_order: {
+                        ...((collectionDesignRef.current && collectionDesignRef.current.photo_order) || {}),
+                        [setKey]: orderedIds,
+                    },
+                };
+                await galleryService.updateCollection(collectionId, {
+                    gallery_photo_sort: 'custom',
+                    design_options,
+                });
+                setCollection((prev) => (
+                    prev ? { ...prev, gallery_photo_sort: 'custom', design_options } : prev
+                ));
+                collectionDesignRef.current = design_options;
+                broadcastGalleryLive({
+                    type: 'SETTINGS_UPDATED',
+                    collectionId,
+                    slug: collectionUrl,
+                    settings: { gallery_photo_sort: 'custom', design_options },
+                });
+                broadcastGalleryLive({
+                    type: 'MEDIA_UPDATED',
+                    collectionId,
+                    slug: collectionUrl,
+                });
             } catch (err) {
                 console.error('Grid reorder failed:', err);
                 alert('Failed to reorder photos.');
             }
         },
-        [collection?.gallery_photo_sort, collectionId, gridPhotos, sortOption, sortedPhotos]
+        [collectionId, collectionUrl, gridPhotos, sortOption, sortedPhotos, activeSetId]
     );
 
     const isGridPhotoDraggable = useCallback(
-        (_index, photo) => Boolean(photo && !photo._uploadPending && !isPhotoAiFilterActive),
-        [isPhotoAiFilterActive]
+        (_index, photo) => Boolean(
+            photo
+            && !photo._uploadPending
+            && !isPhotoAiFilterActive
+            && !photoSearchQuery.trim()
+        ),
+        [isPhotoAiFilterActive, photoSearchQuery]
     );
+
+    const beginDeliveryNameEdit = () => {
+        skipDeliveryNameCommitRef.current = false;
+        setDeliveryNameDraft(collection?.name || '');
+        setEditingDeliveryName(true);
+    };
+
+    const commitDeliveryName = async () => {
+        if (skipDeliveryNameCommitRef.current) {
+            skipDeliveryNameCommitRef.current = false;
+            setEditingDeliveryName(false);
+            return;
+        }
+        const next = deliveryNameDraft.trim();
+        const previous = collection?.name || '';
+        setEditingDeliveryName(false);
+        if (!next || next === previous) return;
+        setCollection((prev) => (prev ? { ...prev, name: next } : prev));
+        try {
+            const saved = await galleryService.updateCollection(collectionId, { name: next });
+            if (saved) {
+                setCollection((prev) => (prev ? { ...prev, ...saved, name: saved.name || next } : prev));
+            }
+            broadcastGalleryLive({
+                type: 'SETTINGS_UPDATED',
+                collectionId,
+                slug: collectionUrl,
+                settings: { name: next },
+            });
+        } catch (err) {
+            console.error('Rename delivery failed:', err);
+            setCollection((prev) => (prev ? { ...prev, name: previous } : prev));
+            alert('Failed to rename delivery.');
+        }
+    };
 
     // Auto-save design settings (cover, type, palette, grid) to deliveries.
     useEffect(() => {
@@ -4699,6 +4782,12 @@ const CollectionDashboard = () => {
             colorPalette: selectedColorPalette,
             grid: gridSettings,
         });
+        patch.gallery_photo_sort = sortOptionRef.current;
+        patch.design_options = {
+            ...(collectionDesignRef.current && typeof collectionDesignRef.current === 'object' ? collectionDesignRef.current : {}),
+            ...(patch.design_options || {}),
+            gallery_photo_sort: sortOptionRef.current,
+        };
         setCollection((prev) => {
             if (!prev) return prev;
             return {
@@ -4759,6 +4848,12 @@ const CollectionDashboard = () => {
                 colorPalette: snapshot.selectedColorPalette,
                 grid: snapshot.gridSettings,
             });
+            patch.gallery_photo_sort = sortOptionRef.current;
+            patch.design_options = {
+                ...(collectionDesignRef.current && typeof collectionDesignRef.current === 'object' ? collectionDesignRef.current : {}),
+                ...(patch.design_options || {}),
+                gallery_photo_sort: sortOptionRef.current,
+            };
             void galleryService.updateCollection(snapshot.collectionId, patch).catch(() => {});
         };
         window.addEventListener('pagehide', flushDesignSettings);
@@ -5398,12 +5493,56 @@ const CollectionDashboard = () => {
         autosaveArmedRef.current = true;
     }, [loading, collectionId]);
 
+    // Highlights sort is what Preview and the share link must follow.
+    useEffect(() => {
+        if (loading || !collectionId || !designHydratedRef.current || !autosaveArmedRef.current) return undefined;
+        const sort = sortOption;
+        const timer = setTimeout(() => {
+            const setKey = activeSetId || 'highlights';
+            const orderedIds = sortedPhotos
+                .filter((photo) => photo?.id && !photo._uploadPending)
+                .map((photo) => photo.id);
+            const design_options = {
+                ...(collectionDesignRef.current && typeof collectionDesignRef.current === 'object' ? collectionDesignRef.current : {}),
+                gallery_photo_sort: sort,
+                photo_order: {
+                    ...((collectionDesignRef.current && collectionDesignRef.current.photo_order) || {}),
+                    ...(orderedIds.length ? { [setKey]: orderedIds } : {}),
+                },
+            };
+            collectionDesignRef.current = design_options;
+            setCollection((prev) => (prev ? { ...prev, gallery_photo_sort: sort, design_options } : prev));
+            broadcastGalleryLive({
+                type: 'SETTINGS_UPDATED',
+                collectionId,
+                slug: collectionUrl,
+                settings: { gallery_photo_sort: sort, design_options },
+            });
+            galleryService.updateCollection(collectionId, {
+                gallery_photo_sort: sort,
+                design_options,
+            }).catch((err) => {
+                console.error('Failed to save gallery photo order:', err);
+            });
+        }, 400);
+        return () => clearTimeout(timer);
+    }, [sortOption, collectionId, collectionUrl, loading, activeSetId, sortedPhotos]);
+
     // Derived values
     const backTo = deliveryStudioBackPath({
         from: location.state?.from,
         folderId: collection?.folder_id,
     });
     const collectionName = collection?.name || 'Loading...';
+
+    useEffect(() => {
+        if (!editingDeliveryName) return undefined;
+        const input = deliveryNameInputRef.current;
+        if (!input) return undefined;
+        input.focus();
+        input.select();
+        return undefined;
+    }, [editingDeliveryName]);
     const collectionDate = collection?.event_date
         ? formatSidebarDeliveryDate(collection.event_date)
         : collection?.created_at
@@ -5662,7 +5801,36 @@ const CollectionDashboard = () => {
                         <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
                     </Link>
                     <div className="cd-shell-brand__text">
-                        <h1 className="cd-shell-brand__title">{collectionName}</h1>
+                        {editingDeliveryName ? (
+                            <input
+                                ref={deliveryNameInputRef}
+                                className="cd-shell-brand__title cd-shell-brand__title-input"
+                                value={deliveryNameDraft}
+                                aria-label="Gallery name"
+                                maxLength={120}
+                                onChange={(e) => setDeliveryNameDraft(e.target.value)}
+                                onBlur={() => { void commitDeliveryName(); }}
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Enter') {
+                                        e.preventDefault();
+                                        e.currentTarget.blur();
+                                    } else if (e.key === 'Escape') {
+                                        e.preventDefault();
+                                        skipDeliveryNameCommitRef.current = true;
+                                        setEditingDeliveryName(false);
+                                    }
+                                }}
+                            />
+                        ) : (
+                            <button
+                                type="button"
+                                className="cd-shell-brand__title cd-shell-brand__title-btn"
+                                onClick={beginDeliveryNameEdit}
+                                title="Rename gallery"
+                            >
+                                {collectionName}
+                            </button>
+                        )}
                         <p className="cd-shell-brand__date">{collectionDate}</p>
                     </div>
                 </div>
@@ -6216,6 +6384,7 @@ const CollectionDashboard = () => {
                                     onSearchQueryChange={setPhotoSearchQuery}
                                     sortField={photoSortField}
                                     sortReverse={photoSortReverse}
+                                    manualOrder={sortOption === 'custom'}
                                     onSortFieldChange={handlePhotoSortFieldChange}
                                     onSortReverseChange={handlePhotoSortReverseChange}
                                     showFilename={showFilename}
@@ -6303,7 +6472,7 @@ const CollectionDashboard = () => {
                                     <CollectionPhotoSortableGrid
                                         gridRef={section.id === 'videos' || section.id === 'all' ? photosGridRef : undefined}
                                         photos={section.photos}
-                                        disabled={isPhotoAiFilterActive}
+                                        disabled={isPhotoAiFilterActive || Boolean(photoSearchQuery.trim())}
                                         className={`cd-photo-grid cd-photo-grid--manage ${gridSize === 'large' ? 'grid-large' : ''}${showFilename ? ' cd-photo-grid--filenames' : ''}`}
                                         onReorder={handleGridPhotoReorder}
                                         isDraggable={isGridPhotoDraggable}
@@ -6543,6 +6712,9 @@ const CollectionDashboard = () => {
                                         videoDownloadEnabled: photoDownloadSizes.includes('video'),
                                         emailTracking: emailRegistration,
                                         galleryPhotoSort: sortOption,
+                                        photoOrderIds: sortedPhotos
+                                            .filter((photo) => photo?.id && !photo._uploadPending)
+                                            .map((photo) => photo.id),
                                         selectedDownloadSets,
                                     }}
                                     onSetActiveSet={setActiveSetId}

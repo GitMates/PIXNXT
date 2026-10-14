@@ -58,3 +58,20 @@ export function sortPhotosForGallery<T extends Record<string, unknown>>(
 ): T[] {
   return sortDashboardPhotos(photos as any[], sortKey) as T[];
 }
+
+/**
+ * Put photos in an explicit id sequence (Highlights grab order).
+ * Ids missing from the list keep their relative order after the saved ones.
+ */
+export function orderPhotosByIds<T extends { id?: string | number | null }>(
+  photos: readonly T[],
+  orderedIds: readonly (string | number)[] | null | undefined,
+): T[] {
+  if (!orderedIds?.length) return [...photos];
+  const rank = new Map(orderedIds.map((id, index) => [String(id), index]));
+  return [...photos].sort((a, b) => {
+    const ra = rank.has(String(a.id)) ? rank.get(String(a.id))! : Number.MAX_SAFE_INTEGER;
+    const rb = rank.has(String(b.id)) ? rank.get(String(b.id))! : Number.MAX_SAFE_INTEGER;
+    return ra - rb;
+  });
+}

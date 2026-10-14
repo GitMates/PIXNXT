@@ -59,7 +59,8 @@ import {
 } from '../../lib/galleryLiveSync';
 import './GalleryView.css';
 import { useIsMobileViewport } from '../../hooks/useIsMobileViewport';
-import { normalizeGalleryPhotoSort, sortPhotosForGallery } from '../../lib/galleryPhotoSort';
+import { normalizeGalleryPhotoSort, sortPhotosForGallery, orderPhotosByIds } from '../../lib/galleryPhotoSort';
+import { isRowMasonryGridStyle } from '../../lib/galleryGridStyle';
 import { navigationStyleToDb, normalizeNavigationStyle } from '../../lib/navStyle';
 import { getThumbnailSizeColumnCount } from '../../lib/masonryColumnDistribution';
 import {
@@ -1681,6 +1682,7 @@ const GalleryView = () => {
     const previewThumb = searchParams.get('thumb');
     const previewSpacing = searchParams.get('spacing');
     const previewNav = searchParams.get('nav');
+    const previewSort = searchParams.get('sort');
     if (
       !previewCoverStyle &&
       !previewFont &&
@@ -1688,7 +1690,8 @@ const GalleryView = () => {
       !previewGrid &&
       !previewThumb &&
       !previewSpacing &&
-      !previewNav
+      !previewNav &&
+      !previewSort
     ) {
       return data;
     }
@@ -1724,6 +1727,11 @@ const GalleryView = () => {
     if (previewNav) {
       extras.nav_style = navigationStyleToDb(normalizeNavigationStyle(previewNav));
       next.nav_style = extras.nav_style;
+    }
+    if (previewSort) {
+      const sort = normalizeGalleryPhotoSort(previewSort);
+      extras.gallery_photo_sort = sort;
+      next.gallery_photo_sort = sort;
     }
     next.design_options = extras;
     return next;
@@ -1949,7 +1957,21 @@ const GalleryView = () => {
       const data = await galleryService.getCollectionBySlug(slug);
       // Never let a background refresh clobber unlocked photos with a locked
       // (password-missing) response.
-      if (data && !data.needsPassword) setCollection((prev) => ({ ...prev, ...data }));
+      if (data && !data.needsPassword) {
+        setCollection((prev) => {
+          const merged = { ...prev, ...data };
+          const prevDesignSort = prev?.design_options?.gallery_photo_sort;
+          const nextDesignSort = data?.design_options?.gallery_photo_sort;
+          if (prevDesignSort && !nextDesignSort) {
+            merged.gallery_photo_sort = prevDesignSort;
+            merged.design_options = {
+              ...(data?.design_options && typeof data.design_options === 'object' ? data.design_options : {}),
+              gallery_photo_sort: prevDesignSort,
+            };
+          }
+          return merged;
+        });
+      }
     } catch {
       /* silently ignore */
     }
@@ -2263,12 +2285,39 @@ const GalleryView = () => {
     [collection?.selected_download_sets, downloadableSets]
   );
 
+  const gallerySortKey = useMemo(
+    () => normalizeGalleryPhotoSort(
+      searchParams.get('sort')
+        ?? collection?.design_options?.gallery_photo_sort
+        ?? collection?.gallery_photo_sort
+        ?? collection?.galleryPhotoSort
+    ),
+    [
+      searchParams,
+      collection?.design_options?.gallery_photo_sort,
+      collection?.gallery_photo_sort,
+      collection?.galleryPhotoSort,
+    ]
+  );
+
+  const explicitPhotoOrder = useMemo(() => {
+    const fromQuery = searchParams.get('order');
+    if (fromQuery) {
+      const ids = fromQuery.split(',').map((id) => id.trim()).filter(Boolean);
+      if (ids.length) return ids;
+    }
+    const setKey = activeSetId || 'highlights';
+    const saved = collection?.design_options?.photo_order?.[setKey];
+    if (gallerySortKey === 'custom' && Array.isArray(saved) && saved.length) return saved;
+    return null;
+  }, [searchParams, activeSetId, collection?.design_options?.photo_order, gallerySortKey]);
+
   const filteredPhotosBase = useMemo(() => {
     let base = photosForActiveSet;
     if (sharedPhotoIds) {
       base = base.filter((p) => sharedPhotoIds.has(String(p.id)));
     }
-    if (!collection) return base;
+    if (!collection) return explicitPhotoOrder ? orderPhotosByIds(base, explicitPhotoOrder) : base;
     if (isClientExclusiveEnabled(collection)) {
       base = filterPhotosForViewer(
         base,
@@ -2278,9 +2327,9 @@ const GalleryView = () => {
         collection.sets || []
       );
     }
-    const sortKey = normalizeGalleryPhotoSort(collection.gallery_photo_sort);
-    return sortPhotosForGallery(base, sortKey);
-  }, [collection, photosForActiveSet, isClientViewer, activeSetId, sharedPhotoIds]);
+    if (explicitPhotoOrder) return orderPhotosByIds(base, explicitPhotoOrder);
+    return sortPhotosForGallery(base, gallerySortKey);
+  }, [collection, photosForActiveSet, isClientViewer, activeSetId, sharedPhotoIds, gallerySortKey, explicitPhotoOrder]);
 
   const mediaCounts = useMemo(() => countGalleryMedia(filteredPhotosBase), [filteredPhotosBase]);
 
@@ -3189,6 +3238,7 @@ const GalleryView = () => {
             const gridProps = {
               isMobileViewport,
               isHorizontal: effectiveSettings.grid_style?.toLowerCase() === 'horizontal',
+              sequenceOrder: Boolean(explicitPhotoOrder) || !isRowMasonryGridStyle(effectiveSettings.grid_style) || gallerySortKey === 'custom',
               gridSettings: galleryGridSettings,
               onFavorite: (photo) => handleFavoritePhotoToggle(photo),
               onDownload: handleDownloadButtonAction,

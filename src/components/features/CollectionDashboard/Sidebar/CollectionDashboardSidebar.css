@@ -757,6 +757,34 @@
   word-break: break-word;
 }
 
+.cd-shell-brand__title-btn {
+  display: block;
+  max-width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  cursor: text;
+}
+
+.cd-shell-brand__title-btn:hover,
+.cd-shell-brand__title-btn:focus-visible {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.cd-shell-brand__title-input {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: inset 0 -1px 0 currentColor;
+  outline: none;
+}
+
 .cd-shell-brand__date {
   margin: 2px 0 0;
   font-family: var(--font-display, Georgia, serif);

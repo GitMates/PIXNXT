@@ -11,12 +11,13 @@ import { PhotoLightbox } from '../../Gallery/PhotoLightbox/PhotoLightbox';
 import { downloadSinglePhotoFile } from '../../../../lib/downloadPhoto';
 import { DownloadModal } from '../../Gallery/DownloadModal/DownloadModal';
 import { galleryService } from '../../../../services/gallery.service';
-import { sortPhotosForGallery, normalizeGalleryPhotoSort } from '../../../../lib/galleryPhotoSort';
+import { sortPhotosForGallery, normalizeGalleryPhotoSort, orderPhotosByIds } from '../../../../lib/galleryPhotoSort';
 import {
   isCollectionFeatureEnabled,
   isSlideshowEnabledForCollection,
 } from '../../../../lib/collectionFeatureFlags';
 import { partitionGalleryMedia } from '../../../../lib/galleryMediaType';
+import { isRowMasonryGridStyle } from '../../../../lib/galleryGridStyle';
 import {
   GalleryStickyNav,
   GallerySetDescription,
@@ -297,12 +298,22 @@ export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
     clearGalleryPeopleFilter();
   }, [dashboardState?.activeSetId, clearGalleryPeopleFilter]);
 
-  const gallerySortKey = normalizeGalleryPhotoSort(dashboardState?.galleryPhotoSort);
-
-  const photosSortedForGrid = useMemo(
-    () => sortPhotosForGallery(photosForActiveSet, gallerySortKey),
-    [photosForActiveSet, gallerySortKey]
+  const gallerySortKey = normalizeGalleryPhotoSort(
+    dashboardState?.galleryPhotoSort
+      ?? dashboardState?.collection?.design_options?.gallery_photo_sort
+      ?? dashboardState?.collection?.gallery_photo_sort
   );
+  // Column packing reads down a column, so it does not match Highlights.
+  // Lay the same sequence out left to right, then the next row.
+  const sequenceOrder = !isRowMasonryGridStyle(grid.style) || gallerySortKey === 'custom';
+
+  const photosSortedForGrid = useMemo(() => {
+    const savedOrder = dashboardState?.photoOrderIds;
+    if (Array.isArray(savedOrder) && savedOrder.length) {
+      return orderPhotosByIds(photosForActiveSet, savedOrder as (string | number)[]);
+    }
+    return sortPhotosForGallery(photosForActiveSet, gallerySortKey);
+  }, [photosForActiveSet, gallerySortKey, dashboardState?.photoOrderIds]);
 
   const activePersonInSet = useMemo(
     () => peopleForActiveSet.find((person) => person.id === galleryActivePersonId) || null,
@@ -802,6 +813,7 @@ export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
                       videosOnly
                       gridSettings={grid}
                       isHorizontal={grid.style?.toLowerCase() === 'horizontal'}
+                      sequenceOrder={sequenceOrder}
                       onImageClick={(index) => {
                         setLightboxIndex(index);
                         setIsSlideshowActive(false);
@@ -837,6 +849,7 @@ export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
                       photos={previewStillPhotos}
                       gridSettings={grid}
                       isHorizontal={grid.style?.toLowerCase() === 'horizontal'}
+                      sequenceOrder={sequenceOrder}
                       onImageClick={(index) => {
                         setLightboxIndex(previewVideoPhotos.length + index);
                         setIsSlideshowActive(false);

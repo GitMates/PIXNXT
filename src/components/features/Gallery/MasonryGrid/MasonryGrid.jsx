@@ -38,6 +38,8 @@ export function MasonryGrid({
   customRowHeight,
   customColumnCount,
   isHorizontal: isHorizontalProp,
+  /** Left-to-right, then the next row — same reading order as a manual grab. */
+  sequenceOrder = false,
   showDownload = true,
   showFavorite = true,
   showShare = false,
@@ -1078,6 +1080,41 @@ export function MasonryGrid({
     estimatedColWidth,
     gap,
   ]);
+
+  if (sequenceOrder) {
+    return (
+      <Motion.div
+        key={photoListKey}
+        ref={containerRef}
+        variants={container}
+        initial="hidden"
+        animate="show"
+        className={cn(
+          'w-full max-w-full min-w-0 masonry-grid-container masonry-grid-sequence',
+          (isPreviewMobile || isMobileViewport) && 'preview-mobile',
+          className
+        )}
+        style={{
+          display: 'grid',
+          gridTemplateColumns: `repeat(${Math.max(1, colsCount)}, minmax(0, 1fr))`,
+          gap: `${gap}px`,
+          alignItems: 'start',
+        }}
+      >
+        {displayPhotos.map((photo, index) => {
+          if (photo.isPromoBanner) return renderPromoCard(photo);
+          const card = renderPhotoItem(photo, index);
+          if (!renderBelow) return card;
+          return (
+            <div key={`stack-${photo.id}-${index}`} className="w-full min-w-0">
+              {card}
+              {renderBelow(photo)}
+            </div>
+          );
+        })}
+      </Motion.div>
+    );
+  }
 
   if (!isHorizontal) {
     return (
