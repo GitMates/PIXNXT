@@ -115,7 +115,6 @@ export const STUDIO_NOTIFICATION_SOURCE_SECTIONS = [
   { id: STUDIO_NOTIFICATION_SOURCES.CLIENT_GALLERY, label: 'Client Gallery' },
   { id: STUDIO_NOTIFICATION_SOURCES.SMART_ALBUM, label: 'Smart Album' },
   { id: STUDIO_NOTIFICATION_SOURCES.PRINT_LAB, label: 'Print Lab' },
-  { id: STUDIO_NOTIFICATION_SOURCES.GUEST_DELIVERY, label: 'Guest Delivery' },
 ];
 
 const NEEDS_YOU_SECTION = { id: 'needs-you', label: 'Needs you' };
@@ -342,11 +341,10 @@ export async function listStudioNotifications(photographerId) {
     return { items: [], albums: [], clientGalleryItems: [] };
   }
 
-  const [cgResult, albums, printItems, guestItems] = await Promise.all([
+  const [cgResult, albums, printItems] = await Promise.all([
     listClientGalleryNotifications(photographerId).catch(() => ({ items: [], footer: '' })),
     smartAlbumsService.getAlbums(photographerId).catch(() => []),
     listPrintLabNotifications(photographerId).catch(() => []),
-    listGuestDeliveryNotifications(photographerId).catch(() => []),
   ]);
 
   const saItems = albums.length
@@ -357,7 +355,6 @@ export async function listStudioNotifications(photographerId) {
     ...(cgResult.items || []).map(mapClientGalleryItem),
     ...saItems.map(mapSmartAlbumItem),
     ...printItems,
-    ...guestItems,
   ];
 
   return {

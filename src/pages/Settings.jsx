@@ -44,7 +44,6 @@ const PRIMARY_TABS = [
         label: 'Delivering photos',
         items: [
             { id: 'delivery-messages', label: 'Delivery & messages' },
-            { id: 'guest-delivery', label: 'Guest Delivery', badge: 'NEW' },
             { id: 'face-matching', label: 'Face matching', badge: 'NEW' },
             { id: 'access-defaults', label: 'Access defaults' },
         ],
@@ -146,7 +145,9 @@ const Settings = () => {
             navigate('/settings/delivery-messages', { replace: true });
             return;
         }
-        if (activeTab === 'presets') {
+        if (activeTab === 'guest-delivery') {
+            navigate('/settings/delivery-messages', { replace: true });
+        } else if (activeTab === 'presets') {
             navigate('/settings/delivery-templates', { replace: true });
         } else if (activeTab === 'watermark') {
             navigate('/settings/protection', { replace: true });
@@ -1344,14 +1345,6 @@ const ShowcasePageTab = ({ profile, user, updateProfile }) => {
                         <strong className="settings-field-title" style={{ fontSize: '14px' }}>
                             Recent messages
                         </strong>
-                        <button
-                            type="button"
-                            className="settings-pill-btn"
-                            onClick={() => navigate('/portal')}
-                            style={{ padding: '6px 18px', fontSize: '13px' }}
-                        >
-                            Open Portal
-                        </button>
                     </div>
                     {enquiriesLoading ? (
                         <p className="settings-right-desc">Loading messages…</p>

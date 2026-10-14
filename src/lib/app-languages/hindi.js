@@ -210,6 +210,7 @@ export const hindiAppStrings = {
     tagAlbum: 'एल्बम डिज़ाइन और क्लाइंट प्रूफ़',
     tagPortal: 'पाइपलाइन, प्रस्ताव और कॉन्ट्रैक्ट',
     tagMobile: 'क्लाइंटों के लिए ब्रांडेड ऐप डिलीवरी',
+    tagPrint: 'ऑर्डर, प्रोडक्ट और प्रोडक्शन',
   },
   phrases: {
     'LIVE DELIVERIES': 'लाइव डिलीवरी',

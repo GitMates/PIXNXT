@@ -10,7 +10,7 @@ import {
   Plus,
   Settings,
 } from "lucide-react"
-import { products } from "../../lib/products"
+import { visibleProducts } from "../../lib/products"
 import { cn } from "../../lib/utils"
 import { type ViewMode } from "./portalData"
 import { StudioAvatar } from "../ui/StudioAvatar"
@@ -86,7 +86,7 @@ function AppSwitcherMenu() {
           </p>
 
           <div className="grid grid-cols-1 gap-1">
-            {products.map((product) => {
+            {visibleProducts.map((product) => {
               const active = location.pathname.startsWith(product.href)
               return (
                 <Link

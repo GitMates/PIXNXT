@@ -4,6 +4,7 @@ import {
   BookOpen,
   Briefcase,
   Smartphone,
+  Printer,
   Star,
   Settings,
   KanbanSquare,
@@ -29,6 +30,7 @@ import {
   isDeliveryStarredPath,
 } from "./deliveryIds"
 import { SHOWCASE_ROUTE, isShowcasePath } from "./showcaseIds"
+import { isVisibleModule } from "./releasedModules"
 
 export interface Product {
   id: string
@@ -213,11 +215,23 @@ export const productNavItems: Record<string, ProductNavItem[]> = {
 productNavItems[ALBUM_PROOFER_PRODUCT_ID_LEGACY] =
   productNavItems[ALBUM_PROOFER_PRODUCT_ID]
 
+/** Client Gallery, Album Proofer, and Print Lab. Portal, Mobile Gallery, and Guest Delivery stay hidden. */
+export const visibleProducts: Product[] = [
+  ...products.filter((product) => isVisibleModule(product.id)),
+  {
+    id: "print-lab",
+    name: "Print Lab",
+    tagline: "Orders, products & production",
+    href: "/store/orders",
+    icon: Printer,
+  },
+]
+
 export function getProductById(productId: string): Product | undefined {
   if (productId === ALBUM_PROOFER_PRODUCT_ID_LEGACY) {
     return products.find((p) => p.id === ALBUM_PROOFER_PRODUCT_ID)
   }
-  return products.find((p) => p.id === productId)
+  return products.find((p) => p.id === productId) || visibleProducts.find((p) => p.id === productId)
 }
 
 export function getProductNavItems(productId: string): ProductNavItem[] {
@@ -260,6 +274,9 @@ export function isProductActive(productHref: string, pathname: string): boolean 
   }
   if (productHref === "/portal") {
     return pathname === "/portal" || pathname.startsWith("/portal/")
+  }
+  if (productHref === "/store/orders") {
+    return pathname === "/store" || pathname.startsWith("/store/")
   }
   return pathname.startsWith(productHref)
 }

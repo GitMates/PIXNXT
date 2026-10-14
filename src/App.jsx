@@ -11,9 +11,6 @@ import Home from './pages/Home';
 import Dashboard from './pages/Dashboard';
 import ClientGallery from './pages/ClientGallery';
 import SmartAlbums from './pages/smart-albums';
-import MobileGallery from './pages/mobile-gallery';
-import GuestDelivery from './pages/guest-delivery';
-import PixnxtPortal from './pages/portal';
 import CreateCollection from './pages/CreateCollection';
 import CreateFolder from './pages/CreateFolder';
 import FolderView from './pages/FolderView';
@@ -297,9 +294,9 @@ function App() {
             element={<Navigate to={location.pathname.replace(/^\/smart-albums/, '/album-proofer') + location.search} replace />}
           />
           <Route path="/smart-albums" element={<Navigate to="/album-proofer" replace />} />
-          <Route path="/mobile-gallery/*" element={<ProtectedRoute><MobileGallery /></ProtectedRoute>} />
-          <Route path="/guest-delivery/*" element={<ProtectedRoute><GuestDelivery /></ProtectedRoute>} />
-          <Route path="/portal/*" element={<ProtectedRoute><PixnxtPortal /></ProtectedRoute>} />
+          <Route path="/mobile-gallery/*" element={<Navigate to="/dashboard" replace />} />
+          <Route path="/guest-delivery/*" element={<Navigate to="/dashboard" replace />} />
+          <Route path="/portal/*" element={<Navigate to="/dashboard" replace />} />
           <Route path="/photos" element={<ProtectedRoute><PhotoLibrary /></ProtectedRoute>} />
           <Route path="/starred" element={<ProtectedRoute><Navigate to="/starred/deliveries" replace /></ProtectedRoute>} />
           <Route path="/starred/collections" element={<ProtectedRoute><Navigate to="/starred/deliveries" replace /></ProtectedRoute>} />

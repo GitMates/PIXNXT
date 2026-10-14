@@ -27,7 +27,6 @@ const PhotoLibrary = () => {
 
   const [photos, setPhotos] = useState([]);
   const [collectionCount, setCollectionCount] = useState(0);
-  const [guestEventCount, setGuestEventCount] = useState(0);
   const [metadataRows, setMetadataRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -130,7 +129,6 @@ const PhotoLibrary = () => {
       setCollectionCount(
         collectionsResult.status === 'fulfilled' ? collectionsResult.value?.length || 0 : 0
       );
-      setGuestEventCount(new Set(guestRows.map((row) => row.event_id).filter(Boolean)).size);
       setMetadataRows(
         metadataResult.status === 'fulfilled' ? metadataResult.value?.rows || [] : []
       );
@@ -246,10 +244,7 @@ const PhotoLibrary = () => {
   const aiSearchDisabled = aiSearchChecked && !aiSearchEnabled;
 
   const openPhotoCollection = (photo) => {
-    if (photo?.source === 'guest_delivery' && photo.event_id) {
-      navigate(`/guest-delivery/event/${photo.event_id}`);
-      return;
-    }
+    if (photo?.source === 'guest_delivery') return;
     const collectionId = photo.collection_id || photo.collection?.id;
     if (!collectionId) return;
     navigate(`/deliveries/manage?id=${encodeURIComponent(collectionId)}`);
@@ -264,9 +259,6 @@ const PhotoLibrary = () => {
             {!loading && hasPhotos ? (
               <p className="pl-subtitle">
                 {photos.length} photo{photos.length === 1 ? '' : 's'} from {collectionCount} delivery{collectionCount === 1 ? '' : 's'}
-                {guestEventCount > 0
-                  ? ` · ${guestEventCount} guest event${guestEventCount === 1 ? '' : 's'}`
-                  : ''}
               </p>
             ) : null}
           </div>

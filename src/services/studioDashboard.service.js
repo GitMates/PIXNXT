@@ -12,6 +12,7 @@ import { formatRelativeTime, formatAlbumCardTime } from '../lib/relativeTime';
 import { getCoverFocalForSurface, stripMediaUrlHash } from '../lib/focalPoint';
 import { getCollectionCardCoverSrc } from '../lib/photoDisplayUrl';
 import { INITIAL_STAGES } from '../components/portal/portalData';
+import { isHiddenStudioPath, isVisibleModule } from '../lib/releasedModules';
 import {
   LAB_PIPELINE_STEPS,
 } from '../printstore/lab/labOrderStatus';
@@ -403,11 +404,16 @@ function composeStudioBoard({ collections, albums, events, apps, overview }) {
   });
 
   return {
-    modules,
-    recentWork,
-    studioStats,
-    needsYou,
-    thisWeek,
+    modules: modules.filter((mod) => isVisibleModule(mod.id)),
+    recentWork: recentWork.filter((item) => !isHiddenStudioPath(item.route)),
+    studioStats: studioStats.filter((stat) => stat.label !== 'GUEST EVENTS'),
+    needsYou: needsYou
+      .map((group) => ({
+        ...group,
+        items: (group.items || []).filter((item) => !isHiddenStudioPath(item.route)),
+      }))
+      .filter((group) => group.items.length > 0),
+    thisWeek: thisWeek.filter((item) => !isHiddenStudioPath(item.route)),
     heroStatus,
   };
 }
@@ -417,7 +423,6 @@ function emptyStudioStats() {
     { label: 'LIVE DELIVERIES', value: '0', sub: 'None published yet' },
     { label: 'SHARED ALBUMS', value: '0', sub: 'None shared yet' },
     { label: 'PRINT LAB (MONTH)', value: '₹0', sub: 'No orders this month' },
-    { label: 'GUEST EVENTS', value: '0', sub: 'None live' },
   ];
 }
 
@@ -622,7 +627,6 @@ function buildHeroStatus({ needsYou, waitingAlbums, needReview, unopened, publis
   }
   const bits = [];
   if (waitingAlbums.length) bits.push(`${waitingAlbums.length} album${waitingAlbums.length === 1 ? '' : 's'} need attention`);
-  if (needReview) bits.push(`${needReview} guest${needReview === 1 ? '' : 's'} need review`);
   if (unopened) bits.push(`${unopened} deliver${unopened === 1 ? 'y is' : 'ies are'} still unopened`);
   const detail = bits.length ? bits.join(', ') : `${actionCount} item${actionCount === 1 ? '' : 's'} need you`;
   return `${formatTodayLineBase()}. ${detail}.`;
@@ -728,6 +732,7 @@ function buildRecentWork({ collections, albums, events, apps }) {
   const portalItems = portalRecentItems();
 
   return [...galleryItems, ...albumItems, ...guestItems, ...mobileItems, ...portalItems]
+    .filter((item) => !isHiddenStudioPath(item.route))
     .sort((a, b) => (b.sortAt || 0) - (a.sortAt || 0))
     .slice(0, 4);
 }
@@ -788,5 +793,5 @@ function emptyModules() {
       route: '/store/orders',
       icon: 'print',
     },
-  ];
+  ].filter((mod) => isVisibleModule(mod.id));
 }

@@ -210,6 +210,7 @@ export const englishAppStrings = {
     tagAlbum: 'Album design & client proofing',
     tagPortal: 'Pipeline, proposals & contracts',
     tagMobile: 'Branded app delivery for clients',
+    tagPrint: 'Orders, products & production',
   },
   phrases: {
     'LIVE DELIVERIES': 'Live deliveries',

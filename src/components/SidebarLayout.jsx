@@ -14,7 +14,7 @@ import { useAuth } from '../hooks/useAuth';
 import { getUserDisplayLabel, getUserInitial } from '../lib/userInitials';
 import { cn } from '../lib/utils';
 import {
-    products,
+    visibleProducts,
     getProductById,
     getProductNavItems,
     isProductActive,
@@ -88,7 +88,7 @@ const SidebarLayout = ({
     });
 
     const activeProduct = useMemo(
-        () => getProductById(productId) || products[0],
+        () => getProductById(productId) || visibleProducts[0],
         [productId],
     );
     const navItems = useMemo(() => getProductNavItems(productId), [productId]);
@@ -497,7 +497,7 @@ const SidebarLayout = ({
                             {appT.products.ecosystem}
                         </p>
 
-                        {products.map((product) => {
+                        {visibleProducts.map((product) => {
                             const active = isProductActive(product.href, path);
                             return (
                                 <button
@@ -525,11 +525,9 @@ const SidebarLayout = ({
                         <span className="cg-app-switcher-item__tagline block truncate text-xs text-[#71717A]">
                           {product.id === 'client-gallery'
                             ? appT.products.tagClient
-                            : product.id === 'portal'
-                              ? appT.products.tagPortal
-                              : product.id === 'mobile-gallery'
-                                ? appT.products.tagMobile
-                                : appT.products.tagAlbum}
+                            : product.id === 'print-lab'
+                              ? (appT.products.tagPrint || product.tagline)
+                              : appT.products.tagAlbum}
                         </span>
                                     </span>
                                 </button>
@@ -644,7 +642,7 @@ const SidebarLayout = ({
                             </button>
                             {showContextDropdown && (
                                 <div className="sb-product-menu absolute left-0 right-0 top-full z-50 mt-1.5 overflow-hidden rounded-xl bg-white p-1.5 shadow-xl shadow-black/10 border border-[#ECEAE6]">
-                                    {products.map((item) => {
+                                    {visibleProducts.map((item) => {
                                         const active = isProductActive(item.href, path);
                                         const Icon = item.icon;
                                         return (

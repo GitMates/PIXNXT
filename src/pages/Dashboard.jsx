@@ -7,6 +7,7 @@ import { loadStudioDashboard } from '../services/studioDashboard.service';
 import { userStorageService } from '../services/userStorage.service';
 import { getThemeMode, setThemeMode, THEME_CHANGE_EVENT } from '../lib/appearanceTheme';
 import { navigateToAccount } from '../lib/accountBackNav';
+import { isHiddenStudioPath, isVisibleModule } from '../lib/releasedModules';
 import { buildShowcaseUrl } from '../lib/showcaseUrl';
 import AlbumListCoverThumb from '../components/smart-albums/AlbumListCoverThumb';
 import { CollectionCardCover } from '../components/features/ClientGallery/CollectionCardCover';
@@ -25,7 +26,29 @@ function readStudioBoard(userId) {
   if (!userId || typeof sessionStorage === 'undefined') return null;
   try {
     const raw = sessionStorage.getItem(`${STUDIO_BOARD_PREFIX}${userId}`);
-    return raw ? JSON.parse(raw) : null;
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed.modules)) {
+      parsed.modules = parsed.modules.filter((mod) => isVisibleModule(mod.id));
+    }
+    if (Array.isArray(parsed.recentWork)) {
+      parsed.recentWork = parsed.recentWork.filter((item) => !isHiddenStudioPath(item.route));
+    }
+    if (Array.isArray(parsed.needsYou)) {
+      parsed.needsYou = parsed.needsYou
+        .map((group) => ({
+          ...group,
+          items: (group.items || []).filter((item) => !isHiddenStudioPath(item.route)),
+        }))
+        .filter((group) => group.items.length > 0);
+    }
+    if (Array.isArray(parsed.thisWeek)) {
+      parsed.thisWeek = parsed.thisWeek.filter((item) => !isHiddenStudioPath(item.route));
+    }
+    if (Array.isArray(parsed.studioStats)) {
+      parsed.studioStats = parsed.studioStats.filter((stat) => stat.label !== 'GUEST EVENTS');
+    }
+    return parsed;
   } catch {
     return null;
   }
@@ -61,31 +84,10 @@ const NEW_MENU = [
     path: '/album-proofer/create',
   },
   {
-    label: 'Project',
-    description: 'A wedding or shoot, with its days',
-    icon: 'project',
-    path: '/portal?newProject=1',
-  },
-  {
-    label: 'Enquiry',
-    description: 'Log a lead — about fifteen seconds',
-    icon: 'enquiry',
-    path: '/portal?newProject=1',
-  },
-  {
     label: 'Print order',
     description: 'On behalf of a client',
     icon: 'print',
     path: '/store/orders',
-  },
-  {
-    isDivider: true,
-  },
-  {
-    label: 'Invoice',
-    description: 'Standalone, outside a project',
-    icon: 'invoice',
-    path: '/portal',
   },
 ];
 

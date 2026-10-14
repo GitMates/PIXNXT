@@ -380,14 +380,14 @@ export default function AccountSettings() {
                                     </div>
                                     <div
                                         className="mg-app-dropdown-item"
-                                        onClick={() => { navigate('/mobile-gallery'); setShowDropdown(false); }}
+                                        onClick={() => { navigate('/store/orders'); setShowDropdown(false); }}
                                     >
                                         <div className="mg-app-dropdown-icon" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#F4F3F0', borderRadius: 10 }}>
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1A1A1A" strokeWidth="2"><rect x="5" y="2" width="14" height="20" rx="2" /><line x1="12" y1="18" x2="12.01" y2="18" /></svg>
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1A1A1A" strokeWidth="2"><polyline points="6 9 6 2 18 2 18 9" /><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" /><rect x="6" y="14" width="12" height="8" /></svg>
                                         </div>
                                         <div>
-                                            <span className="mg-app-dropdown-title">Mobile Gallery App</span>
-                                            <span className="mg-app-dropdown-desc">Simple, personalized mobile photo albums</span>
+                                            <span className="mg-app-dropdown-title">Print Lab</span>
+                                            <span className="mg-app-dropdown-desc">Orders, products and production</span>
                                         </div>
                                     </div>
                                     <div className="mg-app-dropdown-divider" />
