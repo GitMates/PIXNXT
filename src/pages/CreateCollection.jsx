@@ -9,7 +9,7 @@ import { photographerQuotaService } from '../services/photographerQuota.service'
 import { resolveUploadDefaults } from '../lib/uploadDefaults';
 import { getPublicGalleryUrl } from '../lib/publicSiteUrl';
 import {
-    builtinTemplatesFromList,
+    deliveryTemplatesFromList,
     describeTemplate,
     ensureDefaultDeliveryTemplates,
     preferredTemplateKey,
@@ -17,8 +17,6 @@ import {
 } from '../lib/deliveryTemplates';
 import '../styles/clientGalleryTheme.css';
 import './NewDelivery.css';
-
-const PRESET_ORDER = ['wedding', 'shoot'];
 
 const PRINT_LEAD_DAYS = 3;
 const DAY_MS = 86400000;
@@ -144,6 +142,138 @@ function StandeeArt() {
     );
 }
 
+function PresetSelect({ templates, value, onChange }) {
+    const [open, setOpen] = useState(false);
+    const [active, setActive] = useState(0);
+    const rootRef = useRef(null);
+    const listRef = useRef(null);
+    const buttonRef = useRef(null);
+    const selectedIndex = Math.max(0, templates.findIndex((template) => template.key === value));
+    const selected = templates.find((template) => template.key === value) || templates[0];
+
+    useEffect(() => {
+        if (!open) return undefined;
+        const onDoc = (event) => {
+            if (!rootRef.current?.contains(event.target)) setOpen(false);
+        };
+        document.addEventListener('mousedown', onDoc);
+        return () => document.removeEventListener('mousedown', onDoc);
+    }, [open]);
+
+    useEffect(() => {
+        if (!open) return;
+        listRef.current?.focus();
+    }, [open]);
+
+    useEffect(() => {
+        if (!open) return;
+        const id = templates[active]?.key;
+        if (!id) return;
+        document.getElementById(`nd-preset-opt-${id}`)?.scrollIntoView({ block: 'nearest' });
+    }, [open, active, templates]);
+
+    const choose = (key) => {
+        onChange(key);
+        setOpen(false);
+        buttonRef.current?.focus();
+    };
+
+    const onButtonKeyDown = (event) => {
+        if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+            event.preventDefault();
+            setActive(selectedIndex);
+            setOpen(true);
+        }
+    };
+
+    const onMenuKeyDown = (event) => {
+        if (event.key === 'ArrowDown') {
+            event.preventDefault();
+            setActive((index) => (index + 1) % templates.length);
+        } else if (event.key === 'ArrowUp') {
+            event.preventDefault();
+            setActive((index) => (index - 1 + templates.length) % templates.length);
+        } else if (event.key === 'Home') {
+            event.preventDefault();
+            setActive(0);
+        } else if (event.key === 'End') {
+            event.preventDefault();
+            setActive(Math.max(0, templates.length - 1));
+        } else if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            const item = templates[active];
+            if (item) choose(item.key);
+        } else if (event.key === 'Escape') {
+            event.preventDefault();
+            setOpen(false);
+            buttonRef.current?.focus();
+        } else if (event.key === 'Tab') {
+            setOpen(false);
+        }
+    };
+
+    return (
+        <div className="nd-select" ref={rootRef} data-open={open ? 'true' : 'false'}>
+            <button
+                ref={buttonRef}
+                type="button"
+                id="nd-preset"
+                className="nd-select-btn"
+                aria-haspopup="listbox"
+                aria-expanded={open}
+                aria-controls="nd-preset-list"
+                onClick={() => {
+                    setActive(selectedIndex);
+                    setOpen((current) => !current);
+                }}
+                onKeyDown={onButtonKeyDown}
+            >
+                <span className="nd-select-name">{selected?.name || 'Choose a template'}</span>
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden>
+                    <path d="M4 6.5 8 10.5 12 6.5" />
+                </svg>
+            </button>
+            {open ? (
+                <ul
+                    ref={listRef}
+                    id="nd-preset-list"
+                    className="nd-select-menu"
+                    role="listbox"
+                    tabIndex={-1}
+                    aria-labelledby="nd-preset-lbl"
+                    aria-activedescendant={templates[active] ? `nd-preset-opt-${templates[active].key}` : undefined}
+                    onKeyDown={onMenuKeyDown}
+                >
+                    {templates.map((item, index) => {
+                        const detail = describeTemplate(item.settings);
+                        const isSelected = item.key === selected?.key;
+                        return (
+                            <li key={item.key} role="presentation">
+                                <button
+                                    type="button"
+                                    role="option"
+                                    id={`nd-preset-opt-${item.key}`}
+                                    className="nd-select-opt"
+                                    aria-selected={isSelected}
+                                    data-active={index === active ? 'true' : 'false'}
+                                    onMouseEnter={() => setActive(index)}
+                                    onClick={() => choose(item.key)}
+                                >
+                                    <b>
+                                        {item.name}
+                                        {item.settings?.isDefault ? <em>Default</em> : null}
+                                    </b>
+                                    <span>{detail.hint}</span>
+                                </button>
+                            </li>
+                        );
+                    })}
+                </ul>
+            ) : null}
+        </div>
+    );
+}
+
 const CreateCollection = () => {
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
@@ -152,7 +282,7 @@ const CreateCollection = () => {
     const [name, setName] = useState('');
     const [nameFocused, setNameFocused] = useState(true);
     const [date, setDate] = useState('');
-    const [templates, setTemplates] = useState(() => builtinTemplatesFromList([]));
+    const [templates, setTemplates] = useState(() => deliveryTemplatesFromList([]));
     const [presetKey, setPresetKey] = useState('wedding');
     const [guestDeliveryEnabled, setGuestDeliveryEnabled] = useState(true);
     const [studioName, setStudioName] = useState('');
@@ -171,7 +301,7 @@ const CreateCollection = () => {
         ensureDefaultDeliveryTemplates()
             .then((rows) => {
                 if (cancelled) return;
-                const next = builtinTemplatesFromList(rows);
+                const next = deliveryTemplatesFromList(rows);
                 setTemplates(next);
                 if (!presetTouched.current) {
                     const key = preferredTemplateKey(next);
@@ -205,21 +335,6 @@ const CreateCollection = () => {
         presetTouched.current = true;
         setPresetKey(key);
         setGuestDeliveryEnabled(Boolean(next.settings?.guestDelivery));
-    };
-
-    const onPresetKeyDown = (event, id) => {
-        const index = PRESET_ORDER.indexOf(id);
-        let next = null;
-        if (event.key === 'ArrowRight' || event.key === 'ArrowDown') {
-            next = PRESET_ORDER[(index + 1) % PRESET_ORDER.length];
-        } else if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') {
-            next = PRESET_ORDER[(index - 1 + PRESET_ORDER.length) % PRESET_ORDER.length];
-        } else {
-            return;
-        }
-        event.preventDefault();
-        pickPreset(next);
-        document.getElementById(`nd-preset-${next}`)?.focus();
     };
 
     const handleCreate = async (event) => {
@@ -341,42 +456,22 @@ const CreateCollection = () => {
                             </div>
 
                             <div className="nd-field">
-                                <label id="nd-preset-lbl">Preset</label>
-                                <div className="nd-presets">
-                                    <div className="nd-presets-choices" role="radiogroup" aria-labelledby="nd-preset-lbl">
-                                        {PRESET_ORDER.map((key) => {
-                                            const item = templates.find((template) => template.key === key);
-                                            const detail = describeTemplate(item?.settings);
-                                            const selected = key === preset?.key;
-                                            return (
-                                                <button
-                                                    key={key}
-                                                    id={`nd-preset-${key}`}
-                                                    type="button"
-                                                    className="nd-preset"
-                                                    role="radio"
-                                                    aria-checked={selected}
-                                                    tabIndex={selected ? 0 : -1}
-                                                    onClick={() => pickPreset(key)}
-                                                    onKeyDown={(e) => onPresetKeyDown(e, key)}
-                                                >
-                                                    <b>{item?.name || key}</b>
-                                                    <span>{detail.hint}</span>
-                                                </button>
-                                            );
-                                        })}
-                                    </div>
-                                    <button
-                                        type="button"
-                                        className="nd-preset nd-preset--own"
-                                        onClick={() => navigate('/settings/delivery-templates')}
-                                    >
-                                        <b>Create or choose your own</b>
-                                        <span>Delivery templates</span>
-                                    </button>
-                                </div>
+                                <label id="nd-preset-lbl" htmlFor="nd-preset">Preset</label>
+                                <PresetSelect
+                                    templates={templates}
+                                    value={preset?.key}
+                                    onChange={pickPreset}
+                                />
+                                <button
+                                    type="button"
+                                    className="nd-template-link"
+                                    onClick={() => navigate('/settings/delivery-templates')}
+                                >
+                                    Create or edit templates in Settings
+                                </button>
                                 <div className="nd-sets">
                                     <h4>What {preset?.name || 'this preset'} sets</h4>
+                                    <div className="nd-setrow"><span className="k">Guest delivery</span><span className="v">{summary.guests ? 'On' : 'Off'}</span></div>
                                     <div className="nd-setrow"><span className="k">Who can open it</span><span className="v">{summary.access}</span></div>
                                     <div className="nd-setrow"><span className="k">Watermark</span><span className="v">{summary.wm}</span></div>
                                     <div className="nd-setrow"><span className="k">Gallery closes</span><span className="v">{summary.expiry}</span></div>
@@ -422,7 +517,14 @@ const CreateCollection = () => {
                         {guestDeliveryEnabled ? (
                             <div className="nd-preview">
                                     <div className="nd-pv-head">
-                                        What guests get
+                                        <span>What guests get</span>
+                                        <span
+                                            className="nd-pv-name"
+                                            data-empty={name.trim() ? undefined : ''}
+                                            title={name.trim() || undefined}
+                                        >
+                                            {name.trim() || 'Delivery name'}
+                                        </span>
                                         <span className="right">Three designs</span>
                                     </div>
                                     <div className="nd-pv-body">

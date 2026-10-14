@@ -99,21 +99,29 @@ export function watermarkIsOn(settings = {}) {
   return Boolean(mark) && mark !== 'No watermark';
 }
 
+function onOff(value) {
+  return value ? 'on' : 'off';
+}
+
 export function describeTemplate(settings = {}) {
   const days = Number(settings.galleryCloseDays);
   const closes = Number.isFinite(days) && days > 0;
   const guests = Boolean(settings.guestDelivery);
   const watermark = watermarkIsOn(settings);
+  const access = settings.collectionPassword ? 'Password required' : 'Anyone with the link';
+  const lang = settings.language || 'English';
   return {
     guests,
-    access: settings.collectionPassword ? 'Password required' : 'Anyone with the link',
+    access,
     wm: watermark ? 'On' : 'Off',
     expiry: closes ? `${days} days after publishing` : 'Does not close',
-    lang: settings.language || 'English',
+    lang,
     hint: [
-      guests ? 'Guests on' : 'Client only',
-      watermark ? 'watermark' : 'no watermark',
-      closes ? `${days} days` : 'no close date',
+      `Guest delivery ${onOff(guests)}`,
+      settings.collectionPassword ? 'password required' : 'anyone with the link',
+      `watermark ${onOff(watermark)}`,
+      closes ? `closes in ${days} days` : 'does not close',
+      `language ${lang}`,
     ].join(', '),
   };
 }
@@ -147,6 +155,49 @@ export function builtinTemplatesFromList(presets) {
       settings: { ...builtinSettings(key), ...saved, builtinKey: key },
     };
   });
+}
+
+/**
+ * Every delivery template for the New delivery picker.
+ * Wedding and Shoot stay first. Templates created in Settings follow them.
+ */
+export function deliveryTemplatesFromList(presets) {
+  const seenBuiltin = new Set();
+  const list = [];
+  for (const preset of sortDeliveryTemplates(presets)) {
+    const builtin = builtinKeyOf(preset);
+    if (builtin) {
+      if (seenBuiltin.has(builtin)) continue;
+      seenBuiltin.add(builtin);
+      const saved = parsePresetSettings(preset.settings);
+      list.push({
+        key: builtin,
+        id: preset.id || null,
+        name: preset.name || CATALOG[builtin].name,
+        settings: { ...builtinSettings(builtin), ...saved, builtinKey: builtin },
+      });
+      continue;
+    }
+    if (!preset?.id) continue;
+    const name = String(preset.name || '').trim() || 'Untitled template';
+    list.push({
+      key: String(preset.id),
+      id: preset.id,
+      name,
+      settings: { ...EDITOR_DEFAULTS, ...parsePresetSettings(preset.settings) },
+    });
+  }
+  for (const key of BUILTIN_TEMPLATE_KEYS) {
+    if (seenBuiltin.has(key)) continue;
+    list.push({
+      key,
+      id: null,
+      name: CATALOG[key].name,
+      settings: builtinSettings(key),
+    });
+  }
+  const rank = (item) => (item.key === 'wedding' ? 0 : item.key === 'shoot' ? 1 : 2);
+  return list.sort((a, b) => rank(a) - rank(b));
 }
 
 export function preferredTemplateKey(templates) {
