@@ -78,7 +78,7 @@ export function getFaceAvatarDisplayUrl(photo) {
 export function getRawPreviewUrl(photo) {
   if (!photo) return '';
   const original = resolveMediaUrl(photo.full_url || '');
-  // Prefer the larger web derivative (up to 2048px) over the 400px thumb —
+  // Prefer the larger web derivative (up to 3840px) over the 400px thumb —
   // grid and especially lightbox look blurry when fed the tiny thumb.
   const candidates = [photo.web_url, photo.thumbnail_url];
   const preview = candidates.find((url) => {

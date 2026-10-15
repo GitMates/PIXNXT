@@ -4,6 +4,7 @@
  */
 import { getFileMime, isImageMime } from './fileMime';
 import { isRawImageFile } from './rawImageFormats';
+import { WEB_DISPLAY_EDGE } from './uploadDefaults';
 
 const COMPRESS_MIN_BYTES = 400 * 1024; // re-encode large files even when already small
 /** Max simultaneous canvas encode jobs (Pixieset-style: network-heavy, CPU-bounded prep). */
@@ -266,7 +267,7 @@ export async function compressImageVariants(file, options = {}) {
     return { webFile: file, thumbFile: file };
   }
 
-  const webMaxEdge = options.webMaxEdge ?? 2048;
+  const webMaxEdge = options.webMaxEdge ?? WEB_DISPLAY_EDGE;
   const thumbMaxEdge = options.thumbMaxEdge ?? 400;
   const thumbQuality = options.thumbQuality ?? 0.6;
   // RAW camera previews get fidelity treatment: near-lossless quality plus

@@ -2,6 +2,8 @@
  * Pool of encode workers. Original uploads stay on the main thread's network
  * stack while these produce web + thumb JPEGs.
  */
+import { WEB_DISPLAY_EDGE } from './uploadDefaults';
+
 const POOL_SIZE = 6;
 
 let workers = [];
@@ -96,7 +98,7 @@ export function encodeDerivativesOffThread(file, options = {}) {
       worker.postMessage({
         id,
         file,
-        webMaxEdge: options.webMaxEdge ?? 2048,
+        webMaxEdge: options.webMaxEdge ?? WEB_DISPLAY_EDGE,
         thumbMaxEdge: options.thumbMaxEdge ?? 400,
         thumbQuality: options.thumbQuality ?? 0.6,
         enhanceRaw: options.enhanceRaw === true,

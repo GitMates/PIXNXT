@@ -13,10 +13,17 @@ export const UPLOAD_DEFAULTS_KEYS = {
   rawPhotoSupport: 'raw_photo_support',
 };
 
+/**
+ * Long edge of the screen copy saved at upload.
+ * Cover, preview, and the opened photo use this file. The grid keeps the 400px thumb.
+ * Older saved quality names (standard / high / maximum) all map here.
+ */
+export const WEB_DISPLAY_EDGE = 3840;
+
 const WEB_EDGE = {
-  standard: 1600,
-  high: 2048,
-  maximum: 3200,
+  standard: WEB_DISPLAY_EDGE,
+  high: WEB_DISPLAY_EDGE,
+  maximum: WEB_DISPLAY_EDGE,
 };
 
 function readLs(key, fallback = null) {
@@ -102,7 +109,7 @@ export function syncUploadDefaultsToLocalStorage(profileOrDefaults) {
 }
 
 export function webMaxEdgeForQuality(quality) {
-  return WEB_EDGE[quality] || WEB_EDGE.high;
+  return WEB_EDGE[quality] || WEB_DISPLAY_EDGE;
 }
 
 export function uploadMaxEdgeForQuality(quality) {

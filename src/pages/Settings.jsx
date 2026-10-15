@@ -1778,7 +1778,7 @@ const PreferencesTab = ({ profile, updateProfile }) => {
                 <div className="settings-callout">
                     <strong>Removed — Standard / High / Maximum</strong>
                     <p>
-                        Guests always get a web-sized preview built for the screen they are on. Your uploaded
+                        Guests always get one sharp screen copy, sized for a full-screen phone. Your uploaded
                         files are never touched, and downloads are always the original.
                     </p>
                 </div>
