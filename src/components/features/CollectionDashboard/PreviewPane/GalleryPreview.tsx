@@ -17,7 +17,6 @@ import {
   isSlideshowEnabledForCollection,
 } from '../../../../lib/collectionFeatureFlags';
 import { partitionGalleryMedia } from '../../../../lib/galleryMediaType';
-import { isRowMasonryGridStyle } from '../../../../lib/galleryGridStyle';
 import {
   GalleryStickyNav,
   GallerySetDescription,
@@ -303,9 +302,6 @@ export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
       ?? dashboardState?.collection?.design_options?.gallery_photo_sort
       ?? dashboardState?.collection?.gallery_photo_sort
   );
-  // Column packing reads down a column, so it does not match Highlights.
-  // Lay the same sequence out left to right, then the next row.
-  const sequenceOrder = !isRowMasonryGridStyle(grid.style) || gallerySortKey === 'custom';
 
   const photosSortedForGrid = useMemo(() => {
     const savedOrder = dashboardState?.photoOrderIds;
@@ -813,7 +809,6 @@ export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
                       videosOnly
                       gridSettings={grid}
                       isHorizontal={grid.style?.toLowerCase() === 'horizontal'}
-                      sequenceOrder={sequenceOrder}
                       onImageClick={(index) => {
                         setLightboxIndex(index);
                         setIsSlideshowActive(false);
@@ -849,7 +844,6 @@ export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
                       photos={previewStillPhotos}
                       gridSettings={grid}
                       isHorizontal={grid.style?.toLowerCase() === 'horizontal'}
-                      sequenceOrder={sequenceOrder}
                       onImageClick={(index) => {
                         setLightboxIndex(previewVideoPhotos.length + index);
                         setIsSlideshowActive(false);

@@ -60,7 +60,6 @@ import {
 import './GalleryView.css';
 import { useIsMobileViewport } from '../../hooks/useIsMobileViewport';
 import { normalizeGalleryPhotoSort, sortPhotosForGallery, orderPhotosByIds } from '../../lib/galleryPhotoSort';
-import { isRowMasonryGridStyle } from '../../lib/galleryGridStyle';
 import { navigationStyleToDb, normalizeNavigationStyle } from '../../lib/navStyle';
 import { getThumbnailSizeColumnCount } from '../../lib/masonryColumnDistribution';
 import {
@@ -3238,7 +3237,6 @@ const GalleryView = () => {
             const gridProps = {
               isMobileViewport,
               isHorizontal: effectiveSettings.grid_style?.toLowerCase() === 'horizontal',
-              sequenceOrder: Boolean(explicitPhotoOrder) || !isRowMasonryGridStyle(effectiveSettings.grid_style) || gallerySortKey === 'custom',
               gridSettings: galleryGridSettings,
               onFavorite: (photo) => handleFavoritePhotoToggle(photo),
               onDownload: handleDownloadButtonAction,
