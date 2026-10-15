@@ -7847,7 +7847,7 @@ const CollectionDashboard = () => {
                                             setShowFaceRecogniseModal(false);
                                             setFaceQuotaLimitNotice(null);
                                             if (result?.status === 'queued') {
-                                                showToast('Face scan started — people will appear as indexing finishes.');
+                                                showToast('Face scan started — people will appear as indexing finishes.', 'success');
                                             } else if (result?.status === 'skipped') {
                                                 showToast('Face recognition is already running.');
                                             } else {
