@@ -25,3 +25,6 @@ dist-ssr
 
 .agents
 .env
+
+# Local git worktrees (superpowers / agent isolation)
+.worktrees
