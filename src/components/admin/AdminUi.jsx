@@ -8,11 +8,9 @@ export function AdminPageHeader({ title, subtitle, actions }) {
   return (
     <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-6">
       <div className="min-w-0">
-        <h1 className="text-2xl font-bold text-gray-900 tracking-tight font-serif uppercase">
-          {title}
-        </h1>
+        <h1 className="type-page-title">{title}</h1>
         {subtitle ? (
-          <p className="text-gray-500 mt-1 text-sm leading-relaxed max-w-2xl">{subtitle}</p>
+          <p className="ad-muted-text mt-1 text-sm leading-relaxed max-w-2xl">{subtitle}</p>
         ) : null}
       </div>
       {actions ? <div className="flex flex-wrap items-center gap-2 shrink-0">{actions}</div> : null}
@@ -26,9 +24,9 @@ export function AdminSection({ title, hint, children, className = '' }) {
       {(title || hint) && (
         <div className="flex items-baseline justify-between gap-3 mb-3">
           {title ? (
-            <h2 className="text-xs font-semibold uppercase tracking-wider text-gray-500">{title}</h2>
+            <h2 className="text-xs font-semibold uppercase tracking-wider ad-muted-text">{title}</h2>
           ) : <span />}
-          {hint ? <p className="text-[11px] text-gray-400">{hint}</p> : null}
+          {hint ? <p className="text-[11px] ad-faint-text">{hint}</p> : null}
         </div>
       )}
       {children}
@@ -47,23 +45,23 @@ export function AdminStatCard({
   icon: Icon,
 }) {
   const toneCls = tone === 'danger'
-    ? 'text-red-700'
+    ? 'text-[var(--ad-bad)]'
     : tone === 'warn'
-      ? 'text-amber-700'
+      ? 'text-[var(--ad-warn)]'
       : tone === 'ok'
-        ? 'text-emerald-700'
-        : 'text-gray-900';
+        ? 'text-[var(--ad-ok)]'
+        : 'ad-ink';
 
   const inner = (
     <>
       <div className="flex items-start justify-between gap-2">
-        <h3 className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">{label}</h3>
+        <h3 className="text-[11px] font-semibold uppercase tracking-wide ad-muted-text">{label}</h3>
         <span className="flex items-center gap-1.5">
           {to ? (
-            <ArrowUpRight className="ad-stat-arrow size-4 text-gray-400" />
+            <ArrowUpRight className="ad-stat-arrow size-4 ad-faint-text" />
           ) : null}
           {Icon ? (
-            <span className="inline-flex size-8 items-center justify-center rounded-xl bg-[#f0eee9] text-gray-600">
+            <span className="inline-flex size-8 items-center justify-center rounded-xl bg-[var(--ad-sunk)] text-[var(--ad-muted)]">
               <Icon className="size-4" />
             </span>
           ) : null}
@@ -72,12 +70,12 @@ export function AdminStatCard({
       <p className={`text-2xl sm:text-3xl font-bold mt-3 tabular-nums ${toneCls}`}>
         {loading ? <AppSpinner size="sm" /> : value}
       </p>
-      {sub ? <p className="text-[11px] text-gray-400 mt-1.5 leading-snug">{sub}</p> : null}
+      {sub ? <p className="text-[11px] ad-faint-text mt-1.5 leading-snug">{sub}</p> : null}
       {meter != null && !loading ? (
-        <div className="mt-3 h-1.5 rounded-full bg-[#efece6] overflow-hidden">
+        <div className="mt-3 h-1.5 rounded-full bg-[var(--ad-meter-track)] overflow-hidden">
           <div
             className={`h-full rounded-full transition-all ${
-              tone === 'danger' ? 'bg-red-500' : tone === 'warn' ? 'bg-amber-500' : 'bg-[#1a1a1a]'
+              tone === 'danger' ? 'bg-[var(--ad-bad)]' : tone === 'warn' ? 'bg-[var(--ad-warn)]' : 'bg-[var(--ad-meter-fill)]'
             }`}
             style={{ width: `${Math.max(2, Math.min(100, Number(meter) || 0))}%` }}
           />
@@ -87,10 +85,10 @@ export function AdminStatCard({
   );
 
   const cls =
-    'ad-stat bg-white p-5 rounded-2xl border border-[#eae8e4] shadow-sm flex flex-col justify-between min-h-[120px]';
+    'ad-stat ad-card p-5 flex flex-col justify-between min-h-[120px]';
 
   return to ? (
-    <Link to={to} className={`${cls} hover:border-gray-400/80 transition-colors`}>
+    <Link to={to} className={`${cls} transition-colors`}>
       {inner}
     </Link>
   ) : (
@@ -103,7 +101,7 @@ export function AdminBarList({ items = [], max = 8, onSelect, empty = 'No data y
   const top = items.slice(0, max);
   const peak = Math.max(1, ...top.map((i) => Number(i.count) || 0));
   if (!top.length) {
-    return <p className="text-sm text-gray-500 py-6 text-center">{empty}</p>;
+    return <p className="text-sm ad-muted-text py-6 text-center">{empty}</p>;
   }
   return (
     <div className="space-y-2.5">
@@ -112,12 +110,12 @@ export function AdminBarList({ items = [], max = 8, onSelect, empty = 'No data y
         const body = (
           <>
             <div className="flex items-baseline justify-between gap-2 mb-1">
-              <span className="text-sm font-medium text-gray-900 truncate">{item.label}</span>
-              <span className="text-xs font-mono text-gray-500 shrink-0 tabular-nums">{count.toLocaleString()}</span>
+              <span className="text-sm font-medium ad-ink truncate">{item.label}</span>
+              <span className="text-xs font-mono ad-muted-text shrink-0 tabular-nums">{count.toLocaleString()}</span>
             </div>
-            <div className="h-2 rounded-full bg-[#efece6] overflow-hidden">
+            <div className="h-2 rounded-full bg-[var(--ad-meter-track)] overflow-hidden">
               <div
-                className="h-full rounded-full bg-[#1a1a1a] transition-all"
+                className="h-full rounded-full bg-[var(--ad-meter-fill)] transition-all"
                 style={{ width: `${Math.max(4, (count / peak) * 100)}%` }}
               />
             </div>
@@ -156,20 +154,20 @@ export function AdminUsageMeter({ used = 0, limit = 0, label, className = '' }) 
     <div className={className}>
       {label ? (
         <div className="flex items-baseline justify-between gap-2 mb-1.5">
-          <span className="text-[11px] font-medium text-gray-500">{label}</span>
-          <span className={`text-[11px] font-semibold tabular-nums ${exhausted ? 'text-red-700' : warn ? 'text-amber-700' : 'text-gray-700'}`}>
+          <span className="text-[11px] font-medium ad-muted-text">{label}</span>
+          <span className={`text-[11px] font-semibold tabular-nums ${exhausted ? 'text-[var(--ad-bad)]' : warn ? 'text-[var(--ad-warn)]' : 'ad-ink'}`}>
             {disabled ? 'Off' : unlimited ? `${u.toLocaleString()} / ∞` : `${Math.round(pct)}%`}
           </span>
         </div>
       ) : null}
-      <div className="h-2 rounded-full bg-[#efece6] overflow-hidden">
+      <div className="h-2 rounded-full bg-[var(--ad-meter-track)] overflow-hidden">
         <div
           className={`h-full rounded-full transition-all ${
-            disabled ? 'bg-gray-300'
-              : exhausted ? 'bg-red-500'
-                : warn ? 'bg-amber-500'
-                  : unlimited ? 'bg-emerald-500/80'
-                    : 'bg-[#1a1a1a]'
+            disabled ? 'bg-[var(--ad-muted)] opacity-40'
+              : exhausted ? 'bg-[var(--ad-bad)]'
+                : warn ? 'bg-[var(--ad-warn)]'
+                  : unlimited ? 'bg-[var(--ad-ok)] opacity-80'
+                    : 'bg-[var(--ad-meter-fill)]'
           }`}
           style={{ width: disabled ? '100%' : unlimited ? '12%' : `${Math.max(pct > 0 ? 4 : 0, pct)}%` }}
         />
@@ -180,10 +178,10 @@ export function AdminUsageMeter({ used = 0, limit = 0, label, className = '' }) 
 
 export function AdminPanel({ title, children, className = '', action }) {
   return (
-    <div className={`ad-panel rounded-2xl border border-[#eae8e4] bg-white shadow-sm ${className}`}>
+    <div className={`ad-panel ad-card ${className}`}>
       {(title || action) && (
-        <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-[#eae8e4] select-none">
-          <h3 className="text-sm font-semibold text-gray-900">{title}</h3>
+        <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-[var(--ad-line)] select-none">
+          <h3 className="text-sm font-semibold ad-ink">{title}</h3>
           {action}
         </div>
       )}
@@ -232,33 +230,33 @@ export function AdminModal({
     >
       <button
         type="button"
-        className="ad-modal-backdrop absolute inset-0 bg-[#1a1a1a]/45 backdrop-blur-[2px] select-none"
+        className="ad-modal-backdrop absolute inset-0 bg-[color-mix(in_srgb,var(--ad-ink)_45%,transparent)] backdrop-blur-[2px] select-none"
         aria-label="Close dialog"
         onMouseDown={(e) => e.preventDefault()}
         onClick={onClose}
       />
       <div
-        className={`ad-modal-card relative w-full ${maxW} max-h-[92vh] flex flex-col rounded-t-3xl sm:rounded-3xl bg-[#fdfdfc] border border-[#eae8e4] shadow-2xl overflow-hidden`}
+        className={`ad-modal-card relative w-full ${maxW} max-h-[92vh] flex flex-col rounded-t-3xl sm:rounded-3xl bg-[var(--ad-card)] border border-[var(--ad-line)] shadow-2xl overflow-hidden`}
         onMouseDown={(e) => e.stopPropagation()}
       >
-        <div className="shrink-0 flex items-start gap-3 px-5 py-4 border-b border-[#eae8e4] bg-white select-none">
+        <div className="shrink-0 flex items-start gap-3 px-5 py-4 border-b border-[var(--ad-line)] bg-[var(--ad-card)] select-none">
           {avatar ? (
-            <div className="size-11 rounded-full bg-[#1a1a1a] text-white flex items-center justify-center text-base font-semibold shrink-0">
+            <div className="size-11 rounded-full bg-[var(--ad-ink)] text-[var(--ad-card)] flex items-center justify-center text-base font-semibold shrink-0">
               {avatar}
             </div>
           ) : null}
           <div className="min-w-0 flex-1 pt-0.5">
-            <h2 id="admin-modal-title" className="text-lg font-semibold text-gray-900 leading-tight">
+            <h2 id="admin-modal-title" className="text-lg font-semibold ad-ink leading-tight">
               {title}
             </h2>
             {subtitle ? (
-              <p className="text-sm text-gray-500 mt-0.5 truncate">{subtitle}</p>
+              <p className="text-sm ad-muted-text mt-0.5 truncate">{subtitle}</p>
             ) : null}
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="shrink-0 size-9 inline-flex items-center justify-center rounded-xl border border-[#eae8e4] bg-white text-gray-500 hover:text-gray-900 hover:bg-gray-50"
+            className="ad-btn-secondary shrink-0 size-9 inline-flex items-center justify-center rounded-xl p-0"
             aria-label="Close"
           >
             <X className="size-4" />
@@ -270,7 +268,7 @@ export function AdminModal({
         </div>
 
         {footer ? (
-          <div className="shrink-0 flex flex-wrap items-center justify-end gap-2 px-5 py-4 border-t border-[#eae8e4] bg-white select-none">
+          <div className="shrink-0 flex flex-wrap items-center justify-end gap-2 px-5 py-4 border-t border-[var(--ad-line)] bg-[var(--ad-card)] select-none">
             {footer}
           </div>
         ) : null}
@@ -283,7 +281,7 @@ export function AdminModalSection({ title, children }) {
   return (
     <div className="space-y-3">
       {title ? (
-        <h3 className="text-[11px] font-semibold uppercase tracking-wider text-gray-400">{title}</h3>
+        <h3 className="text-[11px] font-semibold uppercase tracking-wider ad-faint-text">{title}</h3>
       ) : null}
       {children}
     </div>
@@ -296,7 +294,7 @@ export function AdminModalActions({ onCancel, onSave, saving, saveLabel = 'Save 
       <button
         type="button"
         onClick={onCancel}
-        className="px-4 py-2.5 text-sm font-medium rounded-xl border border-[#eae8e4] bg-white text-gray-700 hover:bg-gray-50"
+        className="ad-btn-secondary px-4 py-2.5 text-sm"
       >
         Cancel
       </button>
@@ -304,7 +302,7 @@ export function AdminModalActions({ onCancel, onSave, saving, saveLabel = 'Save 
         type="button"
         onClick={onSave}
         disabled={saving}
-        className="px-5 py-2.5 text-sm font-semibold rounded-xl bg-[#1a1a1a] text-white hover:bg-black disabled:opacity-50"
+        className="ad-btn-primary px-5 py-2.5 text-sm disabled:opacity-50"
       >
         {saving ? 'Saving…' : saveLabel}
       </button>
