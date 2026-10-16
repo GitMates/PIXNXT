@@ -48,13 +48,14 @@ body.dark-theme .sc-page {
   --sc-warn: #c49a5a;
   --sc-danger: #e08a7a;
   --sc-danger-bg: rgba(224, 138, 122, 0.14);
-  --sc-btn-solid-bg: #ffffff;
-  --sc-btn-solid-fg: #111111;
-  --sc-btn-solid-hover: var(--bg-surface-hover);
+  /* Solid CTA: terracotta + white text (never dark-on-dark on hover) */
+  --sc-btn-solid-bg: var(--accent-primary);
+  --sc-btn-solid-fg: #ffffff;
+  --sc-btn-solid-hover: var(--accent-primary-hover);
   --sc-btn-ghost-bg: transparent;
   --sc-btn-ghost-border: var(--border-card);
-  --sc-btn-ghost-hover-bg: rgba(255, 255, 255, 0.03);
-  --sc-btn-ghost-hover-border: var(--border-card);
+  --sc-btn-ghost-hover-bg: rgba(255, 255, 255, 0.06);
+  --sc-btn-ghost-hover-border: color-mix(in srgb, var(--text-heading) 35%, var(--border-card));
   --sc-media-bg: var(--bg-surface);
   --sc-radius: 16px;
   --sc-icon-tile: #f3efe8;
@@ -146,6 +147,7 @@ body.dark-theme .sc-page {
 
 .sc-btn--solid:hover:not(:disabled) {
   background: var(--sc-btn-solid-hover, #2a2a2a);
+  color: var(--sc-btn-solid-fg, #fff);
 }
 
 .sc-btn--danger {
@@ -2088,7 +2090,12 @@ body.dark-theme .sc-page {
 }
 
 body.dark-theme .sc-btn--solid {
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.4);
+  box-shadow: none;
+}
+
+body.dark-theme .sc-page .sc-btn--solid:hover:not(:disabled) {
+  background: var(--sc-btn-solid-hover);
+  color: var(--sc-btn-solid-fg);
 }
 
 /* ------- Page settings: aligned fields (polish pass) ------- */

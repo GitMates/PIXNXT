@@ -47,6 +47,45 @@ body.dark-theme textarea::placeholder {
   opacity: 1;
 }
 
+/* ── Neumorphic light-glow kill switch (entire app) ───────────────
+   Light theme uses soft white outer shadows (--neu-light / oklch white).
+   In dark theme those read as a foggy halo around primary pills (e.g.
+   Starred "Go to Deliveries"). Neutralize the tokens and strip the
+   glow from shared neu / primary pill surfaces. */
+body.dark-theme .theme-mono {
+  --neu-light: transparent;
+  --neu-dark: rgba(0, 0, 0, 0.45);
+}
+
+body.dark-theme .neu-pill,
+body.dark-theme .theme-mono .neu-pill,
+body.dark-theme .mg-btn-primary,
+body.dark-theme .theme-mono .mg-btn-primary,
+body.dark-theme .theme-mono.mg-theme .mg-btn-primary,
+body.dark-theme .lab-btn-primary,
+body.dark-theme .theme-mono.lab-shell .neu-pill,
+body.dark-theme .acct-btn-primary.neu-pill {
+  box-shadow: none;
+}
+
+body.dark-theme .neu-pill:hover,
+body.dark-theme .theme-mono .neu-pill:hover,
+body.dark-theme .neu-pill:active,
+body.dark-theme .theme-mono .neu-pill:active,
+body.dark-theme .mg-btn-primary:hover:not(:disabled),
+body.dark-theme .theme-mono .mg-btn-primary:hover:not(:disabled),
+body.dark-theme .theme-mono.mg-theme .mg-btn-primary:hover:not(:disabled),
+body.dark-theme .lab-btn-primary:hover:not(:disabled),
+body.dark-theme .acct-btn-primary.neu-pill:hover {
+  box-shadow: none;
+}
+
+body.dark-theme .theme-mono .neu-glow-pill,
+body.dark-theme .theme-mono .glass,
+body.dark-theme .theme-mono .glass-panel {
+  box-shadow: none;
+}
+
 /* ── Appearance row (Auto / Light / Dark) ─────────────────────── */
 
 .sb-appearance {
@@ -4953,9 +4992,26 @@ body.dark-theme .pl-new-btn:hover {
   background-color: var(--accent-primary-hover);
 }
 
-body.dark-theme .neu-pill {
+body.dark-theme .neu-pill,
+body.dark-theme .theme-mono .neu-pill {
   background: var(--accent-primary);
-  color: var(--text-heading);
+  background-image: none;
+  color: #fff;
+  box-shadow: none;
+}
+
+body.dark-theme .neu-pill:hover,
+body.dark-theme .theme-mono .neu-pill:hover {
+  background: var(--accent-primary-hover);
+  background-image: none;
+  box-shadow: none;
+}
+
+body.dark-theme .neu-pill:active,
+body.dark-theme .theme-mono .neu-pill:active {
+  background: var(--accent-primary-hover);
+  background-image: none;
+  box-shadow: none;
 }
 
 /* ── Starred (+ ClientGalleryPageShell) ───────────────────────── */
@@ -5374,7 +5430,9 @@ body.dark-theme .theme-mono.cd-dashboard-shell .neu-circle {
 
 body.dark-theme .theme-mono.cd-dashboard-shell .neu-pill {
   background: var(--accent-primary);
-  color: var(--text-heading);
+  background-image: none;
+  color: #fff;
+  box-shadow: none;
 }
 
 body.dark-theme .theme-mono.cd-dashboard-shell img,
