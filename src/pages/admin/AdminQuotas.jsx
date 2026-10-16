@@ -26,14 +26,16 @@ function quotaState(used, limit) {
 
 function QuotaPill({ used, limit }) {
   const cap = Number(limit);
-  if (cap === -1) return <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-gray-100 text-gray-500">Off</span>;
+  if (cap === -1) return <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-[var(--ad-sunk)] ad-muted-text">Off</span>;
   const u = Number(used) || 0;
   const st = quotaState(used, limit);
   const text = cap > 0 ? `${u.toLocaleString()} / ${cap.toLocaleString()}` : `${u.toLocaleString()} / ∞`;
   const cls =
-    st === 'exhausted' ? 'bg-red-50 text-red-700 border-red-200'
-    : st === 'warning' ? 'bg-amber-50 text-amber-700 border-amber-200'
-    : 'bg-emerald-50 text-emerald-700 border-emerald-200';
+    st === 'exhausted'
+      ? 'bg-[var(--ad-bad-bg)] text-[var(--ad-bad)] border-[color-mix(in_srgb,var(--ad-bad)_35%,var(--ad-line))]'
+    : st === 'warning'
+      ? 'bg-[var(--ad-warn-bg)] text-[var(--ad-warn)] border-[color-mix(in_srgb,var(--ad-warn)_35%,var(--ad-line))]'
+    : 'bg-[var(--ad-ok-bg)] text-[var(--ad-ok)] border-[color-mix(in_srgb,var(--ad-ok)_35%,var(--ad-line))]';
   return <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold border ${cls}`}>{text}</span>;
 }
 
@@ -41,9 +43,13 @@ function MiniBar({ used, limit }) {
   const cap = Number(limit);
   const pct = cap > 0 ? Math.min(100, ((Number(used) || 0) / cap) * 100) : 0;
   const st = quotaState(used, limit);
-  const color = st === 'exhausted' ? 'bg-red-400' : st === 'warning' ? 'bg-amber-400' : st === 'disabled' ? 'bg-gray-300' : 'bg-emerald-500';
+  const color =
+    st === 'exhausted' ? 'bg-[var(--ad-bad)]'
+    : st === 'warning' ? 'bg-[var(--ad-warn)]'
+    : st === 'disabled' ? 'bg-[var(--ad-meter-track)]'
+    : 'bg-[var(--ad-ok)]';
   return (
-    <div className="h-1 w-full rounded-full bg-gray-100 overflow-hidden">
+    <div className="h-1 w-full rounded-full bg-[var(--ad-meter-track)] overflow-hidden">
       <div className={`h-full rounded-full ${color}`} style={{ width: `${pct}%` }} />
     </div>
   );
@@ -57,13 +63,48 @@ function CardSwitch({ checked, onChange, label }) {
       role="switch"
       aria-checked={checked}
       aria-label={label}
+      data-on={checked ? 'true' : 'false'}
       onClick={() => onChange(!checked)}
-      className={`relative inline-flex h-5 w-9 shrink-0 rounded-full transition-colors ${checked ? 'bg-emerald-500' : 'bg-gray-300'}`}
+      className="ad-toggle"
     >
-      <span className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-all ${checked ? 'left-4' : 'left-0.5'}`} />
+      <span className="ad-toggle-thumb" />
     </button>
   );
 }
+
+/** Feature row switch (modal master toggles). */
+function FeatureSwitch({ checked, onChange, label }) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      aria-label={label}
+      data-on={checked ? 'true' : 'false'}
+      onClick={() => onChange(!checked)}
+      className="ad-toggle"
+    >
+      <span className="ad-toggle-thumb" />
+    </button>
+  );
+}
+
+const featureRowShell = (on) =>
+  on
+    ? 'border-[var(--ad-accent)] bg-[color-mix(in_srgb,var(--ad-accent)_8%,var(--ad-card))]'
+    : 'border-[var(--ad-line)] bg-[var(--ad-sunk)]';
+
+const onOffChip = (on) =>
+  on ? 'bg-[var(--ad-ok-bg)] text-[var(--ad-ok)]' : 'bg-[var(--ad-sunk)] ad-muted-text';
+
+const iconWell = (on) =>
+  on ? 'bg-[var(--ad-ok-bg)] text-[var(--ad-ok)]' : 'bg-[var(--ad-sunk)] ad-muted-text';
+
+const unlimitedBannerClass =
+  'flex items-center gap-2 px-3 py-2.5 rounded-xl bg-[var(--ad-ok-bg)] border border-[color-mix(in_srgb,var(--ad-ok)_25%,var(--ad-line))] text-[var(--ad-ok)]';
+
+const quotaInputClass =
+  'ad-input w-full px-3 py-2 ad-sunk border border-[var(--ad-line)] rounded-xl text-sm outline-none';
 
 /** "Reset used to 0" action with undo. Visible only when there is usage to clear. */
 function ResetUsedButton({ flagged, onClick }) {
@@ -72,7 +113,7 @@ function ResetUsedButton({ flagged, onClick }) {
       type="button"
       onClick={onClick}
       title={flagged ? 'Undo reset' : 'Reset used count to 0 on save'}
-      className={`inline-flex shrink-0 items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-semibold transition-colors ${flagged ? 'bg-amber-100 text-amber-700 hover:bg-amber-200' : 'text-gray-400 hover:text-red-600 hover:bg-red-50'}`}
+      className={`inline-flex shrink-0 items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-semibold transition-colors ${flagged ? 'bg-[var(--ad-warn-bg)] text-[var(--ad-warn)] hover:opacity-90' : 'ad-faint-text hover:text-[var(--ad-bad)] hover:bg-[var(--ad-bad-bg)]'}`}
     >
       <RotateCcw className="w-3 h-3" />
       {flagged ? 'Undo' : 'Reset'}
@@ -86,7 +127,7 @@ function UsedLabel({ used, wasUsed, resetFlag }) {
     return (
       <span>
         Used 0{' '}
-        <span className="text-amber-600 font-medium">
+        <span className="text-[var(--ad-warn)] font-medium">
           (was {Number(wasUsed || 0).toLocaleString()} · resets on save)
         </span>
       </span>
@@ -103,7 +144,7 @@ function UnlimitedPill({ unlimited, onChange }) {
       onClick={() => onChange(!unlimited)}
       aria-pressed={unlimited}
       title="Toggle unlimited"
-      className={`inline-flex shrink-0 items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold transition-colors ${unlimited ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}
+      className={`inline-flex shrink-0 items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold transition-colors ${unlimited ? 'bg-[var(--ad-ok-bg)] text-[var(--ad-ok)]' : 'bg-[var(--ad-sunk)] ad-muted-text hover:opacity-90'}`}
     >
       <span className="text-sm leading-none">∞</span>
       {unlimited ? 'Unlimited' : 'Limited'}
@@ -111,16 +152,16 @@ function UnlimitedPill({ unlimited, onChange }) {
   );
 }
 
-/** Quota card shell: white elevated card with toggle + icon header. */
+/** Quota card shell with toggle + icon header. */
 function QuotaCard({ toggle, icon, title, usedLine, actions, children }) {
   return (
-    <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+    <div className="ad-card rounded-2xl p-4 shadow-sm">
       <div className="flex items-center gap-2.5">
         {toggle}
         {icon}
         <div className="min-w-0 flex-1">
-          <p className="text-[13px] font-semibold text-gray-800 leading-tight">{title}</p>
-          <p className="text-[11px] text-gray-400">{usedLine}</p>
+          <p className="text-[13px] font-semibold ad-ink leading-tight">{title}</p>
+          <p className="text-[11px] ad-faint-text">{usedLine}</p>
         </div>
         <div className="flex shrink-0 items-center gap-1.5">{actions}</div>
       </div>
@@ -201,9 +242,9 @@ function LimitSegmented({ unlimited, limitValue, onPickOne, onPickMultiple, onPi
   const isOne = !unlimited && limitValue === '1';
   const isMultiple = !unlimited && Number(limitValue) > 1;
   const btn = (active) =>
-    `flex-1 px-2 py-1.5 text-[11px] rounded-lg font-semibold transition-all ${active ? 'bg-white text-[#1a1a1a] shadow-sm' : 'text-gray-500 hover:text-gray-700'}`;
+    `flex-1 px-2 py-1.5 text-[11px] rounded-lg font-semibold transition-all ${active ? 'bg-[var(--ad-card)] ad-ink shadow-sm' : 'ad-muted-text hover:text-[var(--ad-ink)]'}`;
   return (
-    <div className="flex gap-1 p-1 bg-gray-100 rounded-xl">
+    <div className="flex gap-1 p-1 ad-sunk rounded-xl">
       <button type="button" onClick={onPickOne} className={btn(isOne)}>1</button>
       <button type="button" onClick={onPickMultiple} className={btn(isMultiple)}>Multiple</button>
       <button type="button" onClick={onPickUnlimited} className={btn(unlimited)}>∞</button>
@@ -562,7 +603,7 @@ const AdminQuotas = () => {
             key={s.key}
             type="button"
             onClick={() => setStatusFilter((prev) => (prev === s.key ? 'all' : s.key))}
-            className={`text-left rounded-2xl transition-all ${statusFilter === s.key ? 'ring-2 ring-[#1a1a1a] ring-offset-2' : ''}`}
+            className={`text-left rounded-2xl transition-all ${statusFilter === s.key ? 'ring-2 ring-[var(--ad-accent)] ring-offset-2' : ''}`}
           >
             <AdminStatCard
               label={s.label}
@@ -575,16 +616,16 @@ const AdminQuotas = () => {
         ))}
       </div>
 
-      <div className="bg-white p-4 rounded-2xl shadow-sm border border-[#eae8e4] space-y-3">
+      <div className="ad-card p-4 rounded-2xl shadow-sm space-y-3">
         <div className="flex flex-col lg:flex-row gap-3">
           <div className="relative flex-1 min-w-0">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 ad-faint-text" />
             <input
               type="text"
               placeholder="Search users by name or email..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-9 pr-4 py-2 bg-[#f8f7f4] border border-[#eae8e4] hover:border-[#eae8e4]/80 focus:border-[#1a1a1a] focus:bg-white rounded-xl text-sm outline-none transition-all focus:ring-1 focus:ring-[#1a1a1a]"
+              className="ad-input w-full pl-9 pr-4 py-2 ad-sunk border border-[var(--ad-line)] rounded-xl text-sm outline-none"
             />
           </div>
           <div className="flex flex-col sm:flex-row gap-3">
@@ -592,7 +633,7 @@ const AdminQuotas = () => {
               value={planFilter}
               onChange={(e) => setPlanFilter(e.target.value)}
               aria-label="Filter by plan"
-              className="px-3 py-2 bg-[#f8f7f4] border border-[#eae8e4] rounded-xl text-sm outline-none focus:border-[#1a1a1a] focus:bg-white transition-all"
+              className="ad-input px-3 py-2 ad-sunk border border-[var(--ad-line)] rounded-xl text-sm outline-none"
             >
               <option value="all">All plans</option>
               {planOptions.map((p) => (
@@ -603,7 +644,7 @@ const AdminQuotas = () => {
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
               aria-label="Filter by status"
-              className="px-3 py-2 bg-[#f8f7f4] border border-[#eae8e4] rounded-xl text-sm outline-none focus:border-[#1a1a1a] focus:bg-white transition-all"
+              className="ad-input px-3 py-2 ad-sunk border border-[var(--ad-line)] rounded-xl text-sm outline-none"
             >
               <option value="all">All statuses</option>
               <option value="at-limit">At quota limit</option>
@@ -614,11 +655,11 @@ const AdminQuotas = () => {
           </div>
         </div>
         <div className="flex items-center justify-between gap-3">
-          <p className="text-xs text-gray-500">
-            Showing <span className="font-semibold text-gray-800">{filteredUsers.length}</span> of <span className="font-semibold text-gray-800">{users.length}</span> photographers
+          <p className="text-xs ad-muted-text">
+            Showing <span className="font-semibold ad-ink">{filteredUsers.length}</span> of <span className="font-semibold ad-ink">{users.length}</span> photographers
           </p>
           {filtersActive && (
-            <button type="button" onClick={clearFilters} className="inline-flex items-center gap-1 text-xs font-semibold text-gray-500 hover:text-gray-900 transition-colors">
+            <button type="button" onClick={clearFilters} className="inline-flex items-center gap-1 text-xs font-semibold ad-muted-text hover:text-[var(--ad-ink)] transition-colors">
               <X className="w-3.5 h-3.5" />Clear filters
             </button>
           )}
@@ -626,17 +667,17 @@ const AdminQuotas = () => {
       </div>
 
       {migrationWarning && !loading && (
-        <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex items-start gap-3">
-          <AlertCircle className="w-5 h-5 text-amber-600 mt-0.5 shrink-0" />
-          <p className="text-amber-800 text-sm">{migrationWarning}</p>
+        <div className="rounded-2xl p-4 flex items-start gap-3 border border-[color-mix(in_srgb,var(--ad-warn)_35%,var(--ad-line))] bg-[var(--ad-warn-bg)]">
+          <AlertCircle className="w-5 h-5 text-[var(--ad-warn)] mt-0.5 shrink-0" />
+          <p className="text-[var(--ad-warn)] text-sm">{migrationWarning}</p>
         </div>
       )}
 
       {error && (
-        <div className="bg-red-50 border border-red-100 rounded-2xl p-6 flex flex-col items-center justify-center text-center">
-          <AlertCircle className="w-8 h-8 text-red-500 mb-3" />
-          <h3 className="text-red-800 font-semibold mb-1">Failed to load users</h3>
-          <p className="text-red-600 text-sm max-w-md">{error}</p>
+        <div className="ad-error-card rounded-2xl p-6 flex flex-col items-center justify-center text-center">
+          <AlertCircle className="w-8 h-8 text-[var(--ad-bad)] mb-3" />
+          <h3 className="text-[var(--ad-bad)] font-semibold mb-1">Failed to load users</h3>
+          <p className="text-[var(--ad-bad)] text-sm max-w-md opacity-90">{error}</p>
         </div>
       )}
 
@@ -645,36 +686,36 @@ const AdminQuotas = () => {
       )}
 
       {!error && !loading && (
-        <div className="bg-[#fdfdfc] rounded-2xl shadow-sm border border-[#eae8e4] overflow-hidden">
+        <div className="ad-panel ad-card overflow-hidden">
           {/* No horizontal scroll: grouped columns fit the container */}
           <div className="overflow-hidden">
             <table className="w-full text-left text-sm" style={{ tableLayout: 'fixed' }}>
-              <thead className="bg-[#f9f8f5]/85 border-b border-[#eae8e4]">
+              <thead className="bg-[var(--ad-sunk)] border-b border-[var(--ad-line)]">
                 <tr>
-                  <th className="px-5 py-3.5 font-semibold text-gray-500 text-xs uppercase tracking-wider" style={{ width: '26%' }}>Photographer</th>
-                  <th className="px-4 py-3.5 font-semibold text-gray-500 text-xs uppercase tracking-wider" style={{ width: '20%' }}>
+                  <th className="px-5 py-3.5 font-semibold ad-muted-text text-xs uppercase tracking-wider" style={{ width: '26%' }}>Photographer</th>
+                  <th className="px-4 py-3.5 font-semibold ad-muted-text text-xs uppercase tracking-wider" style={{ width: '20%' }}>
                     <span className="inline-flex items-center gap-1.5"><HardDrive className="w-3.5 h-3.5" />Storage</span>
                   </th>
-                  <th className="px-4 py-3.5 font-semibold text-gray-500 text-xs uppercase tracking-wider" style={{ width: '22%' }}>
+                  <th className="px-4 py-3.5 font-semibold ad-muted-text text-xs uppercase tracking-wider" style={{ width: '22%' }}>
                     <span className="inline-flex items-center gap-1.5"><ScanFace className="w-3.5 h-3.5" />Face images</span>
-                    <span className="block text-[10px] font-normal normal-case text-gray-400 mt-0.5">Normal / Guest</span>
+                    <span className="block text-[10px] font-normal normal-case ad-faint-text mt-0.5">Normal / Guest</span>
                   </th>
-                  <th className="px-4 py-3.5 font-semibold text-gray-500 text-xs uppercase tracking-wider" style={{ width: '22%' }}>
+                  <th className="px-4 py-3.5 font-semibold ad-muted-text text-xs uppercase tracking-wider" style={{ width: '22%' }}>
                     <span className="inline-flex items-center gap-1.5"><Send className="w-3.5 h-3.5" />Deliveries</span>
-                    <span className="block text-[10px] font-normal normal-case text-gray-400 mt-0.5">Normal / Guest</span>
+                    <span className="block text-[10px] font-normal normal-case ad-faint-text mt-0.5">Normal / Guest</span>
                   </th>
-                  <th className="px-4 py-3.5 font-semibold text-gray-500 text-xs uppercase tracking-wider text-right" style={{ width: '10%' }}>Action</th>
+                  <th className="px-4 py-3.5 font-semibold ad-muted-text text-xs uppercase tracking-wider text-right" style={{ width: '10%' }}>Action</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-100">
+              <tbody className="divide-y divide-[var(--ad-line)]">
                 {filteredUsers.length === 0 ? (
                   <tr>
                     <td colSpan="5" className="px-6 py-12 text-center">
-                      <p className="text-gray-500">
+                      <p className="ad-muted-text">
                         {filtersActive ? 'No photographers match the current filters.' : 'No photographers yet.'}
                       </p>
                       {filtersActive && (
-                        <button type="button" onClick={clearFilters} className="mt-3 inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold bg-[#1a1a1a] text-white rounded-lg hover:bg-black transition-colors">
+                        <button type="button" onClick={clearFilters} className="ad-btn-primary mt-3 inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold transition-colors">
                           <X className="w-3.5 h-3.5" />Clear filters
                         </button>
                       )}
@@ -682,21 +723,21 @@ const AdminQuotas = () => {
                   </tr>
                 ) : (
                   filteredUsers.map((user) => (
-                    <tr key={user.id} className="ad-row hover:bg-[#f8f7f4]/60 transition-colors align-top">
+                    <tr key={user.id} className="ad-row transition-colors align-top">
                       <td className="px-5 py-4 min-w-0">
                         <div className="flex items-center gap-3 min-w-0">
-                          <div className="ad-avatar w-9 h-9 rounded-full flex items-center justify-center bg-[#1a1a1a] text-white shrink-0">
+                          <div className="ad-avatar w-9 h-9 rounded-full flex items-center justify-center bg-[var(--ad-ink)] text-[var(--ad-card)] shrink-0">
                             <User className="w-4 h-4" />
                           </div>
                           <div className="min-w-0">
-                            <p className="font-semibold text-gray-900 truncate">{user.name}</p>
-                            <p className="text-gray-500 text-xs truncate">{user.email}</p>
-                            <span className="inline-flex items-center gap-1 mt-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-gray-100 text-gray-600 capitalize">
+                            <p className="font-semibold ad-ink truncate">{user.name}</p>
+                            <p className="ad-muted-text text-xs truncate">{user.email}</p>
+                            <span className="inline-flex items-center gap-1 mt-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-[var(--ad-sunk)] ad-muted-text capitalize">
                               {user.plan} · {user.role}
                             </span>
                             {user.aiSearch === false && (
-                              <span className="flex items-center gap-1.5 mt-1.5 text-[11px] font-medium text-gray-500">
-                                <span className="w-1.5 h-1.5 rounded-full bg-gray-300" />
+                              <span className="flex items-center gap-1.5 mt-1.5 text-[11px] font-medium ad-muted-text">
+                                <span className="w-1.5 h-1.5 rounded-full bg-[var(--ad-meter-track)]" />
                                 Library off
                               </span>
                             )}
@@ -704,7 +745,7 @@ const AdminQuotas = () => {
                         </div>
                       </td>
                       <td className="px-4 py-4 min-w-0">
-                        <p className="text-[13px] font-semibold text-gray-800">{formatStorageShort(user.usedStorage, user.totalStorage)}</p>
+                        <p className="text-[13px] font-semibold ad-ink">{formatStorageShort(user.usedStorage, user.totalStorage)}</p>
                         <div className="mt-1.5 max-w-[160px]">
                           <MiniBar used={user.rawUsedBytes} limit={user.rawLimitBytes} />
                         </div>
@@ -712,24 +753,24 @@ const AdminQuotas = () => {
                       <td className="px-4 py-4 min-w-0">
                         <div className="space-y-2">
                           <div className="flex items-center justify-between gap-2">
-                            <span className="inline-flex items-center gap-1 text-[11px] font-medium text-gray-500 w-14 shrink-0">
-                              Normal <span className={`w-1.5 h-1.5 rounded-full ${user.normalFeature !== false ? 'bg-emerald-500' : 'bg-gray-300'}`} />
+                            <span className="inline-flex items-center gap-1 text-[11px] font-medium ad-muted-text w-14 shrink-0">
+                              Normal <span className={`w-1.5 h-1.5 rounded-full ${user.normalFeature !== false ? 'bg-[var(--ad-ok)]' : 'bg-[var(--ad-meter-track)]'}`} />
                             </span>
                             {user.normalFeature !== false ? (
                               <QuotaPill used={user.normalImageUsed} limit={user.normalImageLimit} />
                             ) : (
-                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold bg-gray-200 text-gray-500">OFF</span>
+                              <span className="ad-pill ad-pill--muted">OFF</span>
                             )}
                           </div>
                           <MiniBar used={user.normalImageUsed} limit={user.normalFeature !== false ? user.normalImageLimit : -1} />
                           <div className="flex items-center justify-between gap-2">
-                            <span className="inline-flex items-center gap-1 text-[11px] font-medium text-gray-500 w-14 shrink-0">
-                              Guest <span className={`w-1.5 h-1.5 rounded-full ${user.guestFeature !== false ? 'bg-emerald-500' : 'bg-gray-300'}`} />
+                            <span className="inline-flex items-center gap-1 text-[11px] font-medium ad-muted-text w-14 shrink-0">
+                              Guest <span className={`w-1.5 h-1.5 rounded-full ${user.guestFeature !== false ? 'bg-[var(--ad-ok)]' : 'bg-[var(--ad-meter-track)]'}`} />
                             </span>
                             {user.guestFeature !== false ? (
                               <QuotaPill used={user.guestImageUsed} limit={user.guestImageLimit} />
                             ) : (
-                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold bg-gray-200 text-gray-500">OFF</span>
+                              <span className="ad-pill ad-pill--muted">OFF</span>
                             )}
                           </div>
                           <MiniBar used={user.guestImageUsed} limit={user.guestFeature !== false ? user.guestImageLimit : -1} />
@@ -738,24 +779,24 @@ const AdminQuotas = () => {
                       <td className="px-4 py-4 min-w-0">
                         <div className="space-y-2">
                           <div className="flex items-center justify-between gap-2">
-                            <span className="inline-flex items-center gap-1 text-[11px] font-medium text-gray-500 w-14 shrink-0">
-                              Normal <span className={`w-1.5 h-1.5 rounded-full ${user.normalFeature !== false ? 'bg-emerald-500' : 'bg-gray-300'}`} />
+                            <span className="inline-flex items-center gap-1 text-[11px] font-medium ad-muted-text w-14 shrink-0">
+                              Normal <span className={`w-1.5 h-1.5 rounded-full ${user.normalFeature !== false ? 'bg-[var(--ad-ok)]' : 'bg-[var(--ad-meter-track)]'}`} />
                             </span>
                             {user.normalFeature !== false ? (
                               <QuotaPill used={user.normalFaceUsed} limit={user.normalFaceLimit} />
                             ) : (
-                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold bg-gray-200 text-gray-500">OFF</span>
+                              <span className="ad-pill ad-pill--muted">OFF</span>
                             )}
                           </div>
                           <MiniBar used={user.normalFaceUsed} limit={user.normalFeature !== false ? user.normalFaceLimit : -1} />
                           <div className="flex items-center justify-between gap-2">
-                            <span className="inline-flex items-center gap-1 text-[11px] font-medium text-gray-500 w-14 shrink-0">
-                              Guest <span className={`w-1.5 h-1.5 rounded-full ${user.guestFeature !== false ? 'bg-emerald-500' : 'bg-gray-300'}`} />
+                            <span className="inline-flex items-center gap-1 text-[11px] font-medium ad-muted-text w-14 shrink-0">
+                              Guest <span className={`w-1.5 h-1.5 rounded-full ${user.guestFeature !== false ? 'bg-[var(--ad-ok)]' : 'bg-[var(--ad-meter-track)]'}`} />
                             </span>
                             {user.guestFeature !== false ? (
                               <QuotaPill used={user.guestFaceUsed} limit={user.guestFaceLimit} />
                             ) : (
-                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold bg-gray-200 text-gray-500">OFF</span>
+                              <span className="ad-pill ad-pill--muted">OFF</span>
                             )}
                           </div>
                           <MiniBar used={user.guestFaceUsed} limit={user.guestFeature !== false ? user.guestFaceLimit : -1} />
@@ -764,7 +805,7 @@ const AdminQuotas = () => {
                       <td className="px-4 py-4 text-right">
                         <button
                           onClick={() => openLimitsEditor(user)}
-                          className="ad-action-btn inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-[#1a1a1a] text-white rounded-lg hover:bg-[#2a2a2a] transition-colors"
+                          className="ad-action-btn ad-btn-primary inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold transition-colors"
                         >
                           <Pencil className="w-3.5 h-3.5" />Edit
                         </button>
@@ -798,8 +839,8 @@ const AdminQuotas = () => {
                 {/* Storage */}
                 <section>
                   <div className="flex items-center justify-between mb-2">
-                    <span className="text-xs font-semibold uppercase tracking-wider text-gray-500">Storage</span>
-                    <span className="text-xs text-gray-400">Used {editingUser.usedStorage}</span>
+                    <span className="ad-field-label">Storage</span>
+                    <span className="text-xs ad-faint-text">Used {editingUser.usedStorage}</span>
                   </div>
                   <AdminUsageMeter
                     className="mb-3"
@@ -807,8 +848,8 @@ const AdminQuotas = () => {
                     limit={editingUser.rawLimitBytes}
                   />
                   <div className="flex gap-2">
-                    <input type="number" required min="1" step="any" value={storageValue} onChange={(e) => setStorageValue(e.target.value)} className="flex-1 px-3 py-2.5 bg-white border border-[#eae8e4] rounded-xl text-sm outline-none focus:border-[#1a1a1a] transition-all" placeholder="e.g. 10" />
-                    <select value={storageUnit} onChange={(e) => setStorageUnit(e.target.value)} className="w-20 px-2 py-2.5 border border-[#eae8e4] rounded-xl bg-white text-sm outline-none">
+                    <input type="number" required min="1" step="any" value={storageValue} onChange={(e) => setStorageValue(e.target.value)} className="ad-input flex-1 px-3 py-2.5 border border-[var(--ad-line)] bg-[var(--ad-card)] rounded-xl text-sm outline-none" placeholder="e.g. 10" />
+                    <select value={storageUnit} onChange={(e) => setStorageUnit(e.target.value)} className="ad-input w-20 px-2 py-2.5 border border-[var(--ad-line)] bg-[var(--ad-card)] rounded-xl text-sm outline-none">
                       <option value="MB">MB</option>
                       <option value="GB">GB</option>
                       <option value="TB">TB</option>
@@ -818,23 +859,21 @@ const AdminQuotas = () => {
 
                 {/* Features — account-wide switches */}
                 <section>
-                  <p className="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-2">Features</p>
+                  <p className="ad-field-label mb-2">Features</p>
                   <div className="space-y-3">
-                    <div className={`p-3.5 rounded-xl border transition-colors ${aiSearchEnabled ? 'border-[#1a1a1a] bg-[#1a1a1a]/[0.03]' : 'border-gray-200 bg-gray-50'}`}>
+                    <div className={`p-3.5 rounded-xl border transition-colors ${featureRowShell(aiSearchEnabled)}`}>
                       <div className="flex items-center justify-between gap-3">
                         <div className="flex items-center gap-2.5 min-w-0">
-                          <button type="button" role="switch" aria-checked={aiSearchEnabled} aria-label="AI search" onClick={() => setAiSearchEnabled(!aiSearchEnabled)} className={`relative inline-flex h-6 w-11 shrink-0 rounded-full transition-colors ${aiSearchEnabled ? 'bg-emerald-500' : 'bg-gray-300'}`}>
-                            <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all ${aiSearchEnabled ? 'left-[22px]' : 'left-0.5'}`} />
-                          </button>
-                          <span className={`flex w-8 h-8 shrink-0 items-center justify-center rounded-lg ${aiSearchEnabled ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-200 text-gray-500'}`}>
+                          <FeatureSwitch checked={aiSearchEnabled} onChange={setAiSearchEnabled} label="AI search" />
+                          <span className={`flex w-8 h-8 shrink-0 items-center justify-center rounded-lg ${iconWell(aiSearchEnabled)}`}>
                             <Search className="w-4 h-4" />
                           </span>
                           <div className="min-w-0">
-                            <p className="text-[13px] font-bold text-gray-900 leading-tight">AI search</p>
-                            <p className="text-[11px] text-gray-500">{aiSearchEnabled ? 'Library + keyword search is visible' : 'Library is hidden, search is disabled'}</p>
+                            <p className="text-[13px] font-bold ad-ink leading-tight">AI search</p>
+                            <p className="text-[11px] ad-muted-text">{aiSearchEnabled ? 'Library + keyword search is visible' : 'Library is hidden, search is disabled'}</p>
                           </div>
                         </div>
-                        <span className={`shrink-0 px-2 py-0.5 rounded-full text-[11px] font-bold ${aiSearchEnabled ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-200 text-gray-500'}`}>{aiSearchEnabled ? 'ON' : 'OFF'}</span>
+                        <span className={`shrink-0 px-2 py-0.5 rounded-full text-[11px] font-bold ${onOffChip(aiSearchEnabled)}`}>{aiSearchEnabled ? 'ON' : 'OFF'}</span>
                       </div>
                     </div>
                   </div>
@@ -842,14 +881,14 @@ const AdminQuotas = () => {
 
                 {/* Delivery limits — per delivery-type quotas */}
                 <section>
-                  <p className="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-2">Delivery limits</p>
+                  <p className="ad-field-label mb-2">Delivery limits</p>
                   {/* Tabs */}
-                  <div className="grid grid-cols-2 gap-1 p-1 bg-gray-100 rounded-xl">
-                    <button type="button" onClick={() => setActiveLimitTab('normal')} className={`px-3 py-2 text-[13px] font-semibold rounded-lg transition-all ${activeLimitTab === 'normal' ? 'bg-white text-[#1a1a1a] shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>
+                  <div className="grid grid-cols-2 gap-1 p-1 ad-sunk rounded-xl">
+                    <button type="button" onClick={() => setActiveLimitTab('normal')} className={`px-3 py-2 text-[13px] font-semibold rounded-lg transition-all ${activeLimitTab === 'normal' ? 'bg-[var(--ad-card)] ad-ink shadow-sm' : 'ad-muted-text hover:text-[var(--ad-ink)]'}`}>
                       Normal delivery
                       <span className="block text-[10px] font-normal opacity-70">Find People</span>
                     </button>
-                    <button type="button" onClick={() => setActiveLimitTab('guest')} className={`px-3 py-2 text-[13px] font-semibold rounded-lg transition-all ${activeLimitTab === 'guest' ? 'bg-white text-[#1a1a1a] shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>
+                    <button type="button" onClick={() => setActiveLimitTab('guest')} className={`px-3 py-2 text-[13px] font-semibold rounded-lg transition-all ${activeLimitTab === 'guest' ? 'bg-[var(--ad-card)] ad-ink shadow-sm' : 'ad-muted-text hover:text-[var(--ad-ink)]'}`}>
                       Guest delivery
                       <span className="block text-[10px] font-normal opacity-70">Face matching</span>
                     </button>
@@ -857,27 +896,25 @@ const AdminQuotas = () => {
                   <div className="mt-3 space-y-3">
                 {activeLimitTab === 'normal' ? (
                   <>
-                    <div className={`p-3.5 rounded-xl border transition-colors ${normalFeature ? 'border-[#1a1a1a] bg-[#1a1a1a]/[0.03]' : 'border-gray-200 bg-gray-50'}`}>
+                    <div className={`p-3.5 rounded-xl border transition-colors ${featureRowShell(normalFeature)}`}>
                       <div className="flex items-center justify-between gap-3">
                         <div className="flex items-center gap-2.5 min-w-0">
-                          <button type="button" role="switch" aria-checked={normalFeature} onClick={() => toggleNormalFeature(!normalFeature)} className={`relative inline-flex h-6 w-11 shrink-0 rounded-full transition-colors ${normalFeature ? 'bg-emerald-500' : 'bg-gray-300'}`}>
-                            <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all ${normalFeature ? 'left-[22px]' : 'left-0.5'}`} />
-                          </button>
-                          <span className={`flex w-8 h-8 shrink-0 items-center justify-center rounded-lg ${normalFeature ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-200 text-gray-500'}`}>
+                          <FeatureSwitch checked={normalFeature} onChange={toggleNormalFeature} label="Normal face recognition" />
+                          <span className={`flex w-8 h-8 shrink-0 items-center justify-center rounded-lg ${iconWell(normalFeature)}`}>
                             <ScanFace className="w-4 h-4" />
                           </span>
                           <div className="min-w-0">
-                            <p className="text-[13px] font-bold text-gray-900 leading-tight">Face recognition</p>
-                            <p className="text-[11px] text-gray-500">{normalFeature ? 'Find People button is visible' : 'Find People button is hidden'}</p>
+                            <p className="text-[13px] font-bold ad-ink leading-tight">Face recognition</p>
+                            <p className="text-[11px] ad-muted-text">{normalFeature ? 'Find People button is visible' : 'Find People button is hidden'}</p>
                           </div>
                         </div>
-                        <span className={`shrink-0 px-2 py-0.5 rounded-full text-[11px] font-bold ${normalFeature ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-200 text-gray-500'}`}>{normalFeature ? 'ON' : 'OFF'}</span>
+                        <span className={`shrink-0 px-2 py-0.5 rounded-full text-[11px] font-bold ${onOffChip(normalFeature)}`}>{normalFeature ? 'ON' : 'OFF'}</span>
                       </div>
                     </div>
                     <div className={normalFeature ? '' : 'opacity-50 pointer-events-none'}>
                     <QuotaCard
                       toggle={<CardSwitch checked={normalImageEnabled} onChange={setNormalImageEnabled} label="Normal face images" />}
-                      icon={<span className="flex w-8 h-8 shrink-0 items-center justify-center rounded-lg bg-gray-100 text-gray-600"><Images className="w-4 h-4" /></span>}
+                      icon={<span className="flex w-8 h-8 shrink-0 items-center justify-center rounded-lg bg-[var(--ad-sunk)] ad-muted-text"><Images className="w-4 h-4" /></span>}
                       title="Face images"
                       usedLine={<UsedLabel used={resetUsed.normalImage ? 0 : editingUser.normalImageUsed} wasUsed={editingUser.normalImageUsed} resetFlag={resetUsed.normalImage} />}
                       actions={<>
@@ -891,19 +928,19 @@ const AdminQuotas = () => {
                     >
                       {normalImageEnabled ? (
                         normalImageUnlimited ? (
-                          <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl bg-emerald-50 border border-emerald-100 text-emerald-700">
+                          <div className={unlimitedBannerClass}>
                             <span className="text-lg leading-none font-bold">∞</span>
                             <span className="text-[13px] font-semibold">Unlimited</span>
-                            <span className="ml-auto text-[11px] font-normal text-emerald-600">no cap on uploads</span>
+                            <span className="ml-auto text-[11px] font-normal opacity-80">no cap on uploads</span>
                           </div>
                         ) : (
                           <>
-                            <label className="block text-[11px] font-medium text-gray-500 mb-1.5">Max images</label>
-                            <input type="number" min="1" step="1" value={normalImageLimit} onChange={(e) => setNormalImageLimit(e.target.value)} className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm outline-none focus:bg-white focus:border-[#1a1a1a] transition-all" placeholder="e.g. 500" />
+                            <label className="block ad-field-label mb-1.5">Max images</label>
+                            <input type="number" min="1" step="1" value={normalImageLimit} onChange={(e) => setNormalImageLimit(e.target.value)} className={quotaInputClass} placeholder="e.g. 500" />
                             {Number(normalImageLimit) > 0 && (
                               <div className="mt-2.5">
                                 <MiniBar used={resetUsed.normalImage ? 0 : editingUser.normalImageUsed} limit={Number(normalImageLimit)} />
-                                <p className="mt-1 text-[11px] text-gray-400">
+                                <p className="mt-1 text-[11px] ad-faint-text">
                                   {(resetUsed.normalImage ? 0 : editingUser.normalImageUsed).toLocaleString()} of {Number(normalImageLimit).toLocaleString()} used
                                 </p>
                               </div>
@@ -911,12 +948,12 @@ const AdminQuotas = () => {
                           </>
                         )
                       ) : (
-                        <p className="text-[11px] font-medium text-gray-500 bg-gray-100 rounded-xl px-3 py-2.5">Disabled for this user</p>
+                        <p className="text-[11px] font-medium ad-muted-text bg-[var(--ad-sunk)] rounded-xl px-3 py-2.5">Disabled for this user</p>
                       )}
                     </QuotaCard>
                     <QuotaCard
                       toggle={<CardSwitch checked={normalFaceEnabled} onChange={setNormalFaceEnabled} label="Normal deliveries" />}
-                      icon={<span className="flex w-8 h-8 shrink-0 items-center justify-center rounded-lg bg-gray-100 text-gray-600"><Send className="w-4 h-4" /></span>}
+                      icon={<span className="flex w-8 h-8 shrink-0 items-center justify-center rounded-lg bg-[var(--ad-sunk)] ad-muted-text"><Send className="w-4 h-4" /></span>}
                       title="Deliveries"
                       usedLine={<UsedLabel used={resetUsed.normalFace ? 0 : editingUser.normalFaceUsed} wasUsed={editingUser.normalFaceUsed} resetFlag={resetUsed.normalFace} />}
                       actions={<>
@@ -935,19 +972,19 @@ const AdminQuotas = () => {
                             onPickUnlimited={() => { setNormalFaceUnlimited(true); setNormalFaceLimit(''); }}
                           />
                           {normalFaceUnlimited ? (
-                            <div className="mt-2.5 flex items-center gap-2 px-3 py-2.5 rounded-xl bg-emerald-50 border border-emerald-100 text-emerald-700">
+                            <div className={`mt-2.5 ${unlimitedBannerClass}`}>
                               <span className="text-lg leading-none font-bold">∞</span>
                               <span className="text-[13px] font-semibold">Unlimited</span>
-                              <span className="ml-auto text-[11px] font-normal text-emerald-600">no cap on deliveries</span>
+                              <span className="ml-auto text-[11px] font-normal opacity-80">no cap on deliveries</span>
                             </div>
                           ) : (
                             <>
-                              <label className="mt-2.5 block text-[11px] font-medium text-gray-500 mb-1.5">Max deliveries</label>
-                              <input type="number" min="1" step="1" value={normalFaceLimit} onChange={(e) => setNormalFaceLimit(e.target.value)} className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm outline-none focus:bg-white focus:border-[#1a1a1a] transition-all" placeholder="e.g. 5" />
+                              <label className="mt-2.5 block ad-field-label mb-1.5">Max deliveries</label>
+                              <input type="number" min="1" step="1" value={normalFaceLimit} onChange={(e) => setNormalFaceLimit(e.target.value)} className={quotaInputClass} placeholder="e.g. 5" />
                               {Number(normalFaceLimit) > 0 && (
                                 <div className="mt-2.5">
                                   <MiniBar used={resetUsed.normalFace ? 0 : editingUser.normalFaceUsed} limit={Number(normalFaceLimit)} />
-                                  <p className="mt-1 text-[11px] text-gray-400">
+                                  <p className="mt-1 text-[11px] ad-faint-text">
                                     {(resetUsed.normalFace ? 0 : editingUser.normalFaceUsed).toLocaleString()} of {Number(normalFaceLimit).toLocaleString()} used
                                   </p>
                                 </div>
@@ -956,34 +993,32 @@ const AdminQuotas = () => {
                           )}
                         </>
                       ) : (
-                        <p className="text-[11px] font-medium text-gray-500 bg-gray-100 rounded-xl px-3 py-2.5">Disabled for this user</p>
+                        <p className="text-[11px] font-medium ad-muted-text bg-[var(--ad-sunk)] rounded-xl px-3 py-2.5">Disabled for this user</p>
                       )}
                     </QuotaCard>
                     </div>
                   </>
                 ) : (
                   <>
-                    <div className={`p-3.5 rounded-xl border transition-colors ${guestFeature ? 'border-[#1a1a1a] bg-[#1a1a1a]/[0.03]' : 'border-gray-200 bg-gray-50'}`}>
+                    <div className={`p-3.5 rounded-xl border transition-colors ${featureRowShell(guestFeature)}`}>
                       <div className="flex items-center justify-between gap-3">
                         <div className="flex items-center gap-2.5 min-w-0">
-                          <button type="button" role="switch" aria-checked={guestFeature} onClick={() => toggleGuestFeature(!guestFeature)} className={`relative inline-flex h-6 w-11 shrink-0 rounded-full transition-colors ${guestFeature ? 'bg-emerald-500' : 'bg-gray-300'}`}>
-                            <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all ${guestFeature ? 'left-[22px]' : 'left-0.5'}`} />
-                          </button>
-                          <span className={`flex w-8 h-8 shrink-0 items-center justify-center rounded-lg ${guestFeature ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-200 text-gray-500'}`}>
+                          <FeatureSwitch checked={guestFeature} onChange={toggleGuestFeature} label="Guest face recognition" />
+                          <span className={`flex w-8 h-8 shrink-0 items-center justify-center rounded-lg ${iconWell(guestFeature)}`}>
                             <ScanFace className="w-4 h-4" />
                           </span>
                           <div className="min-w-0">
-                            <p className="text-[13px] font-bold text-gray-900 leading-tight">Face recognition</p>
-                            <p className="text-[11px] text-gray-500">{guestFeature ? 'Face matching is active' : 'Face matching is hidden'}</p>
+                            <p className="text-[13px] font-bold ad-ink leading-tight">Face recognition</p>
+                            <p className="text-[11px] ad-muted-text">{guestFeature ? 'Face matching is active' : 'Face matching is hidden'}</p>
                           </div>
                         </div>
-                        <span className={`shrink-0 px-2 py-0.5 rounded-full text-[11px] font-bold ${guestFeature ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-200 text-gray-500'}`}>{guestFeature ? 'ON' : 'OFF'}</span>
+                        <span className={`shrink-0 px-2 py-0.5 rounded-full text-[11px] font-bold ${onOffChip(guestFeature)}`}>{guestFeature ? 'ON' : 'OFF'}</span>
                       </div>
                     </div>
                     <div className={guestFeature ? '' : 'opacity-50 pointer-events-none'}>
                     <QuotaCard
                       toggle={<CardSwitch checked={guestImageEnabled} onChange={setGuestImageEnabled} label="Guest face images" />}
-                      icon={<span className="flex w-8 h-8 shrink-0 items-center justify-center rounded-lg bg-gray-100 text-gray-600"><Images className="w-4 h-4" /></span>}
+                      icon={<span className="flex w-8 h-8 shrink-0 items-center justify-center rounded-lg bg-[var(--ad-sunk)] ad-muted-text"><Images className="w-4 h-4" /></span>}
                       title="Face images"
                       usedLine={<UsedLabel used={resetUsed.guestImage ? 0 : editingUser.guestImageUsed} wasUsed={editingUser.guestImageUsed} resetFlag={resetUsed.guestImage} />}
                       actions={<>
@@ -997,19 +1032,19 @@ const AdminQuotas = () => {
                     >
                       {guestImageEnabled ? (
                         guestImageUnlimited ? (
-                          <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl bg-emerald-50 border border-emerald-100 text-emerald-700">
+                          <div className={unlimitedBannerClass}>
                             <span className="text-lg leading-none font-bold">∞</span>
                             <span className="text-[13px] font-semibold">Unlimited</span>
-                            <span className="ml-auto text-[11px] font-normal text-emerald-600">no cap on uploads</span>
+                            <span className="ml-auto text-[11px] font-normal opacity-80">no cap on uploads</span>
                           </div>
                         ) : (
                           <>
-                            <label className="block text-[11px] font-medium text-gray-500 mb-1.5">Max images</label>
-                            <input type="number" min="1" step="1" value={guestImageLimit} onChange={(e) => setGuestImageLimit(e.target.value)} className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm outline-none focus:bg-white focus:border-[#1a1a1a] transition-all" placeholder="e.g. 500" />
+                            <label className="block ad-field-label mb-1.5">Max images</label>
+                            <input type="number" min="1" step="1" value={guestImageLimit} onChange={(e) => setGuestImageLimit(e.target.value)} className={quotaInputClass} placeholder="e.g. 500" />
                             {Number(guestImageLimit) > 0 && (
                               <div className="mt-2.5">
                                 <MiniBar used={resetUsed.guestImage ? 0 : editingUser.guestImageUsed} limit={Number(guestImageLimit)} />
-                                <p className="mt-1 text-[11px] text-gray-400">
+                                <p className="mt-1 text-[11px] ad-faint-text">
                                   {(resetUsed.guestImage ? 0 : editingUser.guestImageUsed).toLocaleString()} of {Number(guestImageLimit).toLocaleString()} used
                                 </p>
                               </div>
@@ -1017,12 +1052,12 @@ const AdminQuotas = () => {
                           </>
                         )
                       ) : (
-                        <p className="text-[11px] font-medium text-gray-500 bg-gray-100 rounded-xl px-3 py-2.5">Disabled for this user</p>
+                        <p className="text-[11px] font-medium ad-muted-text bg-[var(--ad-sunk)] rounded-xl px-3 py-2.5">Disabled for this user</p>
                       )}
                     </QuotaCard>
                     <QuotaCard
                       toggle={<CardSwitch checked={guestFaceEnabled} onChange={setGuestFaceEnabled} label="Guest deliveries" />}
-                      icon={<span className="flex w-8 h-8 shrink-0 items-center justify-center rounded-lg bg-gray-100 text-gray-600"><Send className="w-4 h-4" /></span>}
+                      icon={<span className="flex w-8 h-8 shrink-0 items-center justify-center rounded-lg bg-[var(--ad-sunk)] ad-muted-text"><Send className="w-4 h-4" /></span>}
                       title="Deliveries"
                       usedLine={<UsedLabel used={resetUsed.guestFace ? 0 : editingUser.guestFaceUsed} wasUsed={editingUser.guestFaceUsed} resetFlag={resetUsed.guestFace} />}
                       actions={<>
@@ -1041,19 +1076,19 @@ const AdminQuotas = () => {
                             onPickUnlimited={() => { setGuestFaceUnlimited(true); setGuestFaceLimit(''); }}
                           />
                           {guestFaceUnlimited ? (
-                            <div className="mt-2.5 flex items-center gap-2 px-3 py-2.5 rounded-xl bg-emerald-50 border border-emerald-100 text-emerald-700">
+                            <div className={`mt-2.5 ${unlimitedBannerClass}`}>
                               <span className="text-lg leading-none font-bold">∞</span>
                               <span className="text-[13px] font-semibold">Unlimited</span>
-                              <span className="ml-auto text-[11px] font-normal text-emerald-600">no cap on deliveries</span>
+                              <span className="ml-auto text-[11px] font-normal opacity-80">no cap on deliveries</span>
                             </div>
                           ) : (
                             <>
-                              <label className="mt-2.5 block text-[11px] font-medium text-gray-500 mb-1.5">Max deliveries</label>
-                              <input type="number" min="1" step="1" value={guestFaceLimit} onChange={(e) => setGuestFaceLimit(e.target.value)} className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm outline-none focus:bg-white focus:border-[#1a1a1a] transition-all" placeholder="e.g. 1" />
+                              <label className="mt-2.5 block ad-field-label mb-1.5">Max deliveries</label>
+                              <input type="number" min="1" step="1" value={guestFaceLimit} onChange={(e) => setGuestFaceLimit(e.target.value)} className={quotaInputClass} placeholder="e.g. 1" />
                               {Number(guestFaceLimit) > 0 && (
                                 <div className="mt-2.5">
                                   <MiniBar used={resetUsed.guestFace ? 0 : editingUser.guestFaceUsed} limit={Number(guestFaceLimit)} />
-                                  <p className="mt-1 text-[11px] text-gray-400">
+                                  <p className="mt-1 text-[11px] ad-faint-text">
                                     {(resetUsed.guestFace ? 0 : editingUser.guestFaceUsed).toLocaleString()} of {Number(guestFaceLimit).toLocaleString()} used
                                   </p>
                                 </div>
@@ -1062,7 +1097,7 @@ const AdminQuotas = () => {
                           )}
                         </>
                       ) : (
-                        <p className="text-[11px] font-medium text-gray-500 bg-gray-100 rounded-xl px-3 py-2.5">Disabled for this user</p>
+                        <p className="text-[11px] font-medium ad-muted-text bg-[var(--ad-sunk)] rounded-xl px-3 py-2.5">Disabled for this user</p>
                       )}
                     </QuotaCard>
                     </div>
