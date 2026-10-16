@@ -38,6 +38,23 @@
   background: var(--ad-bg);
   color: var(--ad-body);
 }
+
+.admin-login {
+  background: var(--ad-bg);
+}
+.admin-login input,
+.admin-login .ad-login-input {
+  background: var(--ad-card);
+  border: 1px solid var(--ad-line);
+  color: var(--ad-ink);
+  border-radius: 0.5rem;
+}
+.admin-login input:focus,
+.admin-login .ad-login-input:focus {
+  outline: none;
+  border-color: var(--ad-accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--ad-accent) 25%, transparent);
+}
 .admin-shell__aside {
   background: var(--ad-sidebar);
   color: var(--ad-sidebar-text);

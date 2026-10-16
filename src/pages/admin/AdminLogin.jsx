@@ -3,6 +3,7 @@ import { useNavigate, useLocation, Navigate } from 'react-router-dom';
 import { apiFetch } from '../../lib/api/client';
 import { useAuth } from '../../hooks/useAuth';
 import { PasswordField } from '../../components/features/Auth/PasswordField';
+import '../../components/admin/adminStudio.css';
 
 /** Lazy so the Workers auth service stays code-split. */
 const workers = () => import('../../services/workersAuth.service');
@@ -78,58 +79,56 @@ const AdminLogin = () => {
   }
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-[#fafbfc] px-4 font-inter">
-      <div className="w-full max-w-[440px] p-10 bg-white rounded-[24px] shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-gray-100/80">
+    <div className="admin-shell admin-login min-h-screen flex flex-col items-center justify-center px-4">
+      <div className="ad-card w-full max-w-[440px] p-10">
         <div className="mb-10 text-center">
-          <div className="inline-flex items-center justify-center w-16 h-16 mb-6 bg-indigo-50 rounded-2xl">
-             <img src="/Logo_Final-01.png" alt="Pixnxt Logo" className="w-10 h-10 object-contain" />
+          <div className="inline-flex items-center justify-center w-16 h-16 mb-6 rounded-2xl bg-[var(--ad-sunk)]">
+            <img src="/Logo_Final-01.png" alt="Pixnxt Logo" className="w-10 h-10 object-contain" />
           </div>
-          <h1 className="text-[30px] font-bold text-gray-900 tracking-tight leading-tight uppercase font-serif">
-            Admin Portal
-          </h1>
-          <p className="mt-3 text-[17px] text-gray-500 leading-relaxed max-w-[280px] mx-auto">
+          <h1 className="type-page-title text-[clamp(1.75rem,3vw,1.9rem)]">Admin portal</h1>
+          <p className="mt-3 text-[17px] ad-muted-text leading-relaxed max-w-[280px] mx-auto">
             Log in to manage the platform and user accounts.
           </p>
         </div>
 
         <form onSubmit={handleLogin} className="flex flex-col gap-4 w-full">
           <div className="flex flex-col gap-1.5">
-            <label className="text-sm font-medium text-gray-700">Email Address</label>
+            <label className="text-sm font-medium ad-body-text">Email Address</label>
             <input
               type="email"
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="email@example.com"
-              className="px-4 py-2 bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all text-sm"
+              className="w-full px-4 py-2 text-sm transition-all"
             />
           </div>
 
           <div className="flex flex-col gap-1.5">
-            <label className="text-sm font-medium text-gray-700">Password</label>
+            <label className="text-sm font-medium ad-body-text">Password</label>
             <PasswordField
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="••••••••"
               shellClassName="relative"
-              inputClassName="w-full px-4 py-2 bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all text-sm pr-10"
-              actionClassName="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+              inputClassName="ad-login-input w-full px-4 py-2 text-sm transition-all pr-10"
+              actionClassName="absolute right-3 top-1/2 -translate-y-1/2 ad-faint-text hover:opacity-80 transition-opacity"
             />
           </div>
 
-          {error && <p className="text-xs text-red-500 font-medium" role="alert">{error}</p>}
+          {error && <p className="text-xs text-[var(--ad-bad)] font-medium" role="alert">{error}</p>}
 
           <button
             type="submit"
             disabled={isLoading || loading}
-            className="mt-2 px-6 py-2.5 w-full text-sm font-semibold text-white bg-indigo-600 rounded-lg shadow-sm hover:bg-indigo-700 disabled:opacity-50 transition-colors"
+            className="mt-2 ad-btn-primary w-full px-6 py-2.5 text-sm disabled:opacity-50 transition-colors"
           >
             {isLoading ? 'Signing In...' : 'Log In'}
           </button>
         </form>
 
-        <div className="mt-8 pt-6 border-t border-gray-100 flex items-center justify-center gap-6">
-          <span className="text-[14px] font-medium text-gray-400 uppercase tracking-widest">Secured by Cloudflare</span>
+        <div className="mt-8 pt-6 border-t border-[var(--ad-line)] flex items-center justify-center gap-6">
+          <span className="text-[14px] font-medium ad-faint-text uppercase tracking-widest">Secured by Cloudflare</span>
         </div>
       </div>
     </div>
@@ -137,4 +136,3 @@ const AdminLogin = () => {
 };
 
 export default AdminLogin;
-
