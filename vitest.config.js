@@ -12,6 +12,7 @@ export default defineConfig({
       'src/services/**/*.test.{js,ts}',
       'src/components/features/CollectionDashboard/Upload/**/*.test.{js,ts}',
       'src/__smoke.test.js',
+      'src/components/admin/**/*.test.{js,ts}',
     ],
     exclude: ['**/node_modules/**', '**/dist/**', 'tests/e2e/**'],
   },

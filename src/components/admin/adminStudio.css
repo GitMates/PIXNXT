@@ -1,23 +1,161 @@
-/* PIXNXT Admin studio polish layer. Scoped under .admin-studio (added in
-   AdminLayout) so nothing leaks into the photographer studio or galleries. */
+/* PIXNXT Admin studio. Tokens alias shared themeTokens.css (:root + body.dark-theme). */
+
+.admin-shell,
+.admin-studio {
+  --ad-bg: var(--canvas);
+  --ad-card: var(--surface);
+  --ad-sunk: var(--surface-sunk);
+  --ad-line: var(--border);
+  --ad-ink: var(--ink);
+  --ad-body: var(--ink-body);
+  --ad-muted: var(--ink-muted);
+  --ad-faint: var(--text-muted);
+  --ad-accent: var(--accent);
+  --ad-accent-hover: var(--accent-text);
+  --ad-sidebar: var(--bg-sidebar);
+  --ad-sidebar-text: var(--text-secondary);
+  --ad-sidebar-text-active: var(--text-heading);
+  --ad-ok: var(--ok-fg);
+  --ad-ok-bg: color-mix(in srgb, var(--ok-fg) 14%, var(--surface));
+  --ad-warn: var(--warn-fg);
+  --ad-warn-bg: color-mix(in srgb, var(--warn-fg) 14%, var(--surface));
+  --ad-bad: var(--stop-fg);
+  --ad-bad-bg: color-mix(in srgb, var(--stop-fg) 14%, var(--surface));
+  --ad-meter-track: var(--surface-sunk);
+  --ad-meter-fill: var(--ink);
+  color: var(--ad-body);
+}
 
 .admin-studio {
-  --ad-bg: #f4f2ee;
-  --ad-card: #ffffff;
-  --ad-line: #eae8e4;
-  --ad-ink: #1a1a1a;
-  --ad-muted: #6b6f76;
-  --ad-faint: #a8a29e;
-  --ad-accent: #c46a3a;
-  --ad-ok: #15803d;
-  --ad-ok-bg: #ecfdf3;
-  --ad-warn: #b45309;
-  --ad-bad: #b42318;
-  --ad-bad-bg: #fef3f2;
   background:
-    radial-gradient(1200px 320px at 20% -80px, rgba(196, 106, 58, 0.06), transparent 60%),
-    radial-gradient(900px 280px at 90% -60px, rgba(26, 26, 26, 0.05), transparent 60%),
+    radial-gradient(1200px 320px at 20% -80px, color-mix(in srgb, var(--ad-accent) 8%, transparent), transparent 60%),
+    radial-gradient(900px 280px at 90% -60px, color-mix(in srgb, var(--ad-ink) 5%, transparent), transparent 60%),
     var(--ad-bg);
+}
+
+/* Shell layout surfaces */
+.admin-shell {
+  background: var(--ad-bg);
+  color: var(--ad-body);
+}
+.admin-shell__aside {
+  background: var(--ad-sidebar);
+  color: var(--ad-sidebar-text);
+  border-right: 1px solid var(--ad-line);
+}
+.admin-shell__brand {
+  border-bottom: 1px solid var(--ad-line);
+}
+.admin-shell__nav-link {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.625rem 0.75rem;
+  border-radius: 0.75rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--ad-sidebar-text);
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+.admin-shell__nav-link:hover {
+  background: var(--bg-surface-hover);
+  color: var(--ad-sidebar-text-active);
+}
+.admin-shell__nav-link.is-active {
+  background: var(--bg-surface-hover);
+  color: var(--ad-sidebar-text-active);
+  box-shadow: inset 3px 0 0 var(--ad-accent);
+}
+.admin-shell__profile-menu {
+  background: var(--ad-card);
+  border: 1px solid var(--ad-line);
+  color: var(--ad-ink);
+  border-radius: 1rem;
+  box-shadow: 0 12px 32px -16px color-mix(in srgb, var(--ad-ink) 35%, transparent);
+}
+.admin-shell__appearance {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin: 10px 12px 6px;
+  padding: 3px;
+  border-radius: 999px;
+  background: var(--ad-sunk);
+}
+.admin-shell__appearance-btn {
+  flex: 1;
+  padding: 6px 8px;
+  text-align: center;
+  font-size: 13px;
+  font-weight: 500;
+  border-radius: 999px;
+  color: var(--ad-muted);
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+}
+.admin-shell__appearance-btn:hover {
+  color: var(--ad-ink);
+}
+.admin-shell__appearance-btn.is-active {
+  background: var(--ad-card);
+  color: var(--ad-ink);
+  font-weight: 600;
+  box-shadow: 0 1px 3px color-mix(in srgb, var(--ad-ink) 12%, transparent);
+}
+
+/* Page utilities (use instead of bg-white / text-gray-* / hex borders) */
+.ad-card {
+  background: var(--ad-card);
+  border: 1px solid var(--ad-line);
+  border-radius: 1rem;
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--ad-ink) 6%, transparent);
+}
+.ad-sunk {
+  background: var(--ad-sunk);
+}
+.ad-ink { color: var(--ad-ink); }
+.ad-body-text { color: var(--ad-body); }
+.ad-muted-text { color: var(--ad-muted); }
+.ad-faint-text { color: var(--ad-faint); }
+.ad-btn-primary {
+  background: var(--ad-ink);
+  color: var(--surface);
+  border-radius: 0.75rem;
+  font-weight: 600;
+}
+.ad-btn-primary:hover {
+  background: color-mix(in srgb, var(--ad-ink) 88%, black);
+}
+body.dark-theme .admin-shell .ad-btn-primary {
+  background: var(--ad-accent);
+  color: #fff;
+}
+body.dark-theme .admin-shell .ad-btn-primary:hover {
+  background: var(--ad-accent-hover);
+}
+.ad-btn-secondary {
+  background: var(--ad-card);
+  color: var(--ad-body);
+  border: 1px solid var(--ad-line);
+  border-radius: 0.75rem;
+  font-weight: 500;
+}
+.ad-btn-secondary:hover {
+  background: var(--ad-sunk);
+}
+
+body.dark-theme .admin-shell .admin-shell__nav-link.is-active {
+  background: var(--bg-surface-hover);
+  color: var(--text-heading);
+  box-shadow: inset 3px 0 0 var(--accent-primary);
+}
+
+body.dark-theme .admin-shell .ad-stat,
+body.dark-theme .admin-shell .ad-panel,
+body.dark-theme .admin-shell .ad-card {
+  border-color: var(--border-card);
+  box-shadow: none;
 }
 
 /* ---- content scrollbar ---- */
@@ -26,12 +164,12 @@
   height: 10px;
 }
 .admin-studio ::-webkit-scrollbar-thumb {
-  background: #d8d4cc;
+  background: color-mix(in srgb, var(--ad-muted) 45%, var(--ad-bg));
   border-radius: 999px;
   border: 2px solid var(--ad-bg);
 }
 .admin-studio ::-webkit-scrollbar-thumb:hover {
-  background: #b9b3a8;
+  background: color-mix(in srgb, var(--ad-muted) 65%, var(--ad-bg));
 }
 .admin-studio ::-webkit-scrollbar-track {
   background: transparent;
@@ -43,8 +181,8 @@
 }
 a.ad-stat:hover {
   transform: translateY(-2px);
-  box-shadow: 0 10px 24px -12px rgba(26, 26, 26, 0.25);
-  border-color: #d8d4cc;
+  box-shadow: 0 10px 24px -12px color-mix(in srgb, var(--ad-ink) 25%, transparent);
+  border-color: var(--ad-line);
 }
 .ad-stat .ad-stat-arrow {
   opacity: 0;
@@ -61,7 +199,7 @@ a.ad-stat:hover .ad-stat-arrow {
   transition: box-shadow 0.18s ease;
 }
 .ad-panel:hover {
-  box-shadow: 0 8px 22px -14px rgba(26, 26, 26, 0.25);
+  box-shadow: 0 8px 22px -14px color-mix(in srgb, var(--ad-ink) 25%, transparent);
 }
 
 /* ---- tables: rows, avatars, pills, row actions ---- */
@@ -69,10 +207,10 @@ a.ad-stat:hover .ad-stat-arrow {
   transition: background-color 0.15s ease;
 }
 .ad-row:hover {
-  background-color: #faf9f6;
+  background-color: var(--ad-sunk);
 }
 .ad-avatar {
-  box-shadow: 0 0 0 2px #fff, 0 0 0 3.5px #e7e2d8;
+  box-shadow: 0 0 0 2px var(--ad-card), 0 0 0 3.5px var(--ad-line);
 }
 .ad-pill {
   display: inline-flex;
@@ -95,22 +233,22 @@ a.ad-stat:hover .ad-stat-arrow {
 .ad-pill--ok {
   color: var(--ad-ok);
   background: var(--ad-ok-bg);
-  border-color: #bbe7c9;
+  border-color: color-mix(in srgb, var(--ad-ok) 35%, var(--ad-line));
 }
 .ad-pill--muted {
   color: var(--ad-muted);
-  background: #f1efe9;
-  border-color: #e2ded4;
+  background: var(--ad-sunk);
+  border-color: var(--ad-line);
 }
 .ad-pill--bad {
   color: var(--ad-bad);
   background: var(--ad-bad-bg);
-  border-color: #f5c6c0;
+  border-color: color-mix(in srgb, var(--ad-bad) 35%, var(--ad-line));
 }
 .ad-pill--warn {
   color: var(--ad-warn);
-  background: #fef6e7;
-  border-color: #f0dcae;
+  background: var(--ad-warn-bg);
+  border-color: color-mix(in srgb, var(--ad-warn) 35%, var(--ad-line));
 }
 .ad-action-btn {
   transition: transform 0.15s ease, background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
@@ -128,9 +266,9 @@ a.ad-stat:hover .ad-stat-arrow {
 }
 .ad-input:focus {
   outline: none;
-  border-color: var(--ad-ink);
-  box-shadow: 0 0 0 3px rgba(26, 26, 26, 0.08);
-  background-color: #fff;
+  border-color: var(--border-focus);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--ad-accent) 20%, transparent);
+  background-color: var(--ad-card);
 }
 .ad-input::placeholder {
   color: var(--ad-faint);
@@ -178,12 +316,12 @@ a.ad-stat:hover .ad-stat-arrow {
   width: 44px;
   height: 25px;
   border-radius: 999px;
-  background: #d9d5cb;
+  background: var(--toggle-track-off);
   transition: background-color 0.18s ease;
   flex-shrink: 0;
 }
 .ad-toggle[data-on="true"] {
-  background: #16a34a;
+  background: var(--toggle-track-on);
 }
 .ad-toggle-thumb {
   position: absolute;
@@ -192,8 +330,8 @@ a.ad-stat:hover .ad-stat-arrow {
   width: 20px;
   height: 20px;
   border-radius: 999px;
-  background: #fff;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+  background: var(--toggle-thumb);
+  box-shadow: var(--toggle-thumb-shadow, 0 1px 3px rgba(0, 0, 0, 0.25));
   transition: left 0.18s ease;
 }
 .ad-toggle[data-on="true"] .ad-toggle-thumb {
@@ -202,12 +340,12 @@ a.ad-stat:hover .ad-stat-arrow {
 
 /* ---- empty / error states ---- */
 .ad-empty {
-  border: 1.5px dashed #ddd9cf;
-  background: rgba(255, 255, 255, 0.6);
+  border: 1.5px dashed var(--ad-line);
+  background: color-mix(in srgb, var(--ad-card) 60%, transparent);
 }
 .ad-error-card {
-  border: 1px solid #f5c6c0;
-  background: linear-gradient(180deg, #fef6f5, #fdf0ee);
+  border: 1px solid color-mix(in srgb, var(--ad-bad) 35%, var(--ad-line));
+  background: var(--ad-bad-bg);
 }
 
 /* ---- mobile admin nav ---- */
