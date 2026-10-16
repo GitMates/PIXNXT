@@ -95,7 +95,6 @@ export function useUploadQueue(options: {
   );
 
   return {
-    state: ctx.state,
     processFiles,
     getUploadTargetSnapshot,
     pause: ctx.pause,

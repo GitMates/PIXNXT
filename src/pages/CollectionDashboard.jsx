@@ -115,6 +115,7 @@ import { GeneralSettings } from '../components/features/CollectionDashboard/Sett
 import { PrivacySettings } from '../components/features/CollectionDashboard/Settings/PrivacySettings';
 import { StoreSettings } from '../components/features/CollectionDashboard/Settings/StoreSettings';
 import { useUploadQueue } from '../components/features/CollectionDashboard/Upload/useUploadQueue';
+import { usePendingUploads, useUploadQueueBusy } from '../contexts/uploadQueueContext';
 import { isIncompleteUploadPhoto } from '../components/features/CollectionDashboard/Upload/uploadUtils';
 import { UPLOAD_VIEW_COLLECTION_EVENT } from '../components/features/CollectionDashboard/Upload/GlobalUploadShell';
 import { getFileMime, isImageMime, getUploadMediaType, isUploadableMediaFile } from '../lib/fileMime';
@@ -3979,7 +3980,6 @@ const CollectionDashboard = () => {
     );
 
     const {
-        state: uploadState,
         processFiles,
         pause: pauseUploads,
         resume: resumeUploads,
@@ -4019,18 +4019,14 @@ const CollectionDashboard = () => {
             }
         },
     });
+    const pendingUploads = usePendingUploads(collectionId);
+    const uploadQueueBusy = useUploadQueueBusy();
 
     // After the upload queue goes idle, refresh Photo AI metadata/people only.
     // Face indexing must stay manual (refresh / Index faces button) — auto-sync
     // after every upload left the "Indexing faces…" pill stuck and burned quota.
     useEffect(() => {
-        const busy = uploadState.files.some(
-            (f) =>
-                f.status === 'uploading' ||
-                f.status === 'processing' ||
-                f.status === 'waiting'
-        );
-        if (busy) {
+        if (uploadQueueBusy) {
             uploadsWereBusyRef.current = true;
             return;
         }
@@ -4048,7 +4044,7 @@ const CollectionDashboard = () => {
         }, 3500);
         return () => clearTimeout(timer);
     }, [
-        uploadState.files,
+        uploadQueueBusy,
         collectionId,
         photoAiTableMissing,
         refreshPhotoAiMetadata,
@@ -4072,13 +4068,10 @@ const CollectionDashboard = () => {
     const gridPhotos = useMemo(() => {
         const viewSetId = highlightsEnabled ? activeSetId : (activeSetId ?? sets[0]?.id ?? null);
         const completedNames = new Set(searchFilteredPhotos.map((p) => p.filename));
-        const pending = uploadState.files
+        const pending = pendingUploads
             .filter(
                 (f) =>
-                    f.status !== 'completed' &&
-                    f.status !== 'error' &&
                     !completedNames.has(f.name) &&
-                    (!f.collectionId || f.collectionId === collectionId) &&
                     (f.setId ?? null) === (viewSetId ?? null)
             )
             .map((f) => {
@@ -4091,11 +4084,10 @@ const CollectionDashboard = () => {
                 thumbnail_url: mediaType === 'video' ? null : preview,
                 media_type: mediaType,
                 _uploadPending: true,
-                _uploadProgress: f.progress,
                 };
             });
         return [...searchFilteredPhotos, ...pending];
-    }, [searchFilteredPhotos, uploadState.files, collectionId, highlightsEnabled, activeSetId, sets]);
+    }, [searchFilteredPhotos, pendingUploads, highlightsEnabled, activeSetId, sets]);
 
     photosForMarqueeRef.current = gridPhotos;
 

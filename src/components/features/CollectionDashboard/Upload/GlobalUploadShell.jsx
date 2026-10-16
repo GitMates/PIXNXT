@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { CloudUpload, Loader2, CheckCircle2 } from 'lucide-react';
-import { useUploadQueueContext } from '../../../../contexts/uploadQueueContext';
+import { useUploadQueueContext, useUploadQueueState } from '../../../../contexts/uploadQueueContext';
 import { UploadManager } from './UploadManager';
 import { uploadCompleteSummary, uploadInProgressTitle, uploadTabCounts } from './uploadUtils';
 import './UploadManager.css';
@@ -12,7 +12,6 @@ export function GlobalUploadShell() {
   const location = useLocation();
   const navigate = useNavigate();
   const {
-    state,
     notice,
     destinationLabel,
     minimize,
@@ -31,6 +30,7 @@ export function GlobalUploadShell() {
     retryFailed,
     dismissNotice,
   } = useUploadQueueContext();
+  const state = useUploadQueueState();
 
   const counts = useMemo(() => uploadTabCounts(state.files), [state.files]);
   const inProgress = counts.uploading;

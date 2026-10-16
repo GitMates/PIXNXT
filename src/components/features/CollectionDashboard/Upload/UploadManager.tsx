@@ -14,8 +14,11 @@ import {
   uploadOverallPercent,
   uploadTabCounts,
   uploadTotalBytes,
+  selectRenderedRows,
 } from './uploadUtils';
 import './UploadManager.css';
+
+const MAX_RENDERED_ROWS = 60;
 
 export type UploadManagerProps = {
   state: UploadWidgetState;
@@ -71,6 +74,73 @@ function fileRowPercent(file: UploadWidgetState['files'][number]) {
   return Math.min(100, Math.round((uploadBytesDone(file) / total) * 100));
 }
 
+type UploadRowProps = { file: UploadWidgetState['files'][number] };
+
+const UploadRow = React.memo(function UploadRow({ file }: UploadRowProps) {
+  const pct = fileRowPercent(file);
+  const isError = file.status === 'error';
+  const isDone = file.status === 'completed';
+  const isRowUploading = file.status === 'uploading' || file.status === 'processing';
+
+  return (
+    <div
+      className={`upload-card-row ${isError ? 'row-error' : ''} ${isDone ? 'row-done' : ''}`}
+      style={{ position: 'relative' }}
+    >
+      <div className="upload-card-row-thumb">
+        {file.previewUrl ? (
+          file.mediaKind === 'video' && file.previewUrl.startsWith('blob:') ? (
+            <video src={file.previewUrl} muted playsInline preload="metadata" />
+          ) : (
+            <img src={file.previewUrl} alt="" loading="lazy" decoding="async" />
+          )
+        ) : (
+          <div className="thumb-placeholder" />
+        )}
+      </div>
+
+      <div className="upload-card-row-details">
+        <div className="upload-card-row-name" title={file.name}>
+          {file.name}
+        </div>
+        <div className="upload-card-row-meta">
+          {isError ? (
+            file.errorMessage || 'Connection dropped'
+          ) : isDone ? (
+            formatUploadMb(file.size)
+          ) : (
+            `${formatUploadMb(uploadBytesDone(file))} of ${formatUploadMb(uploadTotalBytes(file))}`
+          )}
+        </div>
+      </div>
+
+      <div className="upload-card-row-right">
+        {isError ? (
+          <span className="row-status-icon text-error">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <circle cx="12" cy="12" r="10"></circle>
+              <line x1="12" y1="8" x2="12" y2="12"></line>
+              <line x1="12" y1="16" x2="12.01" y2="16"></line>
+            </svg>
+          </span>
+        ) : isDone ? (
+          <span className="row-status-icon text-success">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="20 6 9 17 4 12"></polyline>
+            </svg>
+          </span>
+        ) : (
+          <span className="row-percent-text">{pct}%</span>
+        )}
+      </div>
+
+      {isRowUploading && (
+        <div className="upload-row-progress-line" style={{ width: `${pct}%` }} />
+      )}
+    </div>
+  );
+});
+
 export const UploadManager: React.FC<UploadManagerProps> = ({
   state,
   destinationLabel,
@@ -96,12 +166,15 @@ export const UploadManager: React.FC<UploadManagerProps> = ({
   const lastValidSpeedRef = useRef(0);
   const lastEtaSpeedRef = useRef(0);
   const uploadStartedAtRef = useRef<number | null>(null);
+  const filesRef = useRef(state.files);
+  filesRef.current = state.files;
 
   const counts = useMemo(() => uploadTabCounts(state.files), [state.files]);
   const completedCount = counts.complete;
   const failedCount = counts.failed;
   const totalCount = state.files.length;
   const inProgressCount = counts.uploading;
+  const hasActiveUploads = inProgressCount > 0;
   const overallPercent = useMemo(() => uploadOverallPercent(state.files), [state.files]);
 
   const isAllComplete = totalCount > 0 && completedCount === totalCount && inProgressCount === 0 && failedCount === 0;
@@ -117,34 +190,25 @@ export const UploadManager: React.FC<UploadManagerProps> = ({
   const doneBytes = useMemo(() => getTotalBytesDone(state.files), [state.files]);
 
   useEffect(() => {
-    const hasActive = state.files.some(
-      (f) => f.status === 'uploading' || f.status === 'processing' || f.status === 'waiting'
-    );
-    if (hasActive && uploadStartedAtRef.current == null) {
+    if (hasActiveUploads && uploadStartedAtRef.current == null) {
       uploadStartedAtRef.current = Date.now();
     }
-    if (
-      state.files.length > 0 &&
-      state.files.every((f) => f.status === 'completed' || f.status === 'error')
-    ) {
+    if (!hasActiveUploads && (isAllComplete || isFinishedWithFailures)) {
       uploadStartedAtRef.current = null;
       lastEtaSpeedRef.current = 0;
     }
-  }, [state.files]);
+  }, [hasActiveUploads, isAllComplete, isFinishedWithFailures]);
 
   useEffect(() => {
-    const isUploading = state.files.some(
-      (f) => f.status === 'uploading' || f.status === 'processing' || f.status === 'waiting'
-    );
-    if (!isUploading) {
+    if (!hasActiveUploads) {
       setSpeed(0);
       lastValidSpeedRef.current = 0;
-      return;
+      return undefined;
     }
 
     const interval = setInterval(() => {
       const now = Date.now();
-      const currentDone = getTotalBytesDone(state.files);
+      const currentDone = getTotalBytesDone(filesRef.current);
       const timeDiff = (now - prevTimeRef.current) / 1000;
 
       if (timeDiff > 0) {
@@ -173,7 +237,7 @@ export const UploadManager: React.FC<UploadManagerProps> = ({
     }, 400);
 
     return () => clearInterval(interval);
-  }, [state.files]);
+  }, [hasActiveUploads]);
 
   useEffect(() => {
     if (inProgressCount <= 0 || isPaused) return undefined;
@@ -217,8 +281,8 @@ export const UploadManager: React.FC<UploadManagerProps> = ({
     [speed, inProgressCount, isPaused]
   );
 
-  const activeFiles = useMemo(
-    () => filterFilesByTab(state.files, state.activeTab),
+  const { rows: renderedRows, hidden: hiddenRows } = useMemo(
+    () => selectRenderedRows(filterFilesByTab(state.files, state.activeTab), MAX_RENDERED_ROWS),
     [state.files, state.activeTab]
   );
 
@@ -393,77 +457,17 @@ export const UploadManager: React.FC<UploadManagerProps> = ({
 
       {/* Files List */}
       <div className="upload-card-list">
-        {activeFiles.length === 0 ? (
+        {renderedRows.length === 0 ? (
           <p className="upload-card-empty">No files in this tab.</p>
         ) : (
-          activeFiles.map((file) => {
-            const pct = fileRowPercent(file);
-            const isError = file.status === 'error';
-            const isDone = file.status === 'completed';
-            const isRowUploading = file.status === 'uploading' || file.status === 'processing';
-
-            return (
-              <div
-                key={file.id}
-                className={`upload-card-row ${isError ? 'row-error' : ''} ${isDone ? 'row-done' : ''}`}
-                style={{
-                  position: 'relative'
-                }}
-              >
-                <div className="upload-card-row-thumb">
-                  {file.previewUrl ? (
-                    file.mediaKind === 'video' ? (
-                      <video src={file.previewUrl} muted playsInline preload="metadata" />
-                    ) : (
-                      <img src={file.previewUrl} alt="" />
-                    )
-                  ) : (
-                    <div className="thumb-placeholder" />
-                  )}
-                </div>
-
-                <div className="upload-card-row-details">
-                  <div className="upload-card-row-name" title={file.name}>
-                    {file.name}
-                  </div>
-                  <div className="upload-card-row-meta">
-                    {isError ? (
-                      file.errorMessage || 'Connection dropped'
-                    ) : isDone ? (
-                      formatUploadMb(file.size)
-                    ) : (
-                      `${formatUploadMb(uploadBytesDone(file))} of ${formatUploadMb(uploadTotalBytes(file))}`
-                    )}
-                  </div>
-                </div>
-
-                <div className="upload-card-row-right">
-                  {isError ? (
-                    <span className="row-status-icon text-error">
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                        <circle cx="12" cy="12" r="10"></circle>
-                        <line x1="12" y1="8" x2="12" y2="12"></line>
-                        <line x1="12" y1="16" x2="12.01" y2="16"></line>
-                      </svg>
-                    </span>
-                  ) : isDone ? (
-                    <span className="row-status-icon text-success">
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                        <polyline points="20 6 9 17 4 12"></polyline>
-                      </svg>
-                    </span>
-                  ) : (
-                    <span className="row-percent-text">{pct}%</span>
-                  )}
-                </div>
-
-                {/* Progress bar line running under the row */}
-                {isRowUploading && (
-                  <div className="upload-row-progress-line" style={{ width: `${pct}%` }} />
-                )}
-              </div>
-            );
-          })
+          <>
+            {renderedRows.map((file) => (
+              <UploadRow key={file.id} file={file} />
+            ))}
+            {hiddenRows > 0 && (
+              <p className="upload-card-empty">+ {hiddenRows} more in this tab</p>
+            )}
+          </>
         )}
       </div>
 

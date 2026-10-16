@@ -5,6 +5,7 @@ import {
   sortMobileGalleryPhotos,
 } from '../../lib/mobileGalleryPhotoSort';
 import { useUploadQueue } from '../features/CollectionDashboard/Upload/useUploadQueue';
+import { usePendingUploads } from '../../contexts/uploadQueueContext';
 import AppPhotosToolbar from '../mobile-gallery/AppPhotosToolbar';
 import { AppLoader } from '../ui/AppLoading';
 import AppPhotoGrid from '../mobile-gallery/AppPhotoGrid';
@@ -81,7 +82,6 @@ const EventPhotosPanel = ({ event, photographerId, onPhotoCountChange }) => {
   );
 
   const {
-    state: uploadState,
     processFiles,
     getUploadTargetSnapshot,
   } = useUploadQueue({
@@ -95,6 +95,7 @@ const EventPhotosPanel = ({ event, photographerId, onPhotoCountChange }) => {
     uploadPhotoFn,
     onPhotoUploaded: handlePhotoUploaded,
   });
+  const pendingUploads = usePendingUploads(event?.id, { progressStep: 5 });
 
   const displayPhotos = useMemo(() => {
     const filtered = filterPhotosBySearch(photos, searchQuery);
@@ -103,14 +104,8 @@ const EventPhotosPanel = ({ event, photographerId, onPhotoCountChange }) => {
 
   const gridPhotos = useMemo(() => {
     const completedNames = new Set(photos.map((p) => p.filename));
-    const pending = uploadState.files
-      .filter(
-        (f) =>
-          f.status !== 'completed' &&
-          f.status !== 'error' &&
-          !completedNames.has(f.name) &&
-          f.collectionId === event?.id
-      )
+    const pending = pendingUploads
+      .filter((f) => !completedNames.has(f.name))
       .map((f) => ({
         id: `upload-pending-${f.id}`,
         filename: f.name,
@@ -120,7 +115,7 @@ const EventPhotosPanel = ({ event, photographerId, onPhotoCountChange }) => {
         _uploadProgress: f.progress,
       }));
     return [...displayPhotos, ...pending];
-  }, [displayPhotos, uploadState.files, photos, event?.id]);
+  }, [displayPhotos, pendingUploads, photos]);
 
   const pickFiles = (fileList) => {
     const files = Array.from(fileList || []);
@@ -195,9 +190,7 @@ const EventPhotosPanel = ({ event, photographerId, onPhotoCountChange }) => {
     }
   };
 
-  const hasUploadActivity = uploadState.files.some(
-    (f) => f.collectionId === event?.id && f.status !== 'completed' && f.status !== 'error'
-  );
+  const hasUploadActivity = pendingUploads.length > 0;
   const showGrid = gridPhotos.length > 0;
   const photoCount = photos.length;
   const showInitialLoading = loading && photos.length === 0 && !hasUploadActivity;

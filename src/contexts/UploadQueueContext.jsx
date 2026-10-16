@@ -19,8 +19,10 @@ import {
   sortUploadQueueBySizeAsc,
   uploadTabCounts,
   isIncompleteUploadPhoto,
+  createProgressThrottle,
 } from '../components/features/CollectionDashboard/Upload/uploadUtils';
-import { UploadQueueContext } from './uploadQueueContext';
+import { createUploadQueueStore } from './uploadQueueStore';
+import { UploadQueueContext, UploadQueueStoreContext } from './uploadQueueContext';
 
 /** Each slot uploads the original immediately and the thumb/web pair beside it. */
 const MAX_CONCURRENT_DERIVATIVES = 10;
@@ -28,6 +30,12 @@ const MAX_CONCURRENT_DERIVATIVES = 10;
 const LARGE_FILE_BYTES = 25 * 1024 * 1024;
 const MAX_CONCURRENT_ORIGINALS_SMALL = 10;
 const MAX_CONCURRENT_ORIGINALS_LARGE = 6;
+/**
+ * Blob previews (`URL.createObjectURL(file)`) make the browser decode the
+ * full original for a 40 px row. Fine for a handful of files, catastrophic
+ * for 1000. Above this count rows use the uploaded thumb once it exists.
+ */
+const PREVIEW_BLOB_LIMIT = 40;
 
 function getMaxOriginalConcurrent(files, pending) {
   const all = [...files, ...pending];
@@ -38,7 +46,7 @@ function getMaxOriginalConcurrent(files, pending) {
 
 function revokePreviews(files) {
   files.forEach((f) => {
-    if (f.previewUrl) URL.revokeObjectURL(f.previewUrl);
+    if (f.previewUrl && f.previewUrl.startsWith('blob:')) URL.revokeObjectURL(f.previewUrl);
   });
 }
 
@@ -100,7 +108,10 @@ function requeueUploadFile(uf, phase, pendingDerivativesRef, pendingOriginalsRef
 }
 
 export function UploadQueueProvider({ children }) {
-  const [state, setState] = useState(() => ({ ...initialUploadWidgetState }));
+  const storeRef = useRef(null);
+  if (!storeRef.current) storeRef.current = createUploadQueueStore({ ...initialUploadWidgetState });
+  const store = storeRef.current;
+  const setState = store.setState;
   const [destinationLabel, setDestinationLabel] = useState('');
   const [activeCollectionId, setActiveCollectionId] = useState(null);
   const [uploadTargetSetId, setUploadTargetSetId] = useState(null);
@@ -117,7 +128,8 @@ export function UploadQueueProvider({ children }) {
   /** AbortControllers for active XHR uploads (pause cancels these). */
   const abortControllersRef = useRef(new Map());
   const sessionRef = useRef(0);
-  const stateRef = useRef(state);
+  /** Kept for minimal diff: every `stateRef.current` read now hits the store directly. */
+  const stateRef = { get current() { return store.getState(); } };
   const targetRef = useRef(null);
   /** Last batch enqueue target (for widget label / View navigation while uploads run). */
   const lastBatchTargetRef = useRef(null);
@@ -130,8 +142,6 @@ export function UploadQueueProvider({ children }) {
   const dismissNotice = useCallback(() => {
     setNotice(null);
   }, []);
-
-  stateRef.current = state;
 
   const configureTarget = useCallback((config) => {
     targetRef.current = { ...(targetRef.current || {}), ...config };
@@ -155,11 +165,20 @@ export function UploadQueueProvider({ children }) {
   }, []);
 
   const patchFile = useCallback((id, patch) => {
-    setState((prev) => ({
-      ...prev,
-      files: prev.files.map((f) => (f.id === id ? { ...f, ...patch } : f)),
-    }));
-  }, []);
+    setState((prev) => {
+      const idx = prev.files.findIndex((f) => f.id === id);
+      if (idx === -1) return prev;
+      const current = prev.files[idx];
+      let changed = false;
+      for (const key of Object.keys(patch)) {
+        if (!Object.is(current[key], patch[key])) { changed = true; break; }
+      }
+      if (!changed) return prev;
+      const files = prev.files.slice();
+      files[idx] = { ...current, ...patch };
+      return { ...prev, files };
+    });
+  }, [setState]);
 
   const runDerivativeUpload = useCallback(
     async (uf) => {
@@ -208,12 +227,12 @@ export function UploadQueueProvider({ children }) {
             photographerId,
             sortIndex,
             setId,
-            onProgress: (percent) => {
+            onProgress: createProgressThrottle((percent) => {
               safePatch({
                 status: percent >= 100 ? 'processing' : 'uploading',
                 progress: percent,
               });
-            },
+            }),
           });
           if (session !== sessionRef.current) return;
           safePatch({ progress: 100, status: 'completed' });
@@ -227,16 +246,16 @@ export function UploadQueueProvider({ children }) {
           uf.file,
           sortIndex,
           setId,
-          (percent) => {
-            safePatch({
-              status: 'uploading',
-              progress: Math.max(0, Math.min(99, Math.round(percent))),
-            });
-          },
+          createProgressThrottle((percent) => {
+            safePatch({ status: 'uploading', progress: Math.min(99, percent) });
+          }),
           (insertedPhoto) => {
-            if (session === sessionRef.current) {
-              targetRef.current?.onPhotoUploaded?.(insertedPhoto);
+            if (session !== sessionRef.current) return;
+            const current = store.getState().files.find((f) => f.id === uf.id);
+            if (current && !current.previewUrl && insertedPhoto?.thumbnail_url) {
+              safePatch({ previewUrl: insertedPhoto.thumbnail_url });
             }
+            targetRef.current?.onPhotoUploaded?.(insertedPhoto);
           },
           { signal: controller.signal, overlapOriginal: true, skipQuota: true, quietQuota: true }
         );
@@ -312,13 +331,13 @@ export function UploadQueueProvider({ children }) {
       try {
         const photoData = await galleryService.uploadPhotoOriginal(
           uploadContext,
-          (percent) => {
+          createProgressThrottle((percent) => {
             // Phase 2 occupies 25–100%
             safePatch({
               status: percent >= 100 ? 'processing' : 'uploading',
               progress: 25 + Math.round((percent / 100) * 75),
             });
-          },
+          }),
           { signal: controller.signal }
         );
 
@@ -414,20 +433,6 @@ export function UploadQueueProvider({ children }) {
   }, [runDerivativeUpload, runOriginalUpload, noteQueueIdle]);
 
   pumpQueueRef.current = pumpQueue;
-
-  const enqueueUpload = useCallback(
-    (uf) => {
-      if (pausedRef.current) {
-        patchFile(uf.id, { status: 'waiting', progress: 0 });
-        pendingDerivativesRef.current.push(uf);
-        return;
-      }
-      pendingDerivativesRef.current.push(uf);
-      pendingDerivativesRef.current = sortUploadQueueBySizeAsc(pendingDerivativesRef.current);
-      pumpQueue();
-    },
-    [patchFile, pumpQueue]
-  );
 
   const requeueWaitingFiles = useCallback(() => {
     const waiting = stateRef.current.files.filter((f) => f.status === 'waiting');
@@ -692,30 +697,27 @@ export function UploadQueueProvider({ children }) {
         if (previewUrl) patchFile(uf.id, { previewUrl });
       };
 
-      newUploadFiles.forEach((uf) => {
-        void attachPreview(uf);
-        if (pausedRef.current) {
-          pendingDerivativesRef.current.push(uf);
-        } else {
-          enqueueUpload(uf);
-        }
-      });
+      if (allNew.length <= PREVIEW_BLOB_LIMIT) {
+        newUploadFiles.forEach((uf) => { void attachPreview(uf); });
+      }
 
-      // Resumes skip web/thumb — go straight to originals (after any new derivatives finish)
-      resumeUploadFiles.forEach((uf) => {
-        if (uf.status === 'error' || !uf.uploadContext) return;
+      // One sort + one pump for the whole batch (was one sort + one pump per file).
+      pendingDerivativesRef.current.push(...newUploadFiles);
+      pendingDerivativesRef.current = sortUploadQueueBySizeAsc(pendingDerivativesRef.current);
+
+      // Resumes skip web/thumb — go straight to originals.
+      for (const uf of resumeUploadFiles) {
+        if (uf.status === 'error' || !uf.uploadContext) continue;
         originalContextByIdRef.current.set(uf.id, uf.uploadContext);
-        if (pausedRef.current) {
-          pendingOriginalsRef.current.push(uf);
-        } else {
-          pendingOriginalsRef.current.push(uf);
-          pumpQueue();
-        }
-      });
+        pendingOriginalsRef.current.push(uf);
+      }
+      pendingOriginalsRef.current = sortUploadQueueBySizeAsc(pendingOriginalsRef.current);
+
+      if (!pausedRef.current) pumpQueue();
 
       return true;
     },
-    [enqueueUpload, patchFile, destinationLabel, pumpQueue, notifyNotice]
+    [patchFile, destinationLabel, pumpQueue, notifyNotice]
   );
 
   const pause = useCallback(() => {
@@ -879,7 +881,6 @@ export function UploadQueueProvider({ children }) {
 
   const value = useMemo(
     () => ({
-      state,
       notice,
       destinationLabel,
       activeCollectionId,
@@ -902,7 +903,6 @@ export function UploadQueueProvider({ children }) {
       dismissNotice,
     }),
     [
-      state,
       notice,
       destinationLabel,
       activeCollectionId,
@@ -927,6 +927,8 @@ export function UploadQueueProvider({ children }) {
   );
 
   return (
-    <UploadQueueContext.Provider value={value}>{children}</UploadQueueContext.Provider>
+    <UploadQueueStoreContext.Provider value={store}>
+      <UploadQueueContext.Provider value={value}>{children}</UploadQueueContext.Provider>
+    </UploadQueueStoreContext.Provider>
   );
 }
