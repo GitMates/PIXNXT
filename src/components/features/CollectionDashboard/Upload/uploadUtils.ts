@@ -1,5 +1,5 @@
 import { getUploadMediaType } from '../../../../lib/fileMime';
-import type { UploadMediaKind, UploadPanelTab, UploadQueueFile } from './uploadTypes';
+import type { UploadFileStatus, UploadMediaKind, UploadPanelTab, UploadQueueFile } from './uploadTypes';
 
 export function getUploadMediaKindFromFile(file: File): UploadMediaKind {
   const kind = getUploadMediaType(file);
@@ -267,4 +267,54 @@ export function sortFilesBySizeAsc(files: File[]): File[] {
 
 export function sortUploadQueueBySizeAsc<T extends { file: File }>(items: T[]): T[] {
   return [...items].sort((a, b) => a.file.size - b.file.size);
+}
+
+/**
+ * Wraps a percent callback so React only hears about meaningful changes.
+ * Emits when the rounded percent changes AND at least `minIntervalMs` has
+ * elapsed since the last emit. 100 bypasses the interval so completion is
+ * never delayed. XHR fires progress ~every 50 ms per request; with 10–20
+ * concurrent uploads that is hundreds of setState calls per second without this.
+ */
+export function createProgressThrottle(
+  emit: (percent: number) => void,
+  { minIntervalMs = 250, now = () => Date.now() }: { minIntervalMs?: number; now?: () => number } = {}
+): (percent: number) => void {
+  let lastPercent = -1;
+  let lastAt = -Infinity;
+  return (percent: number) => {
+    const p = Math.max(0, Math.min(100, Math.round(percent)));
+    if (p === lastPercent) return;
+    const t = now();
+    if (p < 100 && t - lastAt < minIntervalMs) return;
+    lastPercent = p;
+    lastAt = t;
+    emit(p);
+  };
+}
+
+/**
+ * The Uploads panel list is 260 px tall (~4 rows visible). Rendering 1000
+ * rows per tick is the single largest render cost. Keep in-flight rows first
+ * so the visible part of the list is always the live part.
+ */
+export function selectRenderedRows<T extends { status: UploadFileStatus }>(
+  files: T[],
+  max: number
+): { rows: T[]; hidden: number } {
+  if (files.length <= max) return { rows: files, hidden: 0 };
+  const active: T[] = [];
+  const rest: T[] = [];
+  for (const f of files) {
+    if (f.status === 'uploading' || f.status === 'processing') active.push(f);
+    else rest.push(f);
+  }
+  const rows = [...active, ...rest].slice(0, max);
+  return { rows, hidden: files.length - rows.length };
+}
+
+export function chunkArray<T>(items: T[], size: number): T[][] {
+  const out: T[][] = [];
+  for (let i = 0; i < items.length; i += size) out.push(items.slice(i, i + size));
+  return out;
 }
