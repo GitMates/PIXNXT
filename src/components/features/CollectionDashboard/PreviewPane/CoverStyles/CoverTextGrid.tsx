@@ -49,9 +49,7 @@ export const CoverTextGrid: React.FC<CoverTextGridProps> = ({
   const styles = coverTextStyles[mode];
   const isLight = variant === 'light';
   const textColor = isLight ? '#fff' : 'var(--gallery-text)';
-  const photoTextShadow = '0 1px 10px rgba(0,0,0,0.55), 0 2px 20px rgba(0,0,0,0.35)';
-  const textStyle = (color: string): React.CSSProperties =>
-    isLight ? { color, textShadow: photoTextShadow } : { color };
+  const textStyle = (color: string): React.CSSProperties => ({ color });
   const subtitleOpacity = variant === 'vintage' ? 'opacity-60' : 'opacity-80';
   const dateOpacity = variant === 'vintage' ? 'opacity-70' : 'opacity-80';
   const descriptionOpacity = variant === 'vintage' ? 'opacity-60' : 'opacity-70';
@@ -84,11 +82,7 @@ export const CoverTextGrid: React.FC<CoverTextGridProps> = ({
       {showTitle && (
         <h1
           className={cn('gallery-heading leading-tight', styles.title)}
-          style={
-            variant === 'center' && !isLight
-              ? { color: textColor, textShadow: '0 1px 4px rgba(0,0,0,0.2)' }
-              : textStyle(textColor)
-          }
+          style={textStyle(textColor)}
         >
           {title}
         </h1>

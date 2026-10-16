@@ -46,7 +46,7 @@
 .cover-over-photo .cover-text-grid__date,
 .cover-over-photo .cover-text-grid__description,
 .cover-over-photo .gallery-body-text {
-    text-shadow: 0 1px 10px rgba(0, 0, 0, 0.55), 0 2px 20px rgba(0, 0, 0, 0.35);
+    text-shadow: none;
 }
 
 .cover-left-layout__scrim,
@@ -61,7 +61,7 @@
 .cd-preview-gallery-card .cover-frame-layout h1,
 .cd-preview-gallery-card .cover-stripe-layout h1,
 .cd-preview-gallery-card .cover-outline-layout h1 {
-    text-shadow: 0 1px 10px rgba(0, 0, 0, 0.45);
+    text-shadow: none;
 }
 
 .cd-preview-gallery-card .cover-vintage-layout__panel,
@@ -113,7 +113,7 @@
     letter-spacing: 0.04em;
     color: #fff !important;
     opacity: 1 !important;
-    text-shadow: 0 1px 10px rgba(0, 0, 0, 0.45);
+    text-shadow: none;
 }
 
 .cd-preview-gallery-card.style-left .cover-left-layout__footer .cover-text-grid__date,
@@ -121,7 +121,54 @@
     margin-bottom: 0 !important;
     color: rgba(255, 255, 255, 0.92) !important;
     opacity: 1 !important;
-    text-shadow: 0 1px 8px rgba(0, 0, 0, 0.4);
+    text-shadow: none;
+}
+
+/* Left-align — stacked Title → Date → View Gallery (left) */
+.cover-left-layout__footer {
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: flex-end;
+    gap: 0.85rem;
+}
+
+.cover-left-layout__title {
+    margin: 0 !important;
+    line-height: 1.15 !important;
+    max-width: 100%;
+}
+
+.cover-left-layout__date {
+    margin: 0 !important;
+}
+
+.cover-left-layout__cta {
+    flex-shrink: 0;
+    margin-top: 0.35rem;
+    /* Clear the centered Scroll hint under the CTA */
+    margin-bottom: 2.25rem;
+}
+
+/* Left-align mobile preview — more breathing room in the phone frame */
+.cd-design-preview-pane.mobile .cover-left-layout__footer,
+.cd-design-frame--mobile .cover-left-layout__footer {
+    gap: 1.1rem !important;
+}
+
+.cd-design-preview-pane.mobile .cover-left-layout__title,
+.cd-design-frame--mobile .cover-left-layout__title {
+    line-height: 1.2 !important;
+}
+
+.cd-design-preview-pane.mobile .cover-left-layout__cta,
+.cd-design-frame--mobile .cover-left-layout__cta {
+    margin-top: 0.5rem;
+    margin-bottom: 2.75rem;
+}
+
+.cd-design-preview-pane.mobile .cd-preview-gallery-card.style-left .cover-scroll-hint,
+.cd-design-frame--mobile .cd-preview-gallery-card.style-left .cover-scroll-hint {
+    bottom: 0.4rem;
 }
 
 .cd-preview-gallery-card.style-left .cover-left-layout__cta {
@@ -861,7 +908,7 @@
 .style-stripe .h-title {
     color: #fff;
     font-size: 50px;
-    text-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+    text-shadow: none;
 }
 
 /* NOVEL */

@@ -213,7 +213,7 @@
 
 .cover-scroll-hint--light .cover-scroll-hint__label {
   color: rgba(255, 255, 255, 0.88);
-  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.45);
+  text-shadow: none;
 }
 
 .cover-scroll-hint--dark .cover-scroll-hint__label {
@@ -268,7 +268,7 @@
 /* --- Per-cover fine tuning (public gallery) --- */
 
 .gallery-view-page.style-left .cover-scroll-hint {
-  bottom: clamp(1rem, 2.8vh, 1.5rem);
+  bottom: clamp(0.65rem, 2vh, 1.1rem);
 }
 
 .gallery-view-page.style-stripe .cover-scroll-hint {
@@ -302,7 +302,7 @@
 }
 
 .cd-preview-gallery-card.style-left .cover-scroll-hint {
-  bottom: 0.55rem;
+  bottom: 0.4rem;
 }
 
 /* --- Stacked mobile layouts --- */

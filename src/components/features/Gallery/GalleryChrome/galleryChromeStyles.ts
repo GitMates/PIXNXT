@@ -28,13 +28,13 @@ export const galleryChromeStyles = {
     setDescriptionWrap: '-mx-6 border-b px-4 py-4 text-center md:px-6',
     navInnerMobile:
       'gallery-chrome__nav-inner gallery-chrome__nav-inner--mobile flex flex-col items-stretch gap-1 py-1.5 px-2',
-    navRowMobile: 'gallery-chrome__nav-row flex w-full min-w-0 items-center justify-between gap-1.5',
+    navRowMobile: 'gallery-chrome__nav-row flex w-full min-w-0 items-center justify-between gap-3',
     brandBlockMobile:
-      'gallery-chrome__brand gallery-chrome__brand--mobile min-w-0 flex-1 max-w-[52%] flex flex-col items-start',
+      'gallery-chrome__brand gallery-chrome__brand--mobile min-w-0 flex-1 max-w-[48%] flex flex-col items-start',
     tabsBlockMobile:
       'gallery-chrome__tabs gallery-chrome__tabs--mobile flex flex-row flex-nowrap items-center w-full min-w-0 gap-1.5 overflow-x-auto overflow-y-hidden no-scrollbar',
     actionsBlockMobile:
-      'gallery-chrome__actions gallery-chrome__actions--mobile flex shrink-0 flex-row flex-nowrap items-center justify-end gap-0.5',
+      'gallery-chrome__actions gallery-chrome__actions--mobile flex shrink-0 flex-row flex-nowrap items-center justify-end gap-1.5',
   },
   galleryView: {
     nav: 'gallery-sticky-nav gallery-sticky-nav--gallery-view',
@@ -60,13 +60,13 @@ export const galleryChromeStyles = {
     setDescriptionWrap: '-mx-2 mb-6 border-b px-4 py-5 text-center md:-mx-4 md:px-6 md:py-6',
     navInnerMobile:
       'gallery-chrome__nav-inner gallery-chrome__nav-inner--mobile flex flex-col items-stretch gap-2 py-3 px-2',
-    navRowMobile: 'gallery-chrome__nav-row flex w-full min-w-0 items-center justify-between gap-2',
+    navRowMobile: 'gallery-chrome__nav-row flex w-full min-w-0 items-center justify-between gap-3',
     brandBlockMobile:
-      'gallery-chrome__brand gallery-chrome__brand--mobile min-w-0 flex-1 max-w-[55%] flex flex-col items-start',
+      'gallery-chrome__brand gallery-chrome__brand--mobile min-w-0 flex-1 max-w-[48%] flex flex-col items-start',
     tabsBlockMobile:
       'gallery-chrome__tabs gallery-chrome__tabs--mobile flex flex-row flex-nowrap items-center w-full min-w-0 gap-4 overflow-x-auto overflow-y-hidden no-scrollbar',
     actionsBlockMobile:
-      'gallery-chrome__actions gallery-chrome__actions--mobile flex shrink-0 flex-row flex-nowrap items-center justify-end gap-2',
+      'gallery-chrome__actions gallery-chrome__actions--mobile flex shrink-0 flex-row flex-nowrap items-center justify-end gap-2.5',
   },
 } as const;
 

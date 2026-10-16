@@ -3375,7 +3375,7 @@
     color: #fff;
     letter-spacing: 1.5px;
     text-transform: uppercase;
-    text-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+    text-shadow: none;
     z-index: 2;
     pointer-events: none;
 }
@@ -3477,7 +3477,7 @@
 }
 
 .style-frame .preview-title {
-    text-shadow: 0 1px 8px rgba(0, 0, 0, 0.5);
+    text-shadow: none;
 }
 
 /* 6. Stripe */

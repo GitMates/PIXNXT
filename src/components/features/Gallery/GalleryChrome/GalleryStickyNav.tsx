@@ -1,5 +1,5 @@
 import React from 'react';
-import { Heart, Share2, Play, Download, ShoppingCart, ArrowDownToLine, Infinity } from 'lucide-react';
+import { Heart, Share2, Play, Download, ShoppingCart, ArrowDownToLine, Infinity, Printer } from 'lucide-react';
 import { AppSpinner } from '@/components/ui/AppLoading';
 import { cn } from '../../../../lib/utils';
 import { galleryChromeStyles, GalleryChromeVariant, getGalleryChromeVariant } from './galleryChromeStyles';
@@ -212,13 +212,14 @@ export const GalleryStickyNav: React.FC<GalleryStickyNavProps> = ({
     } catch (e) {}
     const cartCount = Array.isArray(cartItems) ? cartItems.length : 0;
 
-    const pillIconSize = isCompact ? 10 : isMobileGalleryNav ? 14 : 13;
-    const pillClass = isCompact
-      ? 'gap-1 rounded-full border px-2.5 py-1 text-[6px] font-semibold uppercase tracking-wider'
-      : isMobileGalleryNav
-        ? 'gap-1 rounded-full border px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider'
-        : 'gap-1.5 rounded-full border px-4 py-1.5 text-xs font-semibold uppercase tracking-wider';
     const showSeparator = showPrintLab || showDownload;
+    const printDownloadTitle = isDownloadingAll
+      ? downloadLabel && downloadLabel !== 'Download'
+        ? downloadLabel
+        : 'Downloading'
+      : isPaidDownload
+        ? 'Buy'
+        : downloadLabel;
 
     return (
       <div className={cn("flex items-center", isCompact ? "gap-1.5" : isMobileGalleryNav ? "gap-2" : "gap-4")}>
@@ -226,29 +227,12 @@ export const GalleryStickyNav: React.FC<GalleryStickyNavProps> = ({
           <button
             type="button"
             aria-label="Print"
-            className={cn(
-              'flex shrink-0 items-center justify-center transition-opacity hover:opacity-60',
-              pillClass
-            )}
+            title="Print"
+            className="flex shrink-0 items-center justify-center transition-opacity hover:opacity-50"
             onClick={onPrintLabClick}
-            style={{
-              borderColor: 'color-mix(in srgb, var(--gallery-text) 22%, transparent)',
-              color: 'var(--gallery-text)',
-            }}
+            style={{ color: 'var(--gallery-text)' }}
           >
-            <svg 
-              width={pillIconSize} 
-              height={pillIconSize} 
-              viewBox="0 0 24 24" 
-              fill="none" 
-              stroke="currentColor" 
-              strokeWidth="2.25" 
-              className="shrink-0"
-            >
-              <rect x="3" y="3" width="18" height="18" rx="1.5" />
-              <rect x="8" y="8" width="8" height="8" />
-            </svg>
-            <span>Print</span>
+            <Printer size={iconSize} className="shrink-0 stroke-[2.25]" />
           </button>
         )}
 
@@ -256,22 +240,17 @@ export const GalleryStickyNav: React.FC<GalleryStickyNavProps> = ({
           <button
             type="button"
             aria-label={isDownloadingAll ? 'Downloading' : isPaidDownload ? 'Buy' : downloadLabel}
-            className={cn(
-              'flex shrink-0 items-center justify-center transition-opacity hover:opacity-60',
-              pillClass
-            )}
+            title={printDownloadTitle}
+            className="relative flex shrink-0 items-center justify-center transition-opacity hover:opacity-50"
             onClick={() => !isDownloadingAll && onDownloadClick?.()}
             disabled={isDownloadingAll}
-            style={{
-              borderColor: 'color-mix(in srgb, var(--gallery-text) 22%, transparent)',
-              color: 'var(--gallery-text)',
-            }}
+            style={{ color: 'var(--gallery-text)' }}
           >
             {isDownloadingAll ? (
               <AppSpinner size="sm" className="shrink-0" />
             ) : isPaidDownload ? (
               <span className="relative inline-flex items-center justify-center shrink-0">
-                <ArrowDownToLine size={pillIconSize} className="shrink-0 stroke-[2.25]" />
+                <ArrowDownToLine size={iconSize} className="shrink-0 stroke-[2.25]" />
                 <span
                   style={{
                     position: 'absolute',
@@ -290,13 +269,8 @@ export const GalleryStickyNav: React.FC<GalleryStickyNavProps> = ({
                 </span>
               </span>
             ) : (
-              <Download size={pillIconSize} className="shrink-0 stroke-[2.25]" />
+              <Download size={iconSize} className="shrink-0 stroke-[2.25]" />
             )}
-            <span>
-              {isDownloadingAll
-                ? (downloadLabel && downloadLabel !== 'Download' ? downloadLabel : 'Downloading')
-                : (isPaidDownload ? 'Buy' : downloadLabel)}
-            </span>
           </button>
         )}
 

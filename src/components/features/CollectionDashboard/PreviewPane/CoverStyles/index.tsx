@@ -123,19 +123,27 @@ export const LeftCover: React.FC<CoverProps> = ({
         </div>
       ) : null}
 
-      {/* Title/Date on bottom-left, Button on bottom-right */}
-      <div className={cn('cover-left-layout__footer absolute inset-x-0 bottom-0 z-20 flex w-full items-end justify-between gap-3', pad)}>
-        <div className="min-w-0 flex-1 text-left">
-          <h1 className={cn('gallery-heading uppercase leading-none font-bold text-white', s.title)}>
-            {title}
-          </h1>
-          {date ? (
-            <p className={cn('gallery-body-text mt-1.5 uppercase tracking-[0.22em] text-white/90', s.date)}>
-              {date}
-            </p>
-          ) : null}
-        </div>
-        <ViewGalleryButton onClick={onViewGallery} isPreview={isPreview} isGalleryView={isGalleryView} variant="ghost" />
+      {/* Title → Date → View Gallery stacked bottom-left */}
+      <div
+        className={cn(
+          'cover-left-layout__footer absolute inset-x-0 bottom-0 z-20 flex w-full flex-col items-start text-left',
+          pad
+        )}
+      >
+        <h1 className={cn('cover-left-layout__title gallery-heading uppercase leading-tight font-bold text-white', s.title)}>
+          {title}
+        </h1>
+        {date ? (
+          <p className={cn('cover-left-layout__date gallery-body-text uppercase tracking-[0.22em] text-white/90', s.date)}>
+            {date}
+          </p>
+        ) : null}
+        <ViewGalleryButton
+          onClick={onViewGallery}
+          isPreview={isPreview}
+          isGalleryView={isGalleryView}
+          className="cover-left-layout__cta shrink-0"
+        />
       </div>
     </div>
   );
