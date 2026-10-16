@@ -1,6 +1,37 @@
 import { getFileMime } from '../lib/fileMime';
 import { R2_PUBLIC_URL } from '../lib/r2';
 import { apiBase, uploadApiBase, getAccessToken } from '../lib/api/client';
+import { chunkArray } from '../components/features/CollectionDashboard/Upload/uploadUtils';
+
+/**
+ * Non-2xx XHR → Error carrying what the queue needs to decide retry-vs-fail.
+ * The Workers API answers `{ error: { code, message } }`; presigned R2 PUTs
+ * answer XML, which falls through to the generic message.
+ */
+export function uploadErrorFromXhr(xhr) {
+  let message = `Upload rejected (${xhr.status}).`;
+  let code;
+  try {
+    const payload = JSON.parse(xhr.responseText || '');
+    if (payload?.error?.message) message = payload.error.message;
+    if (payload?.error?.code) code = payload.error.code;
+  } catch {
+    // not JSON — keep the generic message
+  }
+  const err = new Error(message);
+  err.status = xhr.status;
+  if (code) err.code = code;
+  const retryAfter = Number(xhr.getResponseHeader?.('Retry-After'));
+  if (Number.isFinite(retryAfter) && retryAfter > 0) err.retryAfterMs = retryAfter * 1000;
+  return err;
+}
+
+export function isRateLimitedError(err) {
+  if (!err) return false;
+  if (err.code === 'RATE_LIMITED' || err.status === 429) return true;
+  return /rate exceeded|too many requests/i.test(String(err.message || ''));
+}
+
 /**
  * Upload through the Workers API (flag on): same XHR progress/cancel
  * semantics, but the browser never holds storage credentials and legacy
@@ -47,7 +78,7 @@ function uploadViaWorkersApi(path, file, contentType, onProgress, abortSignal) {
         }
         return;
       }
-      reject(new Error(`Upload rejected (${xhr.status}).`));
+      reject(uploadErrorFromXhr(xhr));
     };
 
     xhr.onerror = () => {
@@ -71,8 +102,24 @@ const WORKER_PART_BYTES = 8 * 1024 * 1024;
 const WORKER_PART_PARALLEL = 3;
 const PART_ATTEMPTS = 5;
 
-/** null = not probed, false = Worker proxy, true = presigned R2. */
-let directUploadEnabled = null;
+/**
+ * Direct-to-R2 availability. `disabledByServer` is permanent (the Worker has
+ * no S3 credentials). Anything else is transient: back off for a window and
+ * come back. The old module-level boolean flipped to "proxy forever" on the
+ * first hiccup, which sent every remaining file through the Worker.
+ */
+export function __directUploadGate({ now = () => Date.now(), backoffMs = 30_000 } = {}) {
+  let disabledByServer = false;
+  let pausedUntil = 0;
+  return {
+    available: () => !disabledByServer && now() >= pausedUntil,
+    noteDisabledByServer: () => { disabledByServer = true; },
+    noteTransientFailure: () => { pausedUntil = now() + backoffMs; },
+    noteSuccess: () => { pausedUntil = 0; },
+  };
+}
+const directGate = __directUploadGate();
+const DIRECT_PUT_ATTEMPTS = 3;
 const DIRECT_PART_PARALLEL = 6;
 const presignWaiters = [];
 let presignScheduled = false;
@@ -101,7 +148,7 @@ function xhrPut(url, body, contentType, onProgress, abortSignal, { wantEtag = fa
         resolve(wantEtag ? xhr.getResponseHeader('ETag') || xhr.getResponseHeader('etag') || '' : null);
         return;
       }
-      reject(new Error(`Upload rejected (${xhr.status}).`));
+      reject(uploadErrorFromXhr(xhr));
     };
     xhr.onerror = () => {
       cleanup();
@@ -113,6 +160,22 @@ function xhrPut(url, body, contentType, onProgress, abortSignal, { wantEtag = fa
     };
     xhr.send(body);
   });
+}
+
+/** Presigned PUT with the same retry policy as Worker parts. */
+async function xhrPutReliable(url, body, contentType, onProgress, abortSignal, opts) {
+  let lastError = null;
+  for (let attempt = 0; attempt < DIRECT_PUT_ATTEMPTS; attempt += 1) {
+    try {
+      return await xhrPut(url, body, contentType, onProgress, abortSignal, opts);
+    } catch (err) {
+      if (abortSignal?.aborted || /cancelled/i.test(err?.message || '')) throw err;
+      lastError = err;
+      if (!retryablePartError(err) || attempt === DIRECT_PUT_ATTEMPTS - 1) throw err;
+      await waitForRetry(700 * (attempt + 1), abortSignal);
+    }
+  }
+  throw lastError || new Error('Network error uploading to storage.');
 }
 
 function xhrPart(path, uploadId, partNumber, blob, onProgress, abortSignal) {
@@ -163,7 +226,7 @@ function xhrPart(path, uploadId, partNumber, blob, onProgress, abortSignal) {
           return;
         }
       }
-      reject(new Error(`Upload rejected (${xhr.status}).`));
+      reject(uploadErrorFromXhr(xhr));
     };
     xhr.onerror = () => {
       cleanup();
@@ -182,8 +245,9 @@ function xhrPart(path, uploadId, partNumber, blob, onProgress, abortSignal) {
 }
 
 function retryablePartError(err) {
+  if (isRateLimitedError(err)) return false; // the queue handles rate limits — don't hammer
   const msg = String(err?.message || '');
-  return /Network error uploading/i.test(msg) || /Upload rejected \(5\d\d\)/.test(msg);
+  return /Network error uploading/i.test(msg) || /Upload rejected \(5\d\d\)/.test(msg) || err?.status >= 500;
 }
 
 function waitForRetry(ms, abortSignal) {
@@ -297,7 +361,7 @@ function schedulePresignFlush() {
 
 /** One Worker call signs every file that started in the same turn. */
 function planFor(path, file, contentType) {
-  if (directUploadEnabled === false) return Promise.resolve(null);
+  if (!directGate.available()) return Promise.resolve(null);
   return new Promise((resolve) => {
     presignWaiters.push({ path, file, contentType, resolve });
     schedulePresignFlush();
@@ -321,22 +385,21 @@ async function flushPresigns() {
       },
     });
     if (!data?.enabled) {
-      directUploadEnabled = false;
+      directGate.noteDisabledByServer();
       batch.forEach((item) => item.resolve(null));
       return;
     }
-    directUploadEnabled = true;
     const plans = data.items || [];
     batch.forEach((item, index) => item.resolve(plans[index] || null));
   } catch {
-    directUploadEnabled = false;
+    directGate.noteTransientFailure();
     batch.forEach((item) => item.resolve(null));
   }
 }
 
 async function uploadFromPlan(plan, file, contentType, onProgress, abortSignal) {
   if (plan.mode === 'put' && plan.url) {
-    await xhrPut(plan.url, file, contentType, onProgress, abortSignal);
+    await xhrPutReliable(plan.url, file, contentType, onProgress, abortSignal);
     return { path: plan.path, url: storageService.getPublicUrl(plan.path) };
   }
   const parts = plan.parts || [];
@@ -354,7 +417,7 @@ async function uploadFromPlan(plan, file, contentType, onProgress, abortSignal) 
       if (!part) break;
       const blob = file.slice(part.start, part.end);
       const size = part.end - part.start;
-      const etag = await xhrPut(
+      const etag = await xhrPutReliable(
         part.url,
         blob,
         contentType,
@@ -379,6 +442,31 @@ async function uploadFromPlan(plan, file, contentType, onProgress, abortSignal) 
   return { path: plan.path, url: storageService.getPublicUrl(plan.path) };
 }
 
+/**
+ * Bulk HEAD via one Worker call per chunk. A failed chunk reports every path
+ * as missing — same conservative default as the single `exists()`, which
+ * re-uploads an original rather than risk a photo with no master file.
+ */
+export async function __existsManyWith(fetchJson, paths, { chunkSize = 200, concurrency = 2 } = {}) {
+  const result = new Map();
+  const chunks = chunkArray([...new Set(paths.filter(Boolean))], chunkSize);
+  const queue = chunks.slice();
+  const run = async () => {
+    while (queue.length) {
+      const chunk = queue.shift();
+      if (!chunk) break;
+      try {
+        const data = await fetchJson('/v1/r2/stat-many', { method: 'POST', body: { paths: chunk } });
+        for (const p of chunk) result.set(p, data?.exists?.[p] === true);
+      } catch {
+        for (const p of chunk) result.set(p, false);
+      }
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(concurrency, chunks.length) }, run));
+  return result;
+}
+
 export const storageService = {
   /** @param {AbortSignal} [abortSignal] */
   async upload(path, file, onProgress, abortSignal) {
@@ -398,25 +486,22 @@ export const storageService = {
       // files the edge can accept. A multi-GB video must not fall back to it:
       // the connection is reset and the browser reports a network error.
       const tooLargeForProxy = body.size > WORKER_PROXY_MAX;
-      if (directUploadEnabled !== false) {
+      if (directGate.available()) {
         const plan = await planFor(path, body, contentType);
         if (plan?.enabled) {
           try {
-            return await uploadFromPlan(plan, body, contentType, onProgress, abortSignal);
+            const result = await uploadFromPlan(plan, body, contentType, onProgress, abortSignal);
+            directGate.noteSuccess();
+            return result;
           } catch (err) {
             if (abortSignal?.aborted || /cancelled/i.test(err?.message || '')) throw err;
-            if (tooLargeForProxy) {
-              console.warn('Direct R2 upload failed, sending the file in parts', err);
-              directUploadEnabled = false;
-              return await uploadViaWorkerParts(path, body, contentType, onProgress, abortSignal);
-            }
-            console.warn('Direct R2 upload failed, using Worker proxy', err);
-            directUploadEnabled = false;
+            // This file falls back to the proxy; the next presign batch tries direct again after the backoff.
+            directGate.noteTransientFailure();
+            console.warn('Direct R2 upload failed after retries, using Worker proxy for this file', err);
           }
-        } else if (tooLargeForProxy) {
-          return await uploadViaWorkerParts(path, body, contentType, onProgress, abortSignal);
         }
-      } else if (tooLargeForProxy) {
+      }
+      if (tooLargeForProxy) {
         return await uploadViaWorkerParts(path, body, contentType, onProgress, abortSignal);
       }
       return await uploadViaWorkersApi(path, body, contentType, onProgress, abortSignal);
@@ -460,6 +545,12 @@ export const storageService = {
     const { apiFetch } = await import('../lib/api/client');
     const data = await apiFetch(`/v1/r2/stat?path=${encodeURIComponent(path)}`).catch(() => null);
     return data?.exists === true;
+  },
+
+  /** @returns {Promise<Map<string, boolean>>} path → exists */
+  async existsMany(paths) {
+    const { apiFetch } = await import('../lib/api/client');
+    return __existsManyWith(apiFetch, paths);
   },
 
   /** List object keys under a prefix (photographer album folders on R2). */

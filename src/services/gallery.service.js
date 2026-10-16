@@ -989,6 +989,29 @@ export const galleryService = {
   },
 
   /**
+   * Resume check for a whole batch. Returns lower-cased filenames whose
+   * original is not in R2. Photos with no resolvable original path count as missing.
+   */
+  async findMissingOriginalFilenames(photos) {
+    const missing = new Set();
+    const pathToName = new Map();
+    for (const photo of photos || []) {
+      if (!photo?.filename) continue;
+      const name = String(photo.filename).toLowerCase();
+      const fileExt = photo.filename.split('.').pop()?.toLowerCase() || null;
+      const path = resolveOriginalStoragePath(photo, fileExt);
+      if (!path) { missing.add(name); continue; }
+      pathToName.set(path, name);
+    }
+    if (pathToName.size === 0) return missing;
+    const exists = await storageService.existsMany([...pathToName.keys()]);
+    for (const [path, name] of pathToName) {
+      if (exists.get(path) !== true) missing.add(name);
+    }
+    return missing;
+  },
+
+  /**
    * Build Phase-2 context for a photo that already has web/thumb but never got an original.
    * Reuses the same storage stem as web/thumb when available.
    */

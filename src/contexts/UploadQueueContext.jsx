@@ -23,6 +23,7 @@ import {
 } from '../components/features/CollectionDashboard/Upload/uploadUtils';
 import { createUploadQueueStore } from './uploadQueueStore';
 import { UploadQueueContext, UploadQueueStoreContext } from './uploadQueueContext';
+import { isRateLimitedError } from '../services/storage.service';
 
 /** Each slot uploads the original immediately and the thumb/web pair beside it. */
 const MAX_CONCURRENT_DERIVATIVES = 10;
@@ -36,6 +37,8 @@ const MAX_CONCURRENT_ORIGINALS_LARGE = 6;
  * for 1000. Above this count rows use the uploaded thumb once it exists.
  */
 const PREVIEW_BLOB_LIMIT = 40;
+/** Fallback wait when the API does not say how long (Retry-After missing). */
+const RATE_LIMIT_DEFAULT_WAIT_MS = 60 * 1000;
 
 function getMaxOriginalConcurrent(files, pending) {
   const all = [...files, ...pending];
@@ -134,6 +137,9 @@ export function UploadQueueProvider({ children }) {
   /** Last batch enqueue target (for widget label / View navigation while uploads run). */
   const lastBatchTargetRef = useRef(null);
   const pumpQueueRef = useRef(() => {});
+  /** Epoch ms until which pumpQueue must not start new jobs (rate limit). */
+  const rateLimitedUntilRef = useRef(0);
+  const rateLimitTimerRef = useRef(null);
   /** Centered in-app notice (replaces native alert() popups). */
   const [notice, setNotice] = useState(null);
   const notifyNotice = useCallback((title, message) => {
@@ -179,6 +185,34 @@ export function UploadQueueProvider({ children }) {
       return { ...prev, files };
     });
   }, [setState]);
+
+  /**
+   * The Worker answered RATE_LIMITED. Nothing is wrong with the file: park it,
+   * stop starting new jobs until the window reopens, then pump again. Shows
+   * one notice per pause, not one per file.
+   */
+  const handleRateLimited = useCallback((uf, phase, err) => {
+    const waitMs = err?.retryAfterMs || RATE_LIMIT_DEFAULT_WAIT_MS;
+    const until = Date.now() + waitMs;
+    const alreadyPaused = rateLimitedUntilRef.current > Date.now();
+    rateLimitedUntilRef.current = Math.max(rateLimitedUntilRef.current, until);
+
+    patchFile(uf.id, { status: 'waiting', progress: phase === 'original' ? Math.max(uf.progress ?? 25, 25) : 0 });
+    requeueUploadFile(uf, phase, pendingDerivativesRef, pendingOriginalsRef, originalContextByIdRef);
+
+    if (!alreadyPaused) {
+      const minutes = Math.max(1, Math.ceil(waitMs / 60000));
+      notifyNotice(
+        'Upload limit reached',
+        `The upload service asked us to slow down. Uploads continue automatically in about ${minutes} min — keep this tab open.`
+      );
+    }
+    if (rateLimitTimerRef.current) clearTimeout(rateLimitTimerRef.current);
+    rateLimitTimerRef.current = setTimeout(() => {
+      rateLimitTimerRef.current = null;
+      pumpQueueRef.current();
+    }, rateLimitedUntilRef.current - Date.now() + 50);
+  }, [patchFile, notifyNotice]);
 
   const runDerivativeUpload = useCallback(
     async (uf) => {
@@ -288,6 +322,10 @@ export function UploadQueueProvider({ children }) {
           );
           return;
         }
+        if (isRateLimitedError(err)) {
+          handleRateLimited(uf, 'derivative', err);
+          return;
+        }
         console.error('Derivative upload failed:', err);
         if (err?.removedPhotoId) targetRef.current?.onPhotoRemoved?.(err.removedPhotoId);
         const message = uploadErrorMessage(err);
@@ -298,7 +336,7 @@ export function UploadQueueProvider({ children }) {
         abortControllersRef.current.delete(uf.id);
       }
     },
-    [patchFile, notifyNotice]
+    [patchFile, notifyNotice, handleRateLimited]
   );
 
   const runOriginalUpload = useCallback(
@@ -360,6 +398,10 @@ export function UploadQueueProvider({ children }) {
           );
           return;
         }
+        if (isRateLimitedError(err)) {
+          handleRateLimited({ ...uf, uploadContext }, 'original', err);
+          return;
+        }
         console.error('Original upload failed:', err);
         if (uploadContext?.photoId) {
           galleryService.deletePhotos([uploadContext.photoId]).catch(() => {});
@@ -373,7 +415,7 @@ export function UploadQueueProvider({ children }) {
         abortControllersRef.current.delete(uf.id);
       }
     },
-    [patchFile, notifyNotice]
+    [patchFile, notifyNotice, handleRateLimited]
   );
 
   const noteQueueIdle = useCallback(() => {
@@ -387,6 +429,7 @@ export function UploadQueueProvider({ children }) {
 
   const pumpQueue = useCallback(() => {
     if (pausedRef.current) return;
+    if (Date.now() < rateLimitedUntilRef.current) return;
 
     pendingDerivativesRef.current = sortUploadQueueBySizeAsc(pendingDerivativesRef.current);
 
@@ -492,21 +535,22 @@ export function UploadQueueProvider({ children }) {
         console.error('Failed to look up existing photos for upload:', err);
       }
 
+      // D1 already says these have no original — no need to ask R2.
       const missingOriginalKeys = new Set();
-      await Promise.all(
-        existingPhotos.map(async (photo) => {
-          if (!photo?.filename) return;
-          if (isIncompleteUploadPhoto(photo)) {
-            missingOriginalKeys.add(String(photo.filename).toLowerCase());
-            return;
-          }
-          const fileExt = photo.filename.split('.').pop()?.toLowerCase() || null;
-          const missing = await galleryService.isOriginalMissingInR2(photo, fileExt);
-          if (missing) {
-            missingOriginalKeys.add(String(photo.filename).toLowerCase());
-          }
-        })
-      );
+      const needsR2Check = [];
+      for (const photo of existingPhotos) {
+        if (!photo?.filename) continue;
+        if (isIncompleteUploadPhoto(photo)) missingOriginalKeys.add(String(photo.filename).toLowerCase());
+        else needsR2Check.push(photo);
+      }
+      if (needsR2Check.length > 0) {
+        try {
+          const missingFromR2 = await galleryService.findMissingOriginalFilenames(needsR2Check);
+          missingFromR2.forEach((name) => missingOriginalKeys.add(name));
+        } catch (err) {
+          console.error('Bulk original check failed:', err);
+        }
+      }
 
       const incompleteByName = new Map();
       for (const photo of target.incompletePhotos || []) {
@@ -760,6 +804,10 @@ export function UploadQueueProvider({ children }) {
     pumpQueue();
   }, [requeueWaitingFiles, pumpQueue]);
 
+  useEffect(() => () => {
+    if (rateLimitTimerRef.current) clearTimeout(rateLimitTimerRef.current);
+  }, []);
+
   const cancel = useCallback(() => {
     sessionRef.current += 1;
     pendingDerivativesRef.current = [];
@@ -770,6 +818,8 @@ export function UploadQueueProvider({ children }) {
     abortControllersRef.current.clear();
     originalContextByIdRef.current.clear();
     pausedRef.current = false;
+    rateLimitedUntilRef.current = 0;
+    if (rateLimitTimerRef.current) { clearTimeout(rateLimitTimerRef.current); rateLimitTimerRef.current = null; }
     lastBatchTargetRef.current = null;
     setState((prev) => {
       revokePreviews(prev.files);
