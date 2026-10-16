@@ -254,25 +254,25 @@ const AdminDashboard = () => {
       </AdminSection>
 
       <AdminSection title="Needs attention">
-        <div className="bg-white rounded-2xl shadow-sm border border-[#eae8e4] overflow-hidden">
+        <div className="ad-panel ad-card overflow-hidden">
           {loading ? (
             <div className="px-6 py-8 flex justify-center">
               <AppSpinner size="sm" />
             </div>
           ) : needsAttention.length === 0 ? (
-            <p className="px-6 py-8 text-center text-sm text-gray-500">All clear — no photographer is at a limit or disabled.</p>
+            <p className="px-6 py-8 text-center text-sm ad-muted-text">All clear — no photographer is at a limit or disabled.</p>
           ) : (
-            <ul className="divide-y divide-[#f0eee9]">
+            <ul className="divide-y divide-[var(--ad-line)]">
               {needsAttention.map(({ p, reasons }) => (
                 <li key={p.id}>
-                  <Link to="/admin/quotas" className="ad-row flex items-center gap-3 px-5 py-3.5 hover:bg-[#faf9f7] transition-colors">
-                    <div className="ad-avatar w-9 h-9 rounded-full flex items-center justify-center bg-[#1a1a1a] text-white shrink-0 text-sm font-semibold">
+                  <Link to="/admin/quotas" className="ad-row flex items-center gap-3 px-5 py-3.5">
+                    <div className="ad-avatar w-9 h-9 rounded-full flex items-center justify-center bg-[var(--ad-ink)] text-[var(--ad-card)] shrink-0 text-sm font-semibold">
                       {(p.display_name || p.email || 'U').charAt(0).toUpperCase()}
                     </div>
                     <div className="min-w-0 flex-1">
-                      <p className="font-semibold text-gray-900 text-sm truncate">{p.display_name || 'Unnamed'}</p>
-                      <p className="text-gray-500 text-xs truncate">{p.email}</p>
-                      <p className="text-red-700/80 text-xs truncate mt-0.5">{reasons.join(' · ')}</p>
+                      <p className="font-semibold ad-ink text-sm truncate">{p.display_name || 'Unnamed'}</p>
+                      <p className="ad-muted-text text-xs truncate">{p.email}</p>
+                      <p className="text-[var(--ad-bad)] text-xs truncate mt-0.5">{reasons.join(' · ')}</p>
                     </div>
                     <span className="ad-pill ad-pill--bad">
                       Review
