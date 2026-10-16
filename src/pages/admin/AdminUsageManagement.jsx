@@ -25,14 +25,16 @@ function quotaState(used, limit) {
 
 function QuotaPill({ used, limit }) {
   const cap = Number(limit);
-  if (cap === -1) return <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold bg-gray-200 text-gray-500">OFF</span>;
+  if (cap === -1) return <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-[var(--ad-sunk)] ad-muted-text">Off</span>;
   const u = Number(used) || 0;
   const st = quotaState(used, limit);
   const text = cap > 0 ? `${u.toLocaleString()} / ${cap.toLocaleString()}` : `${u.toLocaleString()} / ∞`;
   const cls =
-    st === 'exhausted' ? 'bg-red-50 text-red-700 border-red-200'
-    : st === 'warning' ? 'bg-amber-50 text-amber-700 border-amber-200'
-    : 'bg-emerald-50 text-emerald-700 border-emerald-200';
+    st === 'exhausted'
+      ? 'bg-[var(--ad-bad-bg)] text-[var(--ad-bad)] border-[color-mix(in_srgb,var(--ad-bad)_35%,var(--ad-line))]'
+    : st === 'warning'
+      ? 'bg-[var(--ad-warn-bg)] text-[var(--ad-warn)] border-[color-mix(in_srgb,var(--ad-warn)_35%,var(--ad-line))]'
+    : 'bg-[var(--ad-ok-bg)] text-[var(--ad-ok)] border-[color-mix(in_srgb,var(--ad-ok)_35%,var(--ad-line))]';
   return <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold border ${cls}`}>{text}</span>;
 }
 
@@ -40,9 +42,13 @@ function MiniBar({ used, limit }) {
   const cap = Number(limit);
   const pct = cap > 0 ? Math.min(100, ((Number(used) || 0) / cap) * 100) : 0;
   const st = quotaState(used, limit);
-  const color = st === 'exhausted' ? 'bg-red-400' : st === 'warning' ? 'bg-amber-400' : st === 'disabled' ? 'bg-gray-300' : 'bg-emerald-500';
+  const color =
+    st === 'exhausted' ? 'bg-[var(--ad-bad)]'
+    : st === 'warning' ? 'bg-[var(--ad-warn)]'
+    : st === 'disabled' ? 'bg-[var(--ad-meter-track)]'
+    : 'bg-[var(--ad-ok)]';
   return (
-    <div className="h-1 w-full rounded-full bg-gray-100 overflow-hidden">
+    <div className="h-1 w-full rounded-full bg-[var(--ad-meter-track)] overflow-hidden">
       <div className={`h-full rounded-full ${color}`} style={{ width: `${pct}%` }} />
     </div>
   );
@@ -65,7 +71,13 @@ const parseTriState = (enabled, unlimited, raw, label) => {
   return v;
 };
 
-/** Small emerald on/off switch for quota cards. */
+const unlimitedBannerClass =
+  'flex items-center gap-2 px-3 py-2.5 rounded-xl bg-[var(--ad-ok-bg)] border border-[color-mix(in_srgb,var(--ad-ok)_25%,var(--ad-line))] text-[var(--ad-ok)]';
+
+const quotaInputClass =
+  'ad-input w-full px-3 py-2 ad-sunk border border-[var(--ad-line)] rounded-xl text-sm outline-none';
+
+/** Small on/off switch for quota cards. */
 function CardSwitch({ checked, onChange, label }) {
   return (
     <button
@@ -73,10 +85,11 @@ function CardSwitch({ checked, onChange, label }) {
       role="switch"
       aria-checked={checked}
       aria-label={label}
+      data-on={checked ? 'true' : 'false'}
       onClick={() => onChange(!checked)}
-      className={`relative inline-flex h-5 w-9 shrink-0 rounded-full transition-colors ${checked ? 'bg-emerald-500' : 'bg-gray-300'}`}
+      className="ad-toggle"
     >
-      <span className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-all ${checked ? 'left-4' : 'left-0.5'}`} />
+      <span className="ad-toggle-thumb" />
     </button>
   );
 }
@@ -89,7 +102,7 @@ function UnlimitedPill({ unlimited, onChange }) {
       onClick={() => onChange(!unlimited)}
       aria-pressed={unlimited}
       title="Toggle unlimited"
-      className={`inline-flex shrink-0 items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold transition-colors ${unlimited ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}
+      className={`inline-flex shrink-0 items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold transition-colors ${unlimited ? 'bg-[var(--ad-ok-bg)] text-[var(--ad-ok)]' : 'bg-[var(--ad-sunk)] ad-muted-text hover:opacity-90'}`}
     >
       <span className="text-sm leading-none">∞</span>
       {unlimited ? 'Unlimited' : 'Limited'}
@@ -102,9 +115,9 @@ function LimitSegmented({ unlimited, limitValue, onPickOne, onPickMultiple, onPi
   const isOne = !unlimited && limitValue === '1';
   const isMultiple = !unlimited && Number(limitValue) > 1;
   const btn = (active) =>
-    `flex-1 px-2 py-1.5 text-[11px] rounded-lg font-semibold transition-all ${active ? 'bg-white text-[#1a1a1a] shadow-sm' : 'text-gray-500 hover:text-gray-700'}`;
+    `flex-1 px-2 py-1.5 text-[11px] rounded-lg font-semibold transition-all ${active ? 'bg-[var(--ad-card)] ad-ink shadow-sm' : 'ad-muted-text hover:text-[var(--ad-ink)]'}`;
   return (
-    <div className="flex gap-1 p-1 bg-gray-100 rounded-xl">
+    <div className="flex gap-1 p-1 ad-sunk rounded-xl">
       <button type="button" onClick={onPickOne} className={btn(isOne)}>1</button>
       <button type="button" onClick={onPickMultiple} className={btn(isMultiple)}>Multiple</button>
       <button type="button" onClick={onPickUnlimited} className={btn(unlimited)}>∞</button>
@@ -118,13 +131,13 @@ function CreationLimitCard({
   limit, onLimitChange, placeholder, onPickOne, onPickMultiple, used, inactiveNote,
 }) {
   return (
-    <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+    <div className="ad-card rounded-2xl p-4 shadow-sm">
       <div className="flex items-center gap-2.5">
         <CardSwitch checked={enabled} onChange={onEnabledChange} label={title} />
-        <span className="flex w-8 h-8 shrink-0 items-center justify-center rounded-lg bg-gray-100 text-gray-600">{icon}</span>
+        <span className="flex w-8 h-8 shrink-0 items-center justify-center rounded-lg bg-[var(--ad-sunk)] ad-muted-text">{icon}</span>
         <div className="min-w-0 flex-1">
-          <p className="text-[13px] font-semibold text-gray-800 leading-tight">{title}</p>
-          <p className="text-[11px] text-gray-400">Created {Number(created || 0).toLocaleString()}</p>
+          <p className="text-[13px] font-semibold ad-ink leading-tight">{title}</p>
+          <p className="text-[11px] ad-faint-text">Created {Number(created || 0).toLocaleString()}</p>
         </div>
         {enabled && <UnlimitedPill unlimited={unlimited} onChange={onUnlimitedChange} />}
       </div>
@@ -139,19 +152,19 @@ function CreationLimitCard({
               onPickUnlimited={() => { onUnlimitedChange(true); onLimitChange(''); }}
             />
             {unlimited ? (
-              <div className="mt-2.5 flex items-center gap-2 px-3 py-2.5 rounded-xl bg-emerald-50 border border-emerald-100 text-emerald-700">
+              <div className={`mt-2.5 ${unlimitedBannerClass}`}>
                 <span className="text-lg leading-none font-bold">∞</span>
                 <span className="text-[13px] font-semibold">Unlimited</span>
-                <span className="ml-auto text-[11px] font-normal text-emerald-600">no cap on creation</span>
+                <span className="ml-auto text-[11px] font-normal opacity-90">no cap on creation</span>
               </div>
             ) : (
               <>
-                <label className="mt-2.5 block text-[11px] font-medium text-gray-500 mb-1.5">Max allowed</label>
-                <input type="number" min="1" step="1" value={limit} onChange={(e) => onLimitChange(e.target.value)} className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm outline-none focus:bg-white focus:border-[#1a1a1a] transition-all" placeholder={placeholder} />
+                <label className="mt-2.5 block text-[11px] font-medium ad-muted-text mb-1.5">Max allowed</label>
+                <input type="number" min="1" step="1" value={limit} onChange={(e) => onLimitChange(e.target.value)} className={quotaInputClass} placeholder={placeholder} />
                 {Number(limit) > 0 && (
                   <div className="mt-2.5">
                     <MiniBar used={used} limit={Number(limit)} />
-                    <p className="mt-1 text-[11px] text-gray-400">
+                    <p className="mt-1 text-[11px] ad-faint-text">
                       {Number(used || 0).toLocaleString()} of {Number(limit).toLocaleString()} used
                     </p>
                   </div>
@@ -160,7 +173,7 @@ function CreationLimitCard({
             )}
           </>
         ) : (
-          <p className="text-[11px] font-medium text-gray-500 bg-gray-100 rounded-xl px-3 py-2.5">{inactiveNote}</p>
+          <p className="text-[11px] font-medium ad-muted-text bg-[var(--ad-sunk)] rounded-xl px-3 py-2.5">{inactiveNote}</p>
         )}
       </div>
     </div>
@@ -176,9 +189,9 @@ function formatDateMed(value) {
 
 function deliveryTone(status) {
   const s = String(status || 'draft').toLowerCase();
-  if (s === 'published') return 'bg-emerald-50 text-emerald-700 border-emerald-200';
-  if (s === 'archived' || s === 'hidden') return 'bg-gray-100 text-gray-500 border-gray-200';
-  return 'bg-amber-50 text-amber-700 border-amber-200';
+  if (s === 'published') return 'bg-[var(--ad-ok-bg)] text-[var(--ad-ok)] border-[color-mix(in_srgb,var(--ad-ok)_35%,var(--ad-line))]';
+  if (s === 'archived' || s === 'hidden') return 'bg-[var(--ad-sunk)] ad-muted-text border-[var(--ad-line)]';
+  return 'bg-[var(--ad-warn-bg)] text-[var(--ad-warn)] border-[color-mix(in_srgb,var(--ad-warn)_35%,var(--ad-line))]';
 }
 
 function deliveryLabel(status) {
@@ -190,9 +203,9 @@ function deliveryLabel(status) {
 
 function albumTone(status) {
   const s = String(status || '').toLowerCase();
-  if (s.includes('approv') || s === 'published' || s === 'live') return 'bg-emerald-50 text-emerald-700 border-emerald-200';
-  if (s.includes('draft')) return 'bg-amber-50 text-amber-700 border-amber-200';
-  return 'bg-gray-100 text-gray-500 border-gray-200';
+  if (s.includes('approv') || s === 'published' || s === 'live') return 'bg-[var(--ad-ok-bg)] text-[var(--ad-ok)] border-[color-mix(in_srgb,var(--ad-ok)_35%,var(--ad-line))]';
+  if (s.includes('draft')) return 'bg-[var(--ad-warn-bg)] text-[var(--ad-warn)] border-[color-mix(in_srgb,var(--ad-warn)_35%,var(--ad-line))]';
+  return 'bg-[var(--ad-sunk)] ad-muted-text border-[var(--ad-line)]';
 }
 
 function albumLabel(status) {
@@ -417,16 +430,16 @@ const AdminUsageManagement = () => {
         />
       </div>
 
-      <div className="bg-white p-4 rounded-2xl shadow-sm border border-[#eae8e4] space-y-3">
+      <div className="ad-card p-4 rounded-2xl shadow-sm space-y-3">
         <div className="flex flex-col lg:flex-row gap-3">
           <div className="relative flex-1 min-w-0">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 ad-faint-text" />
             <input
               type="text"
               placeholder="Search photographers..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-9 pr-4 py-2 bg-[#f8f7f4] border border-[#eae8e4] rounded-xl text-sm outline-none focus:border-[#1a1a1a] focus:bg-white transition-all"
+              className="ad-input w-full pl-9 pr-4 py-2 ad-sunk border border-[var(--ad-line)] rounded-xl text-sm outline-none"
             />
           </div>
           <div className="flex flex-col sm:flex-row gap-3">
@@ -434,7 +447,7 @@ const AdminUsageManagement = () => {
               value={planFilter}
               onChange={(e) => setPlanFilter(e.target.value)}
               aria-label="Filter by plan"
-              className="px-3 py-2 bg-[#f8f7f4] border border-[#eae8e4] rounded-xl text-sm outline-none focus:border-[#1a1a1a] focus:bg-white transition-all"
+              className="ad-input px-3 py-2 ad-sunk border border-[var(--ad-line)] rounded-xl text-sm outline-none"
             >
               <option value="all">All plans</option>
               {planOptions.map((p) => (
@@ -445,7 +458,7 @@ const AdminUsageManagement = () => {
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
               aria-label="Filter by creation status"
-              className="px-3 py-2 bg-[#f8f7f4] border border-[#eae8e4] rounded-xl text-sm outline-none focus:border-[#1a1a1a] focus:bg-white transition-all"
+              className="ad-input px-3 py-2 ad-sunk border border-[var(--ad-line)] rounded-xl text-sm outline-none"
             >
               <option value="all">All statuses</option>
               <option value="blocked">At limit / disabled</option>
@@ -455,11 +468,11 @@ const AdminUsageManagement = () => {
           </div>
         </div>
         <div className="flex items-center justify-between gap-3">
-          <p className="text-xs text-gray-500">
-            Showing <span className="font-semibold text-gray-800">{filtered.length}</span> of <span className="font-semibold text-gray-800">{users.length}</span> photographers
+          <p className="text-xs ad-muted-text">
+            Showing <span className="font-semibold ad-ink">{filtered.length}</span> of <span className="font-semibold ad-ink">{users.length}</span> photographers
           </p>
           {filtersActive && (
-            <button type="button" onClick={clearFilters} className="inline-flex items-center gap-1 text-xs font-semibold text-gray-500 hover:text-gray-900 transition-colors">
+            <button type="button" onClick={clearFilters} className="inline-flex items-center gap-1 text-xs font-semibold ad-muted-text hover:text-[var(--ad-ink)] transition-colors">
               <X className="w-3.5 h-3.5" />Clear filters
             </button>
           )}
@@ -467,46 +480,47 @@ const AdminUsageManagement = () => {
       </div>
 
       {migrationWarning && !loading && (
-        <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex items-start gap-3">
-          <AlertCircle className="w-5 h-5 text-amber-600 mt-0.5 shrink-0" />
-          <p className="text-amber-800 text-sm">{migrationWarning}</p>
+        <div className="rounded-2xl p-4 flex items-start gap-3 border border-[color-mix(in_srgb,var(--ad-warn)_35%,var(--ad-line))] bg-[var(--ad-warn-bg)]">
+          <AlertCircle className="w-5 h-5 text-[var(--ad-warn)] mt-0.5 shrink-0" />
+          <p className="text-[var(--ad-warn)] text-sm">{migrationWarning}</p>
         </div>
       )}
 
       {error && (
-        <div className="bg-red-50 border border-red-100 rounded-2xl p-6 text-center">
-          <AlertCircle className="w-8 h-8 text-red-500 mx-auto mb-2" />
-          <p className="text-red-700 text-sm">{error}</p>
+        <div className="ad-error-card rounded-2xl p-6 flex flex-col items-center justify-center text-center">
+          <AlertCircle className="w-8 h-8 text-[var(--ad-bad)] mb-3" />
+          <h3 className="text-[var(--ad-bad)] font-semibold mb-1">Failed to load usage</h3>
+          <p className="text-[var(--ad-bad)] text-sm max-w-md opacity-90">{error}</p>
         </div>
       )}
 
       {!error && loading && <AppLoader label="Loading usage" variant="page-short" />}
 
       {!error && !loading && (
-        <div className="bg-[#fdfdfc] rounded-2xl shadow-sm border border-[#eae8e4] overflow-hidden">
+        <div className="ad-panel ad-card overflow-hidden">
           <div className="overflow-hidden">
             <table className="w-full text-left text-sm" style={{ tableLayout: 'fixed' }}>
-              <thead className="bg-[#f9f8f5]/85 border-b border-[#eae8e4]">
+              <thead className="bg-[var(--ad-sunk)] border-b border-[var(--ad-line)]">
                 <tr>
-                  <th className="px-5 py-3.5 font-semibold text-gray-500 text-xs uppercase tracking-wider" style={{ width: '34%' }}>Photographer</th>
-                  <th className="px-4 py-3.5 font-semibold text-gray-500 text-xs uppercase tracking-wider" style={{ width: '28%' }}>
+                  <th className="px-5 py-3.5 font-semibold ad-muted-text text-xs uppercase tracking-wider" style={{ width: '34%' }}>Photographer</th>
+                  <th className="px-4 py-3.5 font-semibold ad-muted-text text-xs uppercase tracking-wider" style={{ width: '28%' }}>
                     <span className="inline-flex items-center gap-1.5"><Layers className="w-3.5 h-3.5" />Albums</span>
-                    <span className="block text-[10px] font-normal normal-case text-gray-400 mt-0.5">created / limit</span>
+                    <span className="block text-[10px] font-normal normal-case ad-faint-text mt-0.5">created / limit</span>
                   </th>
-                  <th className="px-4 py-3.5 font-semibold text-gray-500 text-xs uppercase tracking-wider" style={{ width: '28%' }}>
+                  <th className="px-4 py-3.5 font-semibold ad-muted-text text-xs uppercase tracking-wider" style={{ width: '28%' }}>
                     <span className="inline-flex items-center gap-1.5"><Send className="w-3.5 h-3.5" />Deliveries</span>
-                    <span className="block text-[10px] font-normal normal-case text-gray-400 mt-0.5">created / limit</span>
+                    <span className="block text-[10px] font-normal normal-case ad-faint-text mt-0.5">created / limit</span>
                   </th>
-                  <th className="px-4 py-3.5 font-semibold text-gray-500 text-xs uppercase tracking-wider text-right" style={{ width: '10%' }}>Action</th>
+                  <th className="px-4 py-3.5 font-semibold ad-muted-text text-xs uppercase tracking-wider text-right" style={{ width: '10%' }}>Action</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-100">
+              <tbody className="divide-y divide-[var(--ad-line)]">
                 {filtered.length === 0 ? (
                   <tr>
                     <td colSpan="4" className="px-6 py-12 text-center">
-                      <p className="text-gray-500">{filtersActive ? 'No photographers match the current filters.' : 'No photographers found.'}</p>
+                      <p className="ad-muted-text">{filtersActive ? 'No photographers match the current filters.' : 'No photographers found.'}</p>
                       {filtersActive && (
-                        <button type="button" onClick={clearFilters} className="mt-3 inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold bg-[#1a1a1a] text-white rounded-lg hover:bg-black transition-colors">
+                        <button type="button" onClick={clearFilters} className="ad-btn-primary mt-3 inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold transition-colors">
                           <X className="w-3.5 h-3.5" />Clear filters
                         </button>
                       )}
@@ -518,29 +532,29 @@ const AdminUsageManagement = () => {
                     const detail = detailsByUser[u.id] || {};
                     return (
                       <React.Fragment key={u.id}>
-                      <tr className={`ad-row transition-colors align-top ${expanded ? 'bg-[#f8f7f4]/70' : 'hover:bg-[#f8f7f4]/60'}`}>
+                      <tr className={`ad-row transition-colors align-top ${expanded ? 'bg-[var(--ad-sunk)]' : ''}`}>
                       <td className="px-5 py-4 min-w-0">
                         <div className="flex items-center gap-3 min-w-0">
-                          <div className="ad-avatar w-9 h-9 rounded-full flex items-center justify-center bg-[#1a1a1a] text-white shrink-0">
+                          <div className="ad-avatar w-9 h-9 rounded-full flex items-center justify-center bg-[var(--ad-ink)] text-[var(--ad-card)] shrink-0">
                             <User className="w-4 h-4" />
                           </div>
                           <div className="min-w-0">
-                            <p className="font-semibold text-gray-900 truncate">{u.name}</p>
-                            <p className="text-gray-500 text-xs truncate">{u.email}</p>
-                            <span className="inline-flex mt-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-gray-100 text-gray-600 capitalize">{u.plan}</span>
+                            <p className="font-semibold ad-ink truncate">{u.name}</p>
+                            <p className="ad-muted-text text-xs truncate">{u.email}</p>
+                            <span className="inline-flex mt-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-[var(--ad-sunk)] ad-muted-text capitalize">{u.plan}</span>
                           </div>
                         </div>
                       </td>
                       <td className="px-4 py-4 min-w-0">
                         <div className="flex items-center justify-between gap-2 mb-1.5">
-                          <span className="text-[11px] font-medium text-gray-500">Albums</span>
+                          <span className="text-[11px] font-medium ad-muted-text">Albums</span>
                           <QuotaPill used={u.albumUsed} limit={u.albumLimit} />
                         </div>
                         <MiniBar used={u.albumUsed} limit={u.albumLimit} />
                       </td>
                       <td className="px-4 py-4 min-w-0">
                         <div className="flex items-center justify-between gap-2 mb-1.5">
-                          <span className="text-[11px] font-medium text-gray-500">Deliveries</span>
+                          <span className="text-[11px] font-medium ad-muted-text">Deliveries</span>
                           <QuotaPill used={u.deliveryUsed} limit={u.deliveryLimit} />
                         </div>
                         <MiniBar used={u.deliveryUsed} limit={u.deliveryLimit} />
@@ -552,68 +566,68 @@ const AdminUsageManagement = () => {
                             onClick={() => toggleExpand(u)}
                             title={expanded ? 'Hide albums & deliveries' : 'Show album & delivery names'}
                             aria-expanded={expanded}
-                            className={`p-2 rounded-lg transition-colors ${expanded ? 'bg-[#1a1a1a] text-white' : 'text-gray-500 hover:bg-gray-100'}`}
+                            className={`p-2 rounded-lg transition-colors ${expanded ? 'bg-[var(--ad-ink)] text-[var(--ad-card)]' : 'ad-muted-text hover:bg-[var(--ad-sunk)]'}`}
                           >
                             <ChevronDown className={`w-4 h-4 transition-transform ${expanded ? 'rotate-180' : ''}`} />
                           </button>
-                          <button onClick={() => openEditor(u)} className="ad-action-btn inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-[#1a1a1a] text-white rounded-lg hover:bg-black transition-colors">
+                          <button onClick={() => openEditor(u)} className="ad-action-btn ad-btn-primary inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold transition-colors">
                             <Pencil className="w-3.5 h-3.5" />Edit
                           </button>
                         </div>
                       </td>
                       </tr>
                       {expanded && (
-                        <tr className="bg-[#f8f7f4]/50">
+                        <tr className="bg-[color-mix(in_srgb,var(--ad-sunk)_55%,var(--ad-card))]">
                           <td colSpan="4" className="px-5 pb-5 pt-1">
                             {detail.loading ? (
-                              <div className="flex items-center gap-2 py-4 text-sm text-gray-500">
+                              <div className="flex items-center gap-2 py-4 text-sm ad-muted-text">
                                 <AppSpinner size="xs" />Loading albums &amp; deliveries…
                               </div>
                             ) : detail.error ? (
-                              <p className="py-3 text-sm text-red-600">{detail.error}</p>
+                              <p className="py-3 text-sm text-[var(--ad-bad)]">{detail.error}</p>
                             ) : detail.countsOnly ? (
-                              <div className="flex flex-wrap items-center gap-x-8 gap-y-2 py-3 text-sm text-gray-600">
-                                <p><strong className="text-gray-900">{Number(detail.albumCount ?? 0).toLocaleString()}</strong> albums created</p>
-                                <p><strong className="text-gray-900">{Number(detail.deliveryCount ?? 0).toLocaleString()}</strong> deliveries created</p>
-                                <p className="text-[11px] text-gray-400">Per-item names are unavailable via the Workers API.</p>
+                              <div className="flex flex-wrap items-center gap-x-8 gap-y-2 py-3 text-sm ad-muted-text">
+                                <p><strong className="ad-ink">{Number(detail.albumCount ?? 0).toLocaleString()}</strong> albums created</p>
+                                <p><strong className="ad-ink">{Number(detail.deliveryCount ?? 0).toLocaleString()}</strong> deliveries created</p>
+                                <p className="text-[11px] ad-faint-text">Per-item names are unavailable via the Workers API.</p>
                               </div>
                             ) : (
                               <div className="grid md:grid-cols-2 gap-4">
-                                <div className="rounded-xl border border-[#eae8e4] bg-white overflow-hidden">
-                                  <div className="flex items-center gap-2 px-4 py-2.5 bg-[#f9f8f5]/80 border-b border-[#eae8e4]">
-                                    <BookOpen className="w-3.5 h-3.5 text-gray-500" />
-                                    <p className="text-xs font-semibold text-gray-700">Albums · {(detail.albums || []).length}</p>
+                                <div className="ad-card rounded-xl overflow-hidden">
+                                  <div className="flex items-center gap-2 px-4 py-2.5 bg-[var(--ad-sunk)] border-b border-[var(--ad-line)]">
+                                    <BookOpen className="w-3.5 h-3.5 ad-muted-text" />
+                                    <p className="text-xs font-semibold ad-ink">Albums · {(detail.albums || []).length}</p>
                                   </div>
-                                  <ul className="max-h-64 overflow-y-auto divide-y divide-gray-100">
+                                  <ul className="max-h-64 overflow-y-auto divide-y divide-[var(--ad-line)]">
                                     {(detail.albums || []).length === 0 ? (
-                                      <li className="px-4 py-4 text-[13px] text-gray-400">
+                                      <li className="px-4 py-4 text-[13px] ad-faint-text">
                                         {detail.albumsUnavailable ? 'Album data unavailable.' : 'No albums yet.'}
                                       </li>
                                     ) : (
                                       detail.albums.map((a) => (
                                         <li key={a.id} className="flex items-center gap-2.5 px-4 py-2.5">
                                           <span className={`shrink-0 px-2 py-0.5 rounded-full text-[10px] font-bold border ${albumTone(a.status)}`}>{albumLabel(a.status)}</span>
-                                          <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-gray-800" title={a.name || 'Untitled'}>{a.name || 'Untitled album'}</span>
-                                          <span className="shrink-0 text-[11px] text-gray-400">{formatDateMed(a.created_at)}</span>
+                                          <span className="min-w-0 flex-1 truncate text-[13px] font-medium ad-ink" title={a.name || 'Untitled'}>{a.name || 'Untitled album'}</span>
+                                          <span className="shrink-0 text-[11px] ad-faint-text">{formatDateMed(a.created_at)}</span>
                                         </li>
                                       ))
                                     )}
                                   </ul>
                                 </div>
-                                <div className="rounded-xl border border-[#eae8e4] bg-white overflow-hidden">
-                                  <div className="flex items-center gap-2 px-4 py-2.5 bg-[#f9f8f5]/80 border-b border-[#eae8e4]">
-                                    <Send className="w-3.5 h-3.5 text-gray-500" />
-                                    <p className="text-xs font-semibold text-gray-700">Deliveries · {(detail.deliveries || []).length}</p>
+                                <div className="ad-card rounded-xl overflow-hidden">
+                                  <div className="flex items-center gap-2 px-4 py-2.5 bg-[var(--ad-sunk)] border-b border-[var(--ad-line)]">
+                                    <Send className="w-3.5 h-3.5 ad-muted-text" />
+                                    <p className="text-xs font-semibold ad-ink">Deliveries · {(detail.deliveries || []).length}</p>
                                   </div>
-                                  <ul className="max-h-64 overflow-y-auto divide-y divide-gray-100">
+                                  <ul className="max-h-64 overflow-y-auto divide-y divide-[var(--ad-line)]">
                                     {(detail.deliveries || []).length === 0 ? (
-                                      <li className="px-4 py-4 text-[13px] text-gray-400">No deliveries yet.</li>
+                                      <li className="px-4 py-4 text-[13px] ad-faint-text">No deliveries yet.</li>
                                     ) : (
                                       detail.deliveries.map((d) => (
                                         <li key={d.id} className="flex items-center gap-2.5 px-4 py-2.5">
                                           <span className={`shrink-0 px-2 py-0.5 rounded-full text-[10px] font-bold border ${deliveryTone(d.status)}`}>{deliveryLabel(d.status)}</span>
-                                          <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-gray-800" title={d.name || d.slug || 'Untitled'}>{d.name || d.slug || 'Untitled delivery'}</span>
-                                          <span className="shrink-0 text-[11px] text-gray-400">{formatDateMed(d.created_at)}</span>
+                                          <span className="min-w-0 flex-1 truncate text-[13px] font-medium ad-ink" title={d.name || d.slug || 'Untitled'}>{d.name || d.slug || 'Untitled delivery'}</span>
+                                          <span className="shrink-0 text-[11px] ad-faint-text">{formatDateMed(d.created_at)}</span>
                                         </li>
                                       ))
                                     )}
@@ -682,7 +696,7 @@ const AdminUsageManagement = () => {
                   onPickOne={() => { setDeliveryUnlimited(false); setDeliveryLimit('1'); }}
                   onPickMultiple={() => { setDeliveryUnlimited(false); if (deliveryLimit === '1' || !deliveryLimit) setDeliveryLimit('5'); }}
                 />
-                <p className="text-[11px] text-gray-400">Toggle off = cannot create new · ∞ = unlimited · number = max allowed. Usage counts update automatically.</p>
+                <p className="text-[11px] ad-faint-text">Toggle off = cannot create new · ∞ = unlimited · number = max allowed. Usage counts update automatically.</p>
           </form>
         </AdminModal>
       )}
