@@ -236,7 +236,7 @@ const AdminUserManagement = () => {
           <button
             type="button"
             onClick={exportCsv}
-            className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl border border-[#eae8e4] bg-white text-sm font-medium text-gray-700 hover:bg-gray-50"
+            className="ad-btn-secondary inline-flex items-center gap-2 px-3.5 py-2 text-sm"
           >
             <Download className="w-4 h-4" />
             Export CSV
@@ -267,23 +267,23 @@ const AdminUserManagement = () => {
         />
       </div>
 
-      <div className="bg-white p-4 rounded-2xl shadow-sm border border-[#eae8e4] space-y-3">
+      <div className="ad-card p-4 rounded-2xl shadow-sm space-y-3">
         <div className="flex flex-col lg:flex-row gap-3">
           <div className="relative flex-1 min-w-0">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 ad-faint-text" />
             <input
               type="text"
               placeholder="Search users by name or email..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="ad-input w-full pl-9 pr-4 py-2 bg-[#f8f7f4] border border-[#eae8e4] hover:border-[#eae8e4]/80 focus:border-[#1a1a1a] focus:bg-white rounded-xl text-sm outline-none transition-all focus:ring-1 focus:ring-[#1a1a1a]"
+              className="ad-input w-full pl-9 pr-4 py-2 ad-sunk border border-[var(--ad-line)] rounded-xl text-sm outline-none"
             />
           </div>
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
             aria-label="Filter by account status"
-            className="ad-input px-3 py-2 bg-[#f8f7f4] border border-[#eae8e4] rounded-xl text-sm outline-none focus:border-[#1a1a1a] focus:bg-white transition-all"
+            className="ad-input px-3 py-2 ad-sunk border border-[var(--ad-line)] rounded-xl text-sm outline-none"
           >
             <option value="all">All statuses</option>
             <option value="active">Active</option>
@@ -295,7 +295,7 @@ const AdminUserManagement = () => {
             value={sortBy}
             onChange={(e) => setSortBy(e.target.value)}
             aria-label="Sort photographers"
-            className="ad-input px-3 py-2 bg-[#f8f7f4] border border-[#eae8e4] rounded-xl text-sm outline-none focus:border-[#1a1a1a] focus:bg-white transition-all"
+            className="ad-input px-3 py-2 ad-sunk border border-[var(--ad-line)] rounded-xl text-sm outline-none"
           >
             <option value="newest">Newest first</option>
             <option value="oldest">Oldest first</option>
@@ -304,11 +304,11 @@ const AdminUserManagement = () => {
           </select>
         </div>
         <div className="flex items-center justify-between gap-3">
-          <p className="text-xs text-gray-500">
-            Showing <span className="font-semibold text-gray-800">{sortedUsers.length}</span> of <span className="font-semibold text-gray-800">{users.length}</span> photographers
+          <p className="text-xs ad-muted-text">
+            Showing <span className="font-semibold ad-ink">{sortedUsers.length}</span> of <span className="font-semibold ad-ink">{users.length}</span> photographers
           </p>
           {filtersActive && (
-            <button type="button" onClick={clearFilters} className="inline-flex items-center gap-1 text-xs font-semibold text-gray-500 hover:text-gray-900 transition-colors">
+            <button type="button" onClick={clearFilters} className="inline-flex items-center gap-1 text-xs font-semibold ad-muted-text hover:text-[var(--ad-ink)] transition-colors">
               <X className="w-3.5 h-3.5" />Clear filters
             </button>
           )}
@@ -316,17 +316,17 @@ const AdminUserManagement = () => {
       </div>
 
       {migrationWarning && !loading && (
-        <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex items-start gap-3">
-          <AlertCircle className="w-5 h-5 text-amber-600 mt-0.5 shrink-0" />
-          <p className="text-amber-800 text-sm">{migrationWarning}</p>
+        <div className="rounded-2xl p-4 flex items-start gap-3 border border-[color-mix(in_srgb,var(--ad-warn)_35%,var(--ad-line))] bg-[var(--ad-warn-bg)]">
+          <AlertCircle className="w-5 h-5 text-[var(--ad-warn)] mt-0.5 shrink-0" />
+          <p className="text-[var(--ad-warn)] text-sm">{migrationWarning}</p>
         </div>
       )}
 
       {error && (
         <div className="ad-error-card rounded-2xl p-6 flex flex-col items-center justify-center text-center">
-          <AlertCircle className="w-8 h-8 text-red-500 mb-3" />
-          <h3 className="text-red-800 font-semibold mb-1">Failed to load users</h3>
-          <p className="text-red-600 text-sm max-w-md">{error}</p>
+          <AlertCircle className="w-8 h-8 text-[var(--ad-bad)] mb-3" />
+          <h3 className="text-[var(--ad-bad)] font-semibold mb-1">Failed to load users</h3>
+          <p className="text-[var(--ad-bad)] text-sm max-w-md opacity-90">{error}</p>
         </div>
       )}
 
@@ -335,27 +335,27 @@ const AdminUserManagement = () => {
       )}
 
       {!error && !loading && (
-        <div className="bg-[#fdfdfc] rounded-2xl shadow-sm border border-[#eae8e4] overflow-hidden">
+        <div className="ad-panel ad-card overflow-hidden">
           <div className="overflow-hidden">
             <table className="w-full text-left text-sm" style={{ tableLayout: 'fixed' }}>
-              <thead className="bg-[#f9f8f5]/85 border-b border-[#eae8e4]">
+              <thead className="bg-[var(--ad-sunk)] border-b border-[var(--ad-line)]">
                 <tr>
-                  <th className="px-5 py-3.5 font-semibold text-gray-500 text-xs uppercase tracking-wider" style={{ width: '26%' }}>Photographer</th>
-                  <th className="px-4 py-3.5 font-semibold text-gray-500 text-xs uppercase tracking-wider" style={{ width: '16%' }}>Last login</th>
-                  <th className="px-4 py-3.5 font-semibold text-gray-500 text-xs uppercase tracking-wider" style={{ width: '18%' }}>Activity</th>
-                  <th className="px-4 py-3.5 font-semibold text-gray-500 text-xs uppercase tracking-wider" style={{ width: '12%' }}>Status</th>
-                  <th className="px-4 py-3.5 font-semibold text-gray-500 text-xs uppercase tracking-wider text-right" style={{ width: '28%' }}>Action</th>
+                  <th className="px-5 py-3.5 font-semibold ad-muted-text text-xs uppercase tracking-wider" style={{ width: '26%' }}>Photographer</th>
+                  <th className="px-4 py-3.5 font-semibold ad-muted-text text-xs uppercase tracking-wider" style={{ width: '16%' }}>Last login</th>
+                  <th className="px-4 py-3.5 font-semibold ad-muted-text text-xs uppercase tracking-wider" style={{ width: '18%' }}>Activity</th>
+                  <th className="px-4 py-3.5 font-semibold ad-muted-text text-xs uppercase tracking-wider" style={{ width: '12%' }}>Status</th>
+                  <th className="px-4 py-3.5 font-semibold ad-muted-text text-xs uppercase tracking-wider text-right" style={{ width: '28%' }}>Action</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-100">
+              <tbody className="divide-y divide-[var(--ad-line)]">
                 {sortedUsers.length === 0 ? (
                   <tr>
                     <td colSpan="5" className="px-6 py-12 text-center">
-                      <p className="text-gray-500">
+                      <p className="ad-muted-text">
                         {filtersActive ? 'No photographers match the current filters.' : 'No photographers yet.'}
                       </p>
                       {filtersActive && (
-                        <button type="button" onClick={clearFilters} className="mt-3 inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold bg-[#1a1a1a] text-white rounded-lg hover:bg-black transition-colors">
+                        <button type="button" onClick={clearFilters} className="ad-btn-primary mt-3 inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold transition-colors">
                           <X className="w-3.5 h-3.5" />Clear filters
                         </button>
                       )}
@@ -367,27 +367,27 @@ const AdminUserManagement = () => {
                     const confirming = confirmDisableId === user.id;
                     const busy = actionBusyId === user.id;
                     return (
-                      <tr key={user.id} className="ad-row hover:bg-[#f8f7f4]/60 transition-colors align-top">
+                      <tr key={user.id} className="ad-row transition-colors align-top">
                         <td className="px-5 py-4 min-w-0">
                           <div className="flex items-center gap-3 min-w-0">
-                            <div className="ad-avatar w-9 h-9 rounded-full flex items-center justify-center bg-[#1a1a1a] text-white shrink-0">
+                            <div className="ad-avatar w-9 h-9 rounded-full flex items-center justify-center bg-[var(--ad-ink)] text-[var(--ad-card)] shrink-0">
                               <User className="w-4 h-4" />
                             </div>
                             <div className="min-w-0">
-                              <p className="font-semibold text-gray-900 truncate">{user.name}</p>
-                              <p className="text-gray-500 text-xs truncate">{user.email}</p>
+                              <p className="font-semibold ad-ink truncate">{user.name}</p>
+                              <p className="ad-muted-text text-xs truncate">{user.email}</p>
                             </div>
                           </div>
                         </td>
                         <td className="px-4 py-4 min-w-0">
-                          <p className="text-[13px] font-medium text-gray-800" title={lastLogin.title}>{lastLogin.short}</p>
-                          <p className="text-[11px] text-gray-400">Joined {formatDateShort(user.joinedAt)}</p>
+                          <p className="text-[13px] font-medium ad-ink" title={lastLogin.title}>{lastLogin.short}</p>
+                          <p className="text-[11px] ad-faint-text">Joined {formatDateShort(user.joinedAt)}</p>
                         </td>
                         <td className="px-4 py-4 min-w-0">
-                          <p className="text-[13px] font-medium text-gray-800">
+                          <p className="text-[13px] font-medium ad-ink">
                             {user.deliveryCount.toLocaleString()} deliver{user.deliveryCount === 1 ? 'y' : 'ies'} · {user.albumCount.toLocaleString()} album{user.albumCount === 1 ? '' : 's'}
                           </p>
-                          <p className="text-[11px] text-gray-400">{formatBytes(user.storageUsedBytes)} used</p>
+                          <p className="text-[11px] ad-faint-text">{formatBytes(user.storageUsedBytes)} used</p>
                         </td>
                         <td className="px-4 py-4 min-w-0">
                           {user.isDisabled ? (
@@ -402,7 +402,7 @@ const AdminUserManagement = () => {
                               type="button"
                               onClick={() => openEmailComposer(user)}
                               title={`Send email to ${user.email}`}
-                              className="ad-action-btn inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-white border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                              className="ad-action-btn ad-btn-secondary inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold transition-colors"
                             >
                               <Mail className="w-3.5 h-3.5" />Email
                             </button>
@@ -413,10 +413,10 @@ const AdminUserManagement = () => {
                               title={user.isDisabled ? 'Re-enable this account' : 'Disable this account'}
                               className={`ad-action-btn inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors disabled:opacity-60 ${
                                 confirming
-                                  ? 'bg-red-600 text-white hover:bg-red-700'
+                                  ? 'bg-[var(--ad-bad)] text-white hover:opacity-90'
                                   : user.isDisabled
-                                    ? 'bg-[#1a1a1a] text-white hover:bg-black'
-                                    : 'bg-white border border-gray-200 text-gray-700 hover:bg-gray-50'
+                                    ? 'ad-btn-primary'
+                                    : 'ad-btn-secondary'
                               }`}
                             >
                               {busy ? (
@@ -452,14 +452,14 @@ const AdminUserManagement = () => {
               <button
                 type="button"
                 onClick={() => setEmailTarget(null)}
-                className="px-4 py-2.5 text-sm font-medium rounded-xl border border-[#eae8e4] bg-white text-gray-700 hover:bg-gray-50"
+                className="ad-btn-secondary px-4 py-2.5 text-sm"
               >
                 Cancel
               </button>
               <button
                 type="button"
                 onClick={sendEmail}
-                className="px-5 py-2.5 text-sm font-semibold rounded-xl bg-[#1a1a1a] text-white hover:bg-black inline-flex items-center gap-2"
+                className="ad-btn-primary px-5 py-2.5 text-sm inline-flex items-center gap-2"
               >
                 <Mail className="w-4 h-4" />Send email
               </button>
@@ -467,26 +467,26 @@ const AdminUserManagement = () => {
           )}
         >
               <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-gray-500 mb-1.5">Subject</label>
+                <label className="ad-field-label block mb-1.5">Subject</label>
                 <input
                   type="text"
                   value={emailSubject}
                   onChange={(e) => setEmailSubject(e.target.value)}
                   placeholder="e.g. Update to your PIXNXT limits"
-                  className="w-full px-3 py-2.5 bg-white border border-[#eae8e4] rounded-xl text-sm outline-none focus:border-[#1a1a1a] transition-all"
+                  className="ad-input w-full px-3 py-2.5 border border-[var(--ad-line)] bg-[var(--ad-card)] rounded-xl text-sm outline-none"
                 />
               </div>
               <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-gray-500 mb-1.5">Message</label>
+                <label className="ad-field-label block mb-1.5">Message</label>
                 <textarea
                   value={emailMessage}
                   onChange={(e) => setEmailMessage(e.target.value)}
                   rows={8}
                   placeholder="Write your message..."
-                  className="w-full px-3 py-2.5 bg-white border border-[#eae8e4] rounded-xl text-sm outline-none focus:border-[#1a1a1a] transition-all resize-y"
+                  className="ad-input w-full px-3 py-2.5 border border-[var(--ad-line)] bg-[var(--ad-card)] rounded-xl text-sm outline-none resize-y"
                 />
               </div>
-              <p className="text-[11px] text-gray-400">Opens your mail app addressed to {emailTarget.email} with this subject and message.</p>
+              <p className="text-[11px] ad-faint-text">Opens your mail app addressed to {emailTarget.email} with this subject and message.</p>
         </AdminModal>
       )}
     </div>
