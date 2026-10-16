@@ -89,12 +89,12 @@ const AdminLayout = () => {
     <div className="admin-shell flex h-screen overflow-hidden">
       <aside className="admin-shell__aside w-60 flex flex-col hidden md:flex shrink-0">
         <div className="admin-shell__brand h-16 flex items-center px-5">
-          <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 bg-[var(--ad-card)] border border-[var(--ad-line)]">
-            <img src="/Logo_Final-01.png" alt="Pixnxt" className="w-5 h-5 object-contain" />
+          <div className="admin-shell__brand-mark">
+            <img src="/Logo_Final-01.png" alt="Pixnxt" />
           </div>
           <div className="min-w-0 ml-3">
-            <p className="font-semibold text-[13px] tracking-wide truncate text-[var(--ad-ink)]">PIXNXT</p>
-            <p className="text-[10px] uppercase tracking-wider text-[var(--ad-muted)]">Admin</p>
+            <p className="admin-shell__brand-name truncate">PIXNXT</p>
+            <p className="admin-shell__brand-sub">Admin</p>
           </div>
         </div>
 
@@ -107,27 +107,25 @@ const AdminLayout = () => {
                 `admin-shell__nav-link ${isActive ? 'is-active' : ''}`
               }
             >
-              <item.icon className="w-[18px] h-[18px] shrink-0" />
+              <item.icon className="w-[18px] h-[18px] shrink-0" strokeWidth={1.75} />
               {item.name}
             </NavLink>
           ))}
         </nav>
 
-        <div className="p-3 border-t border-[var(--ad-line)]">
+        <div className="admin-shell__footer p-3">
           <div className="relative" ref={profileDropdownRef}>
             <button
               type="button"
               onClick={() => setShowProfileDropdown((v) => !v)}
-              className="flex w-full items-center gap-3 rounded-xl px-2 py-2 text-left transition-colors hover:bg-[var(--bg-surface-hover)]"
+              className="admin-shell__profile-btn"
             >
-              <span className="inline-flex size-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[var(--ad-card)] text-sm font-semibold text-[var(--ad-ink)] border border-[var(--ad-line)]">
+              <span className="admin-shell__profile-btn__avatar">
                 <StudioAvatar profile={profile} userId={user?.id} fallback={userInitial} alt={userDisplayLabel} />
               </span>
-              <span className="min-w-0 flex-1 truncate text-sm font-medium text-[var(--ad-sidebar-text-active)]">
-                {userDisplayLabel}
-              </span>
+              <span className="admin-shell__profile-btn__name">{userDisplayLabel}</span>
               <ChevronDown
-                className={`size-4 text-[var(--ad-muted)] transition-transform ${showProfileDropdown ? 'rotate-180' : ''}`}
+                className={`admin-shell__profile-btn__chevron ${showProfileDropdown ? 'is-open' : ''}`}
               />
             </button>
             {showProfileDropdown && (

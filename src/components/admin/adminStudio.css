@@ -26,21 +26,24 @@
   color: var(--ad-body);
 }
 
+/*
+ * Light chrome matches Client Gallery shell (SidebarLayout.css):
+ * sidebar #F5F3ED, main #F8F7F4, active white pill + terracotta bar.
+ * Dark keeps shared themeTokens via body.dark-theme overrides below.
+ */
 .admin-studio {
-  background:
-    radial-gradient(1200px 320px at 20% -80px, color-mix(in srgb, var(--ad-accent) 8%, transparent), transparent 60%),
-    radial-gradient(900px 280px at 90% -60px, color-mix(in srgb, var(--ad-ink) 5%, transparent), transparent 60%),
-    var(--ad-bg);
+  background: #F8F7F4;
 }
 
 /* Shell layout surfaces */
 .admin-shell {
-  background: var(--ad-bg);
+  background: #F8F7F4;
   color: var(--ad-body);
+  font-family: var(--font-sans);
 }
 
 .admin-login {
-  background: var(--ad-bg);
+  background: #F8F7F4;
 }
 .admin-login input,
 .admin-login .ad-login-input {
@@ -56,39 +59,145 @@
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--ad-accent) 25%, transparent);
 }
 .admin-shell__aside {
-  background: var(--ad-sidebar);
-  color: var(--ad-sidebar-text);
-  border-right: 1px solid var(--ad-line);
+  background: #F5F3ED;
+  color: #555450;
+  border-right: 1px solid #E5E2DC;
 }
 .admin-shell__brand {
-  border-bottom: 1px solid var(--ad-line);
+  border-bottom: 1px solid #E5E2DC;
+  padding-top: 4px;
+}
+.admin-shell__brand-mark {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: #FFFFFF;
+  border: 1px solid #E8E5DF;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.admin-shell__brand-mark img {
+  width: 18px;
+  height: 18px;
+  object-fit: contain;
+}
+.admin-shell__brand-name {
+  font-size: 0.8125rem;
+  font-weight: 750;
+  letter-spacing: 0.12em;
+  line-height: 1;
+  text-transform: uppercase;
+  color: #b8682b;
+}
+.admin-shell__brand-sub {
+  margin-top: 4px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #8C827A;
 }
 .admin-shell__nav-link {
+  position: relative;
   display: flex;
   align-items: center;
-  gap: 0.75rem;
-  padding: 0.625rem 0.75rem;
-  border-radius: 0.75rem;
+  gap: 12px;
+  width: 100%;
+  height: 42px;
+  padding: 0 12px 0 14px;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  background: transparent;
   font-size: 0.875rem;
   font-weight: 500;
-  color: var(--ad-sidebar-text);
-  transition: background-color 0.15s ease, color 0.15s ease;
+  color: #555450;
+  transition: color 0.15s ease, background 0.15s ease, border-color 0.15s ease;
 }
 .admin-shell__nav-link:hover {
-  background: var(--bg-surface-hover);
-  color: var(--ad-sidebar-text-active);
+  background: #EAE7E1;
+  color: #1A1A1A;
 }
 .admin-shell__nav-link.is-active {
-  background: var(--bg-surface-hover);
-  color: var(--ad-sidebar-text-active);
-  box-shadow: inset 3px 0 0 var(--ad-accent);
+  background: #FFFFFF;
+  border-color: #E8E5DF;
+  color: #1A1A1A;
+  font-weight: 700;
+  border-radius: 14px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
+}
+.admin-shell__nav-link.is-active::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 11px;
+  bottom: 11px;
+  width: 3.5px;
+  border-radius: 999px;
+  background: #C46A3A;
+}
+.admin-shell__footer {
+  border-top: 1px solid #E5E2DC;
+}
+.admin-shell__profile-btn {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border: 1px solid #E5E2DC;
+  border-radius: 18px;
+  background: #EFECE6;
+  text-align: left;
+  transition: background 0.15s ease;
+  cursor: pointer;
+}
+.admin-shell__profile-btn:hover {
+  background: #EAE7E1;
+}
+.admin-shell__profile-btn__avatar {
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: #1A1A1A;
+  color: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 700;
+  flex-shrink: 0;
+  text-transform: uppercase;
+}
+.admin-shell__profile-btn__name {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #1A1A1A;
+}
+.admin-shell__profile-btn__chevron {
+  width: 1rem;
+  height: 1rem;
+  color: #8C827A;
+  flex-shrink: 0;
+  transition: transform 0.15s ease;
+}
+.admin-shell__profile-btn__chevron.is-open {
+  transform: rotate(180deg);
 }
 .admin-shell__profile-menu {
-  background: var(--ad-card);
-  border: 1px solid var(--ad-line);
+  background: #FFFFFF;
+  border: 1px solid #E5E2DC;
   color: var(--ad-ink);
   border-radius: 1rem;
-  box-shadow: 0 12px 32px -16px color-mix(in srgb, var(--ad-ink) 35%, transparent);
+  box-shadow: 0 12px 32px -16px rgba(28, 25, 23, 0.35);
 }
 .admin-shell__appearance {
   display: flex;
@@ -97,7 +206,7 @@
   margin: 10px 12px 6px;
   padding: 3px;
   border-radius: 999px;
-  background: var(--ad-sunk);
+  background: #EFECE6;
 }
 .admin-shell__appearance-btn {
   flex: 1;
@@ -106,19 +215,19 @@
   font-size: 13px;
   font-weight: 500;
   border-radius: 999px;
-  color: var(--ad-muted);
+  color: #8C827A;
   background: transparent;
   border: 0;
   cursor: pointer;
 }
 .admin-shell__appearance-btn:hover {
-  color: var(--ad-ink);
+  color: #1A1A1A;
 }
 .admin-shell__appearance-btn.is-active {
-  background: var(--ad-card);
-  color: var(--ad-ink);
+  background: #FFFFFF;
+  color: #1A1A1A;
   font-weight: 600;
-  box-shadow: 0 1px 3px color-mix(in srgb, var(--ad-ink) 12%, transparent);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
 }
 
 /* Page utilities (use instead of bg-white / text-gray-* / hex borders) */
@@ -162,10 +271,89 @@ body.dark-theme .admin-shell .ad-btn-primary:hover {
   background: var(--ad-sunk);
 }
 
-body.dark-theme .admin-shell .admin-shell__nav-link.is-active {
+/* Dark: restore token surfaces (light hex above does not apply under body.dark-theme) */
+body.dark-theme .admin-shell,
+body.dark-theme .admin-studio,
+body.dark-theme .admin-login {
+  background: var(--ad-bg);
+  color: var(--ad-body);
+}
+body.dark-theme .admin-shell__aside {
+  background: var(--bg-sidebar);
+  color: var(--text-secondary);
+  border-right-color: var(--border-color);
+}
+body.dark-theme .admin-shell__brand {
+  border-bottom-color: var(--border-color);
+}
+body.dark-theme .admin-shell__brand-mark {
+  background: var(--bg-surface);
+  border-color: var(--border-card);
+  box-shadow: none;
+}
+body.dark-theme .admin-shell__brand-name {
+  color: var(--accent-primary);
+}
+body.dark-theme .admin-shell__brand-sub {
+  color: var(--text-muted);
+}
+body.dark-theme .admin-shell__nav-link {
+  color: var(--text-secondary);
+  border-color: transparent;
+  background: transparent;
+  box-shadow: none;
+}
+body.dark-theme .admin-shell__nav-link:hover {
   background: var(--bg-surface-hover);
   color: var(--text-heading);
-  box-shadow: inset 3px 0 0 var(--accent-primary);
+}
+body.dark-theme .admin-shell__nav-link.is-active {
+  background: var(--bg-surface-hover);
+  border-color: transparent;
+  color: var(--text-heading);
+  box-shadow: none;
+}
+body.dark-theme .admin-shell__nav-link.is-active::before {
+  background: var(--accent-primary);
+}
+body.dark-theme .admin-shell__footer {
+  border-top-color: var(--border-color);
+}
+body.dark-theme .admin-shell__profile-btn {
+  background: var(--bg-surface);
+  border-color: var(--border-card);
+}
+body.dark-theme .admin-shell__profile-btn:hover {
+  background: var(--bg-surface-hover);
+}
+body.dark-theme .admin-shell__profile-btn__avatar {
+  background: var(--bg-surface-hover);
+  color: var(--text-heading);
+}
+body.dark-theme .admin-shell__profile-btn__name {
+  color: var(--text-heading);
+}
+body.dark-theme .admin-shell__profile-btn__chevron {
+  color: var(--text-muted);
+}
+body.dark-theme .admin-shell__profile-menu {
+  background: var(--bg-modal);
+  border-color: var(--border-card);
+  box-shadow: 0 12px 32px -16px rgba(0, 0, 0, 0.55);
+}
+body.dark-theme .admin-shell__appearance {
+  background: var(--bg-surface-hover);
+}
+body.dark-theme .admin-shell__appearance-btn {
+  color: var(--text-secondary);
+}
+body.dark-theme .admin-shell__appearance-btn:hover {
+  color: var(--text-heading);
+}
+body.dark-theme .admin-shell__appearance-btn.is-active {
+  background: var(--bg-surface);
+  color: var(--text-heading);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
 }
 
 body.dark-theme .admin-shell .ad-stat,
