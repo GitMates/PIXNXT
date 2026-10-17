@@ -1,0 +1,29 @@
+---
+description: Video streaming 3-tier cost-optimized architecture and Cloudflare Stream rules
+globs: src/**/*video*.*, src/**/*gallery*.*, backend/src/**/*stream*.*, backend/src/**/*r2*.*
+---
+
+# Video Streaming Architecture & Cost-Optimization Rules
+
+PIXNXT implements a 3-tier video architecture to prevent runaway Cloudflare Stream storage and bandwidth costs:
+
+1. **Tier 1 (Short Clips: <= 180s, <= 120MB, and MP4):**
+   - Served directly from Cloudflare R2 via HTTP 206 Byte-Range progressive streaming (`Content-Range`).
+   - Does NOT use Cloudflare Stream (`stream_uid` remains null). Egress and storage cost: $0.
+
+2. **Tier 2 (Highlight Films: 3 to 30 minutes):**
+   - Ingested into Cloudflare Stream via `/copy` from R2.
+   - Delivered as multi-bitrate HLS (`.m3u8`) with adaptive bitrate (ABR) via `hls.js`.
+
+3. **Tier 3 (Feature Films: > 30 minutes):**
+   - Uploaded to Cloudflare R2 for full-length master preservation.
+   - Ingested to Stream -> Standalone 3-minute clip generated via `/clip` -> Full-length master purged from Stream.
+   - Stream stores and serves ONLY the 3-minute preview clip (`stream_is_preview = 1`).
+   - The client gallery displays a discreet minimal preview badge with a direct download button to download the master file from R2 at $0 egress cost.
+
+### Key References & Documentation:
+- Detailed implementation steps: `PIXNXT/docs/VIDEO_STREAMING_IMPLEMENTATION_PLAN.md`
+- Frontend player: `src/components/features/Gallery/GalleryVideo.jsx`
+- Backend ingest & clipping: `backend/src/lib/stream.ts`
+- R2 byte-range server: `backend/src/routes/r2.ts`
+- Browser probe: `src/lib/videoProbe.js`

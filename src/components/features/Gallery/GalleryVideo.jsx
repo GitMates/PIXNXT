@@ -1,5 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
-import { getPhotoStreamPhase, getPhotoVideoPoster, getPhotoVideoSrc } from '../../../lib/photoDisplayUrl';
+import {
+  getPhotoStreamPhase,
+  getPhotoVideoPoster,
+  getPhotoVideoSrc,
+  isVideoPreviewClip,
+} from '../../../lib/photoDisplayUrl';
 import './GalleryVideo.css';
 
 function isHlsUrl(src) {
@@ -119,27 +124,38 @@ export function GalleryVideo({
 
   if (!src) return null;
 
+  const isPreview = isVideoPreviewClip(photo);
+  const durationMin = Math.round((Number(photo?.video_duration_seconds) || 0) / 60);
+
   return (
-    <video
-      ref={videoRef}
-      src={isHlsUrl(src) ? undefined : src}
-      poster={poster || undefined}
-      className={`gallery-video gallery-video--${fit} ${className}`.trim()}
-      style={{
-        width: "100%",
-        maxHeight: hoverPreview ? undefined : "calc(100dvh - 8rem)",
-        background: "#000",
-        ...style,
-      }}
-      controls={controls}
-      autoPlay={autoPlay}
-      muted={muted || hoverPreview}
-      loop={loop || hoverPreview}
-      playsInline={playsInline}
-      preload={hoverPreview ? 'none' : 'metadata'}
-      onClick={onClick}
-      onMouseEnter={hoverPreview ? (e) => e.currentTarget.play().catch(() => {}) : undefined}
-      onMouseLeave={hoverPreview ? (e) => { e.currentTarget.pause(); e.currentTarget.currentTime = 0; } : undefined}
-    />
+    <div className={`gallery-video-shell ${className}`.trim()} style={style} onClick={onClick}>
+      <video
+        ref={videoRef}
+        src={isHlsUrl(src) ? undefined : src}
+        poster={poster || undefined}
+        className={`gallery-video gallery-video--${fit}`}
+        style={{
+          width: "100%",
+          maxHeight: hoverPreview ? undefined : "calc(100dvh - 8rem)",
+          background: "#000",
+        }}
+        controls={controls}
+        autoPlay={autoPlay}
+        muted={muted || hoverPreview}
+        loop={loop || hoverPreview}
+        playsInline={playsInline}
+        preload={hoverPreview ? 'none' : 'metadata'}
+        onMouseEnter={hoverPreview ? (e) => e.currentTarget.play().catch(() => {}) : undefined}
+        onMouseLeave={hoverPreview ? (e) => { e.currentTarget.pause(); e.currentTarget.currentTime = 0; } : undefined}
+      />
+      {isPreview ? (
+        <div className="gallery-video-preview-badge" aria-hidden="true">
+          <span>
+            3-min preview · Full film
+            {durationMin > 0 ? ` (${durationMin}m)` : ''} available for download
+          </span>
+        </div>
+      ) : null}
+    </div>
   );
 }

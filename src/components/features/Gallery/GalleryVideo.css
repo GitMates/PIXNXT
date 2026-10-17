@@ -1,8 +1,36 @@
+.gallery-video-shell {
+  position: relative;
+  display: block;
+  width: 100%;
+}
+
 .gallery-video {
   display: block;
   width: 100%;
   height: 100%;
   background: #000;
+}
+
+.gallery-video-preview-badge {
+  position: absolute;
+  bottom: 3.5rem;
+  left: 1rem;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.gallery-video-preview-badge span {
+  display: inline-block;
+  max-width: min(28rem, calc(100vw - 2rem));
+  padding: 0.35rem 0.65rem;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(6px);
+  color: #d6d3d1;
+  font-size: 0.75rem;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  line-height: 1.3;
 }
 
 .gallery-video--contain {

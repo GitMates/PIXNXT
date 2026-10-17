@@ -299,6 +299,11 @@ export function getPhotoVideoSrc(photo) {
   return '';
 }
 
+/** True when Stream holds only the 3-minute Tier-3 preview clip. */
+export function isVideoPreviewClip(photo) {
+  return Boolean(Number(photo?.stream_is_preview) === 1 || photo?.stream_is_preview === true);
+}
+
 /** Still frame Cloudflare Stream generates for a ready film. */
 export function getStreamThumbnailUrl(photo) {
   const hls = String(photo?.stream_playback_hls || '');

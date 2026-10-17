@@ -26,6 +26,7 @@ async function dbInsertPhotoRow(row) {
       exifCamera: row.exif_camera ?? null,
       exifLens: row.exif_lens ?? null,
       exifDetails: row.exif_details ?? null,
+      videoDurationSeconds: row.video_duration_seconds ?? null,
   };
   let data;
   try {
@@ -664,6 +665,7 @@ export const galleryService = {
     let thumbFile = null;
     let dimensions = { width: null, height: null };
     let thumbnailBlob = null;
+    let videoDurationSeconds = null;
 
     onProgress?.(overlapOriginal ? 2 : 5);
     derivPercent = 5;
@@ -682,9 +684,11 @@ export const galleryService = {
       const meta = await this._captureVideoThumbnail(file).catch(() => ({
         dimensions: { width: null, height: null },
         thumbnailBlob: null,
+        duration: null,
       }));
       dimensions = meta.dimensions;
       thumbnailBlob = meta.thumbnailBlob;
+      videoDurationSeconds = meta.duration ?? null;
     } else if (isRaw) {
       const meta = await this._captureRawPreview(file).catch(() => ({
         dimensions: { width: null, height: null },
@@ -778,6 +782,7 @@ export const galleryService = {
       exif_lens: exifPatch.exifLens || null,
       exif_taken_at: exifPatch.exifTakenAt || null,
       exif_details: exifPatch.exifDetails || null,
+      video_duration_seconds: videoDurationSeconds,
     });
 
     if (onInserted) {
@@ -801,16 +806,18 @@ export const galleryService = {
         throw err;
       }
       try {
+        const finalizePatch = {
+          full_url: uploadResult.url,
+          original_storage_path: filePath,
+          size_bytes: uploadResult.size ?? file.size,
+        };
+        if (videoDurationSeconds != null) {
+          finalizePatch.video_duration_seconds = videoDurationSeconds;
+        }
         finalPhoto =
-          (await dbUpdatePhotoRow(photoData.id, {
-            full_url: uploadResult.url,
-            original_storage_path: filePath,
-            size_bytes: uploadResult.size ?? file.size,
-          })) || {
+          (await dbUpdatePhotoRow(photoData.id, finalizePatch)) || {
             ...photoData,
-            full_url: uploadResult.url,
-            original_storage_path: filePath,
-            size_bytes: file.size,
+            ...finalizePatch,
           };
       } catch (err) {
         console.warn('Photo original finalize failed:', err?.message || err);
@@ -819,6 +826,7 @@ export const galleryService = {
           full_url: uploadResult.url,
           original_storage_path: filePath,
           size_bytes: file.size,
+          ...(videoDurationSeconds != null ? { video_duration_seconds: videoDurationSeconds } : {}),
         };
       }
     }
@@ -1241,11 +1249,16 @@ export const galleryService = {
       video.preload = 'metadata';
       video.muted = true;
       const cleanup = () => URL.revokeObjectURL(url);
+      const readDuration = () => {
+        const raw = video.duration;
+        return Number.isFinite(raw) && raw > 0 ? Math.round(raw * 100) / 100 : null;
+      };
 
       video.onloadedmetadata = () => {
         video.currentTime = Math.min(0.5, (video.duration || 1) / 2);
       };
       video.onseeked = () => {
+        const duration = readDuration();
         const canvas = document.createElement('canvas');
         canvas.width = video.videoWidth || 640;
         canvas.height = video.videoHeight || 360;
@@ -1256,6 +1269,7 @@ export const galleryService = {
             resolve({
               dimensions: { width: video.videoWidth || null, height: video.videoHeight || null },
               thumbnailBlob: blob,
+              duration,
             });
           },
           'image/jpeg',
@@ -1264,7 +1278,7 @@ export const galleryService = {
       };
       video.onerror = () => {
         cleanup();
-        resolve({ dimensions: { width: null, height: null }, thumbnailBlob: null });
+        resolve({ dimensions: { width: null, height: null }, thumbnailBlob: null, duration: null });
       };
       video.src = url;
     });
@@ -1309,6 +1323,7 @@ export const galleryService = {
     let thumbFile = null;
     let dimensions = { width: null, height: null };
     let thumbnailBlob = null;
+    let videoDurationSeconds = null;
 
     if (!isVideo && !isRaw) {
       const [dim, variants] = await Promise.all([
@@ -1321,9 +1336,14 @@ export const galleryService = {
       webFile = variants.webFile;
       thumbFile = variants.thumbFile;
     } else if (isVideo) {
-      const meta = await this._captureVideoThumbnail(file).catch(() => ({ dimensions: { width: null, height: null }, thumbnailBlob: null }));
+      const meta = await this._captureVideoThumbnail(file).catch(() => ({
+        dimensions: { width: null, height: null },
+        thumbnailBlob: null,
+        duration: null,
+      }));
       dimensions = meta.dimensions;
       thumbnailBlob = meta.thumbnailBlob;
+      videoDurationSeconds = meta.duration ?? null;
     } else if (isRaw) {
       const meta = await this._captureRawPreview(file).catch(() => ({ dimensions: { width: null, height: null }, thumbnailBlob: null }));
       dimensions = meta.dimensions;
@@ -1401,6 +1421,7 @@ export const galleryService = {
       height: dimensions.height,
       media_type: mediaType,
       status: 'ready',
+      ...(videoDurationSeconds != null ? { video_duration_seconds: videoDurationSeconds } : {}),
       ...(exifPatch.exifCamera ? exifPatch : { exifCamera: null }),
     });
     if (!photoData) {
