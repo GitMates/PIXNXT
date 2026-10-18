@@ -91,6 +91,21 @@ export async function refreshAccessToken() {
 }
 
 /**
+ * Return a usable Bearer token for long uploads.
+ * Proactively refreshes when the JWT is near expiry so multipart parts
+ * do not fail mid-file after ACCESS_TOKEN_TTL (~15 min).
+ */
+export async function ensureFreshAccessToken({ skewSeconds = 120 } = {}) {
+  const token = getAccessToken();
+  if (!token) return refreshAccessToken();
+  const exp = jwtExpiresAt(token);
+  if (!exp) return token;
+  const now = Math.floor(Date.now() / 1000);
+  if (exp - now > skewSeconds) return token;
+  return (await refreshAccessToken()) || getAccessToken();
+}
+
+/**
  * Authenticated fetch against the Workers API.
  * Attaches the in-memory access token, sends the refresh cookie, and retries
  * once after a silent refresh on 401.

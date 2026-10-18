@@ -282,6 +282,8 @@ export function getPhotoStreamPhase(photo) {
   const status = String(photo.stream_status || '');
   if (status === 'ready' && photo.stream_playback_hls) return 'ready';
   if (status === 'pending' || status === 'processing' || status === 'queued') return 'preparing';
+  // Stream failed — still try R2, but the player can show a soft warning.
+  if (status === 'error') return 'file';
   return 'file';
 }
 

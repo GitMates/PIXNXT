@@ -179,6 +179,11 @@ export const UploadManager: React.FC<UploadManagerProps> = ({
 
   const isAllComplete = totalCount > 0 && completedCount === totalCount && inProgressCount === 0 && failedCount === 0;
   const isFinishedWithFailures = failedCount > 0 && inProgressCount === 0;
+  const resumableFailedCount = useMemo(
+    () => state.files.filter((f) => f.status === 'error' && f.resumable).length,
+    [state.files]
+  );
+  const retryLabel = resumableFailedCount > 0 ? `Resume ${failedCount}` : `Retry ${failedCount}`;
 
   useEffect(() => {
     if (!isAllComplete || !onDismiss) return undefined;
@@ -417,7 +422,7 @@ export const UploadManager: React.FC<UploadManagerProps> = ({
           {/* Finished with Failures Actions */}
           {isFinishedWithFailures && (
             <>
-              <button type="button" className="btn-primary" onClick={onRetry}>Retry {failedCount}</button>
+              <button type="button" className="btn-primary" onClick={onRetry}>{retryLabel}</button>
               <button type="button" className="btn-secondary" onClick={onDismiss}>Done</button>
             </>
           )}
@@ -490,11 +495,13 @@ export const UploadManager: React.FC<UploadManagerProps> = ({
                 <line x1="12" y1="8" x2="12.01" y2="8"></line>
               </svg>
               <span className="banner-text">
-                Two files lost the connection partway. Retrying resumes them, it does not start again.
+                {resumableFailedCount > 0
+                  ? 'Upload paused partway (often after a long session). Resume continues from the last finished chunk — it does not start over.'
+                  : 'Some files failed. Retry will try again; large films keep progress when Resume is available.'}
               </span>
             </div>
             <button type="button" className="btn-primary btn-small" onClick={onRetry}>
-              Retry {failedCount}
+              {retryLabel}
             </button>
           </div>
         )}

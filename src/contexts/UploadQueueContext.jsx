@@ -72,8 +72,22 @@ function isUploadCancelled(err) {
   return err instanceof Error && /Upload cancelled/i.test(err.message);
 }
 
+function isResumableQueueError(err) {
+  if (!err) return false;
+  if (err.resumable === true || err.multipartCheckpoint) return true;
+  if (err.status === 401) return true;
+  const msg = String(err.message || '');
+  return /session expired|sign in again|authentication required|unauthorized|network error uploading/i.test(msg);
+}
+
 /** Normalize Cloudflare Workers API / R2 / unknown throws into a user-visible string. */
 function uploadErrorMessage(err) {
+  if (isResumableQueueError(err)) {
+    if (err?.status === 401 || /session expired|sign in again|authentication required/i.test(String(err?.message || ''))) {
+      return 'Session expired during upload. Sign in if needed, then click Resume — progress is kept.';
+    }
+    return 'Upload interrupted. Click Resume to continue from where it stopped.';
+  }
   if (err instanceof Error && err.message) return err.message;
   if (err && typeof err === 'object') {
     const msg = err.message || err.error_description || err.error || err.details;
@@ -376,12 +390,19 @@ export function UploadQueueProvider({ children }) {
               progress: 25 + Math.round((percent / 100) * 75),
             });
           }),
-          { signal: controller.signal }
+          {
+            signal: controller.signal,
+            onMultipartCheckpoint: (checkpoint) => {
+              const nextCtx = { ...uploadContext, multipartCheckpoint: checkpoint };
+              originalContextByIdRef.current.set(uf.id, nextCtx);
+              safePatch({ uploadContext: nextCtx });
+            },
+          }
         );
 
         if (session !== sessionRef.current) return;
         originalContextByIdRef.current.delete(uf.id);
-        safePatch({ progress: 100, status: 'completed' });
+        safePatch({ progress: 100, status: 'completed', resumable: false, errorMessage: undefined });
         targetRef.current?.onPhotoUploaded?.(photoData);
         if (uf.photographerId && uf.file?.size) {
           userStorageService.addLocalBytes(uf.photographerId, uf.file.size);
@@ -403,14 +424,33 @@ export function UploadQueueProvider({ children }) {
           return;
         }
         console.error('Original upload failed:', err);
+        const resumable = isResumableQueueError(err);
+        const nextCtx = {
+          ...uploadContext,
+          multipartCheckpoint: err?.multipartCheckpoint || uploadContext.multipartCheckpoint || null,
+        };
+        if (resumable) {
+          // Keep the photo row + multipart parts so Resume continues.
+          originalContextByIdRef.current.set(uf.id, nextCtx);
+          const message = uploadErrorMessage(err);
+          safePatch({
+            status: 'error',
+            progress: Math.max(uf.progress ?? 25, 25),
+            errorMessage: message,
+            uploadContext: nextCtx,
+            resumable: true,
+          });
+          return;
+        }
         if (uploadContext?.photoId) {
           galleryService.deletePhotos([uploadContext.photoId]).catch(() => {});
           targetRef.current?.onPhotoRemoved?.(uploadContext.photoId);
         }
+        originalContextByIdRef.current.delete(uf.id);
         const message = uploadErrorMessage(err);
         const limitNotice = handleStorageLimitError(message);
         if (limitNotice) notifyNotice(limitNotice.title, limitNotice.message);
-        safePatch({ status: 'error', progress: 0, errorMessage: message });
+        safePatch({ status: 'error', progress: 0, errorMessage: message, resumable: false });
       } finally {
         abortControllersRef.current.delete(uf.id);
       }
@@ -902,11 +942,20 @@ export function UploadQueueProvider({ children }) {
       if (failedFiles.length === 0) return prev;
 
       const updatedFiles = prev.files.map((f) =>
-        f.status === 'error' ? { ...f, status: 'waiting', errorMessage: undefined } : f
+        f.status === 'error'
+          ? { ...f, status: 'waiting', errorMessage: undefined, resumable: f.resumable === true }
+          : f
       );
 
       failedFiles.forEach((f) => {
-        const uf = { ...f, status: 'waiting', errorMessage: undefined };
+        const ctx = f.uploadContext || originalContextByIdRef.current.get(f.id);
+        if (ctx) originalContextByIdRef.current.set(f.id, ctx);
+        const uf = {
+          ...f,
+          status: 'waiting',
+          errorMessage: undefined,
+          uploadContext: ctx || f.uploadContext,
+        };
         const phase = uf.uploadContext || originalContextByIdRef.current.has(uf.id) ? 'original' : 'derivative';
         requeueUploadFile(
           uf,
@@ -924,7 +973,7 @@ export function UploadQueueProvider({ children }) {
       return {
         ...prev,
         files: updatedFiles,
-        activeTab: 'uploading', // switch back to uploading tab on retry
+        activeTab: 'uploading', // switch back to uploading tab on retry / resume
       };
     });
   }, [pumpQueue]);

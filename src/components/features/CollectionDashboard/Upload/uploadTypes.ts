@@ -23,6 +23,10 @@ export interface UploadQueueFile {
   /** image | video | gif | raw — drives upload UI copy (e.g. "Video upload"). */
   mediaKind?: UploadMediaKind;
   errorMessage?: string;
+  /** True when multipart/original progress can continue via Resume. */
+  resumable?: boolean;
+  /** In-flight upload context (photo id, path, multipart checkpoint). */
+  uploadContext?: Record<string, unknown>;
   /** Frozen at enqueue — uploads always use this collection/set. */
   collectionId?: string;
   photographerId?: string;

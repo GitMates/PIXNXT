@@ -1,7 +1,23 @@
 import { getFileMime } from '../lib/fileMime';
 import { R2_PUBLIC_URL } from '../lib/r2';
-import { apiBase, uploadApiBase, getAccessToken } from '../lib/api/client';
+import {
+  apiBase,
+  uploadApiBase,
+  ensureFreshAccessToken,
+  refreshAccessToken,
+} from '../lib/api/client';
 import { chunkArray } from '../components/features/CollectionDashboard/Upload/uploadUtils';
+
+/** Session/network failures that should keep multipart state for Resume. */
+export function isResumableUploadError(err) {
+  if (!err) return false;
+  if (err.resumable === true) return true;
+  if (err.status === 401 || err.status === 403) return true;
+  const msg = String(err.message || '');
+  return /session expired|sign in again|authentication required|unauthorized|network error uploading|upload rejected \(5\d\d\)|could not start the large-file/i.test(
+    msg
+  );
+}
 
 /**
  * Non-2xx XHR → Error carrying what the queue needs to decide retry-vs-fail.
@@ -38,61 +54,72 @@ export function isRateLimitedError(err) {
  * `users/<folder>/…` keys are preserved server-side.
  */
 /** One OPTIONS for the whole batch: path travels in a header, not the query string. */
-function uploadViaWorkersApi(path, file, contentType, onProgress, abortSignal) {
-  return new Promise((resolve, reject) => {
-    if (abortSignal?.aborted) {
-      reject(new Error('Upload cancelled.'));
-      return;
-    }
-    const token = getAccessToken();
-    if (!token) {
-      reject(new Error('Sign in again to upload.'));
-      return;
-    }
-    const xhr = new XMLHttpRequest();
-    xhr.open('PUT', `${uploadApiBase()}/v1/r2/upload`, true);
-    xhr.setRequestHeader('Content-Type', contentType);
-    xhr.setRequestHeader('X-Object-Key', path);
-    xhr.setRequestHeader('Authorization', `Bearer ${token}`);
-    xhr.withCredentials = true;
-
-    const onAbort = () => xhr.abort();
-    abortSignal?.addEventListener('abort', onAbort, { once: true });
-    const cleanup = () => abortSignal?.removeEventListener('abort', onAbort);
-
-    xhr.upload.onprogress = (event) => {
-      if (event.lengthComputable && onProgress) {
-        onProgress(Math.min(99, Math.round((event.loaded / event.total) * 100)));
-      }
-    };
-
-    xhr.onload = () => {
-      cleanup();
-      if (xhr.status >= 200 && xhr.status < 300) {
-        onProgress?.(100);
-        try {
-          const data = JSON.parse(xhr.responseText);
-          resolve({ path: data?.path || path, url: storageService.getPublicUrl(data?.path || path) });
-        } catch {
-          resolve({ path, url: storageService.getPublicUrl(path) });
-        }
+async function uploadViaWorkersApi(path, file, contentType, onProgress, abortSignal) {
+  const sendOnce = (token) =>
+    new Promise((resolve, reject) => {
+      if (abortSignal?.aborted) {
+        reject(new Error('Upload cancelled.'));
         return;
       }
-      reject(uploadErrorFromXhr(xhr));
-    };
+      if (!token) {
+        reject(new Error('Sign in again to upload.'));
+        return;
+      }
+      const xhr = new XMLHttpRequest();
+      xhr.open('PUT', `${uploadApiBase()}/v1/r2/upload`, true);
+      xhr.setRequestHeader('Content-Type', contentType);
+      xhr.setRequestHeader('X-Object-Key', path);
+      xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+      xhr.withCredentials = true;
 
-    xhr.onerror = () => {
-      cleanup();
-      reject(new Error('Network error uploading to storage.'));
-    };
+      const onAbort = () => xhr.abort();
+      abortSignal?.addEventListener('abort', onAbort, { once: true });
+      const cleanup = () => abortSignal?.removeEventListener('abort', onAbort);
 
-    xhr.onabort = () => {
-      cleanup();
-      reject(new Error('Upload cancelled.'));
-    };
+      xhr.upload.onprogress = (event) => {
+        if (event.lengthComputable && onProgress) {
+          onProgress(Math.min(99, Math.round((event.loaded / event.total) * 100)));
+        }
+      };
 
-    xhr.send(file);
-  });
+      xhr.onload = () => {
+        cleanup();
+        if (xhr.status >= 200 && xhr.status < 300) {
+          onProgress?.(100);
+          try {
+            const data = JSON.parse(xhr.responseText);
+            resolve({ path: data?.path || path, url: storageService.getPublicUrl(data?.path || path) });
+          } catch {
+            resolve({ path, url: storageService.getPublicUrl(path) });
+          }
+          return;
+        }
+        reject(uploadErrorFromXhr(xhr));
+      };
+
+      xhr.onerror = () => {
+        cleanup();
+        reject(new Error('Network error uploading to storage.'));
+      };
+
+      xhr.onabort = () => {
+        cleanup();
+        reject(new Error('Upload cancelled.'));
+      };
+
+      xhr.send(file);
+    });
+
+  let token = await ensureFreshAccessToken();
+  try {
+    return await sendOnce(token);
+  } catch (err) {
+    if (err?.status === 401) {
+      token = await refreshAccessToken();
+      if (token) return sendOnce(token);
+    }
+    throw err;
+  }
 }
 
 /** Worker request bodies stop at 100 MB on this account. Stay under that. */
@@ -178,15 +205,17 @@ async function xhrPutReliable(url, body, contentType, onProgress, abortSignal, o
   throw lastError || new Error('Network error uploading to storage.');
 }
 
-function xhrPart(path, uploadId, partNumber, blob, onProgress, abortSignal) {
+function xhrPartOnce(path, uploadId, partNumber, blob, onProgress, abortSignal, token) {
   return new Promise((resolve, reject) => {
     if (abortSignal?.aborted) {
       reject(new Error('Upload cancelled.'));
       return;
     }
-    const token = getAccessToken();
     if (!token) {
-      reject(new Error('Sign in again to upload.'));
+      const err = new Error('Sign in again to upload.');
+      err.status = 401;
+      err.resumable = true;
+      reject(err);
       return;
     }
     // Large parts go straight to the API. The Vite proxy drops them with
@@ -244,6 +273,22 @@ function xhrPart(path, uploadId, partNumber, blob, onProgress, abortSignal) {
   });
 }
 
+async function xhrPart(path, uploadId, partNumber, blob, onProgress, abortSignal) {
+  let token = await ensureFreshAccessToken();
+  try {
+    return await xhrPartOnce(path, uploadId, partNumber, blob, onProgress, abortSignal, token);
+  } catch (err) {
+    if (err?.status === 401 && !abortSignal?.aborted) {
+      token = await refreshAccessToken();
+      if (token) {
+        return xhrPartOnce(path, uploadId, partNumber, blob, onProgress, abortSignal, token);
+      }
+      err.resumable = true;
+    }
+    throw err;
+  }
+}
+
 function retryablePartError(err) {
   if (isRateLimitedError(err)) return false; // the queue handles rate limits — don't hammer
   const msg = String(err?.message || '');
@@ -284,29 +329,75 @@ async function xhrPartReliable(path, uploadId, partNumber, blob, onProgress, abo
   throw lastError || new Error('Network error uploading to storage.');
 }
 
+function snapshotMultipartCheckpoint(path, uploadId, partSize, etags) {
+  return {
+    path,
+    uploadId,
+    partSize,
+    etags: etags.map((entry) => (entry ? { partNumber: entry.partNumber, etag: entry.etag } : null)),
+  };
+}
+
 /** Files the Worker cannot take in one request are sent as 8 MB parts. */
-async function uploadViaWorkerParts(path, file, contentType, onProgress, abortSignal) {
+async function uploadViaWorkerParts(path, file, contentType, onProgress, abortSignal, options = {}) {
   const { apiFetch } = await import('../lib/api/client');
-  const started = await apiFetch('/v1/r2/multipart/start', {
-    method: 'POST',
-    body: { path, contentType, size: file.size },
-  });
-  const partSize = Number(started?.partSize) || WORKER_PART_BYTES;
-  const uploadId = started?.uploadId;
-  if (!uploadId) throw new Error('Could not start the large-file upload.');
+  const resume = options.resumeCheckpoint;
+  const onCheckpoint = options.onCheckpoint;
+
+  let partSize = WORKER_PART_BYTES;
+  let uploadId = null;
+  let etags = [];
+
+  const canResume =
+    resume
+    && resume.uploadId
+    && resume.path === path
+    && Array.isArray(resume.etags);
+
+  if (canResume) {
+    uploadId = resume.uploadId;
+    partSize = Number(resume.partSize) || WORKER_PART_BYTES;
+    etags = resume.etags.map((entry) =>
+      entry?.etag ? { partNumber: Number(entry.partNumber), etag: String(entry.etag) } : null
+    );
+  } else {
+    const started = await apiFetch('/v1/r2/multipart/start', {
+      method: 'POST',
+      body: { path, contentType, size: file.size },
+    });
+    partSize = Number(started?.partSize) || WORKER_PART_BYTES;
+    uploadId = started?.uploadId;
+    if (!uploadId) throw new Error('Could not start the large-file upload.');
+    etags = [];
+  }
+
   const partCount = Math.ceil(file.size / partSize);
+  while (etags.length < partCount) etags.push(null);
   const loaded = new Array(partCount).fill(0);
-  const etags = new Array(partCount);
-  let cursor = 0;
+  for (let i = 0; i < partCount; i += 1) {
+    if (etags[i]?.etag) {
+      const start = i * partSize;
+      const end = Math.min(file.size, start + partSize);
+      loaded[i] = end - start;
+    }
+  }
+  const pending = [];
+  for (let i = 0; i < partCount; i += 1) {
+    if (!etags[i]?.etag) pending.push(i);
+  }
+
   let stopped = false;
   const report = () => {
     const sum = loaded.reduce((acc, n) => acc + n, 0);
     onProgress?.(Math.min(99, Math.round((sum / file.size) * 100)));
   };
+  report();
+  onCheckpoint?.(snapshotMultipartCheckpoint(path, uploadId, partSize, etags));
+
   const run = async () => {
-    while (!stopped && cursor < partCount) {
-      const index = cursor;
-      cursor += 1;
+    while (!stopped && pending.length > 0) {
+      const index = pending.shift();
+      if (index == null) break;
       const start = index * partSize;
       const end = Math.min(file.size, start + partSize);
       const blob = file.slice(start, end);
@@ -324,11 +415,13 @@ async function uploadViaWorkerParts(path, file, contentType, onProgress, abortSi
       etags[index] = { partNumber: index + 1, etag };
       loaded[index] = end - start;
       report();
+      onCheckpoint?.(snapshotMultipartCheckpoint(path, uploadId, partSize, etags));
     }
   };
+
   try {
     await Promise.all(
-      Array.from({ length: Math.min(WORKER_PART_PARALLEL, partCount) }, () => run())
+      Array.from({ length: Math.min(WORKER_PART_PARALLEL, Math.max(pending.length, 1)) }, () => run())
     );
     await apiFetch('/v1/r2/multipart/complete', {
       method: 'POST',
@@ -336,12 +429,25 @@ async function uploadViaWorkerParts(path, file, contentType, onProgress, abortSi
     });
   } catch (err) {
     stopped = true;
-    if (!abortSignal?.aborted) {
+    const checkpoint = snapshotMultipartCheckpoint(path, uploadId, partSize, etags);
+    if (abortSignal?.aborted || /cancelled/i.test(err?.message || '')) {
       await apiFetch('/v1/r2/multipart/abort', {
         method: 'POST',
         body: { path, uploadId },
       }).catch(() => {});
+      throw err;
     }
+    if (isResumableUploadError(err) || retryablePartError(err)) {
+      err.resumable = true;
+      err.multipartCheckpoint = checkpoint;
+      onCheckpoint?.(checkpoint);
+      // Keep R2 multipart open so Resume can continue from finished parts.
+      throw err;
+    }
+    await apiFetch('/v1/r2/multipart/abort', {
+      method: 'POST',
+      body: { path, uploadId },
+    }).catch(() => {});
     throw err;
   }
   onProgress?.(100);
@@ -468,8 +574,11 @@ export async function __existsManyWith(fetchJson, paths, { chunkSize = 200, conc
 }
 
 export const storageService = {
-  /** @param {AbortSignal} [abortSignal] */
-  async upload(path, file, onProgress, abortSignal) {
+  /**
+   * @param {AbortSignal} [abortSignal]
+   * @param {{ resumeCheckpoint?: object, onCheckpoint?: (cp: object) => void }} [options]
+   */
+  async upload(path, file, onProgress, abortSignal, options = {}) {
     try {
       const contentType = getFileMime(file);
       const body =
@@ -486,6 +595,22 @@ export const storageService = {
       // files the edge can accept. A multi-GB video must not fall back to it:
       // the connection is reset and the browser reports a network error.
       const tooLargeForProxy = body.size > WORKER_PROXY_MAX;
+      const partOptions = {
+        resumeCheckpoint: options.resumeCheckpoint,
+        onCheckpoint: options.onCheckpoint,
+      };
+      // Resume always uses Worker multipart — cannot continue a prior Worker
+      // upload through a fresh direct-presign plan.
+      if (partOptions.resumeCheckpoint?.uploadId && tooLargeForProxy) {
+        return await uploadViaWorkerParts(
+          path,
+          body,
+          contentType,
+          onProgress,
+          abortSignal,
+          partOptions
+        );
+      }
       if (directGate.available()) {
         const plan = await planFor(path, body, contentType);
         if (plan?.enabled) {
@@ -502,7 +627,14 @@ export const storageService = {
         }
       }
       if (tooLargeForProxy) {
-        return await uploadViaWorkerParts(path, body, contentType, onProgress, abortSignal);
+        return await uploadViaWorkerParts(
+          path,
+          body,
+          contentType,
+          onProgress,
+          abortSignal,
+          partOptions
+        );
       }
       return await uploadViaWorkersApi(path, body, contentType, onProgress, abortSignal);
     } catch (error) {
