@@ -1095,7 +1095,15 @@ export const galleryService = {
             lastModified: originalFile.lastModified,
           });
 
-    const uploadResult = await storageService.upload(filePath, uploadBody, onProgress, signal);
+    const uploadResult = await storageService.upload(filePath, uploadBody, onProgress, signal, {
+      resumeCheckpoint: uploadContext.multipartCheckpoint || null,
+      onCheckpoint: (checkpoint) => {
+        uploadContext.multipartCheckpoint = checkpoint;
+        options.onMultipartCheckpoint?.(checkpoint);
+      },
+    });
+    // Finished — drop checkpoint so a later replace starts clean.
+    uploadContext.multipartCheckpoint = null;
 
     let finalPhoto = null;
     try {

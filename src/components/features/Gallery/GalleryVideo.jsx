@@ -36,6 +36,12 @@ export function GalleryVideo({
   const poster = getPhotoVideoPoster(photo);
   const [previewOn, setPreviewOn] = useState(false);
   const [previewFrame, setPreviewFrame] = useState(false);
+  const [playbackFailed, setPlaybackFailed] = useState(false);
+  const streamFailed = String(photo?.stream_status || '') === 'error';
+
+  useEffect(() => {
+    setPlaybackFailed(false);
+  }, [src, photo?.id]);
 
   useEffect(() => {
     const video = videoRef.current;
@@ -122,7 +128,18 @@ export function GalleryVideo({
     );
   }
 
-  if (!src) return null;
+  if (!src) {
+    return (
+      <div className={`gallery-video-preparing ${className}`.trim()} style={style} onClick={onClick}>
+        {poster ? <img src={poster} alt="" /> : null}
+        <p>
+          {streamFailed
+            ? 'This film could not be prepared for streaming yet. Refresh in a moment, or download the original.'
+            : 'This film has no playable source yet.'}
+        </p>
+      </div>
+    );
+  }
 
   const isPreview = isVideoPreviewClip(photo);
   const durationMin = Math.round((Number(photo?.video_duration_seconds) || 0) / 60);
@@ -145,6 +162,7 @@ export function GalleryVideo({
         loop={loop || hoverPreview}
         playsInline={playsInline}
         preload={hoverPreview ? 'none' : 'metadata'}
+        onError={() => setPlaybackFailed(true)}
         onMouseEnter={hoverPreview ? (e) => e.currentTarget.play().catch(() => {}) : undefined}
         onMouseLeave={hoverPreview ? (e) => { e.currentTarget.pause(); e.currentTarget.currentTime = 0; } : undefined}
       />
@@ -153,6 +171,15 @@ export function GalleryVideo({
           <span>
             3-min preview · Full film
             {durationMin > 0 ? ` (${durationMin}m)` : ''} available for download
+          </span>
+        </div>
+      ) : null}
+      {(playbackFailed || streamFailed) && !isHlsUrl(src) ? (
+        <div className="gallery-video-preview-badge gallery-video-preview-badge--warn" aria-live="polite">
+          <span>
+            {playbackFailed
+              ? 'Browser could not play this file directly. Adaptive streaming may still be preparing — refresh shortly.'
+              : 'Adaptive streaming failed once; retrying in the background. Large phone videos often need Stream before they play in-browser.'}
           </span>
         </div>
       ) : null}
