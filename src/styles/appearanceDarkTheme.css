@@ -88,87 +88,12 @@ body.dark-theme .theme-mono .glass-panel {
 
 /* ── Appearance row (Auto / Light / Dark) ─────────────────────── */
 
-.sb-appearance {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding: 8px 10px 10px;
-}
-
-.sb-appearance__label {
-  margin: 0;
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: #6b7280;
-}
-
-.sb-appearance__options {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.sb-appearance__option {
-  flex: 1;
-  margin: 0;
-  padding: 6px 8px;
-  border: 1px solid transparent;
-  border-radius: 999px;
-  background: transparent;
-  color: #888888;
-  font-family: inherit;
-  font-size: 13px;
-  font-weight: 500;
-  line-height: 1.2;
-  cursor: pointer;
-  transition: color 0.15s ease, background 0.15s ease, border-color 0.15s ease;
-}
-
-.sb-appearance__option:hover {
-  color: #374151;
-}
-
-.sb-appearance__option.is-active {
-  color: #111111;
-  background: #f3f2ef;
-  border-color: #ddd9d2;
-}
-
-body.dark-theme .sb-appearance__label {
-  color: var(--text-secondary);
-}
-
-body.dark-theme .sb-appearance__option {
-  color: var(--text-secondary);
-}
-
-body.dark-theme .sb-appearance__option:hover {
-  color: var(--text-primary);
-}
-
-body.dark-theme .sb-appearance__option.is-active,
-body.dark-theme .sb-appearance__option.is-active:hover {
-  color: var(--accent-primary);
-  background: var(--accent-subtle);
-  border-color: var(--border-active);
-}
-
 /* ── Profile dropdown ─────────────────────────────────────────── */
 
 body.dark-theme .sb-profile-menu {
   background: var(--bg-surface-hover);
   border-color: var(--border-card);
   box-shadow: 0 16px 48px rgba(0, 0, 0, 0.45);
-}
-
-body.dark-theme .sb-profile-menu__name {
-  color: var(--text-primary);
-}
-
-body.dark-theme .sb-profile-menu__email {
-  color: var(--text-secondary);
 }
 
 body.dark-theme .sb-profile-menu__divider {
@@ -185,18 +110,6 @@ body.dark-theme .sb-profile-menu__item:hover {
 
 body.dark-theme .sb-profile-menu__item svg {
   stroke: var(--text-body);
-}
-
-body.dark-theme .sb-profile-menu__item--danger {
-  color: #f87171;
-}
-
-body.dark-theme .sb-profile-menu__item--danger:hover {
-  background: rgba(248, 113, 113, 0.1);
-}
-
-body.dark-theme .sb-profile-menu__item--danger svg {
-  stroke: #f87171;
 }
 
 body.dark-theme .theme-mono.cg-shell .sb-profile-menu {
@@ -481,11 +394,6 @@ body.dark-theme .theme-mono .sa-proofer-albums__new-btn {
   color: var(--text-heading);
 }
 
-body.dark-theme .theme-mono .sa-status-filter__apply {
-  background: var(--accent-primary);
-  color: var(--text-heading);
-}
-
 body.dark-theme .theme-mono .sa-status-filter {
   background: var(--bg-surface);
   border-color: var(--border-card);
@@ -672,10 +580,6 @@ body.dark-theme .cg-ctx-item--danger {
 body.dark-theme .cg-ctx-item--danger:hover {
   background: rgba(196, 122, 114, 0.12) !important;
   color: var(--stop-fg) !important;
-}
-
-body.dark-theme .cg-ctx-divider {
-  background: var(--bg-modal);
 }
 
 /* ── Album Settings popup ─────────────────────────────────────── */
@@ -1323,10 +1227,6 @@ body.dark-theme .ae-notifications-header {
   border-bottom-color: var(--border-card) !important;
 }
 
-body.dark-theme .ae-notifications-stats {
-  border-bottom-color: var(--border-card) !important;
-}
-
 body.dark-theme .ae-notifications-stats .ae-proof-stat-value {
   color: var(--text-heading) !important;
 }
@@ -1371,14 +1271,6 @@ body.dark-theme .ae-notifications-item-icon-container--approved {
   color: var(--text-heading) !important;
 }
 
-body.dark-theme .ae-notifications-item-type {
-  color: var(--text-secondary) !important;
-}
-
-body.dark-theme .ae-notifications-item-location {
-  color: var(--text-heading) !important;
-}
-
 body.dark-theme .ae-notifications-item-preview {
   color: var(--text-body) !important;
 }
@@ -1397,7 +1289,6 @@ body.dark-theme .ae-notifications-item-done-mark {
   color: #4ade80 !important;
 }
 
-body.dark-theme .ae-page .ae-share-menu,
 body.dark-theme .ae-page .ae-share-dropdown,
 body.dark-theme .ae-page .ae-share-panel {
   background: var(--bg-surface) !important;
@@ -1559,7 +1450,6 @@ body.dark-theme .ae-page .ae-share-btn--pause {
   border: 1px solid rgba(196, 122, 114, 0.35) !important;
 }
 
-body.dark-theme .ae-page .ae-share-settings-select-trigger,
 body.dark-theme .ae-page .ae-share-panel .ae-settings-select-trigger,
 body.dark-theme .ae-page .ae-share-panel .ae-settings-select-menu {
   background: var(--bg-surface) !important;
@@ -2075,15 +1965,13 @@ body.dark-theme .quiet-proof-card__reply-send {
 /* Collection / panels inside sidebar */
 body.dark-theme .ae-page .ae-collection-thumb,
 body.dark-theme .ae-page .ae-upload-zone,
-body.dark-theme .ae-page .ae-locked-grid,
-body.dark-theme .ae-page .ae-slot-card {
+body.dark-theme .ae-page .ae-locked-grid {
   background: var(--bg-surface) !important;
   border-color: var(--border-card) !important;
   color: var(--text-primary);
 }
 
 body.dark-theme .ae-page .ae-btn-picker,
-body.dark-theme .ae-page .ae-page-action,
 body.dark-theme .ae-page .ae-btn-clear {
   background: var(--bg-surface) !important;
   border: 1px solid var(--border-card) !important;
@@ -2173,10 +2061,6 @@ body.dark-theme .ae-page .ae-settings-panel__scroll::-webkit-scrollbar-thumb {
   background: var(--bg-modal);
 }
 
-body.dark-theme .ae-page .ae-settings input,
-body.dark-theme .ae-page .ae-settings select,
-body.dark-theme .ae-page .ae-settings textarea,
-body.dark-theme .ae-page .ae-settings-card,
 body.dark-theme .ae-page .ae-settings-select-trigger,
 body.dark-theme .ae-page .ae-settings-select-menu {
   background: var(--bg-surface) !important;
@@ -3121,8 +3005,6 @@ body.dark-theme .sa-create-wizard-page .sa-wizard-fields .dp-input-field {
   color: var(--text-primary) !important;
 }
 
-body.dark-theme .sa-create-wizard-page .cc-dropzone,
-body.dark-theme .sa-create-wizard-page .sa-upload-zone,
 body.dark-theme .sa-create-wizard-page .sa-upload-card {
   background: var(--bg-surface) !important;
   border: 1.5px dashed var(--border-card) !important;
@@ -3136,8 +3018,7 @@ body.dark-theme .sa-create-wizard-page .sa-upload-card--drop-active {
   color: var(--text-primary) !important;
 }
 
-body.dark-theme .sa-create-wizard-page .sa-upload-icon,
-body.dark-theme .sa-create-wizard-page .sa-upload-card .sa-upload-icon-wrap {
+body.dark-theme .sa-create-wizard-page .sa-upload-icon {
   background: var(--bg-surface-hover) !important;
   color: var(--accent-primary) !important;
 }
@@ -3261,13 +3142,6 @@ body.dark-theme .sa-create-wizard-page .sa-wizard-hint {
 
 body.dark-theme .sa-create-wizard-page .sa-label-required {
   color: var(--accent-secondary) !important;
-}
-
-body.dark-theme .sa-create-wizard-page .sa-file-chip,
-body.dark-theme .sa-create-wizard-page .sa-cover-file {
-  background: var(--bg-surface) !important;
-  border-color: var(--border-card) !important;
-  color: var(--text-primary) !important;
 }
 
 
@@ -4041,7 +3915,6 @@ body.dark-theme .si-mark-row {
 }
 
 body.dark-theme .lc-btn--dark,
-body.dark-theme .si-btn--dark,
 body.dark-theme .ya-btn--dark {
   background: var(--accent-primary);
   border-color: var(--accent-primary);
@@ -4049,7 +3922,6 @@ body.dark-theme .ya-btn--dark {
 }
 
 body.dark-theme .lc-btn--dark:hover,
-body.dark-theme .si-btn--dark:hover,
 body.dark-theme .ya-btn--dark:hover {
   background: var(--accent-primary-hover);
   border-color: var(--accent-primary-hover);
@@ -4339,7 +4211,6 @@ body.dark-theme .settings-page-wrapper .ad-panel {
 
 body.dark-theme .settings-main-title,
 body.dark-theme .gd-title,
-body.dark-theme .fm-title,
 body.dark-theme .fm-section-title,
 body.dark-theme .ad-title,
 body.dark-theme .ud-title,
@@ -4362,7 +4233,6 @@ body.dark-theme .dt-lead,
 body.dark-theme .settings-right-desc,
 body.dark-theme .gd-desc,
 body.dark-theme .gd-footnote,
-body.dark-theme .fm-footnote,
 body.dark-theme .gd-radio-desc,
 body.dark-theme .ud-file-desc,
 body.dark-theme .gd-standee-desc,
@@ -4738,20 +4608,6 @@ body.dark-theme .ud-studio-badge {
   color: var(--accent-secondary);
 }
 
-body.dark-theme .dt-card,
-body.dark-theme .dt-card:hover {
-  background: var(--surface);
-  border-color: var(--border);
-}
-
-body.dark-theme .dt-card__title {
-  color: var(--ink);
-}
-
-body.dark-theme .dt-card__meta {
-  color: var(--ink-muted);
-}
-
 body.dark-theme .wm-card {
   background: var(--surface);
   border-color: var(--border);
@@ -4810,8 +4666,7 @@ body.dark-theme .set-modal__primary:disabled {
   opacity: 0.5;
 }
 
-body.dark-theme .set-feature-card,
-body.dark-theme .featured-card {
+body.dark-theme .set-feature-card {
   background: var(--surface);
   border-color: var(--border);
 }
@@ -4820,18 +4675,15 @@ body.dark-theme .set-feature-card.is-on {
   border-color: var(--gd-accent-border, var(--border-active));
 }
 
-body.dark-theme .set-feature-card__meta,
-body.dark-theme .featured-card__meta {
+body.dark-theme .set-feature-card__meta {
   background: var(--surface-sunk);
 }
 
-body.dark-theme .set-feature-card__meta strong,
-body.dark-theme .featured-card__name {
+body.dark-theme .set-feature-card__meta strong {
   color: var(--ink);
 }
 
-body.dark-theme .set-feature-card__meta span,
-body.dark-theme .featured-card__count {
+body.dark-theme .set-feature-card__meta span {
   color: var(--ink-muted);
 }
 
@@ -5281,6 +5133,40 @@ body.dark-theme .theme-mono.cd-dashboard-shell .cd-status-badge.published:hover 
   border-color: var(--border-card) !important;
 }
 
+body.dark-theme .theme-mono.cd-dashboard-shell .cd-status-badge--hidden {
+  background: var(--bg-surface-hover) !important;
+  border-color: var(--border-card) !important;
+  color: var(--text-secondary) !important;
+}
+
+body.dark-theme .theme-mono.cd-dashboard-shell .cd-status-badge--hidden:hover {
+  background: var(--bg-surface) !important;
+  border-color: var(--border-card) !important;
+  color: var(--text-primary) !important;
+}
+
+/* Publish status menu (Published / Hidden) */
+body.dark-theme .theme-mono.cd-dashboard-shell .cd-status-dropdown {
+  background: var(--bg-surface) !important;
+  border-color: var(--border-card) !important;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.5) !important;
+}
+
+body.dark-theme .theme-mono.cd-dashboard-shell .cd-status-option {
+  color: var(--text-primary) !important;
+  background: transparent !important;
+}
+
+body.dark-theme .theme-mono.cd-dashboard-shell .cd-status-option:hover {
+  background: var(--bg-surface-hover) !important;
+  color: var(--text-primary) !important;
+}
+
+body.dark-theme .theme-mono.cd-dashboard-shell .cd-status-option.is-active {
+  background: var(--accent-subtle) !important;
+  color: var(--accent-primary) !important;
+}
+
 body.dark-theme .theme-mono.cd-dashboard-shell .cd-share-split-btn,
 body.dark-theme .theme-mono.cd-dashboard-shell .cd-topbar--shell .cd-share-split-btn {
   background: var(--bg-surface) !important;
@@ -5345,70 +5231,40 @@ body.dark-theme .theme-mono.cd-dashboard-shell .cdpw-search__input::placeholder 
   color: var(--text-secondary);
 }
 
-body.dark-theme .theme-mono.cd-dashboard-shell .cdpw-toolbar select,
-body.dark-theme .theme-mono.cd-dashboard-shell .cdpw-select,
-body.dark-theme .theme-mono.cd-dashboard-shell select,
-body.dark-theme .theme-mono.cd-dashboard-shell .cd-sort-select,
-body.dark-theme .theme-mono.cd-dashboard-shell .cd-view-select {
+body.dark-theme .theme-mono.cd-dashboard-shell select {
   background: var(--bg-surface);
   border-color: var(--border-card);
   color: var(--text-primary);
 }
 
-body.dark-theme .theme-mono.cd-dashboard-shell .cdpw-people,
-body.dark-theme .theme-mono.cd-dashboard-shell .cdpw-people-strip,
-body.dark-theme .theme-mono.cd-dashboard-shell .cd-people-strip {
+body.dark-theme .theme-mono.cd-dashboard-shell .cdpw-people {
   background: var(--bg-surface);
   border-color: var(--cd-border);
 }
 
-body.dark-theme .theme-mono.cd-dashboard-shell .cdpw-people__label,
-body.dark-theme .theme-mono.cd-dashboard-shell .cd-people-label {
+body.dark-theme .theme-mono.cd-dashboard-shell .cdpw-people__label {
   color: var(--text-secondary);
 }
 
-body.dark-theme .theme-mono.cd-dashboard-shell .cdpw-people__btn,
 body.dark-theme .theme-mono.cd-dashboard-shell .cd-photo-ai-btn {
   background: var(--bg-surface);
   border-color: var(--border-card);
   color: var(--text-primary);
 }
 
-body.dark-theme .theme-mono.cd-dashboard-shell .cdpw-people__btn--primary,
-body.dark-theme .theme-mono.cd-dashboard-shell .cd-photo-ai-btn--primary {
-  background: var(--accent-primary);
-  border-color: var(--border-active);
-  color: var(--text-heading);
-}
-
-body.dark-theme .theme-mono.cd-dashboard-shell .cd-photo-card,
-body.dark-theme .theme-mono.cd-dashboard-shell .cd-manage-card,
-body.dark-theme .theme-mono.cd-dashboard-shell .cd-grid-item,
-body.dark-theme .theme-mono.cd-dashboard-shell .photo-card {
+body.dark-theme .theme-mono.cd-dashboard-shell .cd-photo-card {
   background: var(--bg-surface);
   border-color: var(--border-card);
 }
 
-body.dark-theme .theme-mono.cd-dashboard-shell .cd-photo-placeholder,
-body.dark-theme .theme-mono.cd-dashboard-shell .cd-thumb-placeholder {
-  background: var(--bg-surface-hover);
-}
-
-body.dark-theme .theme-mono.cd-dashboard-shell .cd-selection-toolbar,
-body.dark-theme .theme-mono.cd-dashboard-shell .cd-bulk-bar {
+body.dark-theme .theme-mono.cd-dashboard-shell .cd-selection-toolbar {
   background: var(--bg-surface);
   border-color: var(--border-card);
   color: var(--text-primary);
   box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
 }
 
-body.dark-theme .theme-mono.cd-dashboard-shell .settings-card,
-body.dark-theme .theme-mono.cd-dashboard-shell .cd-settings-card,
-body.dark-theme .theme-mono.cd-dashboard-shell .cd-activity-card,
-body.dark-theme .theme-mono.cd-dashboard-shell .cd-panel,
-body.dark-theme .theme-mono.cd-dashboard-shell .cd-modal,
-body.dark-theme .theme-mono.cd-dashboard-shell .cd-dropdown,
-body.dark-theme .theme-mono.cd-dashboard-shell .cd-menu {
+body.dark-theme .theme-mono.cd-dashboard-shell .cd-modal {
   background: var(--bg-surface) !important;
   border-color: var(--border-card) !important;
   color: var(--text-primary);
@@ -5417,7 +5273,6 @@ body.dark-theme .theme-mono.cd-dashboard-shell .cd-menu {
 
 body.dark-theme .theme-mono.cd-dashboard-shell input:not([type='checkbox']):not([type='radio']):not([type='file']),
 body.dark-theme .theme-mono.cd-dashboard-shell textarea,
-body.dark-theme .theme-mono.cd-dashboard-shell .cd-input,
 body.dark-theme .theme-mono.cd-dashboard-shell .settings-input {
   background: var(--bg-surface) !important;
   border-color: var(--border-card) !important;
@@ -5466,13 +5321,6 @@ body.dark-theme .theme-mono.cd-dashboard-shell .cdpw-pill-btn {
 body.dark-theme .theme-mono.cd-dashboard-shell .cdpw-pill-btn:hover {
   background: var(--bg-surface-hover);
   border-color: var(--border-card);
-}
-
-body.dark-theme .theme-mono.cd-dashboard-shell .cdpw-pill-btn--primary,
-body.dark-theme .theme-mono.cd-dashboard-shell .cdpw-pill-btn--dark {
-  background: var(--accent-primary);
-  border-color: var(--border-active);
-  color: var(--text-heading);
 }
 
 body.dark-theme .theme-mono.cd-dashboard-shell .cdpw-dropdown__menu {
@@ -5565,9 +5413,7 @@ body.dark-theme .theme-mono.cd-dashboard-shell .cdsb-tree__row--active .cdsb-set
   color: var(--text-body);
 }
 
-body.dark-theme .theme-mono.cd-dashboard-shell .cd-cover-image img,
-body.dark-theme .theme-mono.cd-dashboard-shell .cdpw-person__avatar img,
-body.dark-theme .theme-mono.cd-dashboard-shell .cd-photo-thumb img {
+body.dark-theme .theme-mono.cd-dashboard-shell .cd-cover-image img {
   filter: none !important;
   mix-blend-mode: normal !important;
 }
@@ -6585,8 +6431,6 @@ body.dark-theme .theme-mono.cd-dashboard-shell .cdpw-subtitle {
   color: var(--text-body) !important;
 }
 
-body.dark-theme .theme-mono.cd-dashboard-shell .cdpw-pill-btn--primary,
-body.dark-theme .theme-mono.cd-dashboard-shell .cdpw-pill-btn--dark,
 body.dark-theme .theme-mono.cd-dashboard-shell .cd-add-media-btn {
   background: var(--accent-primary) !important;
   border-color: var(--border-active) !important;
@@ -6805,8 +6649,7 @@ body.dark-theme .theme-mono.cd-dashboard-shell .gd-pub-popup {
   border: 1px solid var(--border-card) !important;
 }
 
-body.dark-theme .theme-mono.cd-dashboard-shell .gd-pub-head,
-body.dark-theme .theme-mono.cd-dashboard-shell .gd-pub-section {
+body.dark-theme .theme-mono.cd-dashboard-shell .gd-pub-head {
   border-bottom-color: var(--border-card) !important;
   color: var(--text-primary) !important;
 }
@@ -6888,7 +6731,6 @@ body.dark-theme .cover-modal-container {
 
 body.dark-theme .cover-modal-header,
 body.dark-theme .cover-modal-header--stacked,
-body.dark-theme .cover-modal-footer,
 body.dark-theme .cover-modal-pick-toolbar {
   background: var(--bg-surface) !important;
   border-color: var(--border-card) !important;
@@ -7029,16 +6871,13 @@ body.dark-theme .theme-mono.cd-dashboard-shell .cd-set-dropdown .cd-ctx-item:hov
 }
 
 /* Status / language chips in settings */
-body.dark-theme .theme-mono.cd-dashboard-shell .cd-basics-segment__item,
-body.dark-theme .theme-mono.cd-dashboard-shell .cd-dl-chip,
-body.dark-theme .theme-mono.cd-dashboard-shell .cd-dl-tag {
+body.dark-theme .theme-mono.cd-dashboard-shell .cd-basics-segment__item {
   background: var(--bg-surface) !important;
   border-color: var(--border-card) !important;
   color: var(--text-primary) !important;
 }
 
 body.dark-theme .theme-mono.cd-dashboard-shell hr,
-body.dark-theme .theme-mono.cd-dashboard-shell .cd-divider,
 body.dark-theme .theme-mono.cd-dashboard-shell .settings-divider {
   border-color: var(--border-card) !important;
   background: var(--bg-surface-hover) !important;
@@ -7552,11 +7391,6 @@ body.dark-theme .favorite-detail-drawer__title {
   color: var(--text-primary) !important;
 }
 
-body.dark-theme .download-detail-section-label,
-body.dark-theme .favorite-detail-section-label {
-  color: var(--text-secondary) !important;
-}
-
 /* ═══════════════════════════════════════════════════════════════
    Project-wide dark: modals, dropzones, popups, shared chrome
    Beats collectionDashboardTheme !important via body.dark-theme
@@ -7707,29 +7541,39 @@ body.dark-theme .theme-mono.cd-dashboard-shell .cd-sidebar-cover-dropzone:not(.c
 }
 
 /* Share / publish panels */
-body.dark-theme .dsp-panel,
-body.dark-theme .dsp-card,
-body.dark-theme .delivery-share-panel,
-body.dark-theme .theme-mono.cd-dashboard-shell .dsp-panel,
-body.dark-theme .theme-mono.cd-dashboard-shell .dsp-card {
+
+/* App alert (pixnxt-alert) */
+body.dark-theme .pixnxt-alert-overlay {
+  background-color: rgba(0, 0, 0, 0.55);
+}
+
+body.dark-theme .pixnxt-alert {
   background: var(--bg-surface) !important;
+  border-color: var(--border-card) !important;
+  color: var(--text-primary) !important;
+  box-shadow: 0 24px 64px -16px rgba(0, 0, 0, 0.55) !important;
+}
+
+body.dark-theme .pixnxt-alert__title {
+  color: var(--text-primary) !important;
+}
+
+body.dark-theme .pixnxt-alert__message {
+  color: var(--text-secondary) !important;
+}
+
+body.dark-theme .pixnxt-alert__cancel {
+  background: var(--bg-surface-hover) !important;
   border-color: var(--border-card) !important;
   color: var(--text-primary) !important;
 }
 
-/* App alert / toast */
-body.dark-theme .app-alert,
-body.dark-theme .AppAlert,
-body.dark-theme [class*="app-alert"] {
-  background: var(--bg-surface) !important;
-  border-color: var(--border-card) !important;
-  color: var(--text-primary) !important;
+body.dark-theme .pixnxt-alert__ok {
+  background: var(--accent-primary) !important;
+  color: #fff !important;
 }
 
 /* Studio notifications dropdown */
-body.dark-theme .studio-notifications,
-body.dark-theme .studio-notifications__panel,
-body.dark-theme .sn-panel,
 body.dark-theme .sd-notifications-panel {
   background: var(--bg-surface) !important;
   border-color: var(--border-card) !important;
@@ -7738,18 +7582,13 @@ body.dark-theme .sd-notifications-panel {
 }
 
 /* Dashboard menus / cards that stay white */
-body.dark-theme .sd-menu,
-body.dark-theme .sd-dropdown,
-body.dark-theme .sd-card,
-body.dark-theme .sd-popover {
+body.dark-theme .sd-menu {
   background: var(--bg-surface) !important;
   border-color: var(--border-card) !important;
   color: var(--text-primary) !important;
 }
 
 /* Collection picker / smart-album modals */
-body.dark-theme .collection-picker-modal,
-body.dark-theme .cpm-modal,
 body.dark-theme .cpm-dialog {
   background: var(--bg-surface) !important;
   border-color: var(--border-card) !important;
@@ -7805,13 +7644,6 @@ body.dark-theme .theme-mono.cd-dashboard-shell .favorite-detail-footer-link {
 }
 
 /* Store orders activity panels */
-body.dark-theme .theme-mono.cd-dashboard-shell .store-orders-panel,
-body.dark-theme .theme-mono.cd-dashboard-shell .soa-card,
-body.dark-theme .theme-mono.cd-dashboard-shell .soa-drawer {
-  background: var(--bg-surface) !important;
-  border-color: var(--border-card) !important;
-  color: var(--text-primary) !important;
-}
 
 /* Guest delivery QR / published popups extras */
 body.dark-theme .gd-pub-popup,
@@ -7829,26 +7661,20 @@ body.dark-theme .theme-mono.cd-dashboard-shell .gd-qr-modal {
 }
 
 /* Get direct link / share modals */
-body.dark-theme .gdl-modal,
-body.dark-theme .cd-direct-link-modal,
-body.dark-theme .theme-mono.cd-dashboard-shell .gdl-modal {
+body.dark-theme .cd-direct-link-modal {
   background: var(--bg-surface) !important;
   border-color: var(--border-card) !important;
   color: var(--text-primary) !important;
 }
 
 /* Datepicker / select menus portaled to body */
-body.dark-theme .react-datepicker,
-body.dark-theme .dp-calendar,
-body.dark-theme .dp-popover,
-body.dark-theme .custom-datepicker-popover {
+body.dark-theme .react-datepicker {
   background: var(--bg-surface) !important;
   border-color: var(--border-card) !important;
   color: var(--text-primary) !important;
 }
 
-body.dark-theme .cg-select-menu,
-body.dark-theme .cg-select-dropdown {
+body.dark-theme .cg-select-menu {
   background: var(--bg-surface) !important;
   border-color: var(--border-card) !important;
   color: var(--text-primary) !important;
@@ -7914,8 +7740,6 @@ body.dark-theme .theme-mono.cd-dashboard-shell .store-orders-search-field svg {
 }
 
 /* More / context menus portaled outside shell */
-body.dark-theme .cd-more-menu,
-body.dark-theme .cd-ctx-menu,
 body.dark-theme .cd-set-dropdown,
 body.dark-theme .cd-photo-menu,
 body.dark-theme .cd-photo-menu--pixnxt {
@@ -7925,14 +7749,12 @@ body.dark-theme .cd-photo-menu--pixnxt {
   box-shadow: 0 16px 40px rgba(0, 0, 0, 0.5) !important;
 }
 
-body.dark-theme .cd-more-menu button,
 body.dark-theme .cd-ctx-item,
 body.dark-theme .cd-set-dropdown .cd-ctx-item,
 body.dark-theme .cd-photo-menu button {
   color: var(--text-primary) !important;
 }
 
-body.dark-theme .cd-more-menu button:hover,
 body.dark-theme .cd-ctx-item:hover,
 body.dark-theme .cd-set-dropdown .cd-ctx-item:hover,
 body.dark-theme .cd-photo-menu button:hover {
@@ -8369,8 +8191,7 @@ body.dark-theme .cgm-btn-primary:disabled {
 }
 
 /* CD modal footer buttons when overlays sit outside .cd-dashboard-shell */
-body.dark-theme .cd-modal-overlay .cd-btn-primary,
-body.dark-theme .cd-btn-primary.cd-modal-confirm {
+body.dark-theme .cd-modal-overlay .cd-btn-primary {
   background-color: var(--accent-primary) !important;
   background-image: none !important;
   color: var(--text-heading) !important;
@@ -8542,16 +8363,13 @@ body.dark-theme .favorite-detail-photo-row-menu {
 }
 
 body.dark-theme .theme-mono.cd-dashboard-shell .activity-table-header,
-body.dark-theme .theme-mono.cd-dashboard-shell .activity-row,
-body.dark-theme .theme-mono.cd-dashboard-shell .email-reg-table-header,
-body.dark-theme .theme-mono.cd-dashboard-shell .email-reg-row {
+body.dark-theme .theme-mono.cd-dashboard-shell .activity-row {
   background: var(--bg-surface) !important;
   border-bottom-color: var(--border-color) !important;
   color: var(--text-primary) !important;
 }
 
-body.dark-theme .theme-mono.cd-dashboard-shell .activity-row:hover,
-body.dark-theme .theme-mono.cd-dashboard-shell .email-reg-row:hover {
+body.dark-theme .theme-mono.cd-dashboard-shell .activity-row:hover {
   background: var(--bg-surface) !important;
 }
 
@@ -8816,8 +8634,7 @@ body.dark-theme .preset-editor-container .pe-design-pill.active {
 
 body.dark-theme .preset-editor-container .pe-cover-card.active .pe-cover-preview,
 body.dark-theme .preset-editor-container .pe-type-card.active .pe-type-preview,
-body.dark-theme .preset-editor-container .pe-color-card.active .pe-color-preview,
-body.dark-theme .preset-editor-container .pe-grid-card.active .pe-grid-preview {
+body.dark-theme .preset-editor-container .pe-color-card.active .pe-color-preview {
   border-color: var(--accent-primary) !important;
 }
 
@@ -8829,8 +8646,7 @@ body.dark-theme .wm-editor {
 
 body.dark-theme .wm-header,
 body.dark-theme .wm-sidebar,
-body.dark-theme .wm-panel,
-body.dark-theme .wm-canvas-wrap {
+body.dark-theme .wm-panel {
   background: var(--bg-sidebar) !important;
   border-color: var(--border-card) !important;
   color: var(--text-primary) !important;
@@ -8882,42 +8698,229 @@ body.dark-theme .theme-mono.lab-shell select {
   border-color: var(--border-card) !important;
 }
 
-/* Collection Share composer (.cs-*) */
-body.dark-theme .cs-share-shell,
-body.dark-theme .cs-top-bar {
+/* Collection Share composer (.cs-*) — chrome dark; email preview stays light */
+body.dark-theme .cs-share-shell {
   background: var(--bg-app) !important;
-  border-color: var(--border-card) !important;
   color: var(--text-primary) !important;
 }
 
-body.dark-theme .cs-composer-pane,
-body.dark-theme .cs-email-card,
-body.dark-theme .cs-modal-card,
-body.dark-theme .cs-preview-pane {
+body.dark-theme .cs-top-bar {
   background: var(--bg-surface) !important;
-  border-color: var(--border-card) !important;
+  border-bottom-color: var(--border-card) !important;
   color: var(--text-primary) !important;
 }
 
-body.dark-theme .cs-share-shell input,
-body.dark-theme .cs-share-shell textarea,
-body.dark-theme .cs-share-shell select {
-  background: var(--bg-surface) !important;
-  border-color: var(--border-card) !important;
+body.dark-theme .cs-top-title {
   color: var(--text-primary) !important;
 }
 
 body.dark-theme .cs-close-btn,
-body.dark-theme .cs-share-shell button {
-  color: var(--text-primary);
+body.dark-theme .cs-top-link {
+  color: var(--text-secondary) !important;
 }
 
-body.dark-theme [class*='cs-'][class*='dropdown-menu'],
-body.dark-theme .cs-dropdown-menu {
+body.dark-theme .cs-close-btn:hover,
+body.dark-theme .cs-top-link:hover {
+  background: var(--bg-surface-hover) !important;
+  color: var(--text-primary) !important;
+}
+
+body.dark-theme .cs-direct-link {
+  color: var(--accent-primary) !important;
+}
+
+body.dark-theme .cs-direct-link:hover {
+  background: var(--accent-subtle) !important;
+  color: var(--accent-primary) !important;
+}
+
+body.dark-theme .cs-composer-pane {
+  background: var(--bg-surface) !important;
+  border-right-color: var(--border-card) !important;
+  color: var(--text-primary) !important;
+}
+
+body.dark-theme .cs-preview-pane {
+  background: var(--bg-app) !important;
+  color: var(--text-primary) !important;
+}
+
+body.dark-theme .cs-modal-card {
+  background: var(--bg-surface) !important;
+  border-color: var(--border-card) !important;
+  color: var(--text-primary) !important;
+}
+
+body.dark-theme .cs-label,
+body.dark-theme .cs-checkbox-group-label,
+body.dark-theme .cs-no-passwords-text {
+  color: var(--text-secondary) !important;
+}
+
+body.dark-theme .cs-to-group,
+body.dark-theme .cs-subject-group {
+  border-bottom-color: var(--border-card) !important;
+}
+
+body.dark-theme .cs-share-shell .cs-input-borderless,
+body.dark-theme .cs-share-shell .cs-subject-input,
+body.dark-theme .cs-share-shell input:not([type='checkbox']):not([type='radio']),
+body.dark-theme .cs-share-shell textarea,
+body.dark-theme .cs-share-shell select {
+  background: transparent !important;
+  border-color: var(--border-card) !important;
+  color: var(--text-primary) !important;
+  -webkit-text-fill-color: var(--text-primary) !important;
+  caret-color: var(--text-primary) !important;
+}
+
+body.dark-theme .cs-subject-input::placeholder,
+body.dark-theme .cs-input-borderless::placeholder {
+  color: var(--text-muted) !important;
+}
+
+/* Rich-text toolbar + body in the composer (beat light #fafafa / #3f3f46 rules) */
+body.dark-theme .cs-composer-pane .set-rte-toolbar {
+  background: var(--bg-surface-hover) !important;
+  border-top-color: var(--border-card) !important;
+  border-bottom-color: var(--border-card) !important;
+}
+
+body.dark-theme .cs-composer-pane .set-rte-box .rte-btn,
+body.dark-theme .cs-composer-pane .rte-btn {
+  color: var(--icon-default, var(--text-secondary)) !important;
+}
+
+body.dark-theme .cs-composer-pane .set-rte-box .rte-btn:hover,
+body.dark-theme .cs-composer-pane .rte-btn:hover {
+  background: rgba(255, 255, 255, 0.06) !important;
+  color: var(--text-primary) !important;
+}
+
+body.dark-theme .cs-composer-pane .set-rte-box .rte-divider,
+body.dark-theme .cs-composer-pane .rte-divider {
+  background-color: var(--border-card) !important;
+}
+
+body.dark-theme .cs-composer-pane .set-rte-content,
+body.dark-theme .cs-composer-pane .set-rte-content p,
+body.dark-theme .cs-composer-pane .set-rte-content * {
+  color: var(--text-primary) !important;
+  caret-color: var(--text-primary) !important;
+}
+
+body.dark-theme .cs-composer-pane .set-rte-content:empty::before {
+  color: var(--text-muted) !important;
+}
+
+body.dark-theme .cs-insert-tpl-btn,
+body.dark-theme .cs-template-item--manage {
+  color: var(--accent-primary) !important;
+}
+
+body.dark-theme .cs-insert-tpl-btn:hover,
+body.dark-theme .cs-template-item--manage:hover {
+  color: var(--accent-primary-hover) !important;
+  background: var(--accent-subtle) !important;
+}
+
+body.dark-theme .cs-composer-divider,
+body.dark-theme .cs-dropdown-divider {
+  background-color: var(--border-card) !important;
+}
+
+body.dark-theme .cs-checkbox-label {
+  color: var(--text-primary) !important;
+}
+
+body.dark-theme .cs-checkbox-label input {
+  accent-color: var(--accent-primary) !important;
+}
+
+body.dark-theme .cs-send-btn-group {
+  background-color: var(--accent-primary) !important;
+  box-shadow: none !important;
+}
+
+body.dark-theme .cs-send-btn:hover:not(:disabled),
+body.dark-theme .cs-send-dropdown-arrow:hover {
+  background-color: var(--accent-primary-hover) !important;
+}
+
+body.dark-theme .cs-template-dropdown-menu,
+body.dark-theme [class*='cs-'][class*='dropdown-menu'] {
   background: var(--bg-surface) !important;
   border-color: var(--border-card) !important;
   color: var(--text-primary) !important;
   box-shadow: 0 16px 40px rgba(0, 0, 0, 0.5) !important;
+}
+
+body.dark-theme .cs-template-item {
+  color: var(--text-primary) !important;
+}
+
+body.dark-theme .cs-template-item:hover {
+  background: var(--bg-surface-hover) !important;
+  color: var(--text-primary) !important;
+}
+
+body.dark-theme .cs-schedule-badge {
+  background: var(--accent-subtle) !important;
+  border-color: var(--border-active) !important;
+  color: var(--accent-primary) !important;
+}
+
+/*
+ * Email preview card stays light (realistic inbox mock) — do not invert
+ * the message canvas; only the surrounding preview pane is dark.
+ */
+body.dark-theme .cs-email-card {
+  background: #ffffff !important;
+  border-color: var(--border-card) !important;
+  color: #18181b !important;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45) !important;
+}
+
+body.dark-theme .cs-email-brand-text {
+  color: #71717a !important;
+}
+
+body.dark-theme .cs-email-collection-title,
+body.dark-theme .cs-access-title {
+  color: #18181b !important;
+}
+
+body.dark-theme .cs-email-body-content,
+body.dark-theme .cs-email-body-content p,
+body.dark-theme .cs-email-body-content * {
+  color: #4b5563 !important;
+}
+
+body.dark-theme .cs-email-access-details {
+  background: #faf9f6 !important;
+  border-color: #e5e5e0 !important;
+  color: #4b5563 !important;
+}
+
+body.dark-theme .cs-email-cover-placeholder {
+  background: #faf9f6 !important;
+  border-color: #eceae6 !important;
+  color: #a1a1aa !important;
+}
+
+body.dark-theme .cs-email-button {
+  background-color: #111 !important;
+  color: #fff !important;
+}
+
+body.dark-theme .cs-email-footer {
+  background: #faf9f6 !important;
+  border-top-color: #f4f3f0 !important;
+  color: #a1a1aa !important;
+}
+
+body.dark-theme .cs-email-footer a {
+  color: #71717a !important;
 }
 
 /* Guest Delivery studio pages */
@@ -9019,8 +9022,7 @@ body.dark-theme .store-order-detail-card {
 
 /* Client-gallery share modal (studio-triggered) */
 body.dark-theme .share-gallery-modal,
-body.dark-theme .share-gallery-modal__url-row,
-body.dark-theme .share-gallery-modal__panel {
+body.dark-theme .share-gallery-modal__url-row {
   background: var(--bg-surface) !important;
   border-color: var(--border-card) !important;
   color: var(--text-primary) !important;
@@ -9028,8 +9030,7 @@ body.dark-theme .share-gallery-modal__panel {
 
 /* Cover focal tool */
 body.dark-theme .cover-modal-container--focal,
-body.dark-theme .cover-focal-bottom,
-body.dark-theme .cover-focal-toolbar {
+body.dark-theme .cover-focal-bottom {
   background: var(--bg-surface) !important;
   border-color: var(--border-card) !important;
   color: var(--text-primary) !important;
