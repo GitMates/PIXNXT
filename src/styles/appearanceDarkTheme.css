@@ -8297,6 +8297,99 @@ body.dark-theme .bec-close:hover {
   color: var(--text-primary) !important;
 }
 
+/* Share-modal body copy + actions (Duplicate Delivery, link/QR, etc.) */
+body.dark-theme .cgm-text {
+  color: var(--text-primary) !important;
+}
+
+body.dark-theme .cgm-text--muted,
+body.dark-theme .cgm-hint,
+body.dark-theme .cgm-duplicate-notes li {
+  color: var(--text-secondary) !important;
+}
+
+body.dark-theme .cgm-warning {
+  color: var(--accent-secondary) !important;
+  background: var(--bg-surface-hover) !important;
+  border-color: var(--border-card) !important;
+}
+
+body.dark-theme .cgm-copy-btn:hover {
+  background: var(--bg-surface-hover) !important;
+}
+
+body.dark-theme .cgm-btn-ghost {
+  color: var(--text-secondary) !important;
+  background: transparent !important;
+}
+
+body.dark-theme .cgm-btn-ghost:hover:not(:disabled) {
+  color: var(--text-primary) !important;
+  background: rgba(255, 255, 255, 0.06) !important;
+  border-radius: 4px;
+}
+
+body.dark-theme .cgm-btn-duplicate {
+  color: var(--text-heading) !important;
+  background: transparent !important;
+}
+
+body.dark-theme .cgm-btn-duplicate:hover:not(:disabled) {
+  color: var(--text-heading) !important;
+  opacity: 1;
+  background: rgba(255, 255, 255, 0.06) !important;
+  border-radius: 4px;
+}
+
+body.dark-theme .cgm-btn-duplicate:disabled,
+body.dark-theme .cgm-btn-ghost:disabled {
+  color: var(--text-secondary) !important;
+  opacity: 0.55;
+}
+
+body.dark-theme .cgm-btn-primary {
+  background: var(--accent-primary) !important;
+  color: var(--text-heading) !important;
+}
+
+body.dark-theme .cgm-btn-primary:hover:not(:disabled) {
+  background: var(--accent-primary-hover) !important;
+}
+
+body.dark-theme .cgm-btn-primary:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+/* CD modal footer buttons when overlays sit outside .cd-dashboard-shell */
+body.dark-theme .cd-modal-overlay .cd-btn-primary,
+body.dark-theme .cd-btn-primary.cd-modal-confirm {
+  background-color: var(--accent-primary) !important;
+  background-image: none !important;
+  color: var(--text-heading) !important;
+  border: none !important;
+}
+
+body.dark-theme .cd-modal-overlay .cd-btn-primary:hover:not(:disabled) {
+  background-color: var(--accent-primary-hover) !important;
+}
+
+body.dark-theme .cd-modal-overlay .cd-btn-secondary {
+  color: var(--text-primary) !important;
+  background: transparent !important;
+  border: 1px solid var(--border-card) !important;
+}
+
+body.dark-theme .cd-modal-overlay .cd-btn-secondary:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.06) !important;
+  color: var(--text-primary) !important;
+}
+
+body.dark-theme .cd-modal-body,
+body.dark-theme .cd-modal-body p {
+  color: var(--text-body) !important;
+}
+
 /* Client Exclusive Access */
 body.dark-theme .cea-password-field {
   background: var(--bg-surface) !important;

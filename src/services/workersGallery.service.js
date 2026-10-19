@@ -242,16 +242,31 @@ export async function duplicateCollection(sourceCollectionId, photographerId) {
     throw new Error('Delivery and photographer are required to duplicate.');
   }
   const source = await getCollectionById(sourceCollectionId);
-  const { photos: sourcePhotos, sets: sourceSets, ...rest } = source;
-  // Never copy server-managed identity/counters into the new row.
-  for (const k of ['id', 'photographer_id', 'created_at', 'updated_at', 'photo_count',
-    'video_count', 'total_size_bytes', 'published_at']) delete rest[k];
-  const created = await createCollection({
-    ...rest,
-    photographer_id: photographerId,
-    name: `${source.name} (Copy)`,
-    status: 'draft',
+  const { photos: sourcePhotos, sets: sourceSets } = source;
+  const siblings = await getCollectionSummaries(photographerId).catch(() => []);
+  const { buildDuplicateCollectionPayload, pickUniqueDeliverySlug } = await import('../lib/deliveryDuplicate');
+  const createPayload = buildDuplicateCollectionPayload(source, {
+    usedSlugs: siblings.map((c) => c.slug),
+    usedNames: siblings.map((c) => c.name),
   });
+  let created;
+  try {
+    created = await createCollection({
+      ...createPayload,
+      photographer_id: photographerId,
+    });
+  } catch (err) {
+    const msg = String(err?.message || '');
+    if (!/already exists/i.test(msg)) throw err;
+    // Race / stale sibling list — force a free slug and retry once.
+    const used = siblings.map((c) => c.slug);
+    used.push(createPayload.slug);
+    created = await createCollection({
+      ...createPayload,
+      photographer_id: photographerId,
+      slug: pickUniqueDeliverySlug(`${createPayload.name}-${Date.now().toString(36)}`, used),
+    });
+  }
   const setIdMap = new Map();
   for (const set of [...(sourceSets || [])].sort((a, b) => (a.position || 0) - (b.position || 0))) {
     const s = await createSet({ collectionId: created.id, photographerId, name: set.name, description: set.description ?? '', position: set.position ?? 0 });

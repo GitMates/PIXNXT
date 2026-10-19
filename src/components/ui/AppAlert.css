@@ -152,3 +152,9 @@ body.dark-theme .pixnxt-alert__ok--danger {
 body.dark-theme .pixnxt-alert__ok--danger:hover {
   background-color: #b91c1c;
 }
+
+.pixnxt-alert__ok:disabled,
+.pixnxt-alert__cancel:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}

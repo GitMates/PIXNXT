@@ -10,6 +10,8 @@ export default defineConfig({
     include: [
       'src/contexts/**/*.test.{js,ts}',
       'src/services/**/*.test.{js,ts}',
+      'src/lib/galleryMediaType.test.ts',
+      'src/lib/deliveryDuplicate.test.js',
       'src/components/features/CollectionDashboard/Upload/**/*.test.{js,ts}',
       'src/__smoke.test.js',
       'src/components/admin/**/*.test.{js,ts}',

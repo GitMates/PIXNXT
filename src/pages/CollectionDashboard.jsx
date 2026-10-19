@@ -148,7 +148,7 @@ import { GalleryVideo } from '../components/features/Gallery/GalleryVideo';
 import { formatCoverDate, formatSidebarDeliveryDate, formatLastSavedTime } from '../lib/formatCoverDate.js';
 import { broadcastGalleryLive, GALLERY_LIVE_CHANNEL, subscribePersonLabelUpdates } from '../lib/galleryLiveSync';
 import { isDigitalDownloadEnabled } from '../lib/storePackages';
-import { partitionGalleryMedia, countGalleryMedia, isGalleryVideo } from '../lib/galleryMediaType';
+import { partitionGalleryMedia, countGalleryMedia, isGalleryVideo, describeGalleryMediaForDelete } from '../lib/galleryMediaType';
 import {
     normalizeCoverStyleId,
     normalizeFontId,
@@ -1697,11 +1697,18 @@ const CollectionDashboard = () => {
             setPhotosToDelete([]);
         } catch (err) {
             console.error('Delete failed:', err);
-            alert('Failed to delete photos. Please try again.');
+            alert('Failed to delete selected media. Please try again.');
         } finally {
             setSaving(false);
         }
     };
+
+    const deleteConfirmCopy = useMemo(() => {
+        const selected = photos.filter((p) => photosToDelete.includes(p.id));
+        if (selected.length > 0) return describeGalleryMediaForDelete(selected);
+        const n = photosToDelete.length;
+        return { title: 'DELETE MEDIA', summary: `${n} item${n === 1 ? '' : 's'}` };
+    }, [photos, photosToDelete]);
 
     const selectAll = () => {
         // Select all photos currently visible in the sorted/filtered view
@@ -8328,14 +8335,14 @@ const CollectionDashboard = () => {
                 <div className="cd-modal-overlay" onClick={() => setShowDeleteConfirm(false)}>
                     <div className="cd-modal cd-modal-sm" onClick={(e) => e.stopPropagation()}>
                         <div className="cd-modal-header">
-                            <h3 className="cd-modal-title">DELETE PHOTOS</h3>
+                            <h3 className="cd-modal-title">{deleteConfirmCopy.title}</h3>
                             <button className="cd-modal-close" onClick={() => setShowDeleteConfirm(false)}>
                                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
                             </button>
                         </div>
                         <div className="cd-modal-body">
                             <p style={{ fontSize: '15px', color: '#444', lineHeight: '1.6', margin: '10px 0' }}>
-                                Are you sure you want to delete {photosToDelete.length} photo(s)? This action cannot be undone and will remove them from all sets.
+                                Are you sure you want to delete {deleteConfirmCopy.summary}? This action cannot be undone and will remove them from all sets.
                             </p>
                         </div>
                         <div className="cd-modal-footer">

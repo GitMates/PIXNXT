@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { getShareUrlForCollection, getQrCodeImageUrl, getShareUrlWarning } from '../../../lib/shareCollection';
 import { getFolderStudioUrl } from '../../../lib/folderStudioUrl';
+import '../../ui/AppAlert.css';
 import './CollectionShareModals.css';
 
 function ModalShell({ title, onClose, children }) {
@@ -93,25 +95,53 @@ export function CollectionQrModal({ collection, photographerProfile = null, isOp
     );
 }
 
-export function CollectionDuplicateModal({ collection, isOpen, onClose, onConfirm, busy }) {
-    if (!isOpen || !collection) return null;
+const DUPLICATE_MESSAGE = [
+    'Are you sure you want to duplicate this delivery?',
+    '',
+    'Duplicating a delivery may take a few minutes depending on the size.',
+    'Photos and videos in the new delivery may be temporarily unavailable while the process is running.',
+].join('\n');
 
-    return (
-        <ModalShell title="DUPLICATE DELIVERY" onClose={onClose}>
-            <p className="cgm-text">Are you sure you want to duplicate this delivery?</p>
-            <ul className="cgm-duplicate-notes">
-                <li>Duplicating a delivery may take a few minutes depending on the size.</li>
-                <li>Photos and videos in the new delivery may be temporarily unavailable while the process is running.</li>
-            </ul>
-            <div className="cgm-footer-actions">
-                <button type="button" className="cgm-btn-ghost" onClick={onClose} disabled={busy}>
-                    Cancel
-                </button>
-                <button type="button" className="cgm-btn-duplicate" onClick={onConfirm} disabled={busy}>
-                    {busy ? 'Duplicating…' : 'Duplicate'}
-                </button>
+export function CollectionDuplicateModal({ collection, isOpen, onClose, onConfirm, busy }) {
+    if (!isOpen || !collection || typeof document === 'undefined') return null;
+
+    return createPortal(
+        <div
+            className="pixnxt-alert-overlay"
+            role="alertdialog"
+            aria-modal="true"
+            aria-label="Duplicate delivery"
+            onClick={busy ? undefined : onClose}
+        >
+            <div className="pixnxt-alert" onClick={(e) => e.stopPropagation()}>
+                <div className="pixnxt-alert__head">
+                    <h3 className="pixnxt-alert__title">Duplicate delivery</h3>
+                </div>
+                <div className="pixnxt-alert__body">
+                    <p className="pixnxt-alert__message">{DUPLICATE_MESSAGE}</p>
+                </div>
+                <div className="pixnxt-alert__actions">
+                    <button
+                        type="button"
+                        className="pixnxt-alert__cancel"
+                        onClick={onClose}
+                        disabled={busy}
+                    >
+                        Cancel
+                    </button>
+                    <button
+                        type="button"
+                        className="pixnxt-alert__ok"
+                        onClick={onConfirm}
+                        disabled={busy}
+                        autoFocus
+                    >
+                        {busy ? 'Duplicating…' : 'Duplicate'}
+                    </button>
+                </div>
             </div>
-        </ModalShell>
+        </div>,
+        document.body,
     );
 }
 

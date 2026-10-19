@@ -50,3 +50,25 @@ export function partitionGalleryMedia<T extends GalleryPhotoLike>(photos: T[]) {
   }
   return { videos, photos: stills };
 }
+
+function pluralize(count: number, singular: string, plural: string) {
+  return `${count} ${count === 1 ? singular : plural}`;
+}
+
+/** Copy for the client-gallery delete confirmation modal. */
+export function describeGalleryMediaForDelete<T extends GalleryPhotoLike>(items: T[]) {
+  const { photos, videos } = countGalleryMedia(items);
+  if (videos > 0 && photos === 0) {
+    return { title: 'DELETE VIDEOS', summary: pluralize(videos, 'video', 'videos') };
+  }
+  if (photos > 0 && videos === 0) {
+    return { title: 'DELETE PHOTOS', summary: pluralize(photos, 'photo', 'photos') };
+  }
+  if (videos > 0 && photos > 0) {
+    return {
+      title: 'DELETE MEDIA',
+      summary: `${pluralize(videos, 'video', 'videos')} and ${pluralize(photos, 'photo', 'photos')}`,
+    };
+  }
+  return { title: 'DELETE MEDIA', summary: '0 items' };
+}
