@@ -40,6 +40,13 @@ import '../components/features/CollectionDashboard/DesignTab/DesignWorkspace.css
 import { PreviewPane } from '../components/features/CollectionDashboard/PreviewPane';
 import { ChangeCoverModal } from '../components/features/CollectionDashboard/CoverSettings/ChangeCoverModal';
 import { DeleteDeliveryModal } from '../components/features/ClientGallery/DeleteDeliveryModal';
+import {
+    clearCollectionPendingDelete,
+    markCollectionDeleteSettled,
+    rememberCreatedCollection,
+    removeCollectionFromBoard,
+    upsertCollectionOnBoard,
+} from '../lib/galleryBoardCache';
 import { GetDirectLinkModal } from '../components/features/CollectionDashboard/Share/GetDirectLinkModal';
 import { DeliverySharePublishPanel } from '../components/features/CollectionDashboard/Share/DeliverySharePublishPanel';
 import '../components/features/CollectionDashboard/Share/DeliverySharePublishPanel.css';
@@ -7644,6 +7651,7 @@ const CollectionDashboard = () => {
                     try {
                         setSaving(true);
                         const newRow = await galleryService.duplicateCollection(collectionId, photographerId);
+                        rememberCreatedCollection(photographerId, newRow);
                         setShowDuplicateModal(false);
                         navigate(`/deliveries/manage?id=${newRow.id}`);
                     } catch (err) {
@@ -7878,12 +7886,27 @@ const CollectionDashboard = () => {
                 }}
                 onConfirm={() => {
                     const deletedId = collectionId;
+                    const snapshot = collection;
+                    const photographerId = user?.id || snapshot?.photographer_id;
+                    if (photographerId) removeCollectionFromBoard(photographerId, deletedId);
                     setShowDeleteCollectionModal(false);
-                    navigate(backTo);
-                    void galleryService.deleteCollection(deletedId).catch((err) => {
-                        console.error('Failed to delete collection:', err);
-                        alert('Failed to delete delivery. Please try again.');
+                    navigate(DELIVERY_PRODUCT_HOME, {
+                        state: { removedDeliveryId: deletedId },
+                        replace: true,
                     });
+                    void galleryService
+                        .deleteCollection(deletedId, { coverUrl: snapshot?.cover_url })
+                        .then(() => {
+                            if (photographerId) markCollectionDeleteSettled(photographerId, deletedId);
+                        })
+                        .catch((err) => {
+                            console.error('Failed to delete collection:', err);
+                            if (photographerId && snapshot) {
+                                clearCollectionPendingDelete(photographerId, deletedId);
+                                upsertCollectionOnBoard(photographerId, snapshot);
+                            }
+                            alert(err?.message || 'Failed to delete delivery. Please try again.');
+                        });
                 }}
             />
             {/* Rename Modal */}

@@ -399,8 +399,8 @@ export const galleryService = {
   /**
    * Delete a collection and all associated files
    */
-  async deleteCollection(id) {
-    return (await workersGallery()).deleteCollection(id);
+  async deleteCollection(id, options) {
+    return (await workersGallery()).deleteCollection(id, options);
   },
 
   /**

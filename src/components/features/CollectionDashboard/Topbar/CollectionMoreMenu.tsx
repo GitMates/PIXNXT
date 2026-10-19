@@ -10,6 +10,13 @@ import { AppLoader } from '@/components/ui/AppLoading';
 import { GetDirectLinkModal } from '@/components/features/CollectionDashboard/Share/GetDirectLinkModal';
 import { DeleteDeliveryModal } from '@/components/features/ClientGallery/DeleteDeliveryModal';
 import { DELIVERY_PRODUCT_HOME } from '@/lib/deliveryIds';
+import {
+  clearCollectionPendingDelete,
+  markCollectionDeleteSettled,
+  rememberCreatedCollection,
+  removeCollectionFromBoard,
+  upsertCollectionOnBoard,
+} from '@/lib/galleryBoardCache';
 
 export interface CollectionMoreMenuProps {
   collectionId?: string | null;
@@ -651,6 +658,7 @@ export function CollectionMoreMenu({
           try {
             setBusy(true);
             const newRow = await galleryService.duplicateCollection(collectionId, photographerId);
+            rememberCreatedCollection(photographerId, newRow);
             setDuplicateOpen(false);
             navigate(`/deliveries/manage?id=${newRow.id}`);
           } catch (err) {
@@ -672,12 +680,33 @@ export function CollectionMoreMenu({
         onConfirm={() => {
           if (!collectionId) return;
           const deletedId = collectionId;
+          const snapshot = {
+            id: deletedId,
+            name: collectionName,
+            slug: collectionSlug,
+            photographer_id: photographerId,
+            folder_id: currentFolderId,
+            event_date: eventDate,
+          };
+          if (photographerId) removeCollectionFromBoard(photographerId, deletedId);
           setDeleteOpen(false);
-          navigate(DELIVERY_PRODUCT_HOME);
-          void galleryService.deleteCollection(deletedId).catch((err) => {
-            console.error(err);
-            alert('Failed to delete delivery.');
+          navigate(DELIVERY_PRODUCT_HOME, {
+            state: { removedDeliveryId: deletedId },
+            replace: true,
           });
+          void galleryService
+            .deleteCollection(deletedId, {})
+            .then(() => {
+              if (photographerId) markCollectionDeleteSettled(photographerId, deletedId);
+            })
+            .catch((err) => {
+              console.error(err);
+              if (photographerId) {
+                clearCollectionPendingDelete(photographerId, deletedId);
+                upsertCollectionOnBoard(photographerId, snapshot);
+              }
+              alert(err?.message || 'Failed to delete delivery.');
+            });
         }}
       />
     </div>

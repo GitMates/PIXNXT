@@ -21,31 +21,17 @@ import { CollectionContextMenu } from '../components/features/ClientGallery/Coll
 import { DeleteDeliveryModal } from '../components/features/ClientGallery/DeleteDeliveryModal';
 import { runOptimisticDelete } from '../lib/optimisticDelete';
 import { getCollectionCardCoverSrc } from '../lib/photoDisplayUrl';
-
-const GALLERY_BOARD_PREFIX = 'pixnxt_cg_board_';
-
-function readGalleryBoard(userId) {
-  if (!userId || typeof sessionStorage === 'undefined') return null;
-  try {
-    const raw = sessionStorage.getItem(`${GALLERY_BOARD_PREFIX}${userId}`);
-    const parsed = raw ? JSON.parse(raw) : null;
-    return Array.isArray(parsed?.collections) ? parsed : null;
-  } catch {
-    return null;
-  }
-}
-
-function writeGalleryBoard(userId, collections, folders) {
-  if (!userId) return;
-  try {
-    sessionStorage.setItem(`${GALLERY_BOARD_PREFIX}${userId}`, JSON.stringify({
-      collections: collections || [],
-      folders: folders || [],
-    }));
-  } catch {
-    /* ignore quota */
-  }
-}
+import {
+  clearCollectionPendingDelete,
+  filterPendingDeletedCollections,
+  markCollectionDeleteSettled,
+  mergeFetchedBoardCollections,
+  readGalleryBoard,
+  rememberCreatedCollection,
+  removeCollectionFromBoard,
+  upsertCollectionOnBoard,
+  writeGalleryBoard,
+} from '../lib/galleryBoardCache';
 import { FolderThumbGrid } from '../components/features/ClientGallery/FolderThumbGrid';
 import { EditCollectionModal } from '../components/features/ClientGallery/EditCollectionModal';
 import {
@@ -140,7 +126,9 @@ const ClientGallery = () => {
     const location = useLocation();
     const { user } = useAuth();
     const cachedBoard = readGalleryBoard(user?.id);
-    const [collections, setCollections] = useState(cachedBoard?.collections || []);
+    const [collections, setCollections] = useState(() =>
+        filterPendingDeletedCollections(user?.id, cachedBoard?.collections || []),
+    );
     const [folders, setFolders] = useState(cachedBoard?.folders || []);
     const [loading, setLoading] = useState(!cachedBoard);
     const [error, setError] = useState(null);
@@ -183,6 +171,7 @@ const ClientGallery = () => {
     const contextRef = useRef(null);
     const folderMenuRef = useRef(null);
     const selectionMenuRef = useRef(null);
+    const boardFetchGenRef = useRef(0);
 
     const selectedCollections = useMemo(
         () => collections.filter((c) => selectedCards.includes(c.id)),
@@ -242,7 +231,7 @@ const ClientGallery = () => {
         clearSelection();
         try {
             const [cols, fols] = await Promise.all([
-                galleryService.getCollections(user.id),
+                galleryService.getCollectionSummaries(user.id),
                 galleryService.listFoldersForGallery(user.id),
             ]);
             let extras = { submittedIds: new Set(), stuckIds: new Set(), earningsById: {} };
@@ -251,7 +240,9 @@ const ClientGallery = () => {
             } catch (extraErr) {
                 console.error('Delivery board extras failed:', extraErr);
             }
-            setCollections(attachBoardExtras(cols, extras));
+            setCollections(
+                mergeFetchedBoardCollections(user.id, attachBoardExtras(cols, extras)),
+            );
             setFolders(fols);
         } catch (e) {
             console.error(e);
@@ -277,39 +268,70 @@ const ClientGallery = () => {
             .catch(() => setPhotographerProfile(null));
     }, [user?.id]);
 
+    // Re-read board cache on every visit (e.g. after in-delivery delete navigates here).
     useEffect(() => {
+        if (!user?.id) return;
+        const removedId = location.state?.removedDeliveryId;
+        if (removedId) {
+            removeCollectionFromBoard(user.id, removedId);
+        }
+        const board = readGalleryBoard(user.id);
+        if (!board && !removedId) return;
+        setCollections(
+            filterPendingDeletedCollections(user.id, board?.collections || []),
+        );
+        if (board?.folders) setFolders(board.folders);
+        setLoading(false);
+    }, [user?.id, location.key, location.state?.removedDeliveryId]);
+
+    useEffect(() => {
+        if (!user) return undefined;
+        const gen = ++boardFetchGenRef.current;
         const fetchCollections = async () => {
-            if (!user) return;
-            
             try {
                 if (!readGalleryBoard(user.id)) setLoading(true);
                 setError(null);
                 const [data, folderRows] = await Promise.all([
-                    galleryService.getCollections(user.id),
+                    galleryService.getCollectionSummaries(user.id),
                     galleryService.listFoldersForGallery(user.id),
                 ]);
+                if (gen !== boardFetchGenRef.current) return;
                 let extras = { submittedIds: new Set(), stuckIds: new Set(), earningsById: {} };
                 try {
                     extras = await galleryService.getDeliveryBoardExtras(data.map((c) => c.id));
                 } catch (extraErr) {
                     console.error('Delivery board extras failed:', extraErr);
                 }
-                const nextCollections = attachBoardExtras(data, extras);
+                if (gen !== boardFetchGenRef.current) return;
+                const nextCollections = mergeFetchedBoardCollections(
+                    user.id,
+                    attachBoardExtras(data, extras),
+                );
                 setCollections(nextCollections);
                 setFolders(folderRows);
                 writeGalleryBoard(user.id, nextCollections, folderRows);
             } catch (err) {
+                if (gen !== boardFetchGenRef.current) return;
                 console.error('Error fetching collections:', err);
                 if (!readGalleryBoard(user.id)) {
                     setError('Failed to load deliveries. Please try again.');
                 }
             } finally {
-                setLoading(false);
+                if (gen === boardFetchGenRef.current) setLoading(false);
             }
         };
 
         fetchCollections();
-    }, [user]);
+        return () => {
+            boardFetchGenRef.current += 1;
+        };
+    }, [user?.id, location.key]);
+
+    // Keep sessionStorage board aligned with optimistic UI mutations.
+    useEffect(() => {
+        if (!user?.id || loading) return;
+        writeGalleryBoard(user.id, collections, folders);
+    }, [user?.id, collections, folders, loading]);
 
     const rootCollections = useMemo(
         () => collections.filter((c) => !c.folder_id),
@@ -563,6 +585,11 @@ const ClientGallery = () => {
                 duplicateCollection.id,
                 photographerId
             );
+            if (user?.id) rememberCreatedCollection(user.id, newRow);
+            setCollections((prev) => {
+                if (prev.some((c) => c.id === newRow.id)) return prev;
+                return [newRow, ...prev];
+            });
             setDuplicateCollection(null);
             navigate(`/deliveries/manage?id=${newRow.id}`);
         } catch (err) {
@@ -630,6 +657,8 @@ const ClientGallery = () => {
         setDeleteBusy(false);
         setLeavingId(collectionId);
 
+        if (user?.id) removeCollectionFromBoard(user.id, collectionId);
+
         runOptimisticDelete({
             onRemove: () => {
                 setCollections((prev) => prev.filter((c) => c.id !== collectionId));
@@ -639,13 +668,20 @@ const ClientGallery = () => {
             onError: (err) => {
                 console.error('Error deleting collection:', err);
                 setLeavingId(null);
+                if (user?.id) {
+                    clearCollectionPendingDelete(user.id, collectionId);
+                    upsertCollectionOnBoard(user.id, snapshot);
+                }
                 setCollections((prev) => {
                     if (prev.some((c) => c.id === collectionId)) return prev;
                     return [snapshot, ...prev];
                 });
                 alert(err?.message || 'Failed to delete delivery.');
             },
-            task: () => galleryService.deleteCollection(collectionId),
+            task: async () => {
+                await galleryService.deleteCollection(collectionId);
+                if (user?.id) markCollectionDeleteSettled(user.id, collectionId);
+            },
         });
     };
 
@@ -1211,7 +1247,7 @@ const ClientGallery = () => {
                         setMoveToCollection(null);
                         try {
                             const [cols, fols] = await Promise.all([
-                                galleryService.getCollections(user.id),
+                                galleryService.getCollectionSummaries(user.id),
                                 galleryService.listFoldersForGallery(user.id),
                             ]);
                             let extras = { submittedIds: new Set(), stuckIds: new Set(), earningsById: {} };
@@ -1220,7 +1256,12 @@ const ClientGallery = () => {
                             } catch (extraErr) {
                                 console.error('Delivery board extras failed:', extraErr);
                             }
-                            setCollections(attachBoardExtras(cols, extras));
+                            setCollections(
+                                mergeFetchedBoardCollections(
+                                    user.id,
+                                    attachBoardExtras(cols, extras),
+                                ),
+                            );
                             setFolders(fols);
                         } catch (e) {
                             console.error(e);

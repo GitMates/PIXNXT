@@ -9,6 +9,7 @@ import { photographerQuotaService } from '../services/photographerQuota.service'
 import { resolveUploadDefaults } from '../lib/uploadDefaults';
 import { guestDeliveryEventSettings } from '../lib/studioDefaults';
 import { getPublicGalleryUrl } from '../lib/publicSiteUrl';
+import { rememberCreatedCollection } from '../lib/galleryBoardCache';
 import {
     deliveryTemplatesFromList,
     describeTemplate,
@@ -392,6 +393,7 @@ const CreateCollection = () => {
                 });
             }
 
+            rememberCreatedCollection(user.id, created);
             navigate(`/deliveries/manage?id=${created.id}`);
         } catch (err) {
             console.error('Error creating collection:', err);

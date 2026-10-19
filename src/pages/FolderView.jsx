@@ -10,6 +10,13 @@ import { CollectionCardCover } from '../components/features/ClientGallery/Collec
 import { CollectionContextMenu } from '../components/features/ClientGallery/CollectionContextMenu';
 import { DeleteDeliveryModal } from '../components/features/ClientGallery/DeleteDeliveryModal';
 import { runOptimisticDelete } from '../lib/optimisticDelete';
+import {
+  clearCollectionPendingDelete,
+  markCollectionDeleteSettled,
+  rememberCreatedCollection,
+  removeCollectionFromBoard,
+  upsertCollectionOnBoard,
+} from '../lib/galleryBoardCache';
 import { getCollectionCardCoverSrc } from '../lib/photoDisplayUrl';
 import { defaultCoverGradient } from '../lib/defaultCoverGradient';
 import { EditCollectionModal } from '../components/features/ClientGallery/EditCollectionModal';
@@ -368,6 +375,8 @@ const FolderView = () => {
     setDeleteBusy(false);
     setLeavingId(collectionId);
 
+    if (user?.id) removeCollectionFromBoard(user.id, collectionId);
+
     runOptimisticDelete({
       onRemove: () => {
         setCollections((prev) => prev.filter((c) => c.id !== collectionId));
@@ -377,13 +386,20 @@ const FolderView = () => {
       onError: (err) => {
         console.error(err);
         setLeavingId(null);
+        if (user?.id) {
+          clearCollectionPendingDelete(user.id, collectionId);
+          upsertCollectionOnBoard(user.id, snapshot);
+        }
         setCollections((prev) => {
           if (prev.some((c) => c.id === collectionId)) return prev;
           return [snapshot, ...prev];
         });
         alert(err?.message || 'Failed to delete delivery.');
       },
-      task: () => galleryService.deleteCollection(collectionId),
+      task: async () => {
+        await galleryService.deleteCollection(collectionId);
+        if (user?.id) markCollectionDeleteSettled(user.id, collectionId);
+      },
     });
   };
 
@@ -396,6 +412,7 @@ const FolderView = () => {
         duplicateCollection.id,
         photographerId
       );
+      rememberCreatedCollection(user.id, newRow);
       setDuplicateCollection(null);
       navigate(`/deliveries/manage?id=${newRow.id}`);
     } catch (err) {

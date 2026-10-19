@@ -19,7 +19,10 @@ async function mapRows(rows) {
 export async function getCollections(photographerId) {
   if (!photographerId) return [];
   const data = await apiFetch('/v1/galleries/dashboard?files=1');
-  return mapRows((data?.galleries || []).filter((g) => g.photographer_id === photographerId));
+  const pid = String(photographerId);
+  return mapRows(
+    (data?.galleries || []).filter((g) => String(g.photographer_id ?? '') === pid),
+  );
 }
 
 /**
@@ -30,7 +33,8 @@ export async function getCollections(photographerId) {
 export async function getCollectionSummaries(photographerId) {
   if (!photographerId) return [];
   const data = await apiFetch('/v1/galleries?limit=100');
-  const rows = (data?.galleries || []).filter((g) => g.photographer_id === photographerId);
+  const pid = String(photographerId);
+  const rows = (data?.galleries || []).filter((g) => String(g.photographer_id ?? '') === pid);
   const { mapCollectionDashboardRow } = await maps();
   return rows.map((r) => mapCollectionDashboardRow({ ...r, photos: r.photos ?? [] }));
 }
@@ -327,13 +331,14 @@ export async function updateCollectionStatus(id, status) {
   return keepCoverOnlyIfPatched(data?.gallery, { status });
 }
 
-export async function deleteCollection(id) {
-  const dashboard = await getCollectionDashboardData(id).catch(() => null);
-  const coverPath = dashboard?.cover_url ? pathFromPublicUrl(dashboard.cover_url) : null;
+export async function deleteCollection(id, { coverUrl } = {}) {
+  // Never block DELETE on a full dashboard load — that caused multi-minute lag
+  // and let stale list refetches resurrect cards on the client gallery board.
+  const coverPath = coverUrl ? pathFromPublicUrl(coverUrl) : null;
   await apiFetch(`/v1/galleries/${id}`, {
     method: 'DELETE',
     body: coverPath ? { coverPath } : {},
-  }).catch(() => {});
+  });
   try {
     const { photographerQuotaService } = await import('./photographerQuota.service');
     photographerQuotaService.notifyQuotaChanged?.();

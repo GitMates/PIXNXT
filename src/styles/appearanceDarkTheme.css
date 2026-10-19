@@ -5179,6 +5179,13 @@ body.dark-theme .theme-mono.cd-dashboard-shell .cdsb-cover-wrap .cd-cover-image:
   background: var(--bg-surface);
 }
 
+body.dark-theme .theme-mono.cd-dashboard-shell .cd-sidebar-cover-field-label,
+body.dark-theme .cd-sidebar-cover-field-label {
+  background: var(--bg-surface);
+  color: var(--cdsb-muted, var(--text-secondary));
+  border-top: 1px solid var(--cdsb-line, var(--border-card));
+}
+
 body.dark-theme .theme-mono.cd-dashboard-shell .cdsb-nav__section,
 body.dark-theme .theme-mono.cd-dashboard-shell .cdsb-nav__section-meta {
   color: var(--cdsb-muted);
