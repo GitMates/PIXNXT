@@ -7,6 +7,7 @@ import {
 } from './lib/appearanceTheme';
 import Header from './components/Header';
 import Footer from './components/Footer';
+import DesktopRequiredGate from './components/DesktopRequiredGate';
 import Home from './pages/Home';
 import Dashboard from './pages/Dashboard';
 import ClientGallery from './pages/ClientGallery';
@@ -171,6 +172,7 @@ function App() {
   }, []);
 
   const hideLayout =
+    location.pathname === '/' ||
     location.pathname === '/auth' ||
     location.pathname === '/auth/google/callback' ||
     location.pathname === '/auth/success' ||
@@ -273,6 +275,7 @@ function App() {
   return (
     <UploadQueueProvider>
       <UploadQueueRouteSync />
+      <DesktopRequiredGate>
       <div className="app">
         {!hideLayout && <Header />}
 
@@ -381,6 +384,7 @@ function App() {
         {!hideLayout && <Footer />}
         <GlobalUploadShell />
       </div>
+      </DesktopRequiredGate>
     </UploadQueueProvider>
   );
 }

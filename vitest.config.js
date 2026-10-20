@@ -13,6 +13,7 @@ export default defineConfig({
       'src/lib/galleryMediaType.test.ts',
       'src/lib/deliveryDuplicate.test.js',
       'src/lib/galleryBoardCache.test.js',
+      'src/lib/desktopOnly.test.js',
       'src/components/features/CollectionDashboard/Upload/**/*.test.{js,ts}',
       'src/__smoke.test.js',
       'src/components/admin/**/*.test.{js,ts}',

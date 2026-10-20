@@ -1,0 +1,249 @@
+<!doctype html>
+<!-- Background: data-bg="grain" (paper texture) or "glow" (soft peach light) -->
+<html lang="en" data-bg="grain">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>PIXNXT — Private beta</title>
+<meta name="description" content="PIXNXT is a delivery platform for photographers — galleries, album proofing, guest delivery and prints. Now in private beta.">
+<meta property="og:title" content="PIXNXT — Private beta">
+<meta property="og:description" content="Galleries, album proofing, guest delivery and prints — built for photographers.">
+<meta property="og:url" content="https://pixnxt.in">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="PIXNXT">
+<meta property="og:image" content="https://pixnxt.in/og-image.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="canonical" href="https://pixnxt.in/">
+<meta name="theme-color" content="#FBF6EE">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 640 640'%3E%3Crect width='640' height='640' fill='%23B7682A'/%3E%3Cpath transform='translate(136 112)' fill='%23fff' d='M0 5h49v313L358 0h10v412h-49V101L10 418H0z'/%3E%3C/svg%3E">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;1,9..144,300&family=Jost:wght@400;500&family=Plus+Jakarta+Sans:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  /* ---------- theme tokens ---------- */
+  :root{
+    --terracotta:#B7682A; --peach:#F3B68C; --cream:#FBF6EE;
+    --bg:var(--cream); --ink:#2A211B; --muted:#7A6A5D; --line:rgba(42,33,27,.14);
+    --accent:var(--terracotta); --accent-2:var(--peach); --pill:rgba(42,33,27,.14);
+  }
+
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%;overflow:hidden}
+  body{
+    background:var(--bg);color:var(--ink);
+    font-family:"Plus Jakarta Sans",system-ui,sans-serif;
+    -webkit-font-smoothing:antialiased;transition:background .4s,color .4s;
+  }
+  body::before,body::after{content:"";position:fixed;pointer-events:none;inset:0}
+
+  /* ---------- backgrounds ---------- */
+  /* 1. Glow — soft peach light */
+  [data-bg="glow"] body::before{inset:-20%;background:radial-gradient(40% 35% at 70% 30%,rgba(243,182,140,.26),transparent 70%)}
+
+  /* 2. Grain — fine print / film paper */
+  [data-bg="grain"] body::before{background:radial-gradient(120% 90% at 50% 40%,transparent 55%,rgba(122,90,60,.10))}
+  [data-bg="grain"] body::after{
+    opacity:.5;mix-blend-mode:multiply;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .45 0 0 0 0 .35 0 0 0 0 .25 0 0 0 .55 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+
+
+
+  /* ---------- layout ---------- */
+  .page{
+    position:relative;z-index:1;height:100vh;height:100dvh;
+    display:grid;grid-template-rows:auto 1fr auto;
+    padding:clamp(20px,4vw,40px) clamp(20px,5vw,56px);
+  }
+  header{display:flex;align-items:center;justify-content:space-between}
+  .wordmark{display:block;line-height:0}
+  .wordmark svg{height:clamp(13px,1.6vw,17px);width:auto;fill:var(--accent);transition:fill .4s}
+  .signin{
+    font-family:"Jost",sans-serif;font-size:13px;letter-spacing:.14em;text-transform:uppercase;
+    color:var(--ink);text-decoration:none;padding:9px 16px;border:1px solid var(--pill);border-radius:999px;
+    transition:border-color .2s .5s,color .2s;position:relative;
+  }
+  .signin:hover{border-color:var(--accent);color:var(--accent)}
+  .signin::after{                       /* the same terracotta beam, travelling round the pill */
+    content:"";position:absolute;inset:-1px;border-radius:inherit;padding:1.5px;pointer-events:none;opacity:0;
+    background:linear-gradient(90deg,transparent 30%,var(--accent) 47%,var(--accent-2) 53%,transparent 70%) 100% 0/250% 100% no-repeat;
+    -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;
+            mask:linear-gradient(#000 0 0) content-box exclude,linear-gradient(#000 0 0);
+  }
+  .signin:hover::after{animation:pill 1s cubic-bezier(.3,.6,.25,1) forwards}
+  @keyframes pill{0%{opacity:1;background-position:100% 0}80%{opacity:1}100%{opacity:0;background-position:0 0}}
+
+  main{display:flex;flex-direction:column;justify-content:center;width:100%;max-width:1040px}
+  .status{
+    display:inline-flex;align-items:center;gap:10px;margin-bottom:28px;
+    font-family:"Jost",sans-serif;font-size:12px;letter-spacing:.2em;text-transform:uppercase;color:var(--muted);
+  }
+  .status::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--accent)}
+  h1{font-family:"Fraunces",serif;font-weight:300;font-size:clamp(38px,7vw,86px);line-height:1.04;letter-spacing:-.02em}
+  .rotator{display:block;position:relative;height:1.12em;overflow:hidden;color:var(--accent);font-style:italic}
+  .rotator b{
+    position:absolute;left:0;top:0;font-weight:300;white-space:nowrap;
+    transform:translateY(105%);opacity:0;transition:transform .7s cubic-bezier(.2,.7,.2,1),opacity .7s;
+  }
+  .rotator b.on{transform:translateY(0);opacity:1}
+  .rotator b.off{transform:translateY(-105%);opacity:0}
+  .sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+  .sub{margin-top:26px;max-width:460px;font-size:clamp(15px,1.6vw,17px);line-height:1.6;color:var(--muted)}
+
+  /* ---------- loader line + flash ---------- */
+  .flash{position:relative;margin-top:48px;height:20px;width:100%;--mark-x:70%}
+  .track{
+    position:absolute;left:0;right:0;top:50%;height:1px;background:var(--line);overflow:hidden;
+    /* gap in the line where the mark sits (5%) */
+    -webkit-mask-image:linear-gradient(90deg,#000 calc(var(--mark-x) - 19px),transparent calc(var(--mark-x) - 19px),transparent calc(var(--mark-x) + 19px),#000 calc(var(--mark-x) + 19px));
+            mask-image:linear-gradient(90deg,#000 calc(var(--mark-x) - 19px),transparent calc(var(--mark-x) - 19px),transparent calc(var(--mark-x) + 19px),#000 calc(var(--mark-x) + 19px));
+  }
+  .beam{
+    position:absolute;top:0;left:-24%;width:24%;height:1px;opacity:0;
+    background:linear-gradient(90deg,transparent,var(--accent) 70%,var(--accent-2));
+  }
+  .mark{position:absolute;left:var(--mark-x);top:50%;width:19px;height:22px;transform:translate(-50%,-50%)}
+  .mark{cursor:pointer;-webkit-tap-highlight-color:transparent}
+  .mark .hit{position:absolute;inset:-16px -16px;z-index:2}
+  .mark svg{position:relative;z-index:1;display:block;width:100%;height:100%;fill:var(--accent);opacity:.25;transition:opacity .25s}
+  .mark:hover svg{opacity:.5}
+  .mark::before{
+    content:"";position:absolute;left:50%;top:50%;width:140px;height:140px;margin:-70px 0 0 -70px;
+    border-radius:50%;opacity:0;transform:scale(.15);pointer-events:none;
+    background:radial-gradient(circle,rgba(255,252,246,1) 0%,rgba(243,182,140,.55) 32%,rgba(243,182,140,0) 68%);
+  }
+  .flash.fire .mark svg{animation:mark 1.6s cubic-bezier(.1,.8,.2,1)}
+  .flash.fire .mark::before{animation:bloom 1.3s cubic-bezier(.1,.8,.2,1)}
+  @keyframes mark{
+    0%{opacity:.25}
+    4%{opacity:1;filter:drop-shadow(0 0 6px rgba(255,248,236,1)) drop-shadow(0 0 14px rgba(243,182,140,.9))}
+    100%{opacity:.25;filter:none}
+  }
+  @keyframes bloom{0%{opacity:0;transform:scale(.15)}4%{opacity:1;transform:scale(1)}100%{opacity:0;transform:scale(1.5)}}
+
+  .flash-note{margin-top:12px;font-family:"Jost",sans-serif;font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+
+  footer{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;flex-wrap:wrap;
+    font-family:"Jost",sans-serif;font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+  footer a{color:var(--ink);text-decoration:none;border-bottom:1px solid var(--accent-2);padding-bottom:2px}
+  footer a:hover{color:var(--accent);border-color:var(--accent)}
+
+  @media (max-width:560px){
+    .signin{padding:8px 12px;font-size:12px}
+    .status{margin-bottom:20px}
+    .flash{margin-top:36px;--mark-x:50%}
+    footer{font-size:11px}
+  }
+  @media (max-height:600px){
+    html,body{height:auto;overflow:visible}
+    .page{height:auto;min-height:100dvh;row-gap:28px}
+  }
+  @media (prefers-reduced-motion:reduce){
+    .rotator b{transition:none}
+    .mark svg{opacity:.7}
+  }
+
+</style>
+</head>
+<body>
+<div class="page">
+  <header>
+    <a class="wordmark" href="/" aria-label="PIXNXT">
+      <svg viewBox="0 0 2576 452" aria-hidden="true">
+        <path fill-rule="evenodd" d="M17 22h153c85 0 140 38 140 121v14c0 83-55 121-140 121H66v150H17zM66 67v167h99c60 0 95-27 95-79v-10c0-52-35-78-95-78z"/>
+        <path d="M489 22h50v407h-50z"/>
+        <path d="M708 22h60l110 153 110-153h60L907 214l157 215h-60L876 253 752 429h-60l156-215z"/>
+        <path d="M1217 22h49v313l309-318h10v412h-49V118l-309 317h-10z"/>
+        <path d="M1754 22h60l110 153 110-153h60l-141 192 157 215h-60l-128-176-124 176h-60l156-215z"/>
+        <path d="M2219 22h338v46h-144v361h-50V68h-144z"/>
+      </svg>
+    </a>
+    <!-- Point this at the real beta login URL -->
+    <a class="signin" href="https://app.pixnxt.in">Beta sign in</a>
+  </header>
+
+  <main>
+    <div class="status">Private beta · Invite only</div>
+    <h1>
+      Every frame,<br>
+      <span class="sr-only">beautifully delivered, proofed, shared and printed.</span>
+      <span class="rotator" aria-hidden="true">
+        <b class="on">beautifully delivered.</b>
+        <b>proofed in one place.</b>
+        <b>found by every guest.</b>
+        <b>printed to last.</b>
+      </span>
+    </h1>
+    <p class="sub">Galleries, album proofing, guest delivery and prints — one place to hand over your work.</p>
+
+    <div class="flash" id="flash" aria-hidden="true">
+      <div class="track"><i class="beam" id="beam"></i></div>
+      <span class="mark" title="Take a shot"><i class="hit"></i><svg viewBox="0 0 368 418"><path d="M0 5h49v313L358 0h10v412h-49V101L10 418H0z"/></svg></span>
+    </div>
+    <p class="flash-note">In private beta with working photographers</p>
+  </main>
+
+  <footer>
+    <span>© 2026 Pixnxt</span>
+    <!-- Replace with the real invite address or WhatsApp link -->
+    <span>Photographer? <a href="mailto:hello@pixnxt.in?subject=PIXNXT%20beta%20invite">Request an invite</a></span>
+  </footer>
+</div>
+
+<script>
+  (function(){
+    var reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+
+    // rotating headline
+    var items=[].slice.call(document.querySelectorAll('.rotator b')), i=0;
+    if(items.length>1 && !reduce){
+      setInterval(function(){
+        var cur=items[i], next=items[(i+1)%items.length];
+        cur.classList.remove('on'); cur.classList.add('off');
+        next.classList.remove('off'); next.classList.add('on');
+        setTimeout(function(){cur.classList.remove('off')},750);
+        i=(i+1)%items.length;
+      },2800);
+    }
+
+    // loader beam -> flash when its head reaches the mark
+    var f=document.getElementById('flash'), beam=document.getElementById('beam'), mark=f && f.querySelector('.mark');
+    // hover (mouse) or tap (touch) the mark to fire the flash yourself
+    var lastShot=0;
+    function shoot(){ var n=Date.now(); if(n-lastShot<450) return; lastShot=n; fire(); }
+    if(mark){
+      mark.addEventListener('pointerenter',function(e){ if(e.pointerType==='mouse') shoot(); });
+      mark.addEventListener('pointerdown',shoot);
+    }
+    if(!f || reduce) return;
+    var W=24, RUN=3000, REST=1200, start=null, fired=false, firedAt=0;
+    function markPct(){ return (mark.offsetLeft / f.offsetWidth) * 100; }
+    function ease(p){ return -(Math.cos(Math.PI*p)-1)/2; }
+    function fire(){
+      f.classList.remove('fire'); void f.offsetWidth; f.classList.add('fire');
+    }
+
+    function frame(t){
+      if(start===null) start=t;
+      var el=t-start, p=el/RUN;
+      if(p<=1){
+        var head=ease(p)*(100+W);             // leading edge, % of line
+        beam.style.left=(head-W)+'%';
+        if(!fired && head>=markPct()){ fired=true; firedAt=p; fire(); }
+        beam.style.opacity = fired ? (1 - .75*((p-firedAt)/(1-firedAt))) : .45;
+      } else {
+        beam.style.opacity=0;
+        if(el>RUN+REST){ start=t; fired=false; }
+      }
+      requestAnimationFrame(frame);
+    }
+    requestAnimationFrame(frame);
+  })();
+</script>
+</body>
+</html>
