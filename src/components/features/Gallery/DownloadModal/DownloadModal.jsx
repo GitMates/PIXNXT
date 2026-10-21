@@ -19,6 +19,11 @@ import {
   isGoogleDriveSignInRestrictedError,
   saveGalleryToGoogleDrive,
 } from '@/lib/googleDriveUpload';
+import {
+  isDropboxConfigured,
+  getDropboxSetupMessage,
+  saveGalleryToDropbox,
+} from '@/lib/dropboxUpload';
 import { getPhotoVideoSrc, isVideoMedia } from '@/lib/photoDisplayUrl';
 import {
   isDigitalDownloadEnabled,
@@ -234,6 +239,7 @@ export const DownloadModal = ({
   const [googleSignInPending, setGoogleSignInPending] = useState(false);
 
   const googleDriveAvailable = isGoogleDriveConfigured();
+  const dropboxAvailable = isDropboxConfigured();
 
   const pin = pinDigits.join('');
 
@@ -459,6 +465,8 @@ export const DownloadModal = ({
   const destinationHint =
     downloadDestination === 'google_drive'
       ? 'Prepared, then saved to Google Drive'
+      : downloadDestination === 'dropbox'
+      ? 'Prepared, then saved to Dropbox'
       : 'Prepared, then downloaded to this device';
 
   const localWhereDesc =
@@ -836,6 +844,62 @@ export const DownloadModal = ({
         });
 
         window.open(openUrl, '_blank', 'noopener,noreferrer');
+      } else if (effectiveDestination === 'dropbox') {
+        if (!dropboxAvailable) {
+          throw new Error(getDropboxSetupMessage());
+        }
+
+        setProgress(0);
+        setStatusText(
+          'Sign in with Dropbox in the popup window. Anyone can download using “Save to this device” without signing in.'
+        );
+
+        const dropboxResult = await saveGalleryToDropbox(photosToDownload, {
+          collectionName: collection.name || 'gallery',
+          resolution: resolutionChoice,
+          videoResolution: collection?.video_download_resolution,
+          concurrency: resolveDownloadConcurrency(photosToDownload.length),
+          isStale,
+          onAuthStart: () => {
+            if (!isStale()) {
+              setProgress(0);
+              setStatusText('Waiting for Dropbox sign-in… Complete the popup to authorize.');
+            }
+          },
+          onAuthComplete: () => {
+            if (!isStale()) {
+              setProgress(0);
+              completedCountRef.current = 0;
+              setStatusText(`Preparing ${total} files for Dropbox…`);
+            }
+          },
+          onUploadPhase: (message) => {
+            if (!isStale()) setStatusText(message);
+          },
+          onProgress: (pct) => {
+            if (!isStale()) setProgressMonotonic(pct);
+          },
+        });
+
+        if (isStale()) return;
+
+        setProgressMonotonic(100);
+        setStatusText('Saved to Dropbox');
+        const openUrl = dropboxResult.folderUrl;
+        if (dropboxResult.uploaded < photosToDownload.length) {
+          throw new Error(
+            `Only ${dropboxResult.uploaded} of ${photosToDownload.length} files were uploaded. Some files could not be fetched from storage.`
+          );
+        }
+
+        setDownloadCompleteMeta({
+          isZip: false,
+          total: dropboxResult.uploaded,
+          destination: 'dropbox',
+          driveFileUrl: openUrl,
+        });
+
+        if (openUrl) window.open(openUrl, '_blank', 'noopener,noreferrer');
       } else if (total === 1) {
         const photo = photosToDownload[0];
         setProgressMonotonic(50);
@@ -1219,11 +1283,35 @@ export const DownloadModal = ({
                       <span className="dl-where-row__connect">Connect</span>
                     ) : null}
                   </button>
+
+                  <button
+                    type="button"
+                    className={cn('dl-where-row', downloadDestination === 'dropbox' && 'is-active')}
+                    onClick={() => {
+                      setDownloadDestination('dropbox');
+                      setError('');
+                    }}
+                  >
+                    <Cloud size={16} strokeWidth={1.5} className="dl-where-row__icon" />
+                    <span className="dl-where-row__copy">
+                      <span className="dl-where-row__title">Dropbox</span>
+                      <span className="dl-where-row__desc">Straight to your Dropbox folder</span>
+                    </span>
+                    {downloadDestination !== 'dropbox' ? (
+                      <span className="dl-where-row__connect">Connect</span>
+                    ) : null}
+                  </button>
                 </div>
 
                 {!googleDriveAvailable && downloadDestination === 'google_drive' ? (
                   <p className="dl-modal-note" style={{ marginTop: '0.55rem', color: '#92400e' }}>
                     {getGoogleDriveSetupMessage()}
+                  </p>
+                ) : null}
+
+                {!dropboxAvailable && downloadDestination === 'dropbox' ? (
+                  <p className="dl-modal-note" style={{ marginTop: '0.55rem', color: '#92400e' }}>
+                    {getDropboxSetupMessage()}
                   </p>
                 ) : null}
               </section>
@@ -1648,6 +1736,18 @@ export const DownloadModal = ({
                     className="mb-6 inline-block text-[14px] font-bold uppercase tracking-[0.15em] text-zinc-800 underline underline-offset-2 hover:text-zinc-950"
                   >
                     Open in Google Drive
+                  </a>
+                ) : null}
+
+                {downloadCompleteMeta.destination === 'dropbox' &&
+                downloadCompleteMeta.driveFileUrl ? (
+                  <a
+                    href={downloadCompleteMeta.driveFileUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mb-6 inline-block text-[14px] font-bold uppercase tracking-[0.15em] text-zinc-800 underline underline-offset-2 hover:text-zinc-950"
+                  >
+                    Open in Dropbox
                   </a>
                 ) : null}
 

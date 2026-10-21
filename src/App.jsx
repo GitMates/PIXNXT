@@ -47,7 +47,9 @@ import AdminUsageManagement from './pages/admin/AdminUsageManagement';
 import { AdminProtectedRoute } from './components/admin/AdminProtectedRoute';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { UploadQueueProvider, UploadQueueRouteSync } from './contexts/uploadQueue';
+import { DeliveryDownloadProvider } from './contexts/DeliveryDownloadProvider';
 import { GlobalUploadShell } from './components/features/CollectionDashboard/Upload/GlobalUploadShell';
+import { GlobalDeliveryDownloadShell } from './components/features/CollectionDashboard/Modals/GlobalDeliveryDownloadShell';
 import PrintStoreApp from './printstore/PrintStoreApp';
 import LabApp from './printstore/lab/LabApp';
 import PhotographerApp from './printstore/photographer/PhotographerApp';
@@ -274,6 +276,7 @@ function App() {
 
   return (
     <UploadQueueProvider>
+      <DeliveryDownloadProvider>
       <UploadQueueRouteSync />
       <DesktopRequiredGate>
       <div className="app">
@@ -383,8 +386,10 @@ function App() {
 
         {!hideLayout && <Footer />}
         <GlobalUploadShell />
+        <GlobalDeliveryDownloadShell />
       </div>
       </DesktopRequiredGate>
+      </DeliveryDownloadProvider>
     </UploadQueueProvider>
   );
 }

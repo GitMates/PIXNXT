@@ -29,6 +29,8 @@ export interface CollectionMoreMenuProps {
   pinValue?: string;
   clientPasswordDisplay?: string;
   onOpenDownloadSettings?: () => void;
+  onDownloadEverything?: () => void;
+  onDownloadSet?: () => void;
   onOpenAccessSettings?: () => void;
   onPasswordChange?: (value: string) => void;
   onPinChange?: (value: string) => void;
@@ -53,6 +55,8 @@ export function CollectionMoreMenu({
   pinValue = '',
   clientPasswordDisplay = '',
   onOpenDownloadSettings,
+  onDownloadEverything,
+  onDownloadSet,
   onOpenAccessSettings,
   onPasswordChange,
   onPinChange,
@@ -329,7 +333,7 @@ export function CollectionMoreMenu({
             role="menuitem"
             onClick={() => {
               closeAll();
-              onOpenDownloadSettings?.();
+              (onDownloadEverything || onOpenDownloadSettings)?.();
             }}
           >
             <span>Download everything</span>
@@ -341,7 +345,7 @@ export function CollectionMoreMenu({
             role="menuitem"
             onClick={() => {
               closeAll();
-              onOpenDownloadSettings?.();
+              (onDownloadSet || onOpenDownloadSettings)?.();
             }}
           >
             <span>Download a set...</span>

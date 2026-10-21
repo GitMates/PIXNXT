@@ -39,6 +39,8 @@ export const DashboardTopbar: React.FC<DashboardTopbarProps> = ({
             pinValue={moreMenu.pinValue}
             clientPasswordDisplay={moreMenu.clientPasswordDisplay}
             onOpenDownloadSettings={moreMenu.onOpenDownloadSettings}
+            onDownloadEverything={moreMenu.onDownloadEverything}
+            onDownloadSet={moreMenu.onDownloadSet}
           />
         )}
         <button type="button" className="cd-topbar-btn preview-btn" onClick={onPreview}>

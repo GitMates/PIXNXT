@@ -81,6 +81,58 @@ function parseProxyUrl(url) {
   return null;
 }
 
+function encodeMediaKeyPath(key) {
+  return String(key || '')
+    .replace(/^\/+/, '')
+    .split('/')
+    .filter(Boolean)
+    .map((seg) => {
+      try {
+        return encodeURIComponent(decodeURIComponent(seg));
+      } catch {
+        return encodeURIComponent(seg);
+      }
+    })
+    .join('/');
+}
+
+function mediaKeyFromUrl(url) {
+  if (!url) return '';
+  if (!/^https?:\/\//i.test(url)) {
+    return String(url).replace(/^\/+/, '').replace(/^v1\/r2\/media\//, '');
+  }
+  try {
+    const parsed = new URL(url);
+    const queryPath = parsed.searchParams.get('path');
+    if (queryPath) return queryPath.replace(/^\/+/, '');
+    let path = decodeURIComponent(parsed.pathname || '').replace(/^\/+/, '');
+    const marker = 'v1/r2/media/';
+    const at = path.indexOf(marker);
+    if (at >= 0) return path.slice(at + marker.length);
+    const host = String(parsed.hostname || '').toLowerCase();
+    if (host.endsWith('.r2.dev') || host.endsWith('.r2.cloudflarestorage.com') || host.includes('r2.dev')) {
+      return path;
+    }
+    if (path.startsWith('users/')) return path;
+  } catch {
+    /* ignore */
+  }
+  return '';
+}
+
+/**
+ * Localhost must fetch `/v1/r2/media/<key>` through Vite so the request is
+ * same-origin. Query `?path=users%2F...` 404s in Chrome as "file wasn't available".
+ */
+export function toSameOriginPathStyleMediaUrl(url) {
+  if (!url || typeof window === 'undefined' || !window.location?.origin) return '';
+  const host = String(window.location.hostname || '').toLowerCase();
+  if (host !== 'localhost' && host !== '127.0.0.1' && !host.endsWith('.localhost')) return '';
+  const key = mediaKeyFromUrl(getProxiedMediaFetchUrl(url) || url) || mediaKeyFromUrl(url);
+  if (!key) return '';
+  return `${window.location.origin}${WORKER_MEDIA_PATH}/${encodeMediaKeyPath(key)}`;
+}
+
 /** Rewrite an R2 key (+ carried query such as download=1) to a Worker media proxy URL. */
 function toProxyUrl(pathAndQuery) {
   const base = mediaProxyBase();

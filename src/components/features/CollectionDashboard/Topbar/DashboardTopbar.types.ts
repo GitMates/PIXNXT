@@ -16,5 +16,7 @@ export interface DashboardTopbarProps {
     pinValue?: string;
     clientPasswordDisplay?: string;
     onOpenDownloadSettings?: () => void;
+    onDownloadEverything?: () => void;
+    onDownloadSet?: () => void;
   };
 }

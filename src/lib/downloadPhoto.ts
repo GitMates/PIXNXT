@@ -10,7 +10,7 @@ import {
   getRawPreviewUrl,
 } from './photoDisplayUrl';
 import { getStoreOriginalDownloadUrlCandidates } from './storePhotoQuality';
-import { getProxiedMediaFetchUrl } from './r2MediaProxy';
+import { getProxiedMediaFetchUrl, toSameOriginPathStyleMediaUrl } from './r2MediaProxy';
 import { applyWatermarkToBlob } from './watermarkUtils';
 
 const DEFAULT_FETCH_TIMEOUT_MS = 120_000;
@@ -101,41 +101,50 @@ export interface DownloadZipResult {
 /**
  * Fetch with timeout so one slow/hung R2 object cannot block the whole zip.
  */
+function mediaFetchUrls(url: string): string[] {
+  const out: string[] = [];
+  const push = (value?: string) => {
+    if (value && !out.includes(value)) out.push(value);
+  };
+  push(toSameOriginPathStyleMediaUrl(url));
+  push(getProxiedMediaFetchUrl(url));
+  push(url);
+  return out;
+}
+
 export async function fetchArrayBufferWithTimeout(
   url: string,
   timeoutMs = DEFAULT_FETCH_TIMEOUT_MS
 ): Promise<ArrayBuffer> {
-  const fetchUrl = getProxiedMediaFetchUrl(url);
+  const headerTimeoutMs = Math.min(Math.max(timeoutMs || DEFAULT_FETCH_TIMEOUT_MS, 8_000), 20_000);
   let lastError: unknown;
-  for (let attempt = 0; attempt < FETCH_ATTEMPTS_PER_URL; attempt += 1) {
+  for (const fetchUrl of mediaFetchUrls(url)) {
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    const timer = setTimeout(() => controller.abort(), headerTimeoutMs);
     try {
       const response = await fetch(fetchUrl, {
         cache: 'no-store',
-        credentials: 'same-origin',
+        credentials: 'omit',
         signal: controller.signal,
       });
+      clearTimeout(timer);
       if (!response.ok) {
-        const err = new Error(`HTTP ${response.status}`);
-        if (FETCH_RETRY_STATUSES.has(response.status) && attempt < FETCH_ATTEMPTS_PER_URL - 1) {
-          lastError = err;
-          await sleep(200 * (attempt + 1));
-          continue;
-        }
-        throw err;
+        lastError = new Error(`HTTP ${response.status}`);
+        continue;
+      }
+      const type = String(response.headers.get('content-type') || '');
+      if (/json|text\/html/i.test(type)) {
+        lastError = new Error(`Non-media response ${type}`);
+        continue;
       }
       const buffer = await response.arrayBuffer();
-      if (!buffer.byteLength) throw new Error('Empty response');
+      if (!buffer.byteLength) {
+        lastError = new Error('Empty response');
+        continue;
+      }
       return buffer;
     } catch (err) {
       lastError = err;
-      if (attempt < FETCH_ATTEMPTS_PER_URL - 1) {
-        await sleep(200 * (attempt + 1));
-        continue;
-      }
-      throw err;
-    } finally {
       clearTimeout(timer);
     }
   }
@@ -301,6 +310,7 @@ export interface FetchPhotoBlobOptions {
   resolution?: 'web' | 'full' | 'original';
   /** Select which quality derivative to download for films/videos. */
   videoResolution?: '1080p' | '4k' | 'none' | string;
+  timeoutMs?: number;
 }
 
 function pushResolvedUrl(out: string[], seen: Set<string>, url: string | undefined | null) {
@@ -395,7 +405,7 @@ export async function fetchPhotoArrayBuffer(
 
   for (const url of urls) {
     try {
-      const buffer = await fetchArrayBufferWithTimeout(url);
+      const buffer = await fetchArrayBufferWithTimeout(url, options.timeoutMs);
       // A 200 response isn't always image bytes (error pages served as HTML).
       // Reject text bodies so they never end up in the zip as fake photos.
       try {

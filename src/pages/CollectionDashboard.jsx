@@ -56,6 +56,12 @@ import { NewSelectionModal } from '../components/features/CollectionDashboard/Mo
 import { getClientFacingOrigin } from '../lib/publicSiteUrl';
 import { DeliveryFilmsView } from '../components/features/CollectionDashboard/Films/DeliveryFilmsView';
 import { downloadPhotoFromR2 } from '../lib/downloadPhoto';
+import { DeliveryDownloadModal } from '../components/features/CollectionDashboard/Modals/DeliveryDownloadModal';
+import { useDeliveryDownload } from '../contexts/deliveryDownloadContext';
+import {
+    photosForDeliveryDownload,
+    photosInDeliverySet,
+} from '../lib/deliveryDownload';
 import {
     idsHittingMarquee,
     clientToScroller,
@@ -375,6 +381,8 @@ const CollectionDashboard = () => {
     const [clientFavoritedPhotoIds, setClientFavoritedPhotoIds] = useState(() => new Set());
     const [selectionListPhotoIds, setSelectionListPhotoIds] = useState(() => new Set());
     const [showMoreDropdown, setShowMoreDropdown] = useState(false);
+    const [deliveryDownload, setDeliveryDownload] = useState(null);
+    const { startDownload } = useDeliveryDownload();
     const [showFaceRecogniseModal, setShowFaceRecogniseModal] = useState(false);
     const [faceQuotaLimitNotice, setFaceQuotaLimitNotice] = useState(null);
     const [photoMenu, setPhotoMenu] = useState(null);
@@ -5171,26 +5179,44 @@ const CollectionDashboard = () => {
         }
     };
 
-    const handleDownloadSet = async (set) => {
-        const sourcePhotos = photosInSidebarSet(set).filter((p) => p.full_url);
-        if (sourcePhotos.length === 0) {
-            showToast('This set has no photos to download', 'error');
+    const notifyDownloadResult = useCallback((result) => {
+        if (!result || result.cancelled) return;
+        const saved = Number(result.saved) || 0;
+        const failed = Number(result.failed) || 0;
+        const folderName = result.folderName || collection?.name || 'delivery';
+        if (!saved && !failed) {
+            showToast('This delivery has no files to download', 'error');
             return;
         }
+        if (saved && !failed) {
+            showToast(`Saved ${saved} file${saved === 1 ? '' : 's'} to ${folderName}`, 'success');
+            return;
+        }
+        if (saved && failed) {
+            showToast(`Saved ${saved} file${saved === 1 ? '' : 's'} to ${folderName} (${failed} missing)`, 'error');
+            return;
+        }
+        showToast('Could not download those files', 'error');
+    }, [collection?.name, showToast]);
+
+    const startDeliveryNativeDownload = useCallback(async (list, extra = {}) => {
+        try {
+            const result = await startDownload(list || [], {
+                collectionName: collection?.name || 'delivery',
+                ...extra,
+            });
+            notifyDownloadResult(result);
+            return result;
+        } catch (err) {
+            showToast(err?.message || 'Could not download those files', 'error');
+            return { started: 0, saved: 0, failed: 0, cancelled: false };
+        }
+    }, [collection?.name, notifyDownloadResult, showToast, startDownload]);
+
+    const handleDownloadSet = (set) => {
+        setDeliveryDownload({ mode: 'set', setId: set?.isHighlights ? 'highlights' : set?.id });
         setShowSetMenu(null);
         setSetMenuAnchor(null);
-        try {
-            for (let i = 0; i < sourcePhotos.length; i += 1) {
-                const p = sourcePhotos[i];
-                await downloadPhotoFromR2(p.full_url, p.filename || 'photo.jpg');
-                if (i < sourcePhotos.length - 1) {
-                    await new Promise((r) => setTimeout(r, 250));
-                }
-            }
-        } catch (err) {
-            console.error('Set download failed:', err);
-            alert('Failed to download some photos.');
-        }
     };
 
     const handleToggleSetInApp = (set, enabled) => {
@@ -6019,8 +6045,7 @@ const CollectionDashboard = () => {
                                     onClick={() => {
                                         setShowMoreDropdown(false);
                                         setShowPresetsSubmenu(false);
-                                        setActiveSidebarTab('settings');
-                                        setActiveSettingsTab('download');
+                                        setDeliveryDownload({ mode: 'all' });
                                     }}
                                 >
                                     <span>{w.downloadEverything}</span>
@@ -6033,6 +6058,7 @@ const CollectionDashboard = () => {
                                     onClick={() => {
                                         setShowMoreDropdown(false);
                                         setShowPresetsSubmenu(false);
+                                        setDeliveryDownload({ mode: 'set' });
                                     }}
                                 >
                                     <span>{w.downloadSet}</span>
@@ -7877,6 +7903,17 @@ const CollectionDashboard = () => {
                 </div>
             )}
 
+            <DeliveryDownloadModal
+                open={Boolean(deliveryDownload)}
+                mode={deliveryDownload?.mode || 'all'}
+                setId={deliveryDownload?.setId}
+                collectionName={collection?.name || 'delivery'}
+                photos={photos}
+                sets={sets}
+                highlightsName={highlightsName}
+                onClose={() => setDeliveryDownload(null)}
+                onStarted={notifyDownloadResult}
+            />
             <DeleteDeliveryModal
                 isOpen={showDeleteCollectionModal}
                 name={collection?.name}
