@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { useAuth } from '../hooks/useAuth';
 import './Home.css';
 
 const ROTATOR_LINES = [
@@ -25,6 +26,7 @@ function prefersReducedMotion() {
 }
 
 const Home = () => {
+  const { user, loading: authLoading } = useAuth();
   const [lineIndex, setLineIndex] = useState(0);
   const [leavingIndex, setLeavingIndex] = useState(-1);
   const [firing, setFiring] = useState(false);
@@ -32,6 +34,7 @@ const Home = () => {
   const beamRef = useRef(null);
   const markRef = useRef(null);
   const lastShotRef = useRef(0);
+  const hasSession = Boolean(user);
 
   const fire = useCallback(() => {
     setFiring(false);
@@ -125,8 +128,12 @@ const Home = () => {
               ))}
             </svg>
           </Link>
-          <Link className="beta-home__signin" to="/auth">
-            Beta sign in
+          <Link
+            className="beta-home__signin"
+            to={hasSession ? '/dashboard' : '/auth'}
+            aria-busy={authLoading ? 'true' : undefined}
+          >
+            {hasSession ? 'Dashboard' : 'Beta sign in'}
           </Link>
         </header>
 

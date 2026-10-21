@@ -6796,9 +6796,14 @@ body.dark-theme .cd-pom-meta {
 }
 
 body.dark-theme .cd-pom-item,
-body.dark-theme .cd-pom-starred-title,
+body.dark-theme .cd-pom-starred-title {
+  color: var(--text-primary) !important;
+}
+
 body.dark-theme .cd-pom-filename {
   color: var(--text-primary) !important;
+  background: rgba(255, 255, 255, 0.08) !important;
+  border-color: rgba(255, 255, 255, 0.14) !important;
 }
 
 body.dark-theme .cd-pom-item:hover {
