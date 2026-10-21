@@ -4,6 +4,7 @@ import { MOCK_FRAMES, MOCK_PAPERS, MOCK_WALLS, MATTED_COLLAGE_SIZES, MATTED_COLL
 import Cropper from 'react-easy-crop';
 import getCroppedImg from '../../lib/cropImageUtils';
 import AddPhotosSidebar from './AddPhotosSidebar';
+import { shouldInterceptPrintstoreCart } from '../printstoreCartBeta';
 
 export default function MattedCollagesCustomizer({
   product,
@@ -514,6 +515,34 @@ export default function MattedCollagesCustomizer({
   const handleAddToCartClick = (forceEmpty = false) => {
     if (hasEmptySlots && !forceEmpty) {
       setShowWarningPopover(true);
+      return;
+    }
+
+    // Beta soft-launch: parent shows notice and does not keep the item.
+    if (shouldInterceptPrintstoreCart()) {
+      const collage = collagesList[0];
+      if (collage) {
+        const finalPhotos = collage.photos.filter(item => item !== null);
+        const collagePrice = ((product.basePrice || 104) + (collage.size?.priceModifier || 0));
+        onAddToCart({
+          id: editingCartItemId || Date.now().toString(),
+          productId: product.id,
+          productName: product.name,
+          photo: finalPhotos[0] || null,
+          photos: collage.photos,
+          size: collage.size || selectedSize,
+          frame: collage.frame || selectedFrame,
+          paper: selectedPaper,
+          border: selectedBorder,
+          layout: collage.layout || selectedLayout,
+          unitPrice: collagePrice,
+          totalPrice: collagePrice * collage.quantity,
+          quantity: collage.quantity
+        }, true);
+      } else {
+        onAddToCart({ productId: product.id, productName: product.name, quantity: 1 }, true);
+      }
+      setShowWarningPopover(false);
       return;
     }
 

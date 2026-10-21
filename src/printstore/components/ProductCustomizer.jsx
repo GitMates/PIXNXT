@@ -4,6 +4,7 @@ import { MOCK_SIZES, MOCK_FRAMES, MOCK_PAPERS, PRINT_PACK_SIZES, MATTED_FRAME_SI
 import AddPhotosSidebar from './AddPhotosSidebar';
 import Cropper from 'react-easy-crop';
 import getCroppedImg from '../../lib/cropImageUtils';
+import { shouldInterceptPrintstoreCart } from '../printstoreCartBeta';
 
 export default function ProductCustomizer({
   product,
@@ -206,6 +207,31 @@ export default function ProductCustomizer({
     const validItems = items.filter(item => item.photo !== null);
     if (validItems.length === 0) {
       alert("Please add at least one photo.");
+      return;
+    }
+
+    // Beta soft-launch: parent shows notice and does not keep the item.
+    if (shouldInterceptPrintstoreCart()) {
+      const first = validItems[0];
+      const itemUnitPrice = itemPrice + (first.frame?.priceModifier || 0);
+      onAddToCart({
+        id: `${first.id}_${Date.now()}`,
+        productId: product.id,
+        productName: product.name,
+        photo: first.photo,
+        photos: [first.photo],
+        size: selectedSize,
+        frame: first.frame,
+        paper: selectedPaper,
+        border: selectedBorder,
+        layout: null,
+        unitPrice: itemUnitPrice,
+        totalPrice: itemUnitPrice * first.quantity,
+        quantity: first.quantity,
+        editedPhotoUrl: first.editedPhotoUrl || null,
+        rotation: first.rotation || 0,
+        customBorderWidthCm: initialCustomBorderWidthCm || null
+      }, true);
       return;
     }
 

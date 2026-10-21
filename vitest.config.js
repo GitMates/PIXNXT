@@ -10,6 +10,7 @@ export default defineConfig({
     include: [
       'src/contexts/**/*.test.{js,ts}',
       'src/services/**/*.test.{js,ts}',
+      'src/printstore/printstoreCartBeta.test.js',
       'src/lib/galleryMediaType.test.ts',
       'src/lib/deliveryDuplicate.test.js',
       'src/lib/galleryBoardCache.test.js',

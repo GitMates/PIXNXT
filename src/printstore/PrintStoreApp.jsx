@@ -28,6 +28,8 @@ import paymentSuccessAnimation from '../assets/animations/payment-success.json';
 import './PrintStore.css';
 import { getStoreViewPhotoUrl, toStoreCartPhoto } from '../lib/storePhotoQuality';
 import { galleryService } from '../services/gallery.service';
+import { shouldInterceptPrintstoreCart } from './printstoreCartBeta';
+import { PrintStoreCartBetaModal } from './components/PrintStoreCartBetaModal';
 
 const DIGITAL_PRODUCT_TYPES = ['digital_download', 'digital_download_all', 'digital_package'];
 
@@ -487,6 +489,7 @@ export default function PrintStoreApp() {
   const [activeTab, setActiveTab] = useState('shop'); // 'gallery' | 'shop'
   const [activeCollection, setActiveCollection] = useState('portraits'); // 'favorites' | 'portraits'
   const [checkoutState, setCheckoutState] = useState('shopping'); // 'shopping' | 'cart' | 'checkout' | 'completed'
+  const [showCartBetaModal, setShowCartBetaModal] = useState(false);
   const [completedOrder, setCompletedOrder] = useState(null);
   const [viewMode, setViewMode] = useState('landing'); // 'landing' | 'all-products'
   const [selectedProductForDetail, setSelectedProductForDetail] = useState(null);
@@ -1232,6 +1235,12 @@ export default function PrintStoreApp() {
 
   // ── Cart operations ──
   const handleAddToCart = async (newItem, skipCartOpen = false) => {
+    // Soft-launch: explore products, but do not keep cart items until Print Store is ready.
+    if (shouldInterceptPrintstoreCart()) {
+      setShowCartBetaModal(true);
+      return false;
+    }
+
     const matchedProduct = products.find(p => p.id === newItem.productId);
     const productDbId = matchedProduct ? matchedProduct.db_id : null;
 
@@ -2709,6 +2718,11 @@ export default function PrintStoreApp() {
           <ArrowUp size={22} strokeWidth={2.5} />
         </button>
       )}
+
+      <PrintStoreCartBetaModal
+        isOpen={showCartBetaModal}
+        onClose={() => setShowCartBetaModal(false)}
+      />
     </div>
   );
 }

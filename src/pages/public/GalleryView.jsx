@@ -47,6 +47,8 @@ import {
   resolveLegacyDigitalPrices,
   isDigitalDownloadEnabled,
 } from '../../lib/storePackages';
+import { shouldInterceptPrintstoreCart } from '../../printstore/printstoreCartBeta';
+import { PrintStoreCartBetaModal } from '../../printstore/components/PrintStoreCartBetaModal';
 import {
   countGalleryMedia,
   partitionGalleryMedia,
@@ -270,6 +272,7 @@ const GalleryView = () => {
 
   // Paid Digital Download States
   const [showDigitalDownloadModal, setShowDigitalDownloadModal] = useState(false);
+  const [showPrintstoreCartBetaModal, setShowPrintstoreCartBetaModal] = useState(false);
   const [digitalDownloadPhoto, setDigitalDownloadPhoto] = useState(null);
   const [showDigitalPurchaseDetail, setShowDigitalPurchaseDetail] = useState(false);
   const [isPurchaseAllDefault, setIsPurchaseAllDefault] = useState(false);
@@ -2384,6 +2387,10 @@ const GalleryView = () => {
 
   const addPackageSelectionToCart = useCallback(() => {
     if (!packagePickComplete || !selectedStorePackage || !collection?.slug) return;
+    if (shouldInterceptPrintstoreCart()) {
+      setShowPrintstoreCartBetaModal(true);
+      return;
+    }
     const cartKey = 'pixnxt_printstore_cart';
     let cart = [];
     try {
@@ -4213,6 +4220,11 @@ const GalleryView = () => {
                   </span>
                   <button
                     onClick={() => {
+                      if (shouldInterceptPrintstoreCart()) {
+                        setShowPrintstoreCartBetaModal(true);
+                        return;
+                      }
+
                       const cartKey = 'pixnxt_printstore_cart';
                       let cart = [];
                       try {
@@ -4803,6 +4815,11 @@ const GalleryView = () => {
         showFavorites={collection?.favorites_enabled !== false}
         showDownload={showGalleryDownload}
         showShare={showGalleryShare}
+      />
+
+      <PrintStoreCartBetaModal
+        isOpen={showPrintstoreCartBetaModal}
+        onClose={() => setShowPrintstoreCartBetaModal(false)}
       />
     </div>
   );
