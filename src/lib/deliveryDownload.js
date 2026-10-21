@@ -109,7 +109,7 @@ export function toSameOriginMediaUrl(url) {
   if (typeof window === 'undefined' || !window.location?.origin) return proxied;
   try {
     const parsed = new URL(proxied, window.location.origin);
-    if (isLocalDevHost(window.location.hostname) && parsed.pathname.includes('/v1/r2/media')) {
+    if (isLocalDevHost(window.location.hostname) && (parsed.pathname.includes('/v1/r2/media') || parsed.pathname.includes('/v1/stream'))) {
       return `${window.location.origin}${parsed.pathname}${parsed.search}`;
     }
     return parsed.toString();
@@ -131,8 +131,9 @@ export function canFetchStudioMedia(href) {
     ) {
       return false;
     }
+    if (host.includes('cloudflarestream.com') || host.includes('videodelivery.net')) return true;
     if (typeof window !== 'undefined' && parsed.origin === window.location.origin) return true;
-    return parsed.pathname.includes('/v1/r2/media') || parsed.pathname.includes('/api/r2-media');
+    return parsed.pathname.includes('/v1/r2/media') || parsed.pathname.includes('/api/r2-media') || parsed.pathname.includes('/v1/stream');
   } catch {
     return false;
   }
@@ -198,6 +199,7 @@ function normalizeDownloadPhoto(photo) {
   if (!photo || typeof photo !== 'object') return photo;
   return {
     ...photo,
+    stream_uid: photo.stream_uid || photo.streamUid || '',
     full_url: photo.full_url || photo.fullUrl || '',
     web_url: photo.web_url || photo.webUrl || '',
     thumbnail_url: photo.thumbnail_url || photo.thumbnailUrl || '',
@@ -222,6 +224,12 @@ function candidateDownloadUrls(photo, options = {}) {
     urls.push(value);
   };
   if (isVideoMedia(photo)) {
+    const streamUid = photo.stream_uid || photo.streamUid;
+    if (streamUid) {
+      push(`/v1/stream/${encodeURIComponent(streamUid)}/download?file=1`);
+      push(`https://customer-j2pg7eej5vcvuljf.cloudflarestream.com/${encodeURIComponent(streamUid)}/downloads/default.mp4`);
+      push(`https://videodelivery.net/${encodeURIComponent(streamUid)}/downloads/default.mp4`);
+    }
     push(photo.full_url);
     push(photo.original_storage_path);
     push(photo.web_url);

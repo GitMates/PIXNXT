@@ -80,6 +80,8 @@ export interface BulkDownloadPhoto {
   thumbnail_storage_path?: string;
   filename?: string;
   media_type?: string;
+  stream_uid?: string;
+  streamUid?: string;
   id?: string;
 }
 
