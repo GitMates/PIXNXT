@@ -109,6 +109,7 @@ import { normalizeGalleryPhotoSort } from '../lib/galleryPhotoSort';
 import { clientGalleryEmailTemplatesService } from '../services/clientGalleryEmailTemplates.service';
 import { MEDIA_FILE_INPUT_ACCEPT, pickMediaFilesOrFallback } from '../lib/mediaFilePicker';
 import { setCoverPhotoDragData, endCoverPhotoDrag, isGalleryImagePhoto } from '../lib/coverPhotoDrag';
+import { buildCoverOnlyDraft, resolveCoverPhotoId } from '../lib/deliveryCoverUpload';
 import { DatePicker } from '../components/ui/DatePicker';
 import './CollectionDashboard.css';
 import '../styles/clientGalleryTheme.css';
@@ -941,6 +942,8 @@ const CollectionDashboard = () => {
     const [coverModalScope, setCoverModalScope] = useState('all');
     const [coverModalPhotoOverride, setCoverModalPhotoOverride] = useState(null);
     const [isCoverUploading, setIsCoverUploading] = useState(false);
+    /** 0–100 while a cover file is uploading; null when idle or indeterminate save. */
+    const [coverUploadProgress, setCoverUploadProgress] = useState(null);
     const [activeSettingsTab, setActiveSettingsTab] = useState('general'); // general, privacy, download, favorite
 
     // General Settings State
@@ -2076,26 +2079,26 @@ const CollectionDashboard = () => {
 
     const handleCoverModalConfirm = async ({ photo, focals }) => {
         const coverUrl = photo
-            ? (getPhotoFullDisplayUrl(photo) || getPhotoOriginalFileUrl(photo))
+            ? (getPhotoFullDisplayUrl(photo) || getPhotoOriginalFileUrl(photo) || photo.full_url || photo.web_url)
             : (collection?.cover_url || '');
         if (!coverUrl || !collectionId) return;
         const primary = focals?.desktop || focals?.website || { x: 50, y: 50 };
+        const nextCoverPhotoId = resolveCoverPhotoId(photo, collection?.cover_photo_id);
         coverDraftDirtyRef.current = false;
         applyCoverLocal({
             cover_url: coverUrl,
-            cover_photo_id: photo?.id ?? collection?.cover_photo_id,
+            cover_photo_id: nextCoverPhotoId,
             cover_focals: focals,
             cover_focal_x: primary.x,
             cover_focal_y: primary.y,
         });
         try {
             setIsCoverUploading(true);
-            const extra = photo ? { cover_photo_id: photo.id } : {};
             const updated = await galleryService.saveCollectionCoverFocals(
                 collectionId,
                 coverUrl,
                 focals,
-                extra
+                { cover_photo_id: nextCoverPhotoId }
             );
             const savedFocals = updated?.cover_focals;
             const hasSavedFocals =
@@ -2107,7 +2110,7 @@ const CollectionDashboard = () => {
             applyCoverLocal({
                 ...updated,
                 cover_url: nextCoverUrl,
-                cover_photo_id: photo?.id ?? collection?.cover_photo_id,
+                cover_photo_id: nextCoverPhotoId,
                 cover_focals: hasSavedFocals ? savedFocals : focals,
                 cover_focal_x: updated?.cover_focal_x ?? primary.x,
                 cover_focal_y: updated?.cover_focal_y ?? primary.y,
@@ -2161,26 +2164,7 @@ const CollectionDashboard = () => {
             return;
         }
 
-        let uploadSetId = highlightsEnabled ? activeSetId : (activeSetId ?? sets[0]?.id ?? null);
-        if (showCoverModal && coverModalScope && coverModalScope !== 'all') {
-            uploadSetId = coverModalScope === 'highlights' ? null : coverModalScope;
-        } else if (!uploadSetId) {
-            const highlightsHasPhotos = photos.some((p) => !p.set_id);
-            if (!highlightsHasPhotos && sets.length > 0) {
-                let best = sets[0];
-                let bestCount = -1;
-                for (const setRow of sets) {
-                    const count = photos.filter((p) => String(p.set_id) === String(setRow.id)).length;
-                    if (count > bestCount) {
-                        best = setRow;
-                        bestCount = count;
-                    }
-                }
-                uploadSetId = best?.id ?? null;
-            }
-        }
         const defaultFocals = getDefaultCoverFocals();
-        const previewUrl = URL.createObjectURL(file);
         const previousCover = {
             cover_url: collection?.cover_url,
             cover_photo_id: collection?.cover_photo_id,
@@ -2188,75 +2172,33 @@ const CollectionDashboard = () => {
             cover_focal_x: collection?.cover_focal_x,
             cover_focal_y: collection?.cover_focal_y,
         };
-        applyCoverLocal({
-            cover_url: previewUrl,
-            cover_focals: defaultFocals,
-            cover_focal_x: 50,
-            cover_focal_y: 50,
-        });
 
         try {
             setIsCoverUploading(true);
-            const photoData = await galleryService.uploadPhoto(
+            setCoverUploadProgress(0);
+            // Cover-only path: R2 asset + cover_url — never insert into delivery photos.
+            // Keep the previous cover (blurred in the UI) until the new URL is ready.
+            const uploaded = await galleryService.uploadCollectionCoverImage(
                 collectionId,
                 collection.photographer_id,
                 file,
-                photos.length,
-                uploadSetId
+                (percent) => setCoverUploadProgress(Math.max(0, Math.min(92, Math.round(percent))))
             );
-            if (!photoData?.id) {
-                throw new Error('Cover upload did not return a photo.');
-            }
-
-            const photoRow = {
-                ...photoData,
-                set_id: photoData.set_id ?? uploadSetId ?? null,
-                collection_id: photoData.collection_id ?? collectionId,
-            };
-            if (uploadSetId && String(photoData.set_id || '') !== String(uploadSetId)) {
-                try {
-                    const updated = await galleryService.updatePhoto(photoRow.id, { set_id: uploadSetId });
-                    Object.assign(photoRow, updated, { set_id: uploadSetId });
-                } catch (err) {
-                    console.warn('Could not assign cover photo to set:', err);
-                    photoRow.set_id = uploadSetId;
-                }
-            }
-
-            setPhotos((prev) => {
-                if (prev.some((p) => p.id === photoRow.id)) {
-                    return prev.map((p) => (p.id === photoRow.id ? { ...p, ...photoRow } : p));
-                }
-                return [...prev, photoRow];
-            });
-            if ((uploadSetId ?? null) !== (activeSetId ?? null)) {
-                setActiveSetId(uploadSetId);
-            }
-            if (isRawMedia(photoRow) && !hasRawDisplayPreview(photoRow)) {
-                void galleryService
-                    .repairRawPhotoPreview(photoRow)
-                    .then((updated) => {
-                        if (updated?.id) {
-                            setPhotos((prev) =>
-                                prev.map((p) => (p.id === updated.id ? { ...p, ...updated } : p))
-                            );
-                        }
-                    })
-                    .catch((err) =>
-                        console.warn('RAW preview backfill failed:', photoRow.filename, err)
-                    );
-            }
-
-            const coverUrl = getPhotoFullDisplayUrl(photoRow) || getPhotoOriginalFileUrl(photoRow);
-            URL.revokeObjectURL(previewUrl);
+            const coverUrl = uploaded?.url;
             if (!coverUrl) {
-                applyCoverLocal(previousCover);
-                alert('Cover image is still processing. Try again in a moment.');
-                return photoRow;
+                throw new Error('Cover upload did not return a URL.');
             }
+
+            const draft = buildCoverOnlyDraft({
+                url: coverUrl,
+                filename: uploaded.filename || file.name,
+                width: uploaded.width,
+                height: uploaded.height,
+            });
+            setCoverUploadProgress(94);
             applyCoverLocal({
                 cover_url: coverUrl,
-                cover_photo_id: photoRow.id,
+                cover_photo_id: null,
                 cover_focals: defaultFocals,
                 cover_focal_x: 50,
                 cover_focal_y: 50,
@@ -2265,24 +2207,25 @@ const CollectionDashboard = () => {
                 collectionId,
                 coverUrl,
                 defaultFocals,
-                { cover_photo_id: photoRow.id }
+                { cover_photo_id: null }
             );
+            setCoverUploadProgress(100);
             coverDraftBackupRef.current = {
                 cover_url: coverUrl,
-                cover_photo_id: photoRow.id,
+                cover_photo_id: null,
                 cover_focals: defaultFocals,
                 cover_focal_x: 50,
                 cover_focal_y: 50,
             };
             coverDraftDirtyRef.current = false;
-            return photoRow;
+            return draft;
         } catch (err) {
-            URL.revokeObjectURL(previewUrl);
             applyCoverLocal(previousCover);
             console.error('Cover file upload failed:', err);
             alert(err?.message || 'Failed to upload cover photo.');
         } finally {
             setIsCoverUploading(false);
+            setCoverUploadProgress(null);
         }
     };
 
@@ -4230,14 +4173,14 @@ const CollectionDashboard = () => {
 
     const handleCoverDraftChange = ({ photo, focals }) => {
         const coverUrl = photo
-            ? (getPhotoFullDisplayUrl(photo) || getPhotoOriginalFileUrl(photo) || collection?.cover_url)
+            ? (getPhotoFullDisplayUrl(photo) || getPhotoOriginalFileUrl(photo) || photo.full_url || photo.web_url || collection?.cover_url)
             : (collection?.cover_url || '');
         if (!coverUrl) return;
         const primary = focals?.desktop || focals?.website || { x: 50, y: 50 };
         coverDraftDirtyRef.current = true;
         applyCoverLocal({
             cover_url: coverUrl,
-            cover_photo_id: photo?.id ?? collection?.cover_photo_id,
+            cover_photo_id: resolveCoverPhotoId(photo, collection?.cover_photo_id),
             cover_focals: focals,
             cover_focal_x: primary.x,
             cover_focal_y: primary.y,
@@ -6216,6 +6159,7 @@ const CollectionDashboard = () => {
                     coverFocalX={collectionFocals.desktop?.x ?? collectionFocal.x}
                     coverFocalY={collectionFocals.desktop?.y ?? collectionFocal.y}
                     isCoverUploading={isCoverUploading}
+                    coverUploadProgress={coverUploadProgress}
                     onCoverPhotoDrop={handleCoverPhotoDropById}
                     onSelectCoverFromCollection={() =>
                         openCoverModal('all', collection?.cover_url ? 'edit' : 'pick')

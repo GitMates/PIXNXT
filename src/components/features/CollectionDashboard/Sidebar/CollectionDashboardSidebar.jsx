@@ -183,6 +183,7 @@ export function CollectionDashboardSidebar({
   coverFocalX,
   coverFocalY,
   isCoverUploading,
+  coverUploadProgress = null,
   onCoverPhotoDrop,
   onSelectCoverFromCollection,
   onCoverFileSelect,
@@ -370,6 +371,7 @@ export function CollectionDashboardSidebar({
           coverFocalX={coverFocalX}
           coverFocalY={coverFocalY}
           isUpdating={isCoverUploading}
+          uploadProgress={coverUploadProgress}
           photoCount={photoCount}
           onPhotoDrop={onCoverPhotoDrop}
           onSelectFromCollection={onSelectCoverFromCollection}

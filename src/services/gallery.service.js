@@ -76,6 +76,7 @@ import { isRawImageFile } from '../lib/rawImageFormats';
 import { extractRawPreviewBlob } from '../lib/rawImagePreview';
 import { hasRawDisplayPreview, isRawMedia, resolveMediaUrl } from '../lib/photoDisplayUrl';
 import { DELIVERY_R2_MODULE } from '../lib/deliveryIds';
+import { buildDeliveryCoverStoragePath } from '../lib/deliveryCoverUpload';
 import { getPhotographerR2Folder } from '../lib/photographerR2Folder';
 import {
   resolveUploadDefaults,
@@ -1167,6 +1168,101 @@ export const galleryService = {
     );
 
     return { ...photoData, ...finalPhoto };
+  },
+
+  /**
+   * Upload a cover image to R2 only — does not insert a delivery photo row.
+   * @returns {{ url: string, storagePath: string, width: number|null, height: number|null, filename: string }}
+   */
+  async uploadCollectionCoverImage(collectionId, photographerId, file, onProgress = null) {
+    if (!collectionId || !photographerId) {
+      throw new Error('Delivery or photographer is missing. Refresh the page and try again.');
+    }
+    if (!file) throw new Error('No cover file selected.');
+
+    await this._assertStorageQuota(photographerId, file.size);
+
+    const mime = getFileMime(file);
+    const isRaw = isRawImageFile(file);
+    if (isVideoMime(mime)) {
+      throw new Error('Please choose an image file for the cover.');
+    }
+
+    let uploadFile = file;
+    let dimensions = { width: null, height: null };
+
+    if (isRaw) {
+      const meta = await this._captureRawPreview(file);
+      if (!meta?.thumbnailBlob) {
+        throw new Error('Could not read a preview from this RAW file for the cover.');
+      }
+      uploadFile = new File([meta.thumbnailBlob], 'cover.jpg', {
+        type: 'image/jpeg',
+        lastModified: Date.now(),
+      });
+      dimensions = meta.dimensions || dimensions;
+    } else {
+      dimensions = await getImageDimensionsFast(file).catch(() => ({ width: null, height: null }));
+      const uploadEdge = getOriginalUploadMaxEdge();
+      if (uploadEdge) {
+        uploadFile = await compressImageForUpload(file, { maxEdge: uploadEdge }).catch(() => file);
+      }
+    }
+
+    if (!globalThis.__pixnxtFolderCache) globalThis.__pixnxtFolderCache = new Map();
+    const pKey = `p_${photographerId}`;
+    const cKey = `c_${collectionId}`;
+    let photographerFolder = globalThis.__pixnxtFolderCache.get(pKey);
+    let collectionFolder = globalThis.__pixnxtFolderCache.get(cKey);
+    if (!photographerFolder || !collectionFolder) {
+      const [pF, cF] = await Promise.all([
+        photographerFolder || getPhotographerR2Folder(photographerId),
+        collectionFolder || getCollectionPathFolder(collectionId),
+      ]);
+      photographerFolder = pF;
+      collectionFolder = cF;
+      globalThis.__pixnxtFolderCache.set(pKey, pF);
+      globalThis.__pixnxtFolderCache.set(cKey, cF);
+    }
+
+    const ext =
+      (uploadFile.name.split('.').pop() || file.name.split('.').pop() || 'jpg')
+        .toLowerCase()
+        .replace(/[^a-z0-9]/g, '')
+        .slice(0, 8) || 'jpg';
+    const fileName = `cover_${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${ext}`;
+    const storagePath = buildDeliveryCoverStoragePath(
+      photographerFolder,
+      collectionFolder,
+      fileName,
+      DELIVERY_R2_MODULE
+    );
+
+    const body =
+      uploadFile.type
+        ? uploadFile
+        : new File([uploadFile], fileName, {
+            type: mime || 'image/jpeg',
+            lastModified: uploadFile.lastModified || Date.now(),
+          });
+
+    onProgress?.(5);
+    const result = await storageService.upload(storagePath, body, (p) => {
+      onProgress?.(Math.min(99, Math.round(5 + (p / 100) * 94)));
+    });
+    onProgress?.(100);
+
+    if (!result?.url) {
+      throw new Error('Cover upload did not return a URL.');
+    }
+
+    return {
+      url: result.url,
+      storagePath,
+      width: dimensions.width ?? null,
+      height: dimensions.height ?? null,
+      filename: file.name || fileName,
+    };
   },
 
   async _captureRawPreview(file) {

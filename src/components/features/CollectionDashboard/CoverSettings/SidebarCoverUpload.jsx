@@ -37,6 +37,31 @@ function isCoverImageFile(file) {
   return isImageMime(mime) || isRawImageFile(file);
 }
 
+function CoverUploadProgressBar({ progress, active }) {
+  if (!active) return null;
+  const determinate = typeof progress === 'number' && Number.isFinite(progress);
+  const clamped = determinate ? Math.max(0, Math.min(100, Math.round(progress))) : null;
+
+  return (
+    <div
+      className={cn(
+        'cd-sidebar-cover-progress',
+        !determinate && 'cd-sidebar-cover-progress--indeterminate'
+      )}
+      role="progressbar"
+      aria-label="Uploading cover"
+      aria-valuemin={0}
+      aria-valuemax={100}
+      aria-valuenow={clamped ?? undefined}
+    >
+      <div
+        className="cd-sidebar-cover-progress__fill"
+        style={determinate ? { width: `${clamped}%` } : undefined}
+      />
+    </div>
+  );
+}
+
 /**
  * Sidebar delivery cover — empty dropzone or filled preview with edit.
  */
@@ -46,6 +71,7 @@ export function SidebarCoverUpload({
   coverFocalX = 50,
   coverFocalY = 50,
   isUpdating = false,
+  uploadProgress = null,
   photoCount = 0,
   onPhotoDrop,
   onSelectFromCollection,
@@ -56,6 +82,7 @@ export function SidebarCoverUpload({
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef(null);
   const hasPhotos = Number(photoCount) > 0;
+  const showProgress = Boolean(isUpdating);
 
   const onDragOver = useCallback(
     (e) => {
@@ -149,10 +176,8 @@ export function SidebarCoverUpload({
           <div className="cd-sidebar-cover-drop-icon" aria-hidden>
             {COVER_DROP_ICON}
           </div>
-          {isUpdating || isDragging ? (
-            <p className="cd-sidebar-cover-drop-hint">
-              {isUpdating ? 'Updating cover…' : 'Drop to set cover'}
-            </p>
+          {isUpdating ? null : isDragging ? (
+            <p className="cd-sidebar-cover-drop-hint">Drop to set cover</p>
           ) : (
             <div className="cd-sidebar-cover-actions">
               {hasPhotos ? (
@@ -184,6 +209,7 @@ export function SidebarCoverUpload({
             </div>
           )}
         </div>
+        <CoverUploadProgressBar progress={uploadProgress} active={showProgress} />
       </div>
       <span className="cd-sidebar-cover-field-label">{w.deliveryCover}</span>
     </>
@@ -194,7 +220,8 @@ export function SidebarCoverUpload({
       className={cn(
         'cd-cover-image',
         !hasCover && 'cd-cover-image--empty',
-        isDragging && 'dragging-cover'
+        isDragging && 'dragging-cover',
+        isUpdating && 'cd-cover-image--uploading'
       )}
       {...dropHandlers}
     >
@@ -233,10 +260,11 @@ export function SidebarCoverUpload({
                 onClick={handleSelectFromCollection}
                 disabled={isUpdating}
               >
-                {isUpdating ? w.updating : w.edit}
+                {w.edit}
               </button>
             </div>
           </div>
+          <CoverUploadProgressBar progress={uploadProgress} active={showProgress} />
         </>
       ) : (
         emptyDropzone
