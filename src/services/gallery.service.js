@@ -70,7 +70,7 @@ import {
   exifDetailsToPatch,
   photoExifCameraLabel,
 } from '../lib/exifCamera';
-import { getFileMime, isVideoMime, getUploadMediaType } from '../lib/fileMime';
+import { getFileMime, isVideoMime, getUploadMediaType, isPhotoshopFile } from '../lib/fileMime';
 import { compressImageForUpload, compressImageVariants } from '../lib/prepareUploadFile';
 import { isRawImageFile } from '../lib/rawImageFormats';
 import { extractRawPreviewBlob } from '../lib/rawImagePreview';
@@ -627,6 +627,7 @@ export const galleryService = {
     const isVideo = isVideoMime(mime);
     const filePath = `${basePath}/${isVideo ? 'video' : 'original'}/${fileName}`;
     const isRaw = isRawImageFile(file);
+    const isPhotoshop = isPhotoshopFile(file);
     const mediaType = getUploadMediaType(file);
 
     // Originals start immediately. Thumb/web encode in a worker and upload
@@ -641,7 +642,7 @@ export const galleryService = {
     const originalTask = overlapOriginal
       ? (async () => {
           let originalFile = file;
-          const uploadEdge = !isVideo && !isRaw ? getOriginalUploadMaxEdge() : null;
+          const uploadEdge = !isVideo && !isRaw && !isPhotoshop ? getOriginalUploadMaxEdge() : null;
           if (uploadEdge) {
             originalFile = await compressImageForUpload(file, { maxEdge: uploadEdge }).catch(() => file);
           }
@@ -677,7 +678,7 @@ export const galleryService = {
     onProgress?.(overlapOriginal ? 2 : 5);
     derivPercent = 5;
 
-    if (!isVideo && !isRaw) {
+    if (!isVideo && !isRaw && !isPhotoshop) {
       const [dim, variants] = await Promise.all([
         getImageDimensionsFast(file).catch(() => ({ width: null, height: null })),
         compressImageVariants(file, getUploadVariantOptions()).catch(
@@ -1090,7 +1091,7 @@ export const galleryService = {
 
     let originalFile = file;
     const uploadEdge = getOriginalUploadMaxEdge();
-    if (!isVideo && !isRaw && uploadEdge) {
+    if (!isVideo && !isRaw && !isPhotoshopFile(file) && uploadEdge) {
       originalFile = await compressImageForUpload(file, { maxEdge: uploadEdge }).catch(() => file);
     }
 
@@ -1192,6 +1193,9 @@ export const galleryService = {
     const isRaw = isRawImageFile(file);
     if (isVideoMime(mime)) {
       throw new Error('Please choose an image file for the cover.');
+    }
+    if (isPhotoshopFile(file)) {
+      throw new Error('Photoshop files cannot be used as a cover. Export a JPEG or PNG first.');
     }
 
     let uploadFile = file;
@@ -1457,6 +1461,7 @@ export const galleryService = {
     const isVideo = isVideoMime(mime);
     const filePath = `${basePath}/${isVideo ? 'video' : 'original'}/${fileName}`;
     const isRaw = isRawImageFile(file);
+    const isPhotoshop = isPhotoshopFile(file);
     const mediaType = getUploadMediaType(file);
 
     // Keep the camera badge + Details in sync when the file is replaced.
@@ -1468,7 +1473,7 @@ export const galleryService = {
     let thumbnailBlob = null;
     let videoDurationSeconds = null;
 
-    if (!isVideo && !isRaw) {
+    if (!isVideo && !isRaw && !isPhotoshop) {
       const [dim, variants] = await Promise.all([
         getImageDimensionsFast(file).catch(() => ({ width: null, height: null })),
         compressImageVariants(file, getUploadVariantOptions()).catch(
@@ -1513,7 +1518,7 @@ export const galleryService = {
 
     let originalFile = file;
     const uploadEdge = getOriginalUploadMaxEdge();
-    if (!isVideo && !isRaw && uploadEdge) {
+    if (!isVideo && !isRaw && !isPhotoshopFile(file) && uploadEdge) {
       originalFile = await compressImageForUpload(file, { maxEdge: uploadEdge }).catch(() => file);
     }
 

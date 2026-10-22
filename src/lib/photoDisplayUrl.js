@@ -2,6 +2,7 @@ import { R2_PUBLIC_URL } from './r2';
 import { apiBase } from './api/client';
 import { isRawImageFilename } from './rawImageFormats';
 import { isBrowserDisplayableImageUrl } from './rawImagePreview';
+import { isPhotoshopFilename } from './fileMime';
 
 /**
  * pub-*.r2.dev is not cached at the edge. Read those objects through the
@@ -49,6 +50,25 @@ export function isRawMedia(photo) {
   return urlLooksLikeRawFile(photo.full_url || photo.web_url || photo.original_storage_path || '');
 }
 
+export function isPhotoshopMedia(photo) {
+  if (!photo) return false;
+  return isPhotoshopFilename(photo.filename)
+    || isPhotoshopFilename(photo.full_url)
+    || isPhotoshopFilename(photo.original_storage_path);
+}
+
+export function hasEncodedRasterPreview(photo) {
+  return Number(photo?.width) > 0 && Number(photo?.height) > 0;
+}
+
+/**
+ * PSD/PSB whose /thumb/ and /web/ objects are the original Photoshop file
+ * renamed .jpg (encode failed). Browsers will download 40–300MB and never paint.
+ */
+export function isUnpreviewablePhotoshop(photo) {
+  return isPhotoshopMedia(photo) && !hasEncodedRasterPreview(photo);
+}
+
 /**
  * Browser-paintable URL for face-crop avatars (CSS background / img).
  * Prefer web/thumb derivatives — never pick RAW/HEIC full_url first.
@@ -56,6 +76,7 @@ export function isRawMedia(photo) {
 export function getFaceAvatarDisplayUrl(photo) {
   if (!photo) return '';
   if (typeof photo === 'string') return resolveMediaUrl(photo) || '';
+  if (isUnpreviewablePhotoshop(photo)) return '';
   const prefer = [photo.thumbnail_url, photo.web_url, photo.watermarked_url];
   for (const raw of prefer) {
     const url = resolveMediaUrl(raw);
@@ -77,6 +98,7 @@ export function getFaceAvatarDisplayUrl(photo) {
 /** JPEG/PNG preview stored separately from the original RAW file. */
 export function getRawPreviewUrl(photo) {
   if (!photo) return '';
+  if (isUnpreviewablePhotoshop(photo)) return '';
   const original = resolveMediaUrl(photo.full_url || '');
   // Prefer the larger web derivative (up to 3840px) over the 400px thumb —
   // grid and especially lightbox look blurry when fed the tiny thumb.
@@ -110,6 +132,7 @@ function pickDisplayableUrl(...urls) {
  */
 export function getPhotoGridDisplayUrl(photo, preferOriginalAspect = false) {
   if (!photo) return '';
+  if (isUnpreviewablePhotoshop(photo)) return '';
   if (photo.watermarked_url) {
     return resolveMediaUrl(photo.watermarked_url);
   }
@@ -131,6 +154,7 @@ export function getPhotoGridDisplayUrl(photo, preferOriginalAspect = false) {
 /** Grid fallbacks — thumb then web. Never original (too heavy for tiles). */
 export function getPhotoGridDisplayFallbacks(photo) {
   if (!photo) return [];
+  if (isUnpreviewablePhotoshop(photo)) return [];
   const seen = new Set();
   if (photo.watermarked_url) {
     return [resolveMediaUrl(photo.watermarked_url)];
@@ -159,6 +183,7 @@ export function getPhotoGridDisplayFallbacks(photo) {
 /** Lightbox / large view — for RAW use JPEG preview, not the original file. */
 export function getPhotoFullDisplayUrl(photo) {
   if (!photo) return '';
+  if (isUnpreviewablePhotoshop(photo)) return '';
   if (photo.watermarked_url) {
     return resolveMediaUrl(photo.watermarked_url);
   }
@@ -368,6 +393,7 @@ export function getPhotoVideoPoster(photo) {
  */
 export function getPhotoDisplayFallbacks(photo, preferOriginalAspect = false) {
   if (!photo) return [];
+  if (isUnpreviewablePhotoshop(photo)) return [];
   const seen = new Set();
   if (photo.watermarked_url) {
     return [resolveMediaUrl(photo.watermarked_url)];
@@ -417,6 +443,7 @@ export function isGifMedia(photo) {
 
 export function getWebResolutionUrl(photo) {
   if (!photo) return '';
+  if (isUnpreviewablePhotoshop(photo)) return '';
   if (photo.watermarked_url) {
     return resolveMediaUrl(photo.watermarked_url);
   }

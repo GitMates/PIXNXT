@@ -7,6 +7,7 @@ import {
   getPhotoVideoPoster,
   getPhotoVideoSrc,
   isRawMedia,
+  isUnpreviewablePhotoshop,
   isVideoMedia,
 } from '@/lib/photoDisplayUrl';
 import { isBrowserDisplayableImageUrl } from '@/lib/rawImagePreview';
@@ -22,7 +23,7 @@ function ContainGridMedia({ photo, index, isVideo }) {
   const gridSrc = useMemo(() => {
     const url = getPhotoGridDisplayUrl(photo, true);
     return url && isBrowserDisplayableImageUrl(url) ? url : '';
-  }, [photo.id, photo.thumbnail_url, photo.web_url, photo.full_url, photo.watermarked_url, photo.media_type, photo.filename]);
+  }, [photo.id, photo.thumbnail_url, photo.web_url, photo.full_url, photo.watermarked_url, photo.media_type, photo.filename, photo.width, photo.height]);
 
   const fallbacks = useMemo(() => {
     return getPhotoGridDisplayFallbacks(photo).filter((url) => url !== gridSrc);
@@ -30,6 +31,10 @@ function ContainGridMedia({ photo, index, isVideo }) {
 
   if (isVideo) {
     return <ContainGridVideo photo={photo} />;
+  }
+
+  if (isUnpreviewablePhotoshop(photo)) {
+    return <RawPhotoPlaceholder variant="grid" label="PSD" spinning={false} />;
   }
 
   if (!gridSrc && (isRawMedia(photo) || photo._uploadPending)) {
@@ -122,11 +127,15 @@ export const CollectionGridPhoto = memo(function CollectionGridPhoto({
   const gridSrc = useMemo(() => {
     const url = getPhotoGridDisplayUrl(photo, true);
     return url && isBrowserDisplayableImageUrl(url) ? url : '';
-  }, [photo.id, photo.thumbnail_url, photo.web_url, photo.full_url, photo.watermarked_url, photo.media_type, photo.filename]);
+  }, [photo.id, photo.thumbnail_url, photo.web_url, photo.full_url, photo.watermarked_url, photo.media_type, photo.filename, photo.width, photo.height]);
 
   const fallbacks = useMemo(() => {
     return getPhotoGridDisplayFallbacks(photo).filter((url) => url !== gridSrc);
   }, [photo.id, photo.thumbnail_url, photo.web_url, photo.full_url, photo.watermarked_url, photo.media_type, photo.filename, gridSrc]);
+
+  if (isUnpreviewablePhotoshop(photo)) {
+    return <RawPhotoPlaceholder variant="grid" label="PSD" spinning={false} />;
+  }
 
   if (!gridSrc && (isRawMedia(photo) || photo._uploadPending)) {
     return <RawPhotoPlaceholder variant="grid" />;

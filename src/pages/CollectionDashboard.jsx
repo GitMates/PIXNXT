@@ -156,6 +156,7 @@ import {
     getPhotoVideoSrc,
     hasRawDisplayPreview,
     isRawMedia,
+    isUnpreviewablePhotoshop,
     isVideoMedia,
 } from '../lib/photoDisplayUrl';
 import { GalleryVideo } from '../components/features/Gallery/GalleryVideo';
@@ -8148,6 +8149,13 @@ const CollectionDashboard = () => {
                                         onClick={(e) => e.stopPropagation()}
                                         onError={() => setLightboxImgFailed(true)}
                                     />
+                                );
+                            }
+                            if (isUnpreviewablePhotoshop(lbPhoto)) {
+                                return (
+                                    <div onClick={(e) => e.stopPropagation()}>
+                                        <RawPhotoPlaceholder variant="lightbox" label="PSD" spinning={false} />
+                                    </div>
                                 );
                             }
                             if (isRawMedia(lbPhoto)) {

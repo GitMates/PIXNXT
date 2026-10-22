@@ -2,8 +2,10 @@ import { describe, expect, it } from 'vitest';
 import {
   getCollectionCardCoverCandidates,
   getPhotoDisplayFallbacks,
+  getPhotoFullDisplayUrl,
   getPhotoGridDisplayFallbacks,
   getPhotoGridDisplayUrl,
+  isUnpreviewablePhotoshop,
 } from './photoDisplayUrl';
 
 describe('grid and card image URL roles', () => {
@@ -42,6 +44,35 @@ describe('grid and card image URL roles', () => {
     expect(fallbacks[0]).toBe(photo.thumbnail_url);
     expect(fallbacks).toEqual([photo.thumbnail_url, photo.web_url]);
     expect(fallbacks.some((url) => /\/original\//.test(url))).toBe(false);
+  });
+
+  it('does not request fake jpg derivatives for a PSD that never encoded', () => {
+    const photo = {
+      filename: 'SHA00515.psd',
+      thumbnail_url: 'https://cdn.example/thumb/54m.jpg',
+      web_url: 'https://cdn.example/web/54m.jpg',
+      full_url: 'https://cdn.example/original/54m.psd',
+      width: null,
+      height: null,
+    };
+    expect(isUnpreviewablePhotoshop(photo)).toBe(true);
+    expect(getPhotoGridDisplayUrl(photo)).toBe('');
+    expect(getPhotoGridDisplayFallbacks(photo)).toEqual([]);
+    expect(getPhotoFullDisplayUrl(photo)).toBe('');
+    expect(getPhotoDisplayFallbacks(photo)).toEqual([]);
+  });
+
+  it('uses encoded jpeg thumbs when a PSD actually has raster dimensions', () => {
+    const photo = {
+      filename: 'layout.psd',
+      thumbnail_url: 'https://cdn.example/thumb/layout.jpg',
+      web_url: 'https://cdn.example/web/layout.jpg',
+      full_url: 'https://cdn.example/original/layout.psd',
+      width: 2000,
+      height: 1500,
+    };
+    expect(isUnpreviewablePhotoshop(photo)).toBe(false);
+    expect(getPhotoGridDisplayUrl(photo)).toBe(photo.thumbnail_url);
   });
 
   it('keeps original in lightbox fallbacks', () => {

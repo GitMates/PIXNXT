@@ -2,7 +2,7 @@
  * Shrink photos before upload to the pixel size needed for album display.
  * Parallel encode is capped so the main thread stays responsive under batch uploads.
  */
-import { getFileMime, isImageMime } from './fileMime';
+import { getFileMime, isImageMime, isPhotoshopFile } from './fileMime';
 import { isRawImageFile } from './rawImageFormats';
 import { THUMB_DISPLAY_EDGE, WEB_DISPLAY_EDGE } from './uploadDefaults';
 
@@ -263,7 +263,10 @@ function clearCanvasFilter(ctx) {
  */
 export async function compressImageVariants(file, options = {}) {
   const mime = getFileMime(file);
-  if (isRawImageFile(file) || !isImageMime(mime) || mime === 'image/gif') {
+  if (isPhotoshopFile(file) || isRawImageFile(file)) {
+    return { webFile: null, thumbFile: null };
+  }
+  if (!isImageMime(mime) || mime === 'image/gif') {
     return { webFile: file, thumbFile: file };
   }
 
@@ -345,6 +348,9 @@ export async function compressImageVariants(file, options = {}) {
       return { webFile, thumbFile };
     } catch (err) {
       console.warn('prepareUploadFile: variant compression skipped', err);
+      if (isPhotoshopFile(file) || isRawImageFile(file)) {
+        return { webFile: null, thumbFile: null };
+      }
       return { webFile: file, thumbFile: file };
     }
   });

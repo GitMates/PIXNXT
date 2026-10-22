@@ -13,6 +13,7 @@ import {
   getPhotoStreamPhase,
   getPhotoVideoSrc,
   isRawMedia,
+  isUnpreviewablePhotoshop,
   isVideoMedia,
 } from '../../../../lib/photoDisplayUrl';
 import { GalleryVideo } from '../GalleryVideo';
@@ -115,6 +116,8 @@ export function PhotoLightbox({
     : currentMediaUrl
       ? isGalleryVideo({ full_url: currentMediaUrl, web_url: currentMediaUrl })
       : false;
+  const showPsdPlaceholder =
+    Boolean(currentPhoto) && isUnpreviewablePhotoshop(currentPhoto) && !currentMediaUrl && !isCurrentVideo;
   const showRawPlaceholder =
     Boolean(currentPhoto) && isRawMedia(currentPhoto) && !currentMediaUrl && !isCurrentVideo;
 
@@ -197,7 +200,9 @@ export function PhotoLightbox({
             className="relative flex h-full min-h-0 max-h-full w-full max-w-6xl items-center justify-center"
           >
             <div className="photo-lightbox-media-stage">
-              {showRawPlaceholder ? (
+              {showPsdPlaceholder ? (
+                <RawPhotoPlaceholder variant="lightbox" label="PSD" spinning={false} />
+              ) : showRawPlaceholder ? (
                 <RawPhotoPlaceholder variant="lightbox" label="Preview loading…" />
               ) : isCurrentVideo && currentPhoto ? (
                 <div className="photo-lightbox-media-wrap photo-lightbox-media-wrap--video">

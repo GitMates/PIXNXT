@@ -40,6 +40,8 @@ const EXT_TO_MIME = {
   r3d: 'video/x-red-r3d',
   cine: 'application/octet-stream',
   proraw: 'image/heic',
+  psd: 'image/vnd.adobe.photoshop',
+  psb: 'image/vnd.adobe.photoshop',
 };
 
 export function inferMimeFromFilename(filename) {
@@ -63,6 +65,14 @@ export function isImageMime(mime) {
 
 export function isVideoMime(mime) {
   return mime.startsWith('video/');
+}
+
+export function isPhotoshopFilename(filename) {
+  return /\.(psd|psb)(\?|#|$)/i.test(String(filename || ''));
+}
+
+export function isPhotoshopFile(file) {
+  return Boolean(file?.name && isPhotoshopFilename(file.name));
 }
 
 export function getUploadMediaType(file) {

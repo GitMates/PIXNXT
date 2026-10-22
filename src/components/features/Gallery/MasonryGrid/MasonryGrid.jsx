@@ -3,7 +3,8 @@ import { Download, Heart, Share2, Play, ShoppingBag, ArrowDownToLine, X, Message
 import { cn } from '../../../../lib/utils';
 import { SmoothMediaImage } from '../../../ui/SmoothMediaImage';
 import { isGalleryVideo } from '../../../../lib/galleryMediaType';
-import { getPhotoGridDisplayFallbacks, getPhotoGridDisplayUrl } from '../../../../lib/photoDisplayUrl';
+import { getPhotoGridDisplayFallbacks, getPhotoGridDisplayUrl, isUnpreviewablePhotoshop } from '../../../../lib/photoDisplayUrl';
+import { RawPhotoPlaceholder } from '../../CollectionDashboard/Media/RawPhotoPlaceholder';
 import { GalleryVideo } from '../GalleryVideo';
 import { PhotoPrivateControls, PhotoPrivateBadge } from '../../ClientExclusiveAccess';
 import {
@@ -769,6 +770,13 @@ export function MasonryGrid({
                   ? { width: '100%', height: '100%' }
                   : { aspectRatio: String(tileAspectRatio) }
               }
+            />
+          ) : isUnpreviewablePhotoshop(photo) ? (
+            <RawPhotoPlaceholder
+              variant="grid"
+              label="PSD"
+              spinning={false}
+              className="gallery-masonry-media"
             />
           ) : (
             <SmoothMediaImage
