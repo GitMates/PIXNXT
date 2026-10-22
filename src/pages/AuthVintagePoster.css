@@ -1,0 +1,173 @@
+/* Vintage auth poster — from auth-vintage.html */
+@import url('https://fonts.googleapis.com/css2?family=Jost:wght@400;500;600;700&display=swap');
+
+
+  :root{
+    --terracotta:#B7682A; --peach:#F3B68C; --cream:#FBF6EE;
+    --ink:#2A211B; --muted:#7A6A5D; --hair:rgba(42,33,27,.16);
+    --canvas:#F7F6F3; --sunk:#EFECE6; --surface:#FFFFFF;
+    --paper:#EEE3CF; --p-ink:#2B231D; --p-mute:#8A7866; --dust:#5E7E8C;
+  }
+  
+  
+  
+  .auth-page{
+    display:grid;
+    grid-template-columns:minmax(460px,50%) 1fr;
+    min-height:100dvh;
+    width:100%;
+    flex:1;
+  }
+
+  /* ================= THE PLATE ================= */
+  .poster{
+    position:sticky;top:0;height:100dvh;min-height:660px;overflow:hidden;
+    background:var(--paper);color:var(--p-ink);font-family:"Jost",sans-serif;
+    padding:clamp(30px,3.8vw,56px) clamp(30px,3.8vw,56px) clamp(22px,2.6vw,34px);
+    display:grid;grid-template-rows:auto 1fr auto auto;
+  }
+  /* paper: grain + uneven ink-absorption + soft edge vignette */
+  .poster::before{
+    content:"";position:absolute;inset:0;pointer-events:none;z-index:3;opacity:.55;mix-blend-mode:multiply;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='260' height='260'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .42 0 0 0 0 .33 0 0 0 0 .22 0 0 0 .55 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+  .poster::after{
+    content:"";position:absolute;inset:0;pointer-events:none;z-index:3;
+    background:radial-gradient(120% 90% at 50% 45%,transparent 55%,rgba(120,84,48,.16));
+  }
+  .poster > *{position:relative;z-index:1}
+  .poster > .flash{position:absolute;inset:0;z-index:5}
+  .poster.out .plate-t,.poster.out .art,.poster.out .poem,.poster.out .meta{opacity:0}
+  .plate-t,.art,.poem,.meta{transition:opacity .55s ease}
+
+  /* type, set like the coffee-studies plate */
+  .plate-t .series{font-size:clamp(15px,1.5vw,20px);font-weight:700;letter-spacing:.02em;text-transform:uppercase}
+  .plate-t .no{font-variant-numeric:tabular-nums;font-size:clamp(15px,1.5vw,20px);font-weight:700;letter-spacing:.02em;color:var(--terracotta);margin-top:2px;text-transform:uppercase}
+  .plate-t .name{font-size:clamp(28px,3vw,42px);font-weight:700;letter-spacing:.005em;text-transform:uppercase;margin-top:8px;line-height:1}
+
+  .stage{position:relative;min-height:0}
+  .art{position:absolute;inset:0 -4% 0 6%}
+  .art svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
+  .poem{position:absolute;left:0;bottom:12%;font-size:12px;font-weight:700;letter-spacing:.06em;line-height:1.35;text-transform:uppercase;z-index:2}
+  .poem::after{content:"";display:block;width:44px;height:1.5px;background:currentColor;margin-top:12px}
+  .meta{position:absolute;right:0;top:6%;font-size:10px;font-weight:600;letter-spacing:.14em;color:var(--p-ink);z-index:2;text-align:right}
+
+  .foot{display:grid;grid-template-columns:1fr auto 1fr;align-items:end;gap:12px;margin-top:14px}
+  .brand{display:flex;flex-direction:column;gap:4px;align-items:flex-start}
+  .brand svg{width:15px;height:17px;fill:var(--terracotta)}
+  .brand .wm{width:auto;height:7px;fill:var(--p-ink)}
+  .foot .study{font-size:9.5px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;text-align:center}
+
+  /* the beam line, kept quiet: a hairline timeline */
+  .tl{position:relative;height:30px;margin-top:16px}
+  .tl .track{position:absolute;left:0;right:calc(6% + 13px);top:9px;height:1px;background:rgba(43,35,29,.22)}
+  .tl .fillwrap{position:absolute;left:0;right:0;top:9px;height:1px;clip-path:inset(0 calc(6% + 13px) 0 0)}
+  .tl .fill{position:absolute;left:0;top:0;height:1px;width:0;background:var(--terracotta)}
+  .tl .fillwrap .fill{max-width:none}
+  .tl button{position:absolute;top:9px;transform:translate(-50%,-50%);background:none;border:0;cursor:pointer;padding:7px;font:inherit;color:inherit}
+  .tl .dot i{display:block;width:5px;height:5px;border-radius:50%;background:var(--paper);border:1.2px solid rgba(43,35,29,.45);transition:all .3s}
+  .tl .dot.done i{background:var(--terracotta);border-color:var(--terracotta)}
+  .tl button span{position:absolute;left:50%;top:19px;white-space:nowrap;transform:translateX(-50%);font-size:8.5px;font-weight:600;letter-spacing:.14em;color:var(--p-mute);font-variant-numeric:tabular-nums}
+  .tl button.on span{color:var(--p-ink)}
+  .tl .mk{width:30px;height:30px;padding:0}
+  .tl .mk svg{display:block;width:14px;height:16px;margin:0 auto;fill:var(--terracotta);opacity:.45;transition:opacity .3s}
+  .tl .mk.lit svg{opacity:1}
+  .tl .mk span{top:23px}
+  .tl .mk::before{content:"";position:absolute;left:50%;top:50%;width:130px;height:130px;margin:-65px 0 0 -65px;border-radius:50%;opacity:0;transform:scale(.15);pointer-events:none;
+    background:radial-gradient(circle,rgba(255,252,246,1) 0%,rgba(243,182,140,.6) 32%,rgba(243,182,140,0) 68%)}
+  .tl.fire .mk::before{animation:bloom 1.3s cubic-bezier(.1,.8,.2,1)}
+  @keyframes bloom{0%{opacity:0;transform:scale(.15)}4%{opacity:1;transform:scale(1)}100%{opacity:0;transform:scale(1.5)}}
+
+  .flash{position:absolute;inset:0;z-index:5;pointer-events:none;opacity:0;background:radial-gradient(70% 60% at 55% 45%,#FFFDF8 0%,#FFF6E8 45%,rgba(251,246,238,.55) 100%)}
+  .poster.fire .flash{animation:flash 1.15s cubic-bezier(.1,.8,.2,1)}
+  .poster.soft .flash{animation:soft 1.3s cubic-bezier(.1,.8,.2,1)}
+  @keyframes flash{0%{opacity:0}6%{opacity:1}100%{opacity:0}}
+  @keyframes soft{0%{opacity:0}6%{opacity:.4}100%{opacity:0}}
+
+  /* gentle life inside the illustrations */
+  .spin{transform-box:fill-box;transform-origin:50% 50%;animation:spin 18s linear infinite}
+  .drift{animation:drift 9s ease-in-out infinite}
+  .sway{transform-box:view-box;transform-origin:220px 0;animation:sway 6s ease-in-out infinite}
+  .bob{animation:bob 7s ease-in-out infinite}
+  .pop{opacity:0;animation:pop .5s ease forwards}
+  .pull{animation:pull 6s ease-in-out infinite}
+  .plug{animation:plug 4.8s ease-in-out infinite}
+  .led{animation:led 1.2s steps(2) infinite}
+  .stamp{transform-box:fill-box;transform-origin:50% 50%;animation:stamp 3.6s cubic-bezier(.3,1.4,.5,1) infinite}
+  .shuffle{animation:shuffle 7s ease-in-out infinite}
+  .arrive{opacity:0;animation:arrive .5s ease forwards}
+  .tile{transition:fill .9s ease}
+  @keyframes pull{0%,100%{transform:translateX(0)}50%{transform:translateX(-34px)}}
+  @keyframes plug{0%,20%{transform:translateX(0)}50%,70%{transform:translateX(34px)}100%{transform:translateX(0)}}
+  @keyframes led{50%{opacity:.15}}
+  @keyframes stamp{0%{opacity:0;transform:scale(1.35) translateY(-14px)}14%{opacity:1;transform:scale(1)}82%{opacity:1;transform:scale(1)}100%{opacity:0;transform:scale(1)}}
+  @keyframes shuffle{0%,100%{transform:translate(0,0)}50%{transform:translate(4px,-7px)}}
+  @keyframes arrive{to{opacity:1}}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  @keyframes drift{0%,100%{transform:translate(0,0)}50%{transform:translate(-26px,-18px)}}
+  @keyframes sway{0%,100%{transform:rotate(-2.2deg)}50%{transform:rotate(2.2deg)}}
+  @keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}
+  @keyframes pop{to{opacity:1}}
+
+  /* ================= FORM ================= */
+  /* Override App.css `main { flex: 1 }` so the pane stays a centered flex column. */
+  .auth-page > .pane,
+  .auth-page > main.pane{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:40px 24px;
+    background:var(--canvas);
+    box-sizing:border-box;
+    width:100%;
+    min-width:0;
+    flex:initial;
+    min-height:100%;
+  }
+  .auth-page > .pane > .form,
+  .auth-page .form{
+    width:100%;
+    max-width:400px;
+    flex:0 1 400px;
+    margin-inline:auto;
+  }
+  .wordmark{display:inline-block;line-height:0;margin-bottom:clamp(36px,6vh,56px)}
+  .wordmark svg{height:22px;width:auto;fill:var(--terracotta)}
+  @media (max-width:980px){ .wordmark svg{height:18px} .wordmark{margin-bottom:28px} }
+  .form h1{font-family:"Fraunces",serif;font-weight:400;font-size:40px;letter-spacing:-.015em;line-height:1.1}
+  .form .lead{color:var(--muted);margin-top:8px;font-size:15px}
+  .f{margin-top:28px}
+  .field{margin-top:18px}
+  .field label{display:flex;justify-content:space-between;font-size:14px;font-weight:500;margin-bottom:8px}
+  .field label a{color:var(--terracotta);text-decoration:none;font-weight:500}
+  .field input{width:100%;height:48px;border:1px solid transparent;border-radius:10px;background:var(--sunk);padding:0 16px;font:inherit;font-size:15px;color:var(--ink);outline:none;transition:border-color .15s,background .15s}
+  .field input:focus{border-color:var(--terracotta);background:var(--surface)}
+  .btn{width:100%;height:50px;border-radius:10px;font:inherit;font-size:16px;font-weight:500;cursor:pointer;margin-top:22px}
+  .btn.primary{background:var(--ink);color:var(--cream);border:0}
+  .btn.primary:hover{background:#000}
+  .or{display:flex;align-items:center;gap:14px;margin:20px 0 0;color:var(--muted);font-size:11px;letter-spacing:.16em}
+  .or::before,.or::after{content:"";flex:1;height:1px;background:var(--hair)}
+  .btn.ghost{background:var(--surface);border:1px solid var(--hair);color:var(--ink);display:flex;align-items:center;justify-content:center;gap:10px;margin-top:20px}
+  .new{text-align:center;margin-top:24px;color:var(--muted);font-size:14px}
+  .new a{color:var(--terracotta);text-decoration:none;font-weight:500}
+  .demo{margin-top:28px;font-size:12px;color:var(--muted);text-align:center}
+  .demo button{background:none;border:0;color:var(--terracotta);font:inherit;cursor:pointer;text-decoration:underline;text-underline-offset:3px}
+
+  @media (max-width:980px){
+    .auth-page{grid-template-columns:1fr}
+    .poster{position:relative;height:auto;min-height:0;grid-template-rows:auto 230px auto;padding:22px 20px 12px}
+    .foot,.poem{display:none}
+    .plate-t .name{font-size:24px}
+    .art{inset:0 -6% 0 22%}
+    .meta{top:2%}
+    .auth-page > .pane,
+    .auth-page > main.pane{padding:32px 20px 48px;align-items:flex-start}
+    .form h1{font-size:32px}
+  }
+  @media (prefers-reduced-motion:reduce){
+    .spin,.drift,.sway,.bob,.pull,.plug,.led,.stamp,.shuffle{animation:none}
+    .arrive{animation:none;opacity:1}
+    .pop{animation:none;opacity:1}
+    .poster.fire .flash,.poster.soft .flash,.tl.fire .mk::before{animation:none}
+    .plate-t,.art,.poem,.meta{transition:none}
+  }

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { LoginForm, SignupForm } from '../components/features/Auth';
 import { ForgotPasswordForm } from '../components/features/Auth/ForgotPasswordForm';
 import { ResetPasswordForm } from '../components/features/Auth/ResetPasswordForm';
@@ -13,7 +13,18 @@ import {
 } from '../services/auth.service';
 import { isGoogleStudioCallbackPath } from '../lib/googleStudioAuth';
 import { isWorkersSuccessPath } from '../lib/api/client';
+import { AuthVintagePoster } from './AuthVintagePoster';
+import './AuthVintagePoster.css';
 import './AuthPage.css';
+
+const WORDMARK_PATHS = [
+  'M17 22h153c85 0 140 38 140 121v14c0 83-55 121-140 121H66v150H17zM66 67v167h99c60 0 95-27 95-79v-10c0-52-35-78-95-78z',
+  'M489 22h50v407h-50z',
+  'M708 22h60l110 153 110-153h60L907 214l157 215h-60L876 253 752 429h-60l156-215z',
+  'M1217 22h49v313l309-318h10v412h-49V118l-309 317h-10z',
+  'M1754 22h60l110 153 110-153h60l-141 192 157 215h-60l-128-176-124 176h-60l156-215z',
+  'M2219 22h338v46h-144v361h-50V68h-144z',
+];
 
 const COPY = {
   login: {
@@ -56,7 +67,7 @@ function resolvePostAuthPath(fromLocation) {
 }
 
 /**
- * AuthPage — split studio login / signup (no card).
+ * AuthPage — vintage split studio login / signup (functionality unchanged).
  */
 const AuthPage = () => {
   const location = useLocation();
@@ -64,6 +75,7 @@ const AuthPage = () => {
   const mode = searchParams.get('mode');
   const emailConfirmed = searchParams.get('confirmed') === '1';
   const { user, loading, refresh } = useAuth();
+  const posterRef = useRef(null);
 
   const [view, setView] = useState(() => {
     if (mode === 'signup') return 'signup';
@@ -84,9 +96,6 @@ const AuthPage = () => {
   const navigate = useNavigate();
   const googleExchangeRef = useRef(null);
 
-  // Workers Google flow lands on /auth/success with the refresh cookie set.
-  // The AuthProvider mounted earlier (user=null), so re-resolve before
-  // navigating — otherwise ProtectedRoute bounces straight back to /auth.
   useEffect(() => {
     if (!isWorkersSuccessPath()) return undefined;
     let cancelled = false;
@@ -222,8 +231,11 @@ const AuthPage = () => {
       clearPasswordRecoveryParams();
       setRecoveryActive(false);
     }
-    // Email login already refreshed context in useAuth, but re-resolve here
-    // as a safety net so ProtectedRoute never sees a stale null user.
+    try {
+      posterRef.current?.playEntry?.();
+    } catch {
+      /* ambient poster only */
+    }
     try {
       const resolved = await refresh?.();
       if (!resolved?.user) return;
@@ -241,16 +253,18 @@ const AuthPage = () => {
 
   return (
     <div className="auth-page">
-      <section className="auth-page__stage" aria-hidden="true">
-        <div className="auth-page__brand">PIX NXT</div>
-        <blockquote className="auth-page__quote">
-          <p>Six hundred photographs, delivered before the mehendi finished.</p>
-          <cite>KARAKOVAN PHOTOGRAPHY · COIMBATORE</cite>
-        </blockquote>
-      </section>
+      <AuthVintagePoster ref={posterRef} />
 
-      <section className="auth-page__panel">
-        <div className="auth-page__form">
+      <main className="pane auth-page__panel">
+        <div className="form auth-page__form">
+          <Link className="wordmark" to="/" aria-label="PIXNXT home">
+            <svg viewBox="0 0 2576 452" aria-hidden="true">
+              <path fillRule="evenodd" d={WORDMARK_PATHS[0]} />
+              {WORDMARK_PATHS.slice(1).map((d) => (
+                <path key={d} d={d} />
+              ))}
+            </svg>
+          </Link>
           <header className="auth-page__header">
             <h1 className="auth-page__title">{copy.title}</h1>
             <p className="auth-page__subtitle">{copy.subtitle}</p>
@@ -290,8 +304,16 @@ const AuthPage = () => {
               onRequestNewLink={() => setView('forgot')}
             />
           )}
+
+          {view === 'login' ? (
+            <p className="auth-demo demo">
+              <button type="button" onClick={() => posterRef.current?.replay?.()}>
+                Replay plates
+              </button>
+            </p>
+          ) : null}
         </div>
-      </section>
+      </main>
     </div>
   );
 };
