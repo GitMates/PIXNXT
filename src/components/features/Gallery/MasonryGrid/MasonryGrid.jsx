@@ -1,10 +1,9 @@
 import React, { useState, useEffect, useLayoutEffect, useMemo, useCallback, useRef } from 'react';
-import { motion as Motion } from 'framer-motion';
 import { Download, Heart, Share2, Play, ShoppingBag, ArrowDownToLine, X, MessageCircle, ArrowRight } from 'lucide-react';
 import { cn } from '../../../../lib/utils';
 import { SmoothMediaImage } from '../../../ui/SmoothMediaImage';
 import { isGalleryVideo } from '../../../../lib/galleryMediaType';
-import { getPhotoGridDisplayUrl } from '../../../../lib/photoDisplayUrl';
+import { getPhotoGridDisplayFallbacks, getPhotoGridDisplayUrl } from '../../../../lib/photoDisplayUrl';
 import { GalleryVideo } from '../GalleryVideo';
 import { PhotoPrivateControls, PhotoPrivateBadge } from '../../ClientExclusiveAccess';
 import {
@@ -18,12 +17,12 @@ import {
   distributePhotosToShortestColumns,
   getGalleryMasonryColumnCount,
   getThumbnailSizeColumnCount,
+  isMasonryEagerTile,
+  isMasonryHighPriorityTile,
+  MASONRY_EAGER_TILE_COUNT,
 } from '../../../../lib/masonryColumnDistribution';
 import { isRowMasonryGridStyle } from '../../../../lib/galleryGridStyle';
 import './MasonryGrid.css';
-
-/** First tiles load immediately for LCP; the rest wait until near the viewport. */
-const MASONRY_EAGER_TILE_COUNT = 18;
 
 export function MasonryGrid({
   photos,
@@ -122,24 +121,34 @@ export function MasonryGrid({
     return result;
   }, [photos, activeCampaign, colsCount]);
 
-  useEffect(() => {
-    displayPhotos.forEach(photo => {
-      if (photo.isPromoBanner) return;
-      if (!photo.width || !photo.height) {
-        const src = getPhotoGridDisplayUrl(photo);
-        // Skip dimension probing for video files — use 16:9 fallback
-        if (isGalleryVideo(photo)) {
-          setDynamicAspectRatios(prev => ({ ...prev, [photo.id]: 16 / 9 }));
-          return;
+  const pendingAspectRef = useRef({});
+  const aspectRafRef = useRef(null);
+
+  const reportAspectRatio = useCallback((photoId, ratio) => {
+    if (!photoId || !(ratio > 0)) return;
+    pendingAspectRef.current[photoId] = ratio;
+    if (aspectRafRef.current != null) return;
+    aspectRafRef.current = requestAnimationFrame(() => {
+      aspectRafRef.current = null;
+      const batch = pendingAspectRef.current;
+      pendingAspectRef.current = {};
+      setDynamicAspectRatios((prev) => {
+        let changed = false;
+        const next = { ...prev };
+        for (const [id, value] of Object.entries(batch)) {
+          if (prev[id] === value) continue;
+          next[id] = value;
+          changed = true;
         }
-        const img = new Image();
-        img.onload = () => {
-          setDynamicAspectRatios(prev => ({ ...prev, [photo.id]: img.width / img.height }));
-        };
-        img.src = src;
-      }
+        return changed ? next : prev;
+      });
     });
-  }, [displayPhotos]);
+  }, []);
+
+  useEffect(() => () => {
+    if (aspectRafRef.current != null) cancelAnimationFrame(aspectRafRef.current);
+  }, []);
+
   const isHorizontal = isHorizontalProp !== undefined
     ? isHorizontalProp
     : isRowMasonryGridStyle(gridSettings?.style);
@@ -161,23 +170,7 @@ export function MasonryGrid({
   const VIDEO_TILE_MAX_WIDTH_PX = 1080;
   const VIDEO_TILE_ASPECT = 16 / 9;
 
-  // Avoid opacity:0 on the multicol container — it can break column layout / paint in some browsers.
-  const container = {
-    hidden: {},
-    show: {
-      transition: {
-        staggerChildren: 0.03,
-        delayChildren: 0.08
-      }
-    }
-  };
-
-  const item = {
-    hidden: { opacity: 0, y: 8 },
-    show: { opacity: 1, y: 0, transition: { duration: 0.5, ease: [0.22, 1, 0.36, 1] } }
-  };
-
-  /** Remount animation when the visible photo set changes (e.g. Highlights ↔ WED tab). */
+  /** Remount when the visible photo set changes (e.g. Highlights ↔ WED tab). */
   const photoListKey = useMemo(
     () => photos.map((p) => p.id).join('|') || 'empty',
     [photos]
@@ -185,6 +178,7 @@ export function MasonryGrid({
 
   const getPhotoAspectRatio = useCallback((photo) => {
     if (photo.isPromoBanner) return 1;
+    if (isGalleryVideo(photo)) return 16 / 9;
     if (photo.width && photo.height) return photo.width / photo.height;
     return dynamicAspectRatios[photo.id] || 1.5;
   }, [dynamicAspectRatios]);
@@ -459,9 +453,8 @@ export function MasonryGrid({
     const ctaLabel = bannerConfig?.cta || (isPhotoBanner ? 'CLAIM OFFER' : 'CLAIM OFFER');
 
     return (
-      <Motion.div
+      <div
         key={photo.id}
-        variants={item}
         className={cn(
           'relative overflow-hidden group cursor-pointer min-w-0 w-full max-w-full shadow-sm border border-black/5'
         )}
@@ -686,17 +679,25 @@ export function MasonryGrid({
             )}
           </div>
         </div>
-      </Motion.div>
+      </div>
     );
   };
 
-  const renderPhotoItem = (photo, index) => {
+  const renderPhotoItem = (photo) => {
     const src = isGalleryVideo(photo) ? '' : getPhotoGridDisplayUrl(photo);
+    const fallbacks = isGalleryVideo(photo)
+      ? []
+      : getPhotoGridDisplayFallbacks(photo).filter((url) => url !== src);
+    const originalIndex = photo._originalIndex ?? 0;
     const aspectRatio = getPhotoAspectRatio(photo);
     const useFixedVideoTile = centerVideosLayout && isGalleryVideo(photo);
     const tileAspectRatio = useFixedVideoTile ? VIDEO_TILE_ASPECT : aspectRatio;
     const useVerticalTileFrame = !isHorizontal && !centerVideosLayout;
-    const eagerTile = index < MASONRY_EAGER_TILE_COUNT;
+    const eagerTile = isMasonryEagerTile(
+      originalIndex,
+      forceShow ? MASONRY_EAGER_TILE_COUNT * 2 : MASONRY_EAGER_TILE_COUNT,
+    );
+    const highPriority = isMasonryHighPriorityTile(originalIndex, colsCount);
 
     const isFav = favoritedPhotoIds?.some((fid) => String(fid) === String(photo.id));
     const isPrivate = Boolean(photo.is_private);
@@ -706,11 +707,11 @@ export function MasonryGrid({
       ? packageSelectedPhotoIds.findIndex((id) => String(id) === String(photo.id))
       : -1;
     const isPackageSelected = packageSelectedIndex >= 0;
+    const tilePlaceholderBg = 'color-mix(in srgb, var(--gallery-text, #111) 10%, var(--gallery-bg, #fff))';
 
     return (
-      <Motion.div
-        key={`${photo.id}-${index}`}
-        variants={item}
+      <div
+        key={photo.id}
         className={cn(
           'relative overflow-hidden group cursor-pointer min-w-0 w-full max-w-full',
           useVerticalTileFrame && 'masonry-grid-tile',
@@ -734,7 +735,7 @@ export function MasonryGrid({
         }}
       >
         {/* First-visit tooltip — above the first tile only */}
-        {index === 0 && showTooltip && (
+        {originalIndex === 0 && showTooltip && (
           <div className="gallery-tile-tooltip">
             Hover any photo — favourite it, or print it
           </div>
@@ -745,12 +746,12 @@ export function MasonryGrid({
             useVerticalTileFrame ? 'masonry-grid-tile-frame absolute inset-0' : 'relative h-full w-full',
             useFixedVideoTile && 'masonry-grid-video-frame'
           )}
-          style={useVerticalTileFrame ? undefined : { backgroundColor: 'var(--gallery-secondary-bg)' }}
+          style={useVerticalTileFrame ? undefined : { backgroundColor: tilePlaceholderBg }}
         >
           {useVerticalTileFrame ? (
             <span
-              className="absolute inset-0 block"
-              style={{ backgroundColor: 'var(--gallery-secondary-bg)' }}
+              className="absolute inset-0 block masonry-grid-tile-placeholder"
+              style={{ backgroundColor: tilePlaceholderBg }}
               aria-hidden
             />
           ) : null}
@@ -772,11 +773,21 @@ export function MasonryGrid({
           ) : (
             <SmoothMediaImage
               src={src}
-              alt={photo.filename || `Gallery image ${index + 1}`}
+              fallbacks={fallbacks}
+              alt={photo.filename || `Gallery image ${originalIndex + 1}`}
               wrapClassName="gallery-masonry-media"
               objectFit="cover"
               loading={eagerTile ? 'eager' : 'lazy'}
+              fetchPriority={highPriority ? 'high' : 'auto'}
               deferUntilVisible={!eagerTile}
+              onLoad={(_loadedSrc, meta) => {
+                if (photo.width && photo.height) return;
+                const width = meta?.naturalWidth || 0;
+                const height = meta?.naturalHeight || 0;
+                if (width > 0 && height > 0) {
+                  reportAspectRatio(photo.id, width / height);
+                }
+              }}
             />
           )}
 
@@ -1055,7 +1066,7 @@ export function MasonryGrid({
             </button>
           ) : null}
         </div>
-      </Motion.div>
+      </div>
     );
   };
 
@@ -1081,12 +1092,9 @@ export function MasonryGrid({
 
   if (!isHorizontal) {
     return (
-      <Motion.div
+      <div
         key={photoListKey}
         ref={containerRef}
-        variants={container}
-        initial="hidden"
-        animate="show"
         className={cn(
           'w-full max-w-full min-w-0 masonry-grid-container flex items-start',
           centerVideosLayout && 'masonry-grid-videos-only',
@@ -1101,12 +1109,12 @@ export function MasonryGrid({
             className={cn('flex-1 flex flex-col min-w-0', centerVideosLayout && 'w-full')}
             style={{ gap: `${gap}px` }}
           >
-            {columnItems.map((photo, idx) => {
+            {columnItems.map((photo) => {
               if (photo.isPromoBanner) return renderPromoCard(photo);
-              const card = renderPhotoItem(photo, idx);
+              const card = renderPhotoItem(photo);
               if (!renderBelow) return card;
               return (
-                <div key={`stack-${photo.id}-${idx}`} className="w-full min-w-0">
+                <div key={`stack-${photo.id}`} className="w-full min-w-0">
                   {card}
                   {renderBelow(photo)}
                 </div>
@@ -1114,16 +1122,13 @@ export function MasonryGrid({
             })}
           </div>
         ))}
-      </Motion.div>
+      </div>
     );
   }
 
   return (
-    <Motion.div
+    <div
       key={photoListKey}
-      variants={container}
-      initial="hidden"
-      animate="show"
       className={cn(
         'w-full max-w-full min-w-0 masonry-grid-container',
         'flex flex-wrap masonry-grid-horizontal items-start',
@@ -1133,17 +1138,17 @@ export function MasonryGrid({
       )}
       style={{ gap: `${gap}px` }}
     >
-      {displayPhotos.map((photo, index) => {
+      {displayPhotos.map((photo) => {
         if (photo.isPromoBanner) return renderPromoCard(photo);
-        const card = renderPhotoItem(photo, index);
+        const card = renderPhotoItem(photo);
         if (!renderBelow) return card;
         return (
-          <div key={`stack-${photo.id}-${index}`} className="w-full min-w-0">
+          <div key={`stack-${photo.id}`} className="w-full min-w-0">
             {card}
             {renderBelow(photo)}
           </div>
         );
       })}
-    </Motion.div>
+    </div>
   );
 }

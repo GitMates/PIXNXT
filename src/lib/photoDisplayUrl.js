@@ -120,12 +120,37 @@ export function getPhotoGridDisplayUrl(photo, preferOriginalAspect = false) {
     return resolveMediaUrl(photo.web_url || photo.full_url || photo.thumbnail_url || '');
   }
   void preferOriginalAspect;
-  const ordered = [photo.thumbnail_url, photo.web_url, photo.full_url];
+  const ordered = [photo.thumbnail_url, photo.web_url];
   for (const url of ordered) {
     const resolved = resolveMediaUrl(url);
     if (resolved && isBrowserDisplayableImageUrl(resolved)) return resolved;
   }
   return '';
+}
+
+/** Grid fallbacks — thumb then web. Never original (too heavy for tiles). */
+export function getPhotoGridDisplayFallbacks(photo) {
+  if (!photo) return [];
+  const seen = new Set();
+  if (photo.watermarked_url) {
+    return [resolveMediaUrl(photo.watermarked_url)];
+  }
+  if (isVideoMedia(photo)) return [];
+  if (isRawMedia(photo)) {
+    const preview = getRawPreviewUrl(photo);
+    return preview ? [preview] : [];
+  }
+  const urls = isGifMedia(photo)
+    ? [photo.web_url, photo.full_url, photo.thumbnail_url]
+    : [photo.thumbnail_url, photo.web_url];
+  return urls
+    .map((url) => resolveMediaUrl(url))
+    .filter((url) => {
+      if (!url || seen.has(url)) return false;
+      if (!isBrowserDisplayableImageUrl(url)) return false;
+      seen.add(url);
+      return true;
+    });
 }
 
 /**

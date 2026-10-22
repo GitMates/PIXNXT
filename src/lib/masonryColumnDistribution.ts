@@ -31,6 +31,25 @@ export function distributePhotosToShortestColumns<T>(
   return columns;
 }
 
+/** First tiles load immediately for LCP; the rest wait until near the viewport. */
+export const MASONRY_EAGER_TILE_COUNT = 18;
+
+/** Eager by gallery order — never by index-within-column, or later columns starve. */
+export function isMasonryEagerTile(
+  originalIndex: number | null | undefined,
+  eagerCount = MASONRY_EAGER_TILE_COUNT,
+): boolean {
+  return Number(originalIndex) >= 0 && Number(originalIndex) < eagerCount;
+}
+
+/** First visual row across all columns — `fetchPriority="high"`. */
+export function isMasonryHighPriorityTile(
+  originalIndex: number | null | undefined,
+  colCount: number,
+): boolean {
+  return Number(originalIndex) >= 0 && Number(originalIndex) < Math.max(1, colCount);
+}
+
 const MOBILE_MASONRY_BREAKPOINT = 768;
 
 export type ThumbnailSizeId = 'large' | 'regular' | 'small' | 'x-small';

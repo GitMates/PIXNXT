@@ -4,6 +4,12 @@
   overflow: hidden;
   aspect-ratio: var(--ar);
   width: 100%;
+  background: color-mix(in srgb, var(--gallery-text, #111) 10%, var(--gallery-bg, #fff));
+}
+
+.masonry-grid-tile .smooth-media-wrap,
+.masonry-grid-tile .smooth-media-placeholder {
+  background: color-mix(in srgb, var(--gallery-text, #111) 10%, var(--gallery-bg, #fff));
 }
 
 .masonry-grid-tile-frame {

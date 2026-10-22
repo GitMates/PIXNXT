@@ -17,6 +17,7 @@ export function SmoothMediaImage({
   objectFit = 'contain',
   objectPosition,
   loading = 'lazy',
+  fetchPriority = 'auto',
   deferUntilVisible = false,
   onLoad,
 }) {
@@ -76,14 +77,22 @@ export function SmoothMediaImage({
       setLoaded(true);
       setError(false);
       markMediaUrlCached(activeSrc);
+      onLoad?.(activeSrc, {
+        naturalWidth: el.naturalWidth,
+        naturalHeight: el.naturalHeight,
+      });
     }
   }, [activeSrc, shouldLoad]);
 
-  const handleLoad = () => {
+  const handleLoad = (event) => {
     markMediaUrlCached(activeSrc);
     setLoaded(true);
     setError(false);
-    onLoad?.(activeSrc);
+    const img = event?.currentTarget;
+    onLoad?.(activeSrc, {
+      naturalWidth: img?.naturalWidth || 0,
+      naturalHeight: img?.naturalHeight || 0,
+    });
   };
 
   const handleError = () => {
@@ -157,6 +166,7 @@ export function SmoothMediaImage({
           }}
           decoding="async"
           loading={loading}
+          fetchPriority={fetchPriority}
           onLoad={handleLoad}
           onError={handleError}
         />

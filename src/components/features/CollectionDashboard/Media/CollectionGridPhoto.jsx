@@ -1,7 +1,7 @@
 import React, { memo, useMemo } from 'react';
 import { SmoothMediaImage } from '@/components/ui/SmoothMediaImage';
 import {
-  getPhotoDisplayFallbacks,
+  getPhotoGridDisplayFallbacks,
   getPhotoGridDisplayUrl,
   getPhotoStreamPhase,
   getPhotoVideoPoster,
@@ -25,7 +25,7 @@ function ContainGridMedia({ photo, index, isVideo }) {
   }, [photo.id, photo.thumbnail_url, photo.web_url, photo.full_url, photo.watermarked_url, photo.media_type, photo.filename]);
 
   const fallbacks = useMemo(() => {
-    return getPhotoDisplayFallbacks(photo, true).filter((url) => url !== gridSrc);
+    return getPhotoGridDisplayFallbacks(photo).filter((url) => url !== gridSrc);
   }, [photo.id, photo.thumbnail_url, photo.web_url, photo.full_url, photo.watermarked_url, photo.media_type, photo.filename, gridSrc]);
 
   if (isVideo) {
@@ -44,6 +44,7 @@ function ContainGridMedia({ photo, index, isVideo }) {
       className="cd-photo-img cd-photo-grid-contain-media"
       objectFit="contain"
       loading={index < 24 ? 'eager' : 'lazy'}
+      fetchPriority={index < 6 ? 'high' : 'auto'}
       deferUntilVisible={index >= 24}
       style={containWrapStyle}
     />
@@ -124,7 +125,7 @@ export const CollectionGridPhoto = memo(function CollectionGridPhoto({
   }, [photo.id, photo.thumbnail_url, photo.web_url, photo.full_url, photo.watermarked_url, photo.media_type, photo.filename]);
 
   const fallbacks = useMemo(() => {
-    return getPhotoDisplayFallbacks(photo, true).filter((url) => url !== gridSrc);
+    return getPhotoGridDisplayFallbacks(photo).filter((url) => url !== gridSrc);
   }, [photo.id, photo.thumbnail_url, photo.web_url, photo.full_url, photo.watermarked_url, photo.media_type, photo.filename, gridSrc]);
 
   if (!gridSrc && (isRawMedia(photo) || photo._uploadPending)) {
@@ -143,6 +144,7 @@ export const CollectionGridPhoto = memo(function CollectionGridPhoto({
       className="cd-photo-img"
       objectFit="contain"
       loading={index < 24 ? 'eager' : 'lazy'}
+      fetchPriority={index < 6 ? 'high' : 'auto'}
       deferUntilVisible={index >= 24}
       style={{
         width: '100%',
