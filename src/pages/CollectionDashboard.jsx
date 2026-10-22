@@ -87,7 +87,7 @@ import {
     toDeliveryDesignPatch,
 } from '../lib/designSettingsPersist';
 import { navigateToAccount } from '../lib/accountBackNav';
-import { openShareByEmail, openWhatsAppShare, getCollectionShareUrl, getQrCodeImageUrl } from '../lib/shareCollection';
+import { openShareByEmail, openWhatsAppShare, getCollectionShareUrl, getStudioPreviewGalleryUrl, getQrCodeImageUrl } from '../lib/shareCollection';
 import { resolveUploadDefaults, syncUploadDefaultsToLocalStorage, isRawUploadEnabled } from '../lib/uploadDefaults';
 import { CollectionQrModal, CollectionDuplicateModal } from '../components/features/ClientGallery/CollectionShareModals';
 import { formatStorageBytes } from '../utils/formatStorageBytes';
@@ -4078,7 +4078,7 @@ const CollectionDashboard = () => {
     ]);
 
     const handlePreviewAsClient = useCallback(() => {
-        const params = new URLSearchParams({
+        const query = {
             coverStyle: selectedCoverStyle,
             font: normalizeFontId(selectedFont),
             color: normalizePaletteId(selectedColorPalette),
@@ -4089,14 +4089,14 @@ const CollectionDashboard = () => {
             slideshow: slideshow ? '1' : '0',
             socialSharing: socialSharing ? '1' : '0',
             sort: sortOption,
-        });
+        };
         const orderIds = sortedPhotos
             .filter((photo) => photo?.id && !photo._uploadPending)
             .map((photo) => photo.id);
-        if (orderIds.length) params.set('order', orderIds.join(','));
-        const galleryUrl = getCollectionShareUrl(collectionUrl, profile);
-        const joiner = galleryUrl.includes('?') ? '&' : '?';
-        window.open(`${galleryUrl}${joiner}${params.toString()}`, '_blank', 'noopener,noreferrer');
+        if (orderIds.length) query.order = orderIds.join(',');
+        // Studio preview stays on the platform host (PIXNXT loader); client share links keep custom domain.
+        const galleryUrl = getStudioPreviewGalleryUrl(collectionUrl, collectionId, query);
+        window.open(galleryUrl, '_blank', 'noopener,noreferrer');
     }, [
         selectedCoverStyle,
         selectedFont,
@@ -4110,7 +4110,7 @@ const CollectionDashboard = () => {
         sortOption,
         sortedPhotos,
         collectionUrl,
-        profile,
+        collectionId,
     ]);
 
     useEffect(() => {

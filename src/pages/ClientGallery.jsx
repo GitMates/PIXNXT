@@ -15,7 +15,13 @@ import { cn } from '../lib/utils';
 import { useAuth } from '../hooks/useAuth';
 import { galleryService } from '../services/gallery.service';
 import { buildDeliveryStatusPatch } from '../lib/deliveryStatus';
-import { openShareByEmail, openWhatsAppShare, getShareUrlForCollection } from '../lib/shareCollection';
+import {
+    openShareByEmail,
+    openWhatsAppShare,
+    getShareUrlForCollection,
+    getStudioPreviewGalleryUrl,
+} from '../lib/shareCollection';
+import { generateCollectionSlug } from '../lib/collectionSlug';
 import { CollectionCardCover } from '../components/features/ClientGallery/CollectionCardCover';
 import { CollectionContextMenu } from '../components/features/ClientGallery/CollectionContextMenu';
 import { DeleteDeliveryModal } from '../components/features/ClientGallery/DeleteDeliveryModal';
@@ -494,9 +500,12 @@ const ClientGallery = () => {
     const handlePreviewCollection = useCallback((collection) => {
         closeContextMenu();
         if (!collection?.slug && !collection?.name) return;
-        const url = getShareUrlForCollection(collection, photographerProfile);
+        const slug = collection.slug || generateCollectionSlug(collection.name);
+        // Studio preview stays on the platform host so PIXNXT loading shows;
+        // share/copy still use the client custom domain when verified.
+        const url = getStudioPreviewGalleryUrl(slug, collection.id);
         window.open(url, '_blank', 'noopener,noreferrer');
-    }, [closeContextMenu, photographerProfile]);
+    }, [closeContextMenu]);
 
     const handleCopyLink = useCallback(async (collection) => {
         if (!collection) return;

@@ -22,6 +22,7 @@ import { ShareCollectionModal } from '../../components/features/Gallery/ShareCol
 import { downloadSinglePhotoFile } from '../../lib/downloadPhoto';
 import { getCollectionShareUrl } from '../../lib/shareCollection';
 import { shouldShowPixnxtBranding } from '../../lib/pixnxtBranding';
+import { isPlatformHost, normalizeHost } from '../../lib/customDomain';
 import {
   hasEmailAllowlist,
   resolveDownloadContactMode,
@@ -2814,13 +2815,26 @@ const GalleryView = () => {
     hasAutoSelectedSetRef.current = true;
   }, [collection, sharedPhotoIds, activeSetId]);
 
-  if (loading) return (
-    <div className="flex h-screen items-center justify-center bg-white">
-      <div className="text-sm font-bold tracking-[0.6em] uppercase text-zinc-200 animate-pulse">
-        PIXNXT
+  if (loading) {
+    // Platform hosts keep the PIXNXT wordmark; custom domains stay unbranded.
+    const showPixnxtSplash =
+      typeof window === 'undefined' ||
+      isPlatformHost(normalizeHost(window.location.hostname));
+    return (
+      <div className="flex h-screen items-center justify-center bg-white">
+        {showPixnxtSplash ? (
+          <div className="text-sm font-bold tracking-[0.6em] uppercase text-zinc-200 animate-pulse">
+            PIXNXT
+          </div>
+        ) : (
+          <div
+            className="h-8 w-8 animate-spin rounded-full border-2 border-zinc-200 border-b-zinc-500"
+            aria-label="Loading"
+          />
+        )}
       </div>
-    </div>
-  );
+    );
+  }
 
   if (error || !collection) return (
     <div className="flex h-screen flex-col items-center justify-center p-6 text-center bg-white">

@@ -304,14 +304,6 @@ const AuthPage = () => {
               onRequestNewLink={() => setView('forgot')}
             />
           )}
-
-          {view === 'login' ? (
-            <p className="auth-demo demo">
-              <button type="button" onClick={() => posterRef.current?.replay?.()}>
-                Replay plates
-              </button>
-            </p>
-          ) : null}
         </div>
       </main>
     </div>

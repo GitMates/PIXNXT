@@ -6350,6 +6350,193 @@ body.dark-theme .theme-mono.cd-dashboard-shell .cd-modal-title {
   color: var(--text-primary) !important;
 }
 
+/* Delivery Download Media modal — unify light-stuck surfaces with dark shell */
+body.dark-theme .theme-mono.cd-dashboard-shell .cd-dl-modal,
+body.dark-theme .theme-mono.cd-dashboard-shell .cd-dl-export {
+  background: var(--bg-surface) !important;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.45) !important;
+}
+
+body.dark-theme .theme-mono.cd-dashboard-shell .cd-dl-modal .cd-modal-header {
+  background: var(--bg-surface) !important;
+  border-bottom-color: var(--border-card) !important;
+}
+
+body.dark-theme .theme-mono.cd-dashboard-shell .cd-dl-modal__collection-badge {
+  background: var(--bg-surface-hover) !important;
+  color: var(--text-body) !important;
+}
+
+body.dark-theme .theme-mono.cd-dashboard-shell .cd-dl-modal__body {
+  scrollbar-color: var(--border-card) transparent;
+}
+
+body.dark-theme .theme-mono.cd-dashboard-shell .cd-dl-modal__body::-webkit-scrollbar-thumb {
+  background: var(--border-card);
+}
+
+body.dark-theme .theme-mono.cd-dashboard-shell .cd-dl-footer {
+  background: var(--bg-surface-hover) !important;
+  border-top-color: var(--border-card) !important;
+}
+
+body.dark-theme .theme-mono.cd-dashboard-shell .cd-dl-footer__summary,
+body.dark-theme .theme-mono.cd-dashboard-shell .cd-dl-footer__count {
+  color: var(--text-body) !important;
+}
+
+body.dark-theme .theme-mono.cd-dashboard-shell .cd-dl-footer__size {
+  color: var(--text-primary) !important;
+}
+
+body.dark-theme .theme-mono.cd-dashboard-shell .cd-dl-label {
+  color: var(--text-muted) !important;
+}
+
+body.dark-theme .theme-mono.cd-dashboard-shell .cd-dl-scope-tabs {
+  background: var(--bg-surface-hover) !important;
+}
+
+body.dark-theme .theme-mono.cd-dashboard-shell .cd-dl-scope-tab {
+  color: var(--text-body) !important;
+}
+
+body.dark-theme .theme-mono.cd-dashboard-shell .cd-dl-scope-tab:hover {
+  color: var(--text-primary) !important;
+}
+
+body.dark-theme .theme-mono.cd-dashboard-shell .cd-dl-scope-tab.is-active {
+  background: var(--bg-surface) !important;
+  color: var(--text-primary) !important;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.28) !important;
+}
+
+body.dark-theme .theme-mono.cd-dashboard-shell .cd-dl-scope-count {
+  color: var(--text-muted) !important;
+}
+
+body.dark-theme .theme-mono.cd-dashboard-shell .cd-dl-scope-tab.is-active .cd-dl-scope-count {
+  color: var(--text-body) !important;
+}
+
+body.dark-theme .theme-mono.cd-dashboard-shell .cd-dl-select {
+  background: var(--bg-surface-hover) !important;
+  border-color: var(--border-card) !important;
+  color: var(--text-primary) !important;
+}
+
+body.dark-theme .theme-mono.cd-dashboard-shell .cd-dl-select:focus {
+  border-color: var(--accent-primary) !important;
+}
+
+body.dark-theme .theme-mono.cd-dashboard-shell .cd-dl-quality-card,
+body.dark-theme .theme-mono.cd-dashboard-shell .cd-dl-dest-card,
+body.dark-theme .theme-mono.cd-dashboard-shell .cd-dl-checkbox-card,
+body.dark-theme .theme-mono.cd-dashboard-shell .cd-dl-export__set {
+  background: var(--bg-surface-hover) !important;
+  border-color: var(--border-card) !important;
+  color: var(--text-primary) !important;
+}
+
+body.dark-theme .theme-mono.cd-dashboard-shell .cd-dl-quality-card:hover,
+body.dark-theme .theme-mono.cd-dashboard-shell .cd-dl-dest-card:hover,
+body.dark-theme .theme-mono.cd-dashboard-shell .cd-dl-checkbox-card:hover,
+body.dark-theme .theme-mono.cd-dashboard-shell .cd-dl-export__set:hover {
+  border-color: var(--border-active, #3a3a3a) !important;
+  background: #2a2a2a !important;
+  color: var(--text-primary) !important;
+}
+
+body.dark-theme .theme-mono.cd-dashboard-shell .cd-dl-quality-card.is-selected,
+body.dark-theme .theme-mono.cd-dashboard-shell .cd-dl-dest-card.is-selected,
+body.dark-theme .theme-mono.cd-dashboard-shell .cd-dl-export__set.is-selected {
+  border-color: var(--accent-primary) !important;
+  background: rgba(184, 104, 43, 0.12) !important;
+  color: var(--text-primary) !important;
+  box-shadow: none !important;
+}
+
+body.dark-theme .theme-mono.cd-dashboard-shell .cd-dl-quality-card input[type="radio"],
+body.dark-theme .theme-mono.cd-dashboard-shell .cd-dl-checkbox-card input[type="checkbox"] {
+  accent-color: var(--accent-primary);
+}
+
+body.dark-theme .theme-mono.cd-dashboard-shell .cd-dl-quality-name,
+body.dark-theme .theme-mono.cd-dashboard-shell .cd-dl-checkbox-title,
+body.dark-theme .theme-mono.cd-dashboard-shell .cd-dl-dest-name,
+body.dark-theme .theme-mono.cd-dashboard-shell .cd-dl-export__set-name {
+  color: var(--text-primary) !important;
+}
+
+body.dark-theme .theme-mono.cd-dashboard-shell .cd-dl-quality-desc,
+body.dark-theme .theme-mono.cd-dashboard-shell .cd-dl-checkbox-sub,
+body.dark-theme .theme-mono.cd-dashboard-shell .cd-dl-dest-hint,
+body.dark-theme .theme-mono.cd-dashboard-shell .cd-dl-export__set-meta,
+body.dark-theme .theme-mono.cd-dashboard-shell .cd-dl-export__intro {
+  color: var(--text-muted) !important;
+}
+
+body.dark-theme .theme-mono.cd-dashboard-shell .cd-dl-quality-tag {
+  background: var(--bg-surface) !important;
+  color: var(--text-body) !important;
+}
+
+body.dark-theme .theme-mono.cd-dashboard-shell .cd-dl-quality-card.is-selected .cd-dl-quality-tag {
+  background: var(--accent-primary) !important;
+  color: #ffffff !important;
+}
+
+body.dark-theme .theme-mono.cd-dashboard-shell .cd-dl-summary {
+  background: var(--bg-surface-hover) !important;
+  color: var(--text-body) !important;
+}
+
+body.dark-theme .theme-mono.cd-dashboard-shell .cd-dl-summary-size {
+  color: var(--text-primary) !important;
+}
+
+body.dark-theme .theme-mono.cd-dashboard-shell .cd-dl-btn-primary {
+  background-color: var(--accent-primary) !important;
+  color: #ffffff !important;
+}
+
+body.dark-theme .theme-mono.cd-dashboard-shell .cd-dl-btn-primary:hover:not(:disabled) {
+  background-color: var(--accent-primary-hover) !important;
+}
+
+body.dark-theme .theme-mono.cd-dashboard-shell .cd-dl-cloud-status__spinner-wrap h4,
+body.dark-theme .theme-mono.cd-dashboard-shell .cd-dl-cloud-status__uploading h4,
+body.dark-theme .theme-mono.cd-dashboard-shell .cd-dl-cloud-status__complete h4,
+body.dark-theme .theme-mono.cd-dashboard-shell .cd-dl-cloud-status__error h4 {
+  color: var(--text-primary) !important;
+}
+
+body.dark-theme .theme-mono.cd-dashboard-shell .cd-dl-cloud-status p,
+body.dark-theme .theme-mono.cd-dashboard-shell .cd-dl-cloud-status__text {
+  color: var(--text-body) !important;
+}
+
+body.dark-theme .theme-mono.cd-dashboard-shell .cd-dl-spinner {
+  border-color: var(--border-card);
+  border-top-color: var(--accent-primary);
+}
+
+body.dark-theme .theme-mono.cd-dashboard-shell .cd-dl-cloud-status__pct {
+  color: var(--accent-primary) !important;
+}
+
+body.dark-theme .theme-mono.cd-dashboard-shell .cd-dl-cloud-progress-track {
+  background: var(--bg-surface-hover) !important;
+}
+
+body.dark-theme .theme-mono.cd-dashboard-shell .cd-dl-cloud-progress-fill {
+  background: var(--accent-primary) !important;
+}
+
+body.dark-theme .theme-mono.cd-dashboard-shell .cd-dl-cloud-status__success-icon {
+  background: rgba(16, 185, 129, 0.15) !important;
+}
+
 /* Face recognition modal + primary actions in dark */
 body.dark-theme .theme-mono.cd-dashboard-shell .cd-face-ai-modal__icon {
   background-color: var(--bg-surface-hover);
