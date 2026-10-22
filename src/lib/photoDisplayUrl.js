@@ -103,6 +103,11 @@ function pickDisplayableUrl(...urls) {
   return '';
 }
 
+/**
+ * Grid / masonry / card tile URL — prefer thumb (~1200) so tiles stay sharp without
+ * downloading web (3840). `preferOriginalAspect` is kept for callers but no longer
+ * promotes web ahead of thumb (thumbs preserve aspect at max-edge encode).
+ */
 export function getPhotoGridDisplayUrl(photo, preferOriginalAspect = false) {
   if (!photo) return '';
   if (photo.watermarked_url) {
@@ -114,9 +119,8 @@ export function getPhotoGridDisplayUrl(photo, preferOriginalAspect = false) {
   if (isGifMedia(photo)) {
     return resolveMediaUrl(photo.web_url || photo.full_url || photo.thumbnail_url || '');
   }
-  const ordered = preferOriginalAspect
-    ? [photo.web_url, photo.full_url, photo.thumbnail_url]
-    : [photo.thumbnail_url, photo.web_url, photo.full_url];
+  void preferOriginalAspect;
+  const ordered = [photo.thumbnail_url, photo.web_url, photo.full_url];
   for (const url of ordered) {
     const resolved = resolveMediaUrl(url);
     if (resolved && isBrowserDisplayableImageUrl(resolved)) return resolved;
@@ -356,11 +360,10 @@ export function getPhotoDisplayFallbacks(photo, preferOriginalAspect = false) {
     const preview = getRawPreviewUrl(photo);
     return preview ? [preview] : [];
   }
+  void preferOriginalAspect;
   const urls = isGifMedia(photo)
     ? [photo.web_url, photo.full_url, photo.thumbnail_url]
-    : preferOriginalAspect
-      ? [photo.web_url, photo.full_url, photo.thumbnail_url]
-      : [photo.thumbnail_url, photo.web_url, photo.full_url];
+    : [photo.thumbnail_url, photo.web_url, photo.full_url];
   return urls
     .map((url) => resolveMediaUrl(url))
     .filter((url) => {
@@ -413,8 +416,8 @@ export function getWebResolutionUrl(photo) {
 }
 
 /**
- * Prefer the /thumb/ derivative for small collection/folder cover cards.
- * Stored cover_url often points at /original/ (8–15 MB) or /web/.
+ * Prefer the /thumb/ derivative for collection/folder cover cards and grids.
+ * Stored cover_url often points at /original/ or /web/ (up to 3840).
  * Thumbs are always stored as .jpg (same stem as the original filename).
  */
 export function toThumbDerivativeUrl(url) {
@@ -498,7 +501,7 @@ export function readCachedCollectionCover(collectionId) {
 }
 
 /**
- * Ordered cover candidates: high-quality /web/ first, then the stored URL, then /thumb/.
+ * Ordered cover candidates for list cards: /thumb/ first, then stored URL, then /web/.
  * Callers should advance on <img onError> so a missing derivative does not blank the card.
  */
 export function getCollectionCardCoverCandidates(collection) {
@@ -518,9 +521,9 @@ export function getCollectionCardCoverCandidates(collection) {
   for (const raw of sources) {
     const resolved = resolveMediaUrl(stripHash(raw));
     if (!resolved) continue;
-    push(toWebDerivativeUrl(resolved));
-    if (!resolved.includes('/original/') && !resolved.includes('/thumb/')) push(resolved);
     push(toThumbDerivativeUrl(resolved));
+    if (!resolved.includes('/original/') && !resolved.includes('/web/')) push(resolved);
+    push(toWebDerivativeUrl(resolved));
   }
 
   return out;
@@ -530,7 +533,7 @@ function hasChosenCover(collection) {
   return Boolean(collection?.cover_url || collection?.cover || collection?.list_cover_url);
 }
 
-/** High-quality cover src for list cards. Falls back to the last cached web image. */
+/** Card cover src — prefers thumb for speed; falls back to cached URL. */
 export function getCollectionCardCoverSrc(collection) {
   if (!hasChosenCover(collection)) return '';
   const live = getCollectionCardCoverCandidates(collection)[0] || '';

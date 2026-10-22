@@ -3,7 +3,7 @@ import { getCollectionCardCoverCandidates, readCachedCollectionCover, rememberCo
 import { getCoverFocalForSurface } from '../../../lib/focalPoint';
 
 /**
- * Delivery list cover — tries R2 /web/ first, then /thumb/, then the stored URL.
+ * Delivery list cover — tries R2 /thumb/ first, then stored URL, then /web/.
  * Avoids broken <img> when a rewritten path is missing on R2.
  */
 export function CollectionCardCover({ collection, alt = '', className, style }) {

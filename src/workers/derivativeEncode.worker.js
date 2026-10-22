@@ -2,7 +2,7 @@
  * Web + thumb JPEG encode off the main thread so original uploads are not
  * blocked on canvas work. One decode, two OffscreenCanvas encodes.
  */
-import { WEB_DISPLAY_EDGE } from '../lib/uploadDefaults';
+import { THUMB_DISPLAY_EDGE, WEB_DISPLAY_EDGE } from '../lib/uploadDefaults';
 
 function fitWithinBounds(width, height, maxWidth, maxHeight) {
   if (!(maxWidth > 0 && maxHeight > 0)) return { width, height, resized: false };
@@ -117,12 +117,12 @@ self.onmessage = async (event) => {
     const srcW = bitmap.width;
     const srcH = bitmap.height;
     const webSize = computeOutputSize(srcW, srcH, file.size, { maxEdge: webMaxEdge ?? WEB_DISPLAY_EDGE });
-    const thumbSize = computeOutputSize(srcW, srcH, file.size, { maxEdge: thumbMaxEdge ?? 400 });
+    const thumbSize = computeOutputSize(srcW, srcH, file.size, { maxEdge: thumbMaxEdge ?? THUMB_DISPLAY_EDGE });
     const baseWebQuality = jpegQualityForOutput(srcW, srcH, webSize.outW, webSize.outH, file.size);
     const webQuality = enhanceRaw ? Math.max(baseWebQuality, 0.93) : baseWebQuality;
     const [web, thumb] = await Promise.all([
       encodeVariant(bitmap, webSize.outW, webSize.outH, webQuality, enhanceRaw === true, sharpen),
-      encodeVariant(bitmap, thumbSize.outW, thumbSize.outH, thumbQuality ?? 0.6, false, sharpen),
+      encodeVariant(bitmap, thumbSize.outW, thumbSize.outH, thumbQuality ?? 0.82, false, sharpen),
     ]);
     bitmap.close();
     if (!web || !thumb) throw new Error('encode failed');

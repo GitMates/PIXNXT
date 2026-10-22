@@ -15,10 +15,16 @@ export const UPLOAD_DEFAULTS_KEYS = {
 
 /**
  * Long edge of the screen copy saved at upload.
- * Cover, preview, and the opened photo use this file. The grid keeps the 400px thumb.
+ * Cover hero and the opened/lightbox photo use this file.
  * Older saved quality names (standard / high / maximum) all map here.
  */
 export const WEB_DISPLAY_EDGE = 3840;
+
+/**
+ * Long edge of the grid/card thumb saved at upload.
+ * Preview, client-share masonry, and delivery cards use this — not web (3840).
+ */
+export const THUMB_DISPLAY_EDGE = 1200;
 
 const WEB_EDGE = {
   standard: WEB_DISPLAY_EDGE,

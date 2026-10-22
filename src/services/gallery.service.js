@@ -82,6 +82,7 @@ import {
   resolveUploadDefaults,
   webMaxEdgeForQuality,
   uploadMaxEdgeForQuality,
+  THUMB_DISPLAY_EDGE,
 } from '../lib/uploadDefaults';
 import { storageService } from './storage.service';
 import { photographerQuotaService } from './photographerQuota.service';
@@ -94,8 +95,9 @@ function getUploadVariantOptions() {
   const defaults = resolveUploadDefaults(null);
   return {
     webMaxEdge: webMaxEdgeForQuality(defaults.webDisplayQuality),
-    thumbMaxEdge: 400,
-    thumbQuality: 0.6,
+    thumbMaxEdge: THUMB_DISPLAY_EDGE,
+    // Slightly higher than the old 0.6 @ 400px so 1200px grid thumbs stay clear.
+    thumbQuality: 0.82,
   };
 }
 

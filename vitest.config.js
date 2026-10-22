@@ -17,6 +17,7 @@ export default defineConfig({
       'src/lib/desktopOnly.test.js',
       'src/lib/deliveryDownload.test.js',
       'src/lib/deliveryCoverUpload.test.js',
+      'src/lib/photoDisplayUrl.grid.test.js',
       'src/components/features/CollectionDashboard/Upload/**/*.test.{js,ts}',
       'src/__smoke.test.js',
       'src/components/admin/**/*.test.{js,ts}',

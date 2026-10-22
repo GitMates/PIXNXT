@@ -4,7 +4,7 @@ import { Download, Heart, Share2, Play, ShoppingBag, ArrowDownToLine, X, Message
 import { cn } from '../../../../lib/utils';
 import { SmoothMediaImage } from '../../../ui/SmoothMediaImage';
 import { isGalleryVideo } from '../../../../lib/galleryMediaType';
-import { resolveMediaUrl, getWebResolutionUrl } from '../../../../lib/photoDisplayUrl';
+import { getPhotoGridDisplayUrl } from '../../../../lib/photoDisplayUrl';
 import { GalleryVideo } from '../GalleryVideo';
 import { PhotoPrivateControls, PhotoPrivateBadge } from '../../ClientExclusiveAccess';
 import {
@@ -123,7 +123,7 @@ export function MasonryGrid({
     displayPhotos.forEach(photo => {
       if (photo.isPromoBanner) return;
       if (!photo.width || !photo.height) {
-        const src = getWebResolutionUrl(photo);
+        const src = getPhotoGridDisplayUrl(photo);
         // Skip dimension probing for video files — use 16:9 fallback
         if (isGalleryVideo(photo)) {
           setDynamicAspectRatios(prev => ({ ...prev, [photo.id]: 16 / 9 }));
@@ -688,7 +688,7 @@ export function MasonryGrid({
   };
 
   const renderPhotoItem = (photo, index) => {
-    const src = isGalleryVideo(photo) ? '' : getWebResolutionUrl(photo);
+    const src = isGalleryVideo(photo) ? '' : getPhotoGridDisplayUrl(photo);
     const aspectRatio = getPhotoAspectRatio(photo);
     const useFixedVideoTile = centerVideosLayout && isGalleryVideo(photo);
     const tileAspectRatio = useFixedVideoTile ? VIDEO_TILE_ASPECT : aspectRatio;
@@ -768,11 +768,6 @@ export function MasonryGrid({
           ) : (
             <SmoothMediaImage
               src={src}
-              thumbSrc={
-                photo.thumbnail_url
-                  ? resolveMediaUrl(photo.thumbnail_url)
-                  : undefined
-              }
               alt={photo.filename || `Gallery image ${index + 1}`}
               wrapClassName="gallery-masonry-media"
               objectFit="cover"
