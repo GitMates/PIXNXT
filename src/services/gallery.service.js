@@ -76,13 +76,17 @@ import { isRawImageFile } from '../lib/rawImageFormats';
 import { extractRawPreviewBlob } from '../lib/rawImagePreview';
 import { hasRawDisplayPreview, isRawMedia, resolveMediaUrl } from '../lib/photoDisplayUrl';
 import { DELIVERY_R2_MODULE } from '../lib/deliveryIds';
-import { buildDeliveryCoverStoragePath } from '../lib/deliveryCoverUpload';
+import {
+  buildDeliveryCoverStoragePath,
+  buildDeliveryCoverThumbStoragePath,
+} from '../lib/deliveryCoverUpload';
 import { getPhotographerR2Folder } from '../lib/photographerR2Folder';
 import {
   resolveUploadDefaults,
   webMaxEdgeForQuality,
   uploadMaxEdgeForQuality,
   THUMB_DISPLAY_EDGE,
+  WEB_DISPLAY_EDGE,
 } from '../lib/uploadDefaults';
 import { storageService } from './storage.service';
 import { photographerQuotaService } from './photographerQuota.service';
@@ -1239,28 +1243,61 @@ export const galleryService = {
       fileName,
       DELIVERY_R2_MODULE
     );
+    const thumbName = fileName.replace(/\.[^.]+$/i, '.jpg');
+    const thumbStoragePath = buildDeliveryCoverThumbStoragePath(
+      photographerFolder,
+      collectionFolder,
+      thumbName,
+      DELIVERY_R2_MODULE
+    );
 
-    const body =
+    // Hero cover stays large; card list uses a parallel /cover/thumb/ derivative.
+    let coverBody =
       uploadFile.type
         ? uploadFile
         : new File([uploadFile], fileName, {
             type: mime || 'image/jpeg',
             lastModified: uploadFile.lastModified || Date.now(),
           });
+    let thumbBody = null;
+    try {
+      const variants = await compressImageVariants(coverBody, {
+        webMaxEdge: WEB_DISPLAY_EDGE,
+        thumbMaxEdge: THUMB_DISPLAY_EDGE,
+        thumbQuality: 0.82,
+      });
+      if (variants?.webFile) coverBody = variants.webFile;
+      if (variants?.thumbFile) thumbBody = variants.thumbFile;
+    } catch (err) {
+      console.warn('Cover thumb encode failed; uploading hero cover only:', err);
+    }
 
     onProgress?.(5);
-    const result = await storageService.upload(storagePath, body, (p) => {
-      onProgress?.(Math.min(99, Math.round(5 + (p / 100) * 94)));
+    const result = await storageService.upload(storagePath, coverBody, (p) => {
+      onProgress?.(Math.min(88, Math.round(5 + (p / 100) * 70)));
     });
-    onProgress?.(100);
-
     if (!result?.url) {
       throw new Error('Cover upload did not return a URL.');
     }
 
+    let thumbUrl = null;
+    if (thumbBody) {
+      try {
+        const thumbResult = await storageService.upload(thumbStoragePath, thumbBody, (p) => {
+          onProgress?.(Math.min(99, Math.round(75 + (p / 100) * 24)));
+        });
+        thumbUrl = thumbResult?.url || null;
+      } catch (err) {
+        console.warn('Cover thumb upload failed:', err);
+      }
+    }
+    onProgress?.(100);
+
     return {
       url: result.url,
+      thumbUrl,
       storagePath,
+      thumbStoragePath: thumbBody ? thumbStoragePath : null,
       width: dimensions.width ?? null,
       height: dimensions.height ?? null,
       filename: file.name || fileName,

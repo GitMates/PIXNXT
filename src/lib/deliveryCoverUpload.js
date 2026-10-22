@@ -25,6 +25,25 @@ export function buildDeliveryCoverStoragePath(
   return `users/${folder}/${moduleName}/${collection}/cover/${name}`;
 }
 
+/**
+ * Card-sized cover derivative (~1200px) stored next to the hero cover file.
+ * List cards prefer this URL so they do not download the full cover JPEG.
+ */
+export function buildDeliveryCoverThumbStoragePath(
+  photographerFolder,
+  collectionFolder,
+  fileName,
+  moduleName = 'deliveries'
+) {
+  const folder = String(photographerFolder || 'photographer').replace(/^\/+|\/+$/g, '');
+  const collection = String(collectionFolder || 'delivery').replace(/^\/+|\/+$/g, '');
+  let name = String(fileName || `cover_${Date.now()}.jpg`).replace(/^\/+/g, '');
+  if (!/\.jpe?g$/i.test(name)) {
+    name = name.replace(/\.[^.]+$/, '') + '.jpg';
+  }
+  return `users/${folder}/${moduleName}/${collection}/cover/thumb/${name}`;
+}
+
 /** True when this draft came from a filesystem cover upload, not a delivery photo. */
 export function isCoverOnlyDraft(photo) {
   if (!photo || typeof photo !== 'object') return false;

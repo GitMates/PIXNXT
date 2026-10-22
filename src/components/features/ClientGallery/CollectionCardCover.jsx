@@ -1,46 +1,44 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { getCollectionCardCoverCandidates, readCachedCollectionCover, rememberCollectionCover } from '../../../lib/photoDisplayUrl';
+import React, { useMemo } from 'react';
+import { SmoothMediaImage } from '../../ui/SmoothMediaImage';
+import {
+  getCollectionCardCoverCandidates,
+  readCachedCollectionCover,
+  rememberCollectionCover,
+} from '../../../lib/photoDisplayUrl';
 import { getCoverFocalForSurface } from '../../../lib/focalPoint';
 
 /**
- * Delivery list cover — tries R2 /thumb/ first, then stored URL, then /web/.
- * Avoids broken <img> when a rewritten path is missing on R2.
+ * Delivery list cover — prefers /cover/thumb/ or photoset /thumb/, then stored, then /web/.
+ * Deferred load + session cache so the deliveries grid stays light.
  */
-export function CollectionCardCover({ collection, alt = '', className, style }) {
-  const candidates = getCollectionCardCoverCandidates(collection);
-  const [index, setIndex] = useState(0);
-  const [failed, setFailed] = useState(false);
+export function CollectionCardCover({ collection, alt = '', className, style, deferUntilVisible = true }) {
   const cardFocal = useMemo(() => getCoverFocalForSurface(collection, 'card'), [collection]);
 
-  useEffect(() => {
-    setIndex(0);
-    setFailed(false);
+  const candidates = useMemo(() => {
+    const list = getCollectionCardCoverCandidates(collection);
+    const cached = collection?.id ? readCachedCollectionCover(collection.id) : '';
+    if (cached && !list.includes(cached)) list.push(cached);
+    return list;
   }, [collection?.id, collection?.cover_url, collection?.cover, collection?.list_cover_url]);
 
-  const hasChosenCover = Boolean(
-    collection?.cover_url || collection?.cover || collection?.list_cover_url,
-  );
-  const cached = hasChosenCover ? readCachedCollectionCover(collection?.id) : '';
-  const src = !failed ? (candidates[index] || cached) : cached;
+  const src = candidates[0] || '';
+  const fallbacks = candidates.slice(1);
   if (!src) return null;
 
   return (
-    <img
+    <SmoothMediaImage
       src={src}
+      fallbacks={fallbacks}
       alt={alt}
       className={className}
-      style={{ objectPosition: `${cardFocal.x}% ${cardFocal.y}%`, ...style }}
+      wrapClassName={className}
+      objectFit="cover"
+      objectPosition={`${cardFocal.x}% ${cardFocal.y}%`}
       loading="lazy"
-      decoding="async"
-      onLoad={() => {
-        if (collection?.id) rememberCollectionCover(collection.id, src);
-      }}
-      onError={() => {
-        if (index + 1 < candidates.length) {
-          setIndex((i) => i + 1);
-        } else {
-          setFailed(true);
-        }
+      deferUntilVisible={deferUntilVisible}
+      style={style}
+      onLoad={(loadedSrc) => {
+        if (collection?.id && loadedSrc) rememberCollectionCover(collection.id, loadedSrc);
       }}
     />
   );

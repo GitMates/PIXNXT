@@ -3,6 +3,7 @@ import {
   COVER_ONLY_DRAFT_FLAG,
   buildCoverOnlyDraft,
   buildDeliveryCoverStoragePath,
+  buildDeliveryCoverThumbStoragePath,
   isCoverOnlyDraft,
   resolveCoverPhotoId,
 } from './deliveryCoverUpload';
@@ -18,6 +19,17 @@ describe('buildDeliveryCoverStoragePath', () => {
       'users/studio-acme/deliveries/mca-pongal__ca44e65a/cover/cover_123.jpg'
     );
     expect(path).not.toMatch(/photoset/);
+  });
+
+  it('stores card thumbs under cover/thumb/', () => {
+    const path = buildDeliveryCoverThumbStoragePath(
+      'studio-acme',
+      'mca-pongal__ca44e65a',
+      'cover_123.png'
+    );
+    expect(path).toBe(
+      'users/studio-acme/deliveries/mca-pongal__ca44e65a/cover/thumb/cover_123.jpg'
+    );
   });
 });
 

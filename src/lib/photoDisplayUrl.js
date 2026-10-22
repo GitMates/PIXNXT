@@ -440,6 +440,15 @@ export function toThumbDerivativeUrl(url) {
     return next;
   }
 
+  // Dedicated delivery covers live under .../cover/file.jpg — card thumb is .../cover/thumb/file.jpg
+  if (resolved.includes('/cover/') && !resolved.includes('/cover/thumb/')) {
+    let next = resolved.replace('/cover/', '/cover/thumb/');
+    if (!/\.jpe?g(\?|#|$)/i.test(next)) {
+      next = next.replace(/(\/[^/?#]+)\.[^.\/?#]+/, '$1.jpg');
+    }
+    return next;
+  }
+
   return resolved;
 }
 
@@ -533,10 +542,11 @@ function hasChosenCover(collection) {
   return Boolean(collection?.cover_url || collection?.cover || collection?.list_cover_url);
 }
 
-/** Card cover src — prefers thumb for speed; falls back to cached URL. */
+/**
+ * Card cover src — prefers thumb candidate; does not warm cache until <img> onLoad
+ * (missing /cover/thumb/ must not stick a 404 URL in sessionStorage).
+ */
 export function getCollectionCardCoverSrc(collection) {
   if (!hasChosenCover(collection)) return '';
-  const live = getCollectionCardCoverCandidates(collection)[0] || '';
-  if (live && collection?.id) rememberCollectionCover(collection.id, live);
-  return live || readCachedCollectionCover(collection?.id);
+  return getCollectionCardCoverCandidates(collection)[0] || readCachedCollectionCover(collection?.id);
 }

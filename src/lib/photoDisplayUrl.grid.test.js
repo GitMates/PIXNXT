@@ -39,4 +39,14 @@ describe('grid and card image URL roles', () => {
     expect(webIdx).toBeGreaterThanOrEqual(0);
     expect(thumbIdx).toBeLessThan(webIdx);
   });
+
+  it('maps dedicated /cover/ files to /cover/thumb/ for list cards', () => {
+    const collection = {
+      id: 'c2',
+      cover_url: 'https://cdn.example/users/x/deliveries/demo/cover/cover_123.jpg',
+    };
+    const candidates = getCollectionCardCoverCandidates(collection);
+    expect(candidates[0]).toContain('/cover/thumb/');
+    expect(candidates.some((u) => u.includes('/cover/cover_123.jpg'))).toBe(true);
+  });
 });

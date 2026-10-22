@@ -15,6 +15,7 @@ export function SmoothMediaImage({
   wrapClassName,
   style,
   objectFit = 'contain',
+  objectPosition,
   loading = 'lazy',
   deferUntilVisible = false,
   onLoad,
@@ -82,7 +83,7 @@ export function SmoothMediaImage({
     markMediaUrlCached(activeSrc);
     setLoaded(true);
     setError(false);
-    onLoad?.();
+    onLoad?.(activeSrc);
   };
 
   const handleError = () => {
@@ -131,7 +132,7 @@ export function SmoothMediaImage({
           alt=""
           aria-hidden
           className="smooth-media-blur"
-          style={{ objectFit }}
+          style={{ objectFit, ...(objectPosition ? { objectPosition } : {}) }}
           decoding="async"
           loading="lazy"
         />
@@ -149,7 +150,11 @@ export function SmoothMediaImage({
             error && 'smooth-media-img--error',
             className
           )}
-          style={{ objectFit, imageOrientation: 'from-image' }}
+          style={{
+            objectFit,
+            imageOrientation: 'from-image',
+            ...(objectPosition ? { objectPosition } : {}),
+          }}
           decoding="async"
           loading={loading}
           onLoad={handleLoad}

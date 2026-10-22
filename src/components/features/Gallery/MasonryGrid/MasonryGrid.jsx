@@ -21,7 +21,10 @@ import {
 } from '../../../../lib/masonryColumnDistribution';
 import { isRowMasonryGridStyle } from '../../../../lib/galleryGridStyle';
 import './MasonryGrid.css';
- 
+
+/** First tiles load immediately for LCP; the rest wait until near the viewport. */
+const MASONRY_EAGER_TILE_COUNT = 18;
+
 export function MasonryGrid({
   photos,
   gridSettings,
@@ -693,6 +696,7 @@ export function MasonryGrid({
     const useFixedVideoTile = centerVideosLayout && isGalleryVideo(photo);
     const tileAspectRatio = useFixedVideoTile ? VIDEO_TILE_ASPECT : aspectRatio;
     const useVerticalTileFrame = !isHorizontal && !centerVideosLayout;
+    const eagerTile = index < MASONRY_EAGER_TILE_COUNT;
 
     const isFav = favoritedPhotoIds?.some((fid) => String(fid) === String(photo.id));
     const isPrivate = Boolean(photo.is_private);
@@ -771,7 +775,8 @@ export function MasonryGrid({
               alt={photo.filename || `Gallery image ${index + 1}`}
               wrapClassName="gallery-masonry-media"
               objectFit="cover"
-              loading="lazy"
+              loading={eagerTile ? 'eager' : 'lazy'}
+              deferUntilVisible={!eagerTile}
             />
           )}
 
