@@ -669,6 +669,13 @@
   }
 }
 
+.cd-dl-progress__link {
+  color: inherit;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
 .cd-dl-progress__bytes {
   margin: 8px 0 0;
   font-size: 12px;

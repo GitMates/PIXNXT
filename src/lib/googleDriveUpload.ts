@@ -1,7 +1,5 @@
 import {
-  DEFAULT_DOWNLOAD_CONCURRENCY,
   fetchPhotoBlob,
-  resolveDownloadConcurrency,
   type BulkDownloadPhoto,
   type DownloadPhotosToZipOptions,
 } from './downloadPhoto';
@@ -145,6 +143,31 @@ function sanitizeDriveName(name: string): string {
     .trim() || 'file';
 }
 
+/** Multipart upload accepts 5 MB or less. Larger originals and videos use a resumable session. */
+const DRIVE_MULTIPART_MAX_BYTES = 5 * 1024 * 1024;
+
+function mimeForDriveFile(filename: string, blobType: string, mediaType?: string): string {
+  if (blobType && blobType !== 'application/octet-stream') return blobType;
+  const ext = filename.split('.').pop()?.toLowerCase() || '';
+  const byExt: Record<string, string> = {
+    jpg: 'image/jpeg',
+    jpeg: 'image/jpeg',
+    png: 'image/png',
+    webp: 'image/webp',
+    gif: 'image/gif',
+    heic: 'image/heic',
+    tif: 'image/tiff',
+    tiff: 'image/tiff',
+    mp4: 'video/mp4',
+    mov: 'video/quicktime',
+    webm: 'video/webm',
+    m4v: 'video/mp4',
+  };
+  if (byExt[ext]) return byExt[ext];
+  if (mediaType === 'video') return 'video/mp4';
+  return 'image/jpeg';
+}
+
 /** Google multipart upload requires multipart/related — not FormData (multipart/form-data). */
 async function buildMultipartRelatedBody(
   metadata: Record<string, unknown>,
@@ -241,6 +264,47 @@ async function createDriveFolder(accessToken: string, folderName: string): Promi
   return data.id;
 }
 
+async function uploadBlobResumable(
+  accessToken: string,
+  blob: Blob,
+  metadata: { name: string; mimeType: string; parents?: string[] },
+  mimeType: string
+): Promise<{ id: string; name: string; webViewLink?: string }> {
+  const session = await fetch(`${DRIVE_UPLOAD_URL}?uploadType=resumable&fields=id,name,webViewLink`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      'Content-Type': 'application/json; charset=UTF-8',
+      'X-Upload-Content-Type': mimeType,
+      'X-Upload-Content-Length': String(blob.size),
+    },
+    body: JSON.stringify(metadata),
+  });
+
+  if (!session.ok) {
+    const text = await session.text().catch(() => '');
+    throw new Error(parseGoogleApiError(text, session.status));
+  }
+
+  const location = session.headers.get('Location');
+  if (!location) throw new Error('Google Drive did not start the upload session.');
+
+  const response = await fetch(location, {
+    method: 'PUT',
+    headers: { 'Content-Type': mimeType },
+    body: blob,
+  });
+
+  if (!response.ok) {
+    const text = await response.text().catch(() => '');
+    throw new Error(parseGoogleApiError(text, response.status));
+  }
+
+  const data = (await response.json()) as { id: string; name: string; webViewLink?: string };
+  if (!data.id) throw new Error('Google Drive did not return a file id.');
+  return data;
+}
+
 export async function uploadBlobToGoogleDrive(
   accessToken: string,
   blob: Blob,
@@ -255,6 +319,10 @@ export async function uploadBlobToGoogleDrive(
     mimeType: safeMime,
   };
   if (parentFolderId) metadata.parents = [parentFolderId];
+
+  if (blob.size > DRIVE_MULTIPART_MAX_BYTES) {
+    return uploadBlobResumable(accessToken, blob, metadata, safeMime);
+  }
 
   const boundary = `pixnxt_${Date.now().toString(36)}`;
   const body = await buildMultipartRelatedBody(metadata, blob, safeMime, boundary);
@@ -321,140 +389,68 @@ interface DriveFolderUploadResult {
   failed: number;
 }
 
+function driveFetchOptions(options: GoogleDriveGalleryUploadOptions) {
+  const resolution = options.resolution || 'original';
+  return {
+    preferOriginal: resolution === 'original',
+    resolution,
+    videoResolution: options.videoResolution,
+    timeoutMs: options.timeoutMs,
+  };
+}
+
 async function uploadPhotosToDriveFolder(
   accessToken: string,
   folderId: string,
   photos: BulkDownloadPhoto[],
   options: GoogleDriveGalleryUploadOptions = {}
 ): Promise<DriveFolderUploadResult> {
-  const { concurrency = resolveDownloadConcurrency(photos.length), onProgress, isStale, onUploadPhase } =
-    options;
+  const { onProgress, isStale, onUploadPhase } = options;
 
   if (!photos.length) return { uploaded: 0, requested: 0, failed: 0 };
 
   const total = photos.length;
   const usedNames = new Set<string>();
-  const blobs = new Map<number, Blob>();
-  let fetchDone = 0;
-  let uploadDone = 0;
-  const fetchFailed: number[] = [];
+  const names = photos.map((photo, index) => getPhotoDownloadFilename(photo, index, usedNames));
+  const fetchOptions = driveFetchOptions(options);
+  let nextIndex = 0;
+  let uploaded = 0;
+  let failed = 0;
+  let finished = 0;
 
-  const reportFetchProgress = () => {
-    const done = Math.min(total, Math.round((fetchDone / total) * total * 0.85));
-    onProgress?.(done, total);
-  };
-  const reportUploadProgress = (readyCount: number) => {
-    const done = Math.min(
-      total,
-      Math.round(0.85 * total + (uploadDone / Math.max(1, readyCount)) * 0.15 * total)
-    );
-    onProgress?.(done, total);
-  };
+  onUploadPhase?.(`Saving ${total} files to Google Drive…`);
 
-  onUploadPhase?.(`Downloading ${total} photos from storage…`);
-
-  for (let i = 0; i < photos.length; i += concurrency) {
-    if (isStale?.()) break;
-    const chunk = photos.slice(i, i + concurrency);
-    await Promise.all(
-      chunk.map(async (photo, chunkIndex) => {
-        const index = i + chunkIndex;
-        try {
-          const blob = await fetchPhotoBlob(photo, { preferOriginal: true });
-          if (blob?.size) blobs.set(index, blob);
-          else fetchFailed.push(index);
-        } catch (err) {
-          console.warn(`Fetch failed for ${photo.filename || photo.id || index}:`, err);
-          fetchFailed.push(index);
-        } finally {
-          fetchDone += 1;
-          reportFetchProgress();
-        }
-      })
-    );
-  }
-
-  if (!isStale?.() && fetchFailed.length > 0) {
-    for (const index of fetchFailed) {
-      if (isStale?.()) break;
-      if (blobs.has(index)) continue;
+  const saveOne = async () => {
+    while (!isStale?.()) {
+      const index = nextIndex;
+      nextIndex += 1;
+      if (index >= total) return;
       const photo = photos[index];
+      const filename = names[index];
+      onUploadPhase?.(`Saving ${filename} (${index + 1} of ${total})…`);
       try {
-        const blob = await fetchPhotoBlob(photo, { preferOriginal: true });
-        if (blob?.size) {
-          blobs.set(index, blob);
-          const failIdx = fetchFailed.indexOf(index);
-          if (failIdx >= 0) fetchFailed.splice(failIdx, 1);
+        let blob = await fetchPhotoBlob(photo, fetchOptions);
+        if (!blob?.size) blob = await fetchPhotoBlob(photo, fetchOptions);
+        if (!blob?.size) {
+          failed += 1;
+        } else {
+          const mimeType = mimeForDriveFile(filename, blob.type, photo.media_type);
+          await uploadBlobToGoogleDriveWithRetry(accessToken, blob, filename, mimeType, folderId);
+          uploaded += 1;
         }
       } catch (err) {
-        console.warn(`Fetch retry failed for ${photo.filename || photo.id || index}:`, err);
+        failed += 1;
+        console.warn(`Google Drive save failed for ${filename}:`, err);
+      } finally {
+        finished += 1;
+        onProgress?.(finished, total);
       }
     }
-  }
+  };
 
-  const readyIndices = [...blobs.keys()].sort((a, b) => a - b);
-  if (readyIndices.length === 0) {
-    return { uploaded: 0, requested: total, failed: total };
-  }
+  const workers = Math.min(DRIVE_UPLOAD_CONCURRENCY, total);
+  await Promise.all(Array.from({ length: workers }, () => saveOne()));
 
-  const uploadFailed: number[] = [];
-
-  onUploadPhase?.(`Uploading ${readyIndices.length} files to Google Drive…`);
-
-  for (let i = 0; i < readyIndices.length; i += DRIVE_UPLOAD_CONCURRENCY) {
-    if (isStale?.()) break;
-    const chunk = readyIndices.slice(i, i + DRIVE_UPLOAD_CONCURRENCY);
-    await Promise.all(
-      chunk.map(async (index) => {
-        const photo = photos[index];
-        const blob = blobs.get(index);
-        if (!blob) {
-          uploadFailed.push(index);
-          return;
-        }
-        const filename = getPhotoDownloadFilename(photo, index, usedNames);
-        const mimeType = blob.type || (photo.media_type === 'video' ? 'video/mp4' : 'image/jpeg');
-        try {
-          onUploadPhase?.(`Uploading ${filename} (${uploadDone + 1} of ${readyIndices.length})…`);
-          await uploadBlobToGoogleDriveWithRetry(
-            accessToken,
-            blob,
-            filename,
-            mimeType,
-            folderId
-          );
-        } catch (err) {
-          console.warn(`Google Drive upload failed for ${photo.filename || photo.id || index}:`, err);
-          uploadFailed.push(index);
-        } finally {
-          uploadDone += 1;
-          reportUploadProgress(readyIndices.length);
-        }
-      })
-    );
-  }
-
-  if (!isStale?.() && uploadFailed.length > 0) {
-    for (const index of uploadFailed) {
-      if (isStale?.()) break;
-      const photo = photos[index];
-      const blob = blobs.get(index);
-      if (!blob) continue;
-      const filename = getPhotoDownloadFilename(photo, index, usedNames);
-      const mimeType = blob.type || (photo.media_type === 'video' ? 'video/mp4' : 'image/jpeg');
-      try {
-        await uploadBlobToGoogleDriveWithRetry(accessToken, blob, filename, mimeType, folderId);
-        const failIdx = uploadFailed.indexOf(index);
-        if (failIdx >= 0) uploadFailed.splice(failIdx, 1);
-      } catch (err) {
-        console.warn(`Google Drive retry failed for ${photo.filename || photo.id || index}:`, err);
-      }
-    }
-  }
-
-  const uploaded = readyIndices.length - uploadFailed.length;
-  const failed = total - uploaded;
-  onProgress?.(total, total);
   return { uploaded, requested: total, failed };
 }
 
@@ -486,10 +482,10 @@ export async function uploadGalleryToGoogleDrive(
   if (total === 1) {
     const photo = photos[0];
     options.onUploadPhase?.('Uploading to Google Drive…');
-    const blob = await fetchPhotoBlob(photo, { preferOriginal: true });
+    const blob = await fetchPhotoBlob(photo, driveFetchOptions(options));
     if (!blob) throw new Error('Failed to download this file. Please try again.');
     const filename = getPhotoDownloadFilename(photo, 0);
-    const mimeType = blob.type || (photo.media_type === 'video' ? 'video/mp4' : 'image/jpeg');
+    const mimeType = mimeForDriveFile(filename, blob.type, photo.media_type);
     const uploaded = await uploadBlobToGoogleDrive(
       accessToken,
       blob,

@@ -73,6 +73,67 @@ export function DeliveryDownloadProvider({ children }) {
     }
   }, []);
 
+  const startCloudSave = useCallback(async ({ folderName, total, destination, task }) => {
+    if (runningRef.current) {
+      throw new Error('A delivery download is already in progress.');
+    }
+    runningRef.current = true;
+    setMinimized(false);
+    const waiting = destination === 'dropbox'
+      ? 'Waiting for Dropbox sign-in…'
+      : 'Waiting for Google sign-in…';
+    setProgress({
+      ...idleProgress(folderName, total),
+      destination,
+      phase: 'auth',
+      filename: waiting,
+      percent: 0,
+    });
+    const report = (patch) => {
+      setProgress((prev) => ({
+        ...(prev || {}),
+        ...patch,
+        destination,
+        folderName: patch.folderName || folderName,
+        done: false,
+      }));
+    };
+    try {
+      const result = await task(report);
+      const saved = Number(result?.uploaded ?? result?.photoCount ?? result?.saved ?? total) || 0;
+      const failed = Number(result?.failed) || 0;
+      setProgress((prev) => ({
+        ...(prev || {}),
+        destination,
+        folderName,
+        total,
+        saved,
+        failed,
+        percent: 100,
+        phase: 'done',
+        done: true,
+        openUrl: result?.folderUrl || result?.webViewLink || '',
+        filename: '',
+        error: '',
+      }));
+      return result;
+    } catch (err) {
+      const message = err?.message || 'Upload failed.';
+      setProgress((prev) => ({
+        ...(prev || {}),
+        destination,
+        folderName,
+        phase: 'error',
+        done: true,
+        error: message,
+        filename: message,
+      }));
+      return { failed: true, error: message };
+    } finally {
+      runningRef.current = false;
+    }
+  }, []);
+
   const dismiss = useCallback(() => {
     setProgress((prev) => (prev?.done || !runningRef.current ? null : prev));
     setMinimized(false);
@@ -86,11 +147,12 @@ export function DeliveryDownloadProvider({ children }) {
       progress,
       minimized,
       startDownload,
+      startCloudSave,
       dismiss,
       minimize,
       expand,
     }),
-    [progress, minimized, startDownload, dismiss, minimize, expand],
+    [progress, minimized, startDownload, startCloudSave, dismiss, minimize, expand],
   );
 
   return (

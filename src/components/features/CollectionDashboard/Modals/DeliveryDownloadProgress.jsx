@@ -32,8 +32,16 @@ export function DeliveryDownloadProgress({
   const saved = Number(progress.saved) || 0;
   const failed = Number(progress.failed) || 0;
   const current = Math.min(total, saved + (progress.done ? 0 : 1));
-  const overall = overallPercent(progress);
+  const overall = Number.isFinite(Number(progress.percent))
+    ? Math.max(0, Math.min(100, Math.round(Number(progress.percent))))
+    : overallPercent(progress);
   const currentPct = filePercent(progress);
+  const destinationLabel = progress.destination === 'google_drive'
+    ? 'Google Drive'
+    : progress.destination === 'dropbox'
+      ? 'Dropbox'
+      : '';
+  const cloud = Boolean(destinationLabel);
   const knownBytes = Number(progress.bytesTotal) > 0;
   const indeterminate = !progress.done && !knownBytes && progress.phase !== 'writing';
   const bytesLabel =
@@ -53,9 +61,13 @@ export function DeliveryDownloadProgress({
           <span style={{ width: `${progress.done ? 100 : overall}%` }} />
         </span>
         <span className="cd-dl-progress__pill-copy">
-          {progress.done
-            ? `${saved} saved`
-            : `${current} of ${total}`}
+          {progress.phase === 'error'
+            ? 'Save failed'
+            : progress.done
+              ? `${saved || total} saved`
+              : cloud
+                ? `${overall}%`
+                : `${current} of ${total}`}
         </span>
       </button>
     );
@@ -66,7 +78,11 @@ export function DeliveryDownloadProgress({
       <div className="cd-dl-progress__header">
         <div>
           <p className="cd-dl-progress__title">
-            {progress.done ? 'Download complete' : 'Downloading delivery'}
+            {progress.phase === 'error'
+              ? 'Save failed'
+              : progress.done
+                ? (cloud ? `Saved to ${destinationLabel}` : 'Download complete')
+                : (cloud ? `Saving to ${destinationLabel}` : 'Downloading delivery')}
           </p>
           <p className="cd-dl-progress__folder">{progress.folderName}</p>
         </div>
@@ -87,9 +103,13 @@ export function DeliveryDownloadProgress({
         </div>
       </div>
       <p className="cd-dl-progress__meta">
-        {progress.done
-          ? `${saved} saved${failed ? `, ${failed} missing` : ''}`
-          : `${current} of ${total}${progress.filename ? ` · ${progress.filename}` : ''}`}
+        {progress.phase === 'error'
+          ? (progress.error || progress.filename || 'Upload failed.')
+          : progress.done
+            ? `${saved || total} saved${failed ? `, ${failed} missing` : ''}`
+            : cloud
+              ? (progress.filename || `${saved} of ${total}`)
+              : `${current} of ${total}${progress.filename ? ` · ${progress.filename}` : ''}`}
       </p>
       <div
         className="cd-dl-progress__bar"
@@ -100,7 +120,7 @@ export function DeliveryDownloadProgress({
       >
         <span style={{ width: `${progress.done ? 100 : overall}%` }} />
       </div>
-      {!progress.done ? (
+      {!progress.done && !cloud ? (
         <>
           <div className="cd-dl-progress__filebar" aria-hidden="true">
             <span
@@ -112,8 +132,16 @@ export function DeliveryDownloadProgress({
             {bytesLabel || (progress.phase === 'writing' ? 'Saving to folder…' : 'Fetching file…')}
           </p>
         </>
-      ) : (
+      ) : progress.done && progress.openUrl ? (
+        <p className="cd-dl-progress__bytes">
+          <a className="cd-dl-progress__link" href={progress.openUrl} target="_blank" rel="noopener noreferrer">
+            Open in {destinationLabel}
+          </a>
+        </p>
+      ) : progress.done && !cloud ? (
         <p className="cd-dl-progress__bytes">Keep working — files are in the folder you chose.</p>
+      ) : progress.phase === 'error' ? null : (
+        <p className="cd-dl-progress__bytes">You can keep working while this finishes.</p>
       )}
     </div>
   );

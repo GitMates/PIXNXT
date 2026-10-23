@@ -139,7 +139,7 @@ export async function fetchArrayBufferWithTimeout(
         lastError = new Error(`Non-media response ${type}`);
         continue;
       }
-      const buffer = await response.arrayBuffer();
+      const buffer = await readBodyUntilQuiet(response, controller);
       if (!buffer.byteLength) {
         lastError = new Error('Empty response');
         continue;
@@ -148,9 +148,45 @@ export async function fetchArrayBufferWithTimeout(
     } catch (err) {
       lastError = err;
       clearTimeout(timer);
+    } finally {
+      clearTimeout(timer);
     }
   }
   throw lastError instanceof Error ? lastError : new Error('Download fetch failed');
+}
+
+/** Abort a body read that receives no bytes, so one reset proxy connection cannot stall the batch. */
+const BODY_STALL_MS = 30_000;
+
+async function readBodyUntilQuiet(response: Response, controller: AbortController): Promise<ArrayBuffer> {
+  const reader = response.body?.getReader?.();
+  if (!reader) return response.arrayBuffer();
+
+  const chunks: Uint8Array[] = [];
+  let received = 0;
+  let stall = setTimeout(() => controller.abort(), BODY_STALL_MS);
+  try {
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      clearTimeout(stall);
+      stall = setTimeout(() => controller.abort(), BODY_STALL_MS);
+      if (!value?.byteLength) continue;
+      // Copy: the reader may reuse this buffer on the next chunk.
+      chunks.push(value.slice());
+      received += value.byteLength;
+    }
+  } finally {
+    clearTimeout(stall);
+  }
+
+  const out = new Uint8Array(received);
+  let offset = 0;
+  for (const chunk of chunks) {
+    out.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return out.buffer;
 }
 
 export async function fetchBlobWithTimeout(

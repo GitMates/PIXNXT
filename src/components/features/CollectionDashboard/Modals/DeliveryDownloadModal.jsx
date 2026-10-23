@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState, useRef } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   deliveryDownloadRows,
   photosForDeliveryDownload,
@@ -45,7 +45,7 @@ export function DeliveryDownloadModal({
   onClose,
   onStarted,
 }) {
-  const { startDownload } = useDeliveryDownload();
+  const { startDownload, startCloudSave } = useDeliveryDownload();
   const rows = useMemo(
     () => deliveryDownloadRows({ photos, sets, highlightsName }),
     [photos, sets, highlightsName],
@@ -56,25 +56,11 @@ export function DeliveryDownloadModal({
   const [resolution, setResolution] = useState('original');
   const [includeVideos, setIncludeVideos] = useState(true);
   const [destination, setDestination] = useState('local'); // 'local' | 'google_drive' | 'dropbox'
-
-  // Cloud upload states
-  const [cloudPhase, setCloudPhase] = useState('idle'); // 'idle' | 'auth' | 'uploading' | 'complete' | 'error'
-  const [cloudProgress, setCloudProgress] = useState(0);
-  const [cloudStatusText, setCloudStatusText] = useState('');
-  const [cloudCompleteUrl, setCloudCompleteUrl] = useState('');
   const [error, setError] = useState('');
-  const runIdRef = useRef(0);
 
   useEffect(() => {
-    if (!open) {
-      setCloudPhase('idle');
-      return undefined;
-    }
+    if (!open) return undefined;
     setError('');
-    setCloudPhase('idle');
-    setCloudProgress(0);
-    setCloudStatusText('');
-    setCloudCompleteUrl('');
     setDownloadScope(initialMode || 'all');
     if (initialSetId) {
       setSelectedSetId(initialSetId);
@@ -147,116 +133,77 @@ export function DeliveryDownloadModal({
       return;
     }
 
-    if (destination === 'google_drive') {
-      if (!isGoogleDriveConfigured()) {
-        setError(getGoogleDriveSetupMessage());
-        return;
-      }
-      const runId = ++runIdRef.current;
-      const isStale = () => runId !== runIdRef.current;
-
-      setCloudPhase('auth');
-      setCloudProgress(0);
-      setCloudStatusText('Opening Google sign-in window…');
-
-      try {
-        const result = await saveGalleryToGoogleDrive(finalPhotos, {
-          collectionName: targetSetName ? `${collectionName} - ${targetSetName}` : collectionName,
-          resolution,
-          isStale,
-          onAuthStart: () => {
-            if (!isStale()) {
-              setCloudPhase('auth');
-              setCloudStatusText('Waiting for Google sign-in… Please authorize in the popup.');
-            }
-          },
-          onAuthComplete: () => {
-            if (!isStale()) {
-              setCloudPhase('uploading');
-              setCloudStatusText(`Signed in! Preparing ${finalPhotos.length} files…`);
-            }
-          },
-          onUploadPhase: (phase) => {
-            if (!isStale()) setCloudStatusText(phase);
-          },
-          onProgress: (done, total) => {
-            if (!isStale()) {
-              const pct = total > 0 ? Math.round((done / total) * 100) : 0;
-              setCloudProgress(pct);
-            }
-          },
-        });
-
-        if (isStale()) return;
-        setCloudPhase('complete');
-        setCloudProgress(100);
-        const url = result.folderUrl || result.webViewLink || '';
-        setCloudCompleteUrl(url);
-        if (url) window.open(url, '_blank', 'noopener,noreferrer');
-      } catch (err) {
-        if (!isStale()) {
-          setCloudPhase('error');
-          setError(err?.message || 'Google Drive upload failed.');
-        }
-      }
+    const folderName = targetSetName ? `${collectionName} - ${targetSetName}` : collectionName;
+    if (destination === 'google_drive' && !isGoogleDriveConfigured()) {
+      setError(getGoogleDriveSetupMessage());
+      return;
+    }
+    if (destination === 'dropbox' && !isDropboxConfigured()) {
+      setError(getDropboxSetupMessage());
       return;
     }
 
-    if (destination === 'dropbox') {
-      if (!isDropboxConfigured()) {
-        setError(getDropboxSetupMessage());
-        return;
-      }
-      const runId = ++runIdRef.current;
-      const isStale = () => runId !== runIdRef.current;
-
-      setCloudPhase('auth');
-      setCloudProgress(0);
-      setCloudStatusText('Opening Dropbox sign-in window…');
-
-      try {
-        const result = await saveGalleryToDropbox(finalPhotos, {
-          collectionName: targetSetName ? `${collectionName} - ${targetSetName}` : collectionName,
-          resolution,
-          isStale,
-          onAuthStart: () => {
-            if (!isStale()) {
-              setCloudPhase('auth');
-              setCloudStatusText('Waiting for Dropbox sign-in… Please authorize in the popup.');
-            }
-          },
-          onAuthComplete: () => {
-            if (!isStale()) {
-              setCloudPhase('uploading');
-              setCloudStatusText(`Signed in! Uploading ${finalPhotos.length} files to Dropbox…`);
-            }
-          },
-          onUploadPhase: (phase) => {
-            if (!isStale()) setCloudStatusText(phase);
-          },
-          onProgress: (pct) => {
-            if (!isStale()) setCloudProgress(pct);
-          },
-        });
-
-        if (isStale()) return;
-        setCloudPhase('complete');
-        setCloudProgress(100);
-        setCloudCompleteUrl(result.folderUrl || '');
-        if (result.folderUrl) window.open(result.folderUrl, '_blank', 'noopener,noreferrer');
-      } catch (err) {
-        if (!isStale()) {
-          setCloudPhase('error');
-          setError(err?.message || 'Dropbox upload failed.');
-        }
-      }
+    const photosToSave = finalPhotos;
+    try {
+      const job = startCloudSave({
+        folderName,
+        total: photosToSave.length,
+        destination,
+        task: (report) => {
+          onClose?.();
+          return destination === 'google_drive'
+            ? saveGalleryToGoogleDrive(photosToSave, {
+              collectionName: folderName,
+              resolution,
+              onAuthStart: () => report({
+                phase: 'auth',
+                filename: 'Waiting for Google sign-in…',
+              }),
+              onAuthComplete: () => report({
+                phase: 'fetching',
+                filename: 'Signed in. Saving files…',
+              }),
+              onUploadPhase: (message) => report({ phase: 'writing', filename: message }),
+              onProgress: (done, total) => {
+                const count = Number(total) || photosToSave.length;
+                const finished = Number(done) || 0;
+                report({
+                  saved: finished,
+                  total: count,
+                  percent: count > 0 ? Math.round((finished / count) * 100) : 0,
+                  phase: 'writing',
+                });
+              },
+            })
+            : saveGalleryToDropbox(photosToSave, {
+              collectionName: folderName,
+              resolution,
+              onAuthStart: () => report({
+                phase: 'auth',
+                filename: 'Waiting for Dropbox sign-in…',
+              }),
+              onAuthComplete: () => report({
+                phase: 'fetching',
+                filename: 'Signed in. Saving files…',
+              }),
+              onUploadPhase: (message) => report({ phase: 'writing', filename: message }),
+              onProgress: (pct) => report({
+                percent: Math.max(0, Math.min(100, Math.round(Number(pct) || 0))),
+                phase: 'writing',
+              }),
+            });
+        },
+      });
+      await job;
+    } catch (err) {
+      setError(err?.message || 'Could not start the save.');
     }
   };
 
   if (!open) return null;
 
   return (
-    <div className="cd-modal-overlay" onClick={() => (cloudPhase === 'idle' || cloudPhase === 'complete') && onClose?.()}>
+    <div className="cd-modal-overlay" onClick={() => onClose?.()}>
       <div
         className="cd-modal cd-dl-modal"
         onClick={(event) => event.stopPropagation()}
@@ -274,10 +221,7 @@ export function DeliveryDownloadModal({
           <button
             type="button"
             className="cd-modal-close"
-            onClick={() => {
-              runIdRef.current += 1;
-              onClose?.();
-            }}
+            onClick={() => onClose?.()}
             aria-label="Close"
           >
             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
@@ -288,70 +232,6 @@ export function DeliveryDownloadModal({
         </div>
 
         <div className="cd-modal-body cd-dl-modal__body">
-          {cloudPhase !== 'idle' ? (
-            <div className="cd-dl-cloud-status">
-              {cloudPhase === 'auth' && (
-                <div className="cd-dl-cloud-status__spinner-wrap">
-                  <div className="cd-dl-spinner" />
-                  <h4>Waiting for Authentication</h4>
-                  <p>{cloudStatusText}</p>
-                </div>
-              )}
-
-              {cloudPhase === 'uploading' && (
-                <div className="cd-dl-cloud-status__uploading">
-                  <div className="cd-dl-cloud-status__header">
-                    <h4>Uploading to {destination === 'google_drive' ? 'Google Drive' : 'Dropbox'}</h4>
-                    <span className="cd-dl-cloud-status__pct">{cloudProgress}%</span>
-                  </div>
-                  <div className="cd-dl-cloud-progress-track">
-                    <div className="cd-dl-cloud-progress-fill" style={{ width: `${cloudProgress}%` }} />
-                  </div>
-                  <p className="cd-dl-cloud-status__text">{cloudStatusText}</p>
-                </div>
-              )}
-
-              {cloudPhase === 'complete' && (
-                <div className="cd-dl-cloud-status__complete">
-                  <div className="cd-dl-cloud-status__success-icon">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
-                      <polyline points="22 4 12 14.01 9 11.01" />
-                    </svg>
-                  </div>
-                  <h4>Upload Complete!</h4>
-                  <p>All {finalPhotos.length} files were successfully saved to your {destination === 'google_drive' ? 'Google Drive' : 'Dropbox'}.</p>
-                  {cloudCompleteUrl && (
-                    <a
-                      href={cloudCompleteUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="cd-basics-btn cd-dl-btn-primary"
-                      style={{ display: 'inline-block', marginTop: '12px' }}
-                    >
-                      Open in {destination === 'google_drive' ? 'Google Drive' : 'Dropbox'}
-                    </a>
-                  )}
-                </div>
-              )}
-
-              {cloudPhase === 'error' && (
-                <div className="cd-dl-cloud-status__error">
-                  <h4>Upload Failed</h4>
-                  <p className="cd-dl-export__error">{error}</p>
-                  <button
-                    type="button"
-                    className="cd-basics-btn"
-                    style={{ marginTop: '12px' }}
-                    onClick={() => setCloudPhase('idle')}
-                  >
-                    Try Again
-                  </button>
-                </div>
-              )}
-            </div>
-          ) : (
-            <>
               {/* 1. Scope selection: Everything vs Set */}
               <div className="cd-dl-section">
                 <label className="cd-dl-label">Scope</label>
@@ -523,11 +403,8 @@ export function DeliveryDownloadModal({
                   </button>
                 </div>
               </div>
-            </>
-          )}
         </div>
 
-        {cloudPhase === 'idle' && (
           <div className="cd-dl-footer">
             <div className="cd-dl-footer__summary">
               <span className="cd-dl-footer__count">
@@ -563,7 +440,6 @@ export function DeliveryDownloadModal({
               </button>
             </div>
           </div>
-        )}
       </div>
     </div>
   );
