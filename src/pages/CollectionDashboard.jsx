@@ -132,7 +132,7 @@ import { useUploadQueue } from '../components/features/CollectionDashboard/Uploa
 import { usePendingUploads, useUploadQueueBusy } from '../contexts/uploadQueueContext';
 import { isIncompleteUploadPhoto } from '../components/features/CollectionDashboard/Upload/uploadUtils';
 import { UPLOAD_VIEW_COLLECTION_EVENT } from '../components/features/CollectionDashboard/Upload/GlobalUploadShell';
-import { getFileMime, isImageMime, getUploadMediaType, isUploadableMediaFile } from '../lib/fileMime';
+import { getFileMime, isImageMime, getUploadMediaType, isPhotoshopFile, splitClientGalleryUploadFiles } from '../lib/fileMime';
 import { isRawImageFile } from '../lib/rawImageFormats';
 import { prepareUploadFile } from '../lib/prepareUploadFile';
 import { clearMediaUrlCache } from '../lib/imageLoadCache';
@@ -2160,6 +2160,10 @@ const CollectionDashboard = () => {
     const handleCoverFileSelect = async (file) => {
         if (!file || !collectionId || !collection?.photographer_id) return;
         const mime = getFileMime(file);
+        if (isPhotoshopFile(file)) {
+            alert('Photoshop files cannot be used as a cover. Export a JPEG or PNG first.');
+            return;
+        }
         if (!isImageMime(mime) && !isRawImageFile(file)) {
             alert('Please choose an image file for the cover.');
             return;
@@ -2339,6 +2343,11 @@ const CollectionDashboard = () => {
     const handleReplacePhoto = async (e) => {
         const file = e.target.files[0];
         if (!file || !editingPhoto) return;
+        if (isPhotoshopFile(file)) {
+            alert('Photoshop files cannot be uploaded to the client gallery. Export a JPEG or PNG first.');
+            e.target.value = '';
+            return;
+        }
 
         const photographerId = collection?.photographer_id ?? user?.id;
         if (!collectionId || !photographerId) {
@@ -5613,21 +5622,17 @@ const CollectionDashboard = () => {
     }, [showGdPublishedPopup]);
 
     const processSelectedUploadFiles = (fileList, snapshot) => {
-        const rawSupportEnabled = isRawUploadEnabled(profile);
-        let filesToProcess = Array.from(fileList || []);
-        
-        if (!rawSupportEnabled) {
-            const initialLength = filesToProcess.length;
-            filesToProcess = filesToProcess.filter(f => !isRawImageFile(f));
-            const skippedCount = initialLength - filesToProcess.length;
-            if (skippedCount > 0) {
-                setRawSkippedInfo({ count: skippedCount });
-            }
+        const { accepted, photoshopSkipped, rawSkipped } = splitClientGalleryUploadFiles(fileList, {
+            rawSupportEnabled: isRawUploadEnabled(profile),
+        });
+        if (photoshopSkipped > 0 || rawSkipped > 0) {
+            setRawSkippedInfo({ photoshopCount: photoshopSkipped, rawCount: rawSkipped });
         }
 
         const target = snapshot ?? uploadSnapshotRef.current ?? getUploadTargetSnapshot();
         uploadSnapshotRef.current = null;
-        if (processFiles(filesToProcess, target)) {
+        if (accepted.length === 0) return;
+        if (processFiles(accepted, target)) {
             setShowUploadModal(false);
         }
     };
@@ -5668,9 +5673,7 @@ const CollectionDashboard = () => {
     const handleDropzoneDrop = (e) => {
         e.preventDefault();
         setIsDraggingDropzone(false);
-        const mediaFiles = Array.from(e.dataTransfer.files).filter(isUploadableMediaFile);
-        if (mediaFiles.length === 0) return;
-        processFiles(mediaFiles, getUploadTargetSnapshot());
+        processSelectedUploadFiles(e.dataTransfer.files, getUploadTargetSnapshot());
     };
 
     const handleModalBrowse = (e) => {
@@ -5690,11 +5693,7 @@ const CollectionDashboard = () => {
     const handleModalDrop = (e) => {
         e.preventDefault();
         setIsDraggingModal(false);
-        const mediaFiles = Array.from(e.dataTransfer.files).filter(isUploadableMediaFile);
-        if (mediaFiles.length === 0) return;
-        if (processFiles(mediaFiles, getUploadTargetSnapshot())) {
-            setShowUploadModal(false);
-        }
+        processSelectedUploadFiles(e.dataTransfer.files, getUploadTargetSnapshot());
     };
 
     const persistDeliveryStatus = async (nextStatus) => {
@@ -7154,19 +7153,38 @@ const CollectionDashboard = () => {
                         </div>
                     )
                 }
-                {/* RAW files skipped notice */}
+                {/* Unsupported upload types skipped notice */}
                 {rawSkippedInfo && (
                     <div className="cd-modal-overlay cd-notice-overlay" onClick={() => setRawSkippedInfo(null)}>
                         <div className="cd-modal cd-modal-sm cd-notice-modal" onClick={(e) => e.stopPropagation()} role="alertdialog" aria-modal="true" aria-labelledby="raw-skipped-title">
                             <div className="cd-notice-icon">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" /></svg>
                             </div>
-                            <h3 id="raw-skipped-title" className="cd-notice-title">RAW files skipped</h3>
+                            <h3 id="raw-skipped-title" className="cd-notice-title">
+                                {rawSkippedInfo.photoshopCount > 0 && rawSkippedInfo.rawCount > 0
+                                    ? 'Some files were skipped'
+                                    : rawSkippedInfo.photoshopCount > 0
+                                        ? 'Photoshop files skipped'
+                                        : 'RAW files skipped'}
+                            </h3>
                             <p className="cd-notice-text">
-                                RAW photo support is currently disabled in your preferences.{' '}
-                                {rawSkippedInfo.count === 1
-                                    ? '1 file has been skipped.'
-                                    : `${rawSkippedInfo.count} files have been skipped.`}
+                                {rawSkippedInfo.photoshopCount > 0 && (
+                                    <>
+                                        Photoshop files (.psd, .psb) cannot be uploaded to the client gallery. Export a JPEG or PNG first.{' '}
+                                        {rawSkippedInfo.photoshopCount === 1
+                                            ? '1 Photoshop file has been skipped.'
+                                            : `${rawSkippedInfo.photoshopCount} Photoshop files have been skipped.`}
+                                    </>
+                                )}
+                                {rawSkippedInfo.photoshopCount > 0 && rawSkippedInfo.rawCount > 0 ? ' ' : null}
+                                {rawSkippedInfo.rawCount > 0 && (
+                                    <>
+                                        RAW photo support is currently disabled in your preferences.{' '}
+                                        {rawSkippedInfo.rawCount === 1
+                                            ? '1 RAW file has been skipped.'
+                                            : `${rawSkippedInfo.rawCount} RAW files have been skipped.`}
+                                    </>
+                                )}
                             </p>
                             <div className="cd-notice-actions">
                                 <button type="button" className="cd-notice-btn" autoFocus onClick={() => setRawSkippedInfo(null)}>Got it</button>

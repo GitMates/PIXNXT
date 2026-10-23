@@ -618,6 +618,10 @@ export const galleryService = {
       throw new Error('Delivery or photographer is missing. Refresh the page and try again.');
     }
 
+    if (isPhotoshopFile(file)) {
+      throw new Error('Photoshop files cannot be uploaded to the client gallery. Export a JPEG or PNG first.');
+    }
+
     if (!skipQuota) await this._assertStorageQuota(photographerId, file.size);
 
     const mime = getFileMime(file);
@@ -1437,6 +1441,9 @@ export const galleryService = {
   async replacePhoto(photoId, photographerId, collectionId, file, onProgress = null) {
     if (!collectionId || !photographerId) {
       throw new Error('Delivery or photographer is missing. Refresh the page and try again.');
+    }
+    if (isPhotoshopFile(file)) {
+      throw new Error('Photoshop files cannot be uploaded to the client gallery. Export a JPEG or PNG first.');
     }
 
     const gallery = await (await workersGallery()).getCollectionDashboardData(collectionId);

@@ -8,7 +8,7 @@ import React, {
 import { galleryService } from '../services/gallery.service';
 import { userStorageService } from '../services/userStorage.service';
 import { photographerQuotaService } from '../services/photographerQuota.service';
-import { isImageMime, isVideoMime, getFileMime } from '../lib/fileMime';
+import { isImageMime, isVideoMime, getFileMime, isPhotoshopFile } from '../lib/fileMime';
 import { getUploadMediaKindFromFile } from '../components/features/CollectionDashboard/Upload/uploadUtils';
 import { isRawImageFile } from '../lib/rawImageFormats';
 import { extractRawPreviewBlob } from '../lib/rawImagePreview';
@@ -549,9 +549,20 @@ export function UploadQueueProvider({ children }) {
       }
 
       const rawFiles = Array.from(fileList || []);
-      const files = rawFiles.filter((f) => f.size > 0);
+      const photoshopFiles = rawFiles.filter(isPhotoshopFile);
+      const readableFiles = rawFiles.filter((f) => f.size > 0 && !isPhotoshopFile(f));
+
+      if (photoshopFiles.length > 0) {
+        notifyNotice(
+          'Photoshop files skipped',
+          'Photoshop files (.psd, .psb) cannot be uploaded to the client gallery. Export a JPEG or PNG first.'
+        );
+      }
+
+      const files = readableFiles;
 
       if (rawFiles.length > 0 && files.length === 0) {
+        if (photoshopFiles.length > 0) return false;
         notifyNotice(
           'Files could not be read',
           'The selected files are empty or corrupted. If you are uploading a file from another app, please save it to your computer first.'

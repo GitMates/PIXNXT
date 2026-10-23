@@ -1,4 +1,4 @@
-import { getRawExtensionFromFilename } from './rawImageFormats';
+import { getRawExtensionFromFilename, isRawImageFile } from './rawImageFormats';
 
 /** MIME map for files where the browser leaves `file.type` empty (common on Windows). */
 const EXT_TO_MIME = {
@@ -67,12 +67,28 @@ export function isVideoMime(mime) {
   return mime.startsWith('video/');
 }
 
+const PHOTOSHOP_MIME = new Set([
+  'image/vnd.adobe.photoshop',
+  'image/x-photoshop',
+  'application/x-photoshop',
+  'application/photoshop',
+  'image/psd',
+]);
+
 export function isPhotoshopFilename(filename) {
   return /\.(psd|psb)(\?|#|$)/i.test(String(filename || ''));
 }
 
+export function isPhotoshopMime(mime) {
+  const normalized = String(mime || '').toLowerCase().split(';')[0].trim();
+  return PHOTOSHOP_MIME.has(normalized);
+}
+
 export function isPhotoshopFile(file) {
-  return Boolean(file?.name && isPhotoshopFilename(file.name));
+  if (!file) return false;
+  if (file.name && isPhotoshopFilename(file.name)) return true;
+  if (isPhotoshopMime(file.type)) return true;
+  return isPhotoshopMime(getFileMime(file));
 }
 
 export function getUploadMediaType(file) {
@@ -87,9 +103,33 @@ export function getUploadMediaType(file) {
 /** Photos, videos, GIFs, and camera RAW files allowed in the upload flow. */
 export function isUploadableMediaFile(file) {
   if (!file?.name) return false;
+  if (isPhotoshopFile(file)) return false;
   if (getRawExtensionFromFilename(file.name)) return true;
   const mime = getFileMime(file);
   if (isVideoMime(mime)) return true;
   if (mime === 'image/gif' || /\.gif$/i.test(file.name)) return true;
   return isImageMime(mime);
+}
+
+/**
+ * Client gallery picker/drop: keep uploadable media, skip Photoshop always,
+ * and skip RAW when that studio preference is off.
+ */
+export function splitClientGalleryUploadFiles(files, { rawSupportEnabled = true } = {}) {
+  const accepted = [];
+  let photoshopSkipped = 0;
+  let rawSkipped = 0;
+  for (const file of Array.from(files || [])) {
+    if (isPhotoshopFile(file)) {
+      photoshopSkipped += 1;
+      continue;
+    }
+    if (!rawSupportEnabled && isRawImageFile(file)) {
+      rawSkipped += 1;
+      continue;
+    }
+    if (!isUploadableMediaFile(file)) continue;
+    accepted.push(file);
+  }
+  return { accepted, photoshopSkipped, rawSkipped };
 }
