@@ -557,7 +557,7 @@
   width: 42px;
   height: 6px;
   border-radius: 99px;
-  background: var(--bg-surface-hover);
+  background: var(--toggle-track-off);
   overflow: hidden;
   flex-shrink: 0;
 }
@@ -565,7 +565,7 @@
 .cd-dl-progress__pill-bar span {
   display: block;
   height: 100%;
-  background: var(--accent-primary);
+  background: var(--ink);
 }
 
 .cd-dl-progress__pill-copy {
@@ -632,7 +632,7 @@
 .cd-dl-progress__filebar {
   height: 8px;
   border-radius: 99px;
-  background: var(--bg-surface-hover);
+  background: var(--toggle-track-off);
   overflow: hidden;
 }
 
@@ -646,12 +646,14 @@
   display: block;
   height: 100%;
   border-radius: inherit;
-  background: var(--accent-primary);
+  background: var(--ink);
   transition: width 0.16s linear;
 }
 
-.cd-dl-progress__filebar span {
-  background: var(--accent-secondary);
+body.dark-theme .cd-dl-progress__pill-bar span,
+body.dark-theme .cd-dl-progress__bar span,
+body.dark-theme .cd-dl-progress__filebar span {
+  background: var(--accent-primary);
 }
 
 .cd-dl-progress__filebar span.is-indeterminate {
