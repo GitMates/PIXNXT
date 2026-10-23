@@ -7,6 +7,7 @@ import {
     Filter,
     MoreVertical,
     ShoppingBag,
+    Star,
 } from 'lucide-react';
 import { AppLoader } from '../components/ui/AppLoading';
 import SidebarLayout from '../components/SidebarLayout';
@@ -80,6 +81,7 @@ import {
     formatDeliveryShortDate,
     formatInr,
 } from '../lib/deliveryListPresentation';
+import { isStarredFlag, starredWriteValue } from '../lib/starredFlag';
 
 function attachBoardExtras(rows, extras) {
     if (!extras) return rows || [];
@@ -104,6 +106,21 @@ function filmLabel(n) {
 
 function deliveryDateValue(collection) {
     return collection?.event_date || collection?.created_at;
+}
+
+function DeliveryStarButton({ collection, className, iconClass, onToggle }) {
+    const starred = isStarredFlag(collection?.is_starred);
+    return (
+        <button
+            type="button"
+            className={cn(className, starred && 'is-on')}
+            onClick={(e) => onToggle(e, collection)}
+            aria-label={starred ? 'Unstar delivery' : 'Star delivery'}
+            aria-pressed={starred}
+        >
+            <Star className={iconClass} strokeWidth={2} fill={starred ? 'currentColor' : 'none'} />
+        </button>
+    );
 }
 
 function SortArrowsIcon() {
@@ -213,18 +230,31 @@ const ClientGallery = () => {
 
     const handleBulkStar = async () => {
         if (!selectedCollections.length) return;
-        const allStarred = selectedCollections.every((c) => c.is_starred);
-        const next = !allStarred;
+        const allStarred = selectedCollections.every((c) => isStarredFlag(c.is_starred));
+        const is_starred = starredWriteValue(!allStarred);
+        const snapshot = selectedCollections.map((c) => ({ id: c.id, is_starred: c.is_starred }));
         setBulkApplying(true);
+        setCollections((prev) =>
+            prev.map((c) => (selectedCards.includes(c.id) ? { ...c, is_starred } : c))
+        );
+        if (user?.id) {
+            selectedCards.forEach((id) => upsertCollectionOnBoard(user.id, { id, is_starred }));
+        }
         try {
             await Promise.all(
-                selectedCards.map((id) => galleryService.updateCollection(id, { is_starred: next }))
-            );
-            setCollections((prev) =>
-                prev.map((c) => (selectedCards.includes(c.id) ? { ...c, is_starred: next } : c))
+                selectedCards.map((id) => galleryService.updateCollection(id, { is_starred }))
             );
         } catch (err) {
             console.error('Bulk star failed:', err);
+            setCollections((prev) =>
+                prev.map((c) => {
+                    const prior = snapshot.find((row) => row.id === c.id);
+                    return prior ? { ...c, is_starred: prior.is_starred } : c;
+                })
+            );
+            if (user?.id) {
+                snapshot.forEach((row) => upsertCollectionOnBoard(user.id, row));
+            }
             alert('Failed to update starred status.');
         } finally {
             setBulkApplying(false);
@@ -550,16 +580,27 @@ const ClientGallery = () => {
     const handleStarFromMenu = useCallback(async (collection) => {
         if (!collection?.id) return;
         closeContextMenu();
-        const next = !collection.is_starred;
+        const is_starred = starredWriteValue(!isStarredFlag(collection.is_starred));
+        const prior = collection.is_starred;
+        setCollections((prev) =>
+            prev.map((c) => (c.id === collection.id ? { ...c, is_starred } : c))
+        );
+        if (user?.id) upsertCollectionOnBoard(user.id, { id: collection.id, is_starred });
         try {
-            await galleryService.updateCollection(collection.id, { is_starred: next });
-            setCollections((prev) =>
-                prev.map((c) => (c.id === collection.id ? { ...c, is_starred: next } : c))
-            );
+            await galleryService.updateCollection(collection.id, { is_starred });
         } catch (err) {
             console.error('Failed to update star:', err);
+            setCollections((prev) =>
+                prev.map((c) => (c.id === collection.id ? { ...c, is_starred: prior } : c))
+            );
+            if (user?.id) upsertCollectionOnBoard(user.id, { id: collection.id, is_starred: prior });
         }
-    }, [closeContextMenu]);
+    }, [closeContextMenu, user?.id]);
+
+    const handleToggleCardStar = useCallback((e, collection) => {
+        e.stopPropagation();
+        void handleStarFromMenu(collection);
+    }, [handleStarFromMenu]);
 
     const handleEditSave = async (payload) => {
         if (!editCollection) return;
@@ -980,14 +1021,22 @@ const ClientGallery = () => {
                                                         {attention.label}
                                                     </span>
                                                 ) : null}
-                                                <button
-                                                    type="button"
-                                                    className="dl-more"
-                                                    onClick={(e) => openContextMenu(e, collection.id)}
-                                                    aria-label="Delivery options"
-                                                >
-                                                    <MoreVertical className="size-3.5" strokeWidth={2} />
-                                                </button>
+                                                <div className="dl-cover-actions">
+                                                    <DeliveryStarButton
+                                                        collection={collection}
+                                                        className="dl-star"
+                                                        iconClass="size-3.5"
+                                                        onToggle={handleToggleCardStar}
+                                                    />
+                                                    <button
+                                                        type="button"
+                                                        className="dl-more"
+                                                        onClick={(e) => openContextMenu(e, collection.id)}
+                                                        aria-label="Delivery options"
+                                                    >
+                                                        <MoreVertical className="size-3.5" strokeWidth={2} />
+                                                    </button>
+                                                </div>
                                             </div>
                                             {renderContextMenu(collection)}
                                             <div className="dl-card-body">
@@ -1144,14 +1193,22 @@ const ClientGallery = () => {
                                                     </>
                                                 ) : null}
                                             </span>
-                                            <button
-                                                type="button"
-                                                className="dl-row-more"
-                                                onClick={(e) => openContextMenu(e, collection.id)}
-                                                aria-label="Delivery options"
-                                            >
-                                                <MoreVertical className="size-4" />
-                                            </button>
+                                            <div className="dl-row-actions">
+                                                <DeliveryStarButton
+                                                    collection={collection}
+                                                    className="dl-row-star"
+                                                    iconClass="size-4"
+                                                    onToggle={handleToggleCardStar}
+                                                />
+                                                <button
+                                                    type="button"
+                                                    className="dl-row-more"
+                                                    onClick={(e) => openContextMenu(e, collection.id)}
+                                                    aria-label="Delivery options"
+                                                >
+                                                    <MoreVertical className="size-4" />
+                                                </button>
+                                            </div>
                                             {renderContextMenu(collection, 'list')}
                                         </div>
                                     );

@@ -218,6 +218,7 @@ const FolderView = () => {
       setCollections((prev) =>
         prev.map((c) => (c.id === collection.id ? { ...c, is_starred: next } : c))
       );
+      if (user?.id) upsertCollectionOnBoard(user.id, { id: collection.id, is_starred: next });
     } catch (err) {
       console.error('Failed to update star:', err);
     }
@@ -309,6 +310,7 @@ const FolderView = () => {
             setCollections((prev) =>
               prev.map((c) => (c.id === collection.id ? { ...c, is_starred: next } : c))
             );
+            if (user?.id) upsertCollectionOnBoard(user.id, { id: collection.id, is_starred: next });
           } catch (err) {
             console.error('Failed to update star:', err);
           }

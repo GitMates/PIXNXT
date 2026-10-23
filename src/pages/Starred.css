@@ -85,7 +85,7 @@
     margin: 10px 0 2px;
     font-size: 16px;
     font-weight: 600;
-    color: #222;
+    color: var(--text-heading, #222);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -94,7 +94,7 @@
 .st-photo-collection {
     margin: 0;
     font-size: 14px;
-    color: #888;
+    color: var(--text-secondary, #888);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;

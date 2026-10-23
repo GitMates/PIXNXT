@@ -9,6 +9,8 @@ import { getPhotoGridDisplayUrl, getPhotoStreamPhase, getPhotoVideoPoster, getCo
 import { defaultCoverGradient } from '../lib/defaultCoverGradient';
 import { formatStorageBytes } from '../utils/formatStorageBytes';
 import { isGalleryVideo } from '../lib/galleryMediaType';
+import { readGalleryBoard, upsertCollectionOnBoard } from '../lib/galleryBoardCache';
+import { filterStarredCollections, mergeStarredBoardAndApi, starredWriteValue } from '../lib/starredFlag';
 import {
     ClientGalleryPageShell,
     ClientGallerySubpageTabs,
@@ -30,16 +32,25 @@ const Starred = () => {
 
     const loadData = useCallback(async () => {
         if (!user?.id) return;
-        setLoading(true);
         setError(null);
         try {
             if (activeTab === 'photos') {
+                setLoading(true);
                 const rows = await galleryService.getStarredPhotos(user.id);
                 setPhotos(rows);
                 setCollections([]);
             } else {
+                const boardCollections = readGalleryBoard(user.id)?.collections || [];
+                const boardStarred = filterStarredCollections(boardCollections);
+                if (boardStarred.length) {
+                    setCollections(boardStarred);
+                    setLoading(false);
+                } else {
+                    setLoading(true);
+                }
                 const rows = await galleryService.getStarredCollections(user.id);
-                setCollections(rows);
+                const latestBoard = readGalleryBoard(user.id)?.collections || boardCollections;
+                setCollections(mergeStarredBoardAndApi(latestBoard, rows));
                 setPhotos([]);
             }
         } catch (err) {
@@ -56,11 +67,18 @@ const Starred = () => {
 
     const handleToggleCollectionStar = async (e, collection) => {
         e.stopPropagation();
+        const is_starred = starredWriteValue(false);
+        setCollections((prev) => prev.filter((c) => c.id !== collection.id));
+        if (user?.id) upsertCollectionOnBoard(user.id, { id: collection.id, is_starred });
         try {
-            await galleryService.updateCollection(collection.id, { is_starred: false });
-            setCollections((prev) => prev.filter((c) => c.id !== collection.id));
+            await galleryService.updateCollection(collection.id, { is_starred });
         } catch (err) {
             console.error('Failed to unstar collection:', err);
+            setCollections((prev) => {
+                if (prev.some((c) => c.id === collection.id)) return prev;
+                return [collection, ...prev];
+            });
+            if (user?.id) upsertCollectionOnBoard(user.id, collection);
             alert('Could not update star. Please try again.');
         }
     };

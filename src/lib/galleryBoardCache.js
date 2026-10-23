@@ -167,7 +167,14 @@ export function clearCollectionPendingCreate(userId, collectionId, storage = def
 export function mergeFetchedBoardCollections(userId, fetched, storage = defaultStorage()) {
   reconcileSettledDeletes(userId, fetched, storage);
   const pendingDeletes = new Set(Object.keys(readPendingDeleteMap(userId, storage)));
-  const apiRows = filterPendingDeletedCollections(userId, fetched || [], storage);
+  const boardById = new Map(
+    (readGalleryBoard(userId, storage)?.collections || []).map((c) => [c.id, c]),
+  );
+  const apiRows = filterPendingDeletedCollections(userId, fetched || [], storage).map((c) => {
+    const boardRow = boardById.get(c.id);
+    if (!boardRow || boardRow.is_starred === undefined) return c;
+    return { ...c, is_starred: boardRow.is_starred };
+  });
   const byId = new Map(apiRows.map((c) => [c.id, c]));
 
   const pendingCreates = readPendingCreateMap(userId, storage);

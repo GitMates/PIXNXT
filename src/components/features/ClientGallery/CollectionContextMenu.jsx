@@ -1,5 +1,6 @@
 import React, { useCallback } from 'react';
 import { createPortal } from 'react-dom';
+import { isStarredFlag } from '../../../lib/starredFlag';
 import { useContextMenuPortalLayout } from './useContextMenuPortalLayout';
 
 export function CollectionContextMenu({
@@ -49,7 +50,7 @@ export function CollectionContextMenu({
                 Preview as the client
             </button>
             <button type="button" className="dl-more-menu__item" onClick={run(onStar)}>
-                {collection?.is_starred ? 'Unstar this delivery' : 'Star this delivery'}
+                {isStarredFlag(collection?.is_starred) ? 'Unstar this delivery' : 'Star this delivery'}
             </button>
 
             <div className="dl-more-menu__rule" />

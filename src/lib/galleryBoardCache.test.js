@@ -193,6 +193,35 @@ describe('galleryBoardCache', () => {
     ).toEqual(['demo-2', 'mca']);
   });
 
+  it('keeps a just-toggled star when a stale list refetch still has the old flag', () => {
+    writeGalleryBoard(
+      'user-1',
+      [
+        { id: 'hack', name: 'CIT HACKATHON', is_starred: 1 },
+        { id: 'demo', name: 'Demo 1', is_starred: 0 },
+      ],
+      [],
+      storage,
+    );
+
+    const merged = mergeFetchedBoardCollections(
+      'user-1',
+      [
+        { id: 'hack', name: 'CIT HACKATHON', is_starred: 0, photo_count: 72 },
+        { id: 'demo', name: 'Demo 1', is_starred: 0, photo_count: 20 },
+      ],
+      storage,
+    );
+    expect(merged.find((c) => c.id === 'hack')).toMatchObject({
+      is_starred: 1,
+      photo_count: 72,
+    });
+    expect(merged.find((c) => c.id === 'demo')).toMatchObject({
+      is_starred: 0,
+      photo_count: 20,
+    });
+  });
+
   it('does not drop an in-flight delete tombstone just because a list omits the id', () => {
     removeCollectionFromBoard('user-1', 'demo-2', storage);
 

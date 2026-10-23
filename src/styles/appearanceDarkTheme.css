@@ -4914,6 +4914,17 @@ body.dark-theme .st-photo-thumb {
   background: var(--bg-surface);
 }
 
+body.dark-theme .st-photo-filename,
+body.dark-theme .theme-mono.cg-shell .cg-style-2 .cg-style-43 {
+  color: var(--text-heading);
+}
+
+body.dark-theme .st-photo-collection,
+body.dark-theme .theme-mono.cg-shell .cg-style-2 .cg-style-44,
+body.dark-theme .theme-mono.cg-shell .cg-style-2 .cg-style-80 {
+  color: var(--text-secondary);
+}
+
 body.dark-theme .st-empty-graphic svg path[fill='#fff'],
 body.dark-theme .st-empty-graphic svg circle[fill='#fff'] {
   fill: var(--bg-surface);

@@ -3,6 +3,7 @@
  * galleryService API surface. gallery.service.js delegates here per-function.
  */
 import { apiFetch } from '../lib/api/client';
+import { filterStarredCollections } from '../lib/starredFlag';
 
 async function maps() {
   const mod = await import('./gallery.service');
@@ -53,7 +54,7 @@ export async function getDeliveryBoardExtras(collectionIds) {
 export async function getStarredCollections(photographerId) {
   if (!photographerId) return [];
   const data = await apiFetch('/v1/galleries/dashboard?starred=1');
-  return mapRows(data?.galleries || []);
+  return mapRows(filterStarredCollections(data?.galleries || []));
 }
 
 export async function getStarredPhotos() {
