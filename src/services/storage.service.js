@@ -2,7 +2,6 @@ import { getFileMime } from '../lib/fileMime';
 import { R2_PUBLIC_URL } from '../lib/r2';
 import {
   apiBase,
-  uploadApiBase,
   ensureFreshAccessToken,
   refreshAccessToken,
 } from '../lib/api/client';
@@ -66,7 +65,7 @@ async function uploadViaWorkersApi(path, file, contentType, onProgress, abortSig
         return;
       }
       const xhr = new XMLHttpRequest();
-      xhr.open('PUT', `${uploadApiBase()}/v1/r2/upload`, true);
+      xhr.open('PUT', `${apiBase()}/v1/r2/upload`, true);
       xhr.setRequestHeader('Content-Type', contentType);
       xhr.setRequestHeader('X-Object-Key', path);
       xhr.setRequestHeader('Authorization', `Bearer ${token}`);
@@ -147,7 +146,78 @@ export function __directUploadGate({ now = () => Date.now(), backoffMs = 30_000 
 }
 const directGate = __directUploadGate();
 const DIRECT_PUT_ATTEMPTS = 3;
-const DIRECT_PART_PARALLEL = 6;
+/** Enough parallel parts to hide high RTT (e.g. India → R2). */
+export const DIRECT_PART_PARALLEL = 16;
+
+export function resolveUploadStrategy({
+  fileSize,
+  workerProxyMax = WORKER_PROXY_MAX,
+  resumeCheckpoint = null,
+  directAvailable,
+  plan,
+  clientDirectAvailable,
+}) {
+  const tooLargeForProxy = fileSize > workerProxyMax;
+  if (resumeCheckpoint?.uploadId && tooLargeForProxy) {
+    return { type: 'worker-parts' };
+  }
+  if (directAvailable && plan?.enabled) {
+    return { type: 'direct', plan };
+  }
+  if (clientDirectAvailable) {
+    return { type: 'client-direct' };
+  }
+  if (tooLargeForProxy) return { type: 'worker-parts' };
+  return { type: 'worker-put' };
+}
+
+/** After a signed R2 plan exists, retry R2 — do not dump the body through the Worker. */
+export function allowWorkerProxyFallback(hadEnabledDirectPlan) {
+  return hadEnabledDirectPlan !== true;
+}
+
+function clientR2Configured() {
+  return Boolean(
+    import.meta.env.VITE_R2_ACCOUNT_ID &&
+      import.meta.env.VITE_R2_ACCESS_KEY_ID &&
+      import.meta.env.VITE_R2_SECRET_ACCESS_KEY &&
+      import.meta.env.VITE_R2_BUCKET_NAME
+  );
+}
+
+/** Browser → R2 with the same S3 client the SPA already ships. No Worker hop. */
+async function uploadViaClientDirect(path, file, contentType, onProgress, abortSignal) {
+  const { r2Client, R2_BUCKET_NAME } = await import('../lib/r2');
+  const { Upload } = await import('@aws-sdk/lib-storage');
+  if (!R2_BUCKET_NAME) throw new Error('VITE_R2_BUCKET_NAME is not configured.');
+  const upload = new Upload({
+    client: r2Client,
+    params: {
+      Bucket: R2_BUCKET_NAME,
+      Key: path,
+      Body: file,
+      ContentType: contentType,
+    },
+    queueSize: DIRECT_PART_PARALLEL,
+    partSize: 8 * 1024 * 1024,
+    leavePartsOnError: false,
+  });
+  upload.on('httpUploadProgress', (evt) => {
+    if (evt.total) onProgress?.(Math.min(99, Math.round((evt.loaded / evt.total) * 100)));
+  });
+  const onAbort = () => {
+    void upload.abort();
+  };
+  abortSignal?.addEventListener('abort', onAbort, { once: true });
+  try {
+    if (abortSignal?.aborted) throw new Error('Upload cancelled.');
+    await upload.done();
+    onProgress?.(100);
+    return { path, url: storageService.getPublicUrl(path) };
+  } finally {
+    abortSignal?.removeEventListener('abort', onAbort);
+  }
+}
 const presignWaiters = [];
 let presignScheduled = false;
 
@@ -590,43 +660,50 @@ export const storageService = {
             });
 
       onProgress?.(2);
-      // Originals and derivatives share one presign batch, then PUT straight
-      // to R2 (multipart, 6 parts at a time). The Worker proxy is only for
-      // files the edge can accept. A multi-GB video must not fall back to it:
-      // the connection is reset and the browser reports a network error.
-      const tooLargeForProxy = body.size > WORKER_PROXY_MAX;
       const partOptions = {
         resumeCheckpoint: options.resumeCheckpoint,
         onCheckpoint: options.onCheckpoint,
       };
-      // Resume always uses Worker multipart — cannot continue a prior Worker
-      // upload through a fresh direct-presign plan.
-      if (partOptions.resumeCheckpoint?.uploadId && tooLargeForProxy) {
-        return await uploadViaWorkerParts(
-          path,
-          body,
-          contentType,
-          onProgress,
-          abortSignal,
-          partOptions
-        );
-      }
+      let plan = null;
       if (directGate.available()) {
-        const plan = await planFor(path, body, contentType);
-        if (plan?.enabled) {
-          try {
-            const result = await uploadFromPlan(plan, body, contentType, onProgress, abortSignal);
-            directGate.noteSuccess();
-            return result;
-          } catch (err) {
-            if (abortSignal?.aborted || /cancelled/i.test(err?.message || '')) throw err;
-            // This file falls back to the proxy; the next presign batch tries direct again after the backoff.
+        plan = await planFor(path, body, contentType);
+      }
+      const strategy = resolveUploadStrategy({
+        fileSize: body.size,
+        resumeCheckpoint: partOptions.resumeCheckpoint,
+        directAvailable: directGate.available(),
+        plan,
+        clientDirectAvailable: clientR2Configured(),
+      });
+
+      if (strategy.type === 'direct') {
+        try {
+          const result = await uploadFromPlan(strategy.plan, body, contentType, onProgress, abortSignal);
+          directGate.noteSuccess();
+          return result;
+        } catch (err) {
+          if (abortSignal?.aborted || /cancelled/i.test(err?.message || '')) throw err;
+          if (clientR2Configured()) {
+            console.warn('Worker-signed R2 PUT failed, retrying client-signed upload', err);
+            return await uploadViaClientDirect(path, body, contentType, onProgress, abortSignal);
+          }
+          if (!allowWorkerProxyFallback(true)) {
             directGate.noteTransientFailure();
-            console.warn('Direct R2 upload failed after retries, using Worker proxy for this file', err);
+            throw err;
           }
         }
       }
-      if (tooLargeForProxy) {
+
+      if (strategy.type === 'client-direct') {
+        try {
+          return await uploadViaClientDirect(path, body, contentType, onProgress, abortSignal);
+        } catch (err) {
+          if (abortSignal?.aborted || /cancelled/i.test(err?.message || '')) throw err;
+          console.warn('Client-signed R2 upload failed; Worker proxy is a last resort until bucket CORS allows PUT', err);
+        }
+      }
+
+      if (strategy.type === 'worker-parts') {
         return await uploadViaWorkerParts(
           path,
           body,

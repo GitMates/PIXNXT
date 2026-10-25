@@ -1,9 +1,15 @@
+import { readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { describe, expect, test } from 'vitest';
 import {
   uploadErrorFromXhr,
   isRateLimitedError,
   __directUploadGate,
   __existsManyWith,
+  DIRECT_PART_PARALLEL,
+  resolveUploadStrategy,
+  allowWorkerProxyFallback,
 } from './storage.service';
 
 function fakeXhr({ status, body, retryAfter }) {
@@ -39,6 +45,71 @@ describe('isRateLimitedError', () => {
     expect(isRateLimitedError(new Error('Upload rate exceeded'))).toBe(true);
     expect(isRateLimitedError(new Error('Network error'))).toBe(false);
     expect(isRateLimitedError(null)).toBe(false);
+  });
+});
+
+describe('resolveUploadStrategy', () => {
+  test('uses a Worker-signed direct plan when the server offers one', () => {
+    expect(
+      resolveUploadStrategy({
+        fileSize: 400_000,
+        directAvailable: true,
+        plan: { enabled: true, mode: 'put', url: 'https://r2.example/obj' },
+        clientDirectAvailable: false,
+      })
+    ).toEqual({
+      type: 'direct',
+      plan: { enabled: true, mode: 'put', url: 'https://r2.example/obj' },
+    });
+  });
+
+  test('uses client-signed R2 when the Worker cannot presign', () => {
+    expect(
+      resolveUploadStrategy({
+        fileSize: 400_000,
+        directAvailable: true,
+        plan: null,
+        clientDirectAvailable: true,
+      })
+    ).toEqual({ type: 'client-direct' });
+  });
+
+  test('does not choose the Worker single-PUT proxy when a direct path exists', () => {
+    const chosen = resolveUploadStrategy({
+      fileSize: 400_000,
+      directAvailable: true,
+      plan: { enabled: true, mode: 'put', url: 'https://r2.example/obj' },
+      clientDirectAvailable: true,
+    });
+    expect(chosen.type).not.toBe('worker-put');
+    expect(chosen.type).not.toBe('worker-parts');
+  });
+});
+
+describe('allowWorkerProxyFallback', () => {
+  test('never falls back after a direct plan was issued', () => {
+    expect(allowWorkerProxyFallback(true)).toBe(false);
+  });
+
+  test('allows proxy only when no direct plan existed', () => {
+    expect(allowWorkerProxyFallback(false)).toBe(true);
+  });
+});
+
+describe('direct part parallelism', () => {
+  test('keeps enough in-flight parts to hide India→R2 RTT', () => {
+    expect(DIRECT_PART_PARALLEL).toBeGreaterThanOrEqual(16);
+  });
+});
+
+describe('R2 CORS policy', () => {
+  test('allows browser PUT/POST so direct uploads are not blocked', () => {
+    const policyPath = join(dirname(fileURLToPath(import.meta.url)), '../../r2-cors-policy.example.json');
+    const policy = JSON.parse(readFileSync(policyPath, 'utf8'));
+    const rule = policy.rules[0];
+    expect(rule.allowed.methods).toEqual(expect.arrayContaining(['PUT', 'POST', 'GET', 'HEAD']));
+    expect(rule.exposeHeaders).toEqual(expect.arrayContaining(['ETag']));
+    expect(rule.allowed.origins).toEqual(expect.arrayContaining(['http://localhost:5173']));
   });
 });
 

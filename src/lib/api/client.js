@@ -13,15 +13,10 @@ export function apiBase() {
 }
 
 /**
- * Local dev upload target. Google (and email) sessions set the refresh cookie
- * on the API host, so auth must keep using apiBase(). File PUTs stay on the
- * Vite proxy so they are same-origin and skip the cross-origin preflight.
+ * File bodies must not go through the Vite proxy — it caps throughput at a
+ * few MB/s. The Worker already allows localhost CORS for PUT + Authorization.
  */
 export function uploadApiBase() {
-  if (import.meta.env.DEV && typeof window !== 'undefined') {
-    const host = window.location.hostname;
-    if (host === 'localhost' || host === '127.0.0.1') return '';
-  }
   return apiBase();
 }
 

@@ -41,10 +41,10 @@ function buildCommandItems(modKey) {
       section: 'GO TO',
       id: 'goto-library',
       title: 'Library',
-      detail: 'packages',
+      detail: 'all photos',
       tag: 'Library',
       path: '/photos',
-      keywords: 'library packages photos',
+      keywords: 'library photos',
     },
     {
       section: 'GO TO',
