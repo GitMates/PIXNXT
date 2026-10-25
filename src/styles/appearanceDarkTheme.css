@@ -9337,9 +9337,9 @@ body.dark-theme .theme-mono .cg-field-shell.neu-inset .dp-icon {
    :focus { background:#fff }) otherwise flash a white box while typing,
    so light text disappears. Public galleries and the print store keep
    their own field colors. */
-body.dark-theme input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='color']):not([type='file']):not([type='button']):not([type='submit']):not([type='reset']):not([type='hidden']):focus:not(.gallery-view-page *):not(.printstore-container *),
-body.dark-theme textarea:focus:not(.gallery-view-page *):not(.printstore-container *),
-body.dark-theme select:focus:not(.gallery-view-page *):not(.printstore-container *) {
+body.dark-theme input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='color']):not([type='file']):not([type='button']):not([type='submit']):not([type='reset']):not([type='hidden']):focus:not(.gallery-view-page *):not(.printstore-container *):not(.auth-page *),
+body.dark-theme textarea:focus:not(.gallery-view-page *):not(.printstore-container *):not(.auth-page *),
+body.dark-theme select:focus:not(.gallery-view-page *):not(.printstore-container *):not(.auth-page *) {
   background-color: var(--bg-app) !important;
   color: var(--text-primary) !important;
   -webkit-text-fill-color: var(--text-primary) !important;

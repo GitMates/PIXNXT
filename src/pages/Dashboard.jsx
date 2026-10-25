@@ -697,7 +697,10 @@ const Dashboard = () => {
             </div>
           ) : (
             <div className="sd-recent-empty">
-              <p>{appT.dash.emptyWork}</p>
+              <p>
+                <span className="sd-recent-empty-lead">{appT.dash.emptyWork}</span>
+                <span className="sd-recent-empty-hint">{appT.dash.emptyWorkHint}</span>
+              </p>
               <button type="button" className="sd-new-btn" onClick={() => navigate('/deliveries/create')}>
                 {appT.dash.newBtn} {(appT.dash.newMenu?.['Delivery']?.[0]) || 'delivery'}
               </button>

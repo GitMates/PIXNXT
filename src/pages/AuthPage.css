@@ -284,9 +284,49 @@
   color: var(--muted, #7a6a5d);
 }
 
-/* Keep vintage auth light even when the studio is in dark theme */
+/* Dark theme: the form pane follows remapped --canvas. Vintage --sunk stayed
+   cream while --ink remapped to white, so fields were white-on-white.
+   Autofill / :focus rules in appearanceDarkTheme.css also force light text. */
 body.dark-theme .auth-page {
-  color: #2a211b;
+  color: var(--text-body);
+}
+
+body.dark-theme .auth-page .auth-input-shell {
+  background: var(--bg-surface);
+  border-color: var(--border-input);
+}
+
+body.dark-theme .auth-page .auth-input-shell:focus-within {
+  background: var(--bg-surface);
+  border-color: var(--accent-primary);
+}
+
+body.dark-theme .auth-page .auth-input,
+body.dark-theme .auth-page .auth-input:focus {
+  color: var(--text-primary);
+  -webkit-text-fill-color: var(--text-primary);
+  caret-color: var(--text-primary);
+  background-color: transparent;
+}
+
+body.dark-theme .auth-page .auth-input::placeholder {
+  color: var(--text-muted);
+  -webkit-text-fill-color: var(--text-muted);
+  opacity: 1;
+}
+
+body.dark-theme .auth-page .auth-input-shell .auth-input-action {
+  color: var(--text-secondary);
+}
+
+body.dark-theme .auth-page input:-webkit-autofill,
+body.dark-theme .auth-page input:-webkit-autofill:hover,
+body.dark-theme .auth-page input:-webkit-autofill:focus,
+body.dark-theme .auth-page input:-webkit-autofill:active {
+  -webkit-text-fill-color: var(--text-primary) !important;
+  caret-color: var(--text-primary) !important;
+  -webkit-box-shadow: 0 0 0 1000px var(--bg-surface) inset !important;
+  box-shadow: 0 0 0 1000px var(--bg-surface) inset !important;
 }
 
 body.dark-theme .auth-page .auth-submit {
