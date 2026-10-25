@@ -199,7 +199,7 @@ export default function AccountSettings() {
             {activeTab === 'studio-identity' && (
                 <StudioIdentityTab user={user} showToast={showToast} embedded />
             )}
-            {activeTab === 'billing' && <BillingTab />}
+            {activeTab === 'billing' && <BillingTab profile={studioProfile} user={user} />}
             {activeTab === 'advanced' && <AdvancedTab user={user} showToast={showToast} />}
             {activeTab === 'refer' && <ReferTab user={user} showToast={showToast} />}
         </>
@@ -497,14 +497,14 @@ function YourAccountTab({ user, showToast }) {
     );
 }
 
-function BillingTab() {
+function BillingTab({ profile, user }) {
     return (
         <div className="pb-page">
             <h1 className="type-page-title si-page-title pb-page-title">Plan &amp; billing</h1>
             <p className="type-lede si-page-lead pb-page-lead">
-                Next invoice 1 September · ₹1,499 plus usage
+                Closed beta · complimentary access · no invoice this cycle
             </p>
-            <PlanBillingPanel />
+            <PlanBillingPanel profile={profile} user={user} />
         </div>
     );
 }
