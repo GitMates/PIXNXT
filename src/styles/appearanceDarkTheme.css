@@ -4774,34 +4774,14 @@ body.dark-theme .pl-loading--error {
   color: var(--text-body);
 }
 
-body.dark-theme .pl-search-bar.neu-inset {
-  background-color: var(--bg-surface);
-  box-shadow: none;
-  border: 1px solid var(--border-color);
-}
-
-body.dark-theme .pl-search-input {
-  color: var(--text-primary);
-}
-
-body.dark-theme .pl-search-input::placeholder,
-body.dark-theme .pl-search-icon,
-body.dark-theme .pl-search-clear,
-body.dark-theme .pl-calendar-btn {
+body.dark-theme .pl-search-clear {
   color: var(--text-secondary);
 }
 
-body.dark-theme .pl-search-clear:hover,
-body.dark-theme .pl-calendar-btn:hover {
+body.dark-theme .pl-search-clear:hover {
   color: var(--text-primary);
-  background: rgba(255, 255, 255, 0.06);
 }
 
-body.dark-theme .pl-search-divider {
-  background-color: var(--bg-surface-hover);
-}
-
-body.dark-theme .pl-search-panel,
 body.dark-theme .pl-date-filter-popover {
   background: var(--bg-surface);
   border-color: var(--border-card);
@@ -4809,7 +4789,6 @@ body.dark-theme .pl-date-filter-popover {
   color: var(--text-primary);
 }
 
-body.dark-theme .pl-search-section-label,
 body.dark-theme .pl-search-help,
 body.dark-theme .pl-search-chip {
   color: var(--text-body);
@@ -4833,15 +4812,6 @@ body.dark-theme .pl-search-chip--active {
 
 body.dark-theme .pl-search-help {
   border-top-color: var(--border-card);
-}
-
-body.dark-theme .pl-new-btn {
-  background-color: var(--accent-primary);
-  color: var(--text-heading);
-}
-
-body.dark-theme .pl-new-btn:hover {
-  background-color: var(--accent-primary-hover);
 }
 
 body.dark-theme .neu-pill,

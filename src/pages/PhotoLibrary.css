@@ -6,48 +6,19 @@
     height: 100vh;
     overflow-y: auto;
     color: var(--cg-foreground, #1a1a1a);
-    --pl-gutter: 40px;
 }
 
-.pl-header {
-    display: flex;
-    align-items: center;
-    padding: 24px var(--pl-gutter);
-    min-height: 80px;
-    flex-shrink: 0;
-    position: relative;
-    z-index: 20;
-}
-
-.pl-header-copy {
+.pl-page {
+    flex: 1;
     display: flex;
     flex-direction: column;
-    gap: 4px;
-    margin-right: 40px;
-    flex-shrink: 0;
+    min-height: 100%;
 }
 
 .pl-subtitle {
     margin: 0;
     font-size: 14px;
     color: #71717a;
-}
-
-.pl-title {
-    font-family: 'Playfair Display', Georgia, 'Times New Roman', serif;
-    font-size: 1.625rem;
-    font-weight: 500;
-    letter-spacing: -0.02em;
-    color: var(--cg-foreground, #1a1a1a);
-    margin: 0;
-}
-
-.pl-header-actions {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    flex: 1;
-    justify-content: flex-end;
 }
 
 .pl-empty-state {
@@ -57,7 +28,6 @@
     align-items: center;
     justify-content: center;
     padding-bottom: 80px;
-    /* Offset to visually center */
 }
 
 .pl-empty-graphic {
@@ -79,23 +49,6 @@
     margin: 0 0 24px 0;
 }
 
-
-.pl-new-btn {
-    background-color: #8BDFDD;
-    color: #222;
-    border: none;
-    border-radius: 0;
-    padding: 12px 24px;
-    font-size: 17px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: background-color 0.2s;
-}
-
-.pl-new-btn:hover {
-    background-color: #8BDFDD;
-}
-
 .pl-loading {
     flex: 1;
     display: flex;
@@ -110,12 +63,11 @@
 }
 
 .pl-content {
-    padding: 0 0 48px;
+    padding: 2rem 0 0;
 }
 
 .pl-results-summary {
     margin: 0 0 24px;
-    padding: 0 var(--pl-gutter);
     font-size: 14px;
     color: #71717a;
 }
@@ -126,7 +78,6 @@
 
 .pl-month-label {
     margin: 0 0 12px;
-    padding: 0 var(--pl-gutter);
     font-size: 18px;
     font-weight: 600;
     color: #1a1a1a;
@@ -134,8 +85,8 @@
 
 .pl-library-grid {
     padding-top: 0;
-    padding-left: var(--pl-gutter);
-    padding-right: var(--pl-gutter);
+    padding-left: 0;
+    padding-right: 0;
 }
 
 .pl-library-photo-card:focus-visible {
@@ -167,38 +118,12 @@
     padding-bottom: 48px;
 }
 
-/* ============================================================
-   PHOTO LIBRARY â€” MOBILE RESPONSIVE
-   ============================================================ */
 @media screen and (max-width: 768px) {
-    .pl-main {
-        --pl-gutter: 16px;
-    }
-
-    .pl-header {
-        flex-direction: column !important;
-        height: auto !important;
-        padding: 16px var(--pl-gutter) !important;
-        align-items: flex-start !important;
-        gap: 12px !important;
-    }
-
-    .pl-title {
-        font-size: 22px !important;
-        margin-bottom: 8px !important;
-        width: 100% !important;
-    }
-
-    .pl-header-actions {
-        width: 100% !important;
-    }
-
     .pl-content {
-        padding: 0 0 32px !important;
+        padding-top: 1.5rem;
     }
 
     .pl-empty-state {
-        padding-top: 40px !important;
+        padding-top: 40px;
     }
 }
-

@@ -18,6 +18,7 @@ import { formatFilterDateRangeLabel } from '../utils/clientGalleryFilters';
 import { groupPhotosByMonth } from '../lib/groupPhotosByMonth';
 import { LibrarySearchBar } from '../components/features/PhotoLibrary/LibrarySearchBar';
 import { CollectionGridPhoto } from '../components/features/CollectionDashboard/Media/CollectionGridPhoto';
+import './ClientGallery.css';
 import './PhotoLibrary.css';
 import './CollectionDashboard.css';
 
@@ -250,20 +251,37 @@ const PhotoLibrary = () => {
     navigate(`/deliveries/manage?id=${encodeURIComponent(collectionId)}`);
   };
 
+  const goToNewDelivery = () => navigate('/deliveries/create');
+
   return (
     <SidebarLayout>
-      <main className="pl-main">
-        <header className="pl-header">
-          <div className="pl-header-copy">
-            <h1 className="pl-title">Photo Library</h1>
-            {!loading && hasPhotos ? (
-              <p className="pl-subtitle">
-                {photos.length} photo{photos.length === 1 ? '' : 's'} from {collectionCount} delivery{collectionCount === 1 ? '' : 's'}
-              </p>
-            ) : null}
+      <main className="pl-main cg-style-2 dl-page">
+        <div className="pl-page mx-auto w-full max-w-[92rem] px-4 pt-10 sm:px-8 sm:pt-12 pb-16">
+          <div className="dl-header flex items-start justify-between gap-4">
+            <div>
+              <h1 className="cg-page-title">Photo Library</h1>
+              {!loading ? (
+                <p className="dl-lede">
+                  {hasPhotos ? (
+                    <>
+                      <strong>
+                        {photos.length} photo{photos.length === 1 ? '' : 's'}
+                      </strong>
+                      {` from ${collectionCount} ${collectionCount === 1 ? 'delivery' : 'deliveries'}`}
+                    </>
+                  ) : (
+                    'Every photo from your deliveries, in one place.'
+                  )}
+                </p>
+              ) : null}
+            </div>
+            <button type="button" className="dl-new shrink-0" onClick={goToNewDelivery}>
+              + New delivery
+            </button>
           </div>
-          <div className="pl-header-actions">
-            {!aiSearchDisabled ? (
+
+          {!aiSearchDisabled ? (
+            <div className="mt-8">
               <LibrarySearchBar
                 query={searchQuery}
                 onQueryChange={setSearchQuery}
@@ -277,14 +295,13 @@ const PhotoLibrary = () => {
                 showDatePanel={showDatePanel}
                 onShowDatePanelChange={setShowDatePanel}
               />
-            ) : null}
-          </div>
-        </header>
+            </div>
+          ) : null}
 
         {aiSearchDisabled ? (
-          <div className="pl-empty-state pl-empty-state--compact">
-            <h2 className="pl-empty-title">Photo Library is disabled</h2>
-            <p className="pl-empty-text">
+          <div className="cg-style-60">
+            <h3 className="cg-style-61">Photo Library is disabled</h3>
+            <p className="cg-style-62">
               AI search is turned off for this account. Ask an admin to enable it.
             </p>
           </div>
@@ -293,36 +310,27 @@ const PhotoLibrary = () => {
         ) : error ? (
           <div className="pl-loading pl-loading--error">{error}</div>
         ) : !hasPhotos ? (
-          <div className="pl-empty-state">
-            <div className="pl-empty-graphic">
-              <svg width="160" height="140" viewBox="0 0 200 160" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden>
-                <path d="M120 160H20C8.9543 160 0 151.046 0 140V40C0 28.9543 8.9543 20 20 20H60L80 40H120C131.046 40 140 48.9543 140 60V140C140 151.046 131.046 160 120 160Z" fill="#eafaf6" />
-                <path d="M110 50H40C28.9543 50 20 58.9543 20 70V130C20 141.046 28.9543 150 40 150H110C121.046 150 130 141.046 130 130V70C130 58.9543 121.046 50 110 50Z" fill="#ffffff" stroke="#333" strokeWidth="4" />
-                <path d="M40 110L60 90L80 110M70 100L90 80L110 100" stroke="#333" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
-                <circle cx="55" cy="75" r="8" fill="#333" />
-                <path d="M160 160V120C160 108.954 151.046 100 140 100H100" stroke="#333" strokeWidth="4" strokeLinecap="round" />
-                <circle cx="130" cy="70" r="15" fill="#f4f4f4" stroke="#333" strokeWidth="4" />
+          <div className="cg-style-60">
+            <div className="mb-6">
+              <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="#d0d5d9" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                <rect width="18" height="18" x="3" y="3" rx="2" ry="2" />
+                <circle cx="9" cy="9" r="2" />
+                <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" />
               </svg>
             </div>
-            <h2 className="pl-empty-title">You have no photos yet</h2>
-            <p className="pl-empty-text">
-              Every photo you upload to a client gallery delivery
-              <br />
-              or Guest Delivery event will appear here automatically.
-            </p>
-            <button type="button" className="pl-new-btn" onClick={() => navigate('/deliveries/get-started')}>
-              New Delivery
+            <h3 className="cg-style-61">No photos yet</h3>
+            <p className="cg-style-62">Create a delivery to start building your library</p>
+            <button type="button" className="dl-new" onClick={goToNewDelivery}>
+              Create delivery
             </button>
           </div>
         ) : filteredPhotos.length === 0 ? (
-          <div className="pl-empty-state pl-empty-state--compact">
-            <h2 className="pl-empty-title">No photos match your search</h2>
-            <p className="pl-empty-text">
-              Try a different keyword or clear your filters.
-            </p>
+          <div className="cg-style-60">
+            <h3 className="cg-style-61">No photos match your search</h3>
+            <p className="cg-style-62">Try a different keyword or clear your filters.</p>
             <button
               type="button"
-              className="pl-new-btn"
+              className="dl-new"
               onClick={() => {
                 setSearchQuery('');
                 setStarredOnly(false);
@@ -391,6 +399,7 @@ const PhotoLibrary = () => {
             ))}
           </div>
         )}
+        </div>
       </main>
     </SidebarLayout>
   );

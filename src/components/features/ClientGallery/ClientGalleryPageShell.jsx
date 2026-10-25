@@ -102,7 +102,29 @@ export function ClientGallerySearchField({
     );
 }
 
-export function ClientGallerySubpageTabs({ tabs, activeId, onChange }) {
+export function ClientGallerySubpageTabs({ tabs, activeId, onChange, variant = 'default' }) {
+    if (variant === 'appearance') {
+        return (
+            <div className="sb-appearance-track st-subpage-tabs" role="tablist">
+                {tabs.map((tab) => {
+                    const isActive = activeId === tab.id;
+                    return (
+                        <button
+                            key={tab.id}
+                            type="button"
+                            role="tab"
+                            aria-selected={isActive}
+                            className={cn('sb-appearance-btn', isActive && 'sb-appearance-btn--active')}
+                            onClick={() => onChange(tab.id)}
+                        >
+                            {tab.label}
+                        </button>
+                    );
+                })}
+            </div>
+        );
+    }
+
     return (
         <div className="neu-inset inline-flex flex-wrap items-center gap-1 rounded-full p-1">
             {tabs.map((tab) => (

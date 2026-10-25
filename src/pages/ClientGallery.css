@@ -965,6 +965,39 @@
   font-family: var(--font-sans);
 }
 
+.dl-page-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+}
+
+.dl-page-body--empty {
+  padding-bottom: 0;
+}
+
+.dl-page .cg-style-60 {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  padding: 2rem 1rem 3rem;
+  text-align: center;
+}
+
+.dl-empty-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 0 1.5rem;
+}
+
+.dl-empty-icon svg {
+  display: block;
+}
+
 .dl-page .cg-page-title {
   font-size: clamp(1.75rem, 2.4vw, 2.15rem);
   line-height: 1.1;

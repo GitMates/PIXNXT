@@ -788,7 +788,12 @@ const ClientGallery = () => {
             ]}
         >
             <main className="cg-style-2 dl-page">
-                <div className="mx-auto w-full max-w-[92rem] px-4 pt-10 sm:px-8 sm:pt-12 pb-16">
+                <div
+                    className={cn(
+                        'dl-page-body mx-auto w-full max-w-[92rem] px-4 pt-10 sm:px-8 sm:pt-12',
+                        hasDashboardItems ? 'pb-16' : 'dl-page-body--empty',
+                    )}
+                >
                     <div className="dl-header flex items-start justify-between gap-4">
                         <div>
                             <h1 className="cg-page-title">Deliveries</h1>
@@ -1218,7 +1223,7 @@ const ClientGallery = () => {
                     </div>
                 ) : !hasDashboardItems ? (
                     <div className="cg-style-60">
-                        <div className="mb-6">
+                        <div className="dl-empty-icon" aria-hidden>
                             <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="#d0d5d9" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z"></path></svg>
                         </div>
                         <h3 className="cg-style-61">No deliveries yet</h3>
