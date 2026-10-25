@@ -1,3 +1,5 @@
+import { getStorageLimitBytes } from './userStorage.service';
+
 /** Lazy so the Workers bundle stays code-split. */
 const workersGallery = () => import('./workersGallery.service');
 
@@ -543,15 +545,7 @@ export const galleryService = {
     if (!profile) return;
 
     const usedBytes = profile.storage_used_bytes || 0;
-    let limitBytes = profile.storage_limit_bytes;
-
-    if (!limitBytes) {
-      const tier = String(profile.plan || '').toLowerCase();
-      if (tier === 'pro') limitBytes = 100 * 1024 * 1024 * 1024;
-      else if (tier === 'premium') limitBytes = 500 * 1024 * 1024 * 1024;
-      else if (tier === 'free') limitBytes = 5 * 1024 * 1024 * 1024;
-      else limitBytes = 10 * 1024 * 1024 * 1024;
-    }
+    const limitBytes = getStorageLimitBytes(profile);
 
     if (usedBytes + fileSize > limitBytes) {
       const remainingBytes = Math.max(0, limitBytes - usedBytes);
