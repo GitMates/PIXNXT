@@ -658,7 +658,11 @@ export const galleryService = {
               origPercent = p;
               reportOverlap();
             },
-            signal
+            signal,
+            {
+              onConfirmedBytes: options.onConfirmedBytes,
+              onCheckpoint: (checkpoint) => options.onMultipartCheckpoint?.(checkpoint),
+            }
           );
         })()
       : null;
@@ -1107,6 +1111,7 @@ export const galleryService = {
         uploadContext.multipartCheckpoint = checkpoint;
         options.onMultipartCheckpoint?.(checkpoint);
       },
+      onConfirmedBytes: (bytes) => options.onConfirmedBytes?.(bytes),
     });
     // Finished — drop checkpoint so a later replace starts clean.
     uploadContext.multipartCheckpoint = null;

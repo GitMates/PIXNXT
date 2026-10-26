@@ -1006,7 +1006,7 @@ async function onRequest(context2) {
 }
 __name(onRequest, "onRequest");
 
-// ../.wrangler/tmp/pages-PKFcLn/functionsRoutes-0.04556928295406959.mjs
+// ../.wrangler/tmp/pages-0OAnwq/functionsRoutes-0.4775361410598382.mjs
 var routes = [
   {
     routePath: "/:path*",

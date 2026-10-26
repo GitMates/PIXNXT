@@ -20,6 +20,7 @@ import {
   uploadTabCounts,
   isIncompleteUploadPhoto,
   createProgressThrottle,
+  confirmedBytesFromCheckpoint,
 } from '../components/features/CollectionDashboard/Upload/uploadUtils';
 import { createUploadQueueStore } from './uploadQueueStore';
 import { UploadQueueContext, UploadQueueStoreContext } from './uploadQueueContext';
@@ -189,15 +190,26 @@ export function UploadQueueProvider({ children }) {
       const idx = prev.files.findIndex((f) => f.id === id);
       if (idx === -1) return prev;
       const current = prev.files[idx];
+      let nextPatch = patch;
+      if (Object.prototype.hasOwnProperty.call(patch, 'confirmedBytes')) {
+        const nextConfirmed = Math.max(current.confirmedBytes || 0, patch.confirmedBytes || 0);
+        if (nextConfirmed === (current.confirmedBytes || 0) && Object.keys(patch).length === 1) return prev;
+        nextPatch = { ...patch, confirmedBytes: nextConfirmed };
+      }
       let changed = false;
-      for (const key of Object.keys(patch)) {
-        if (!Object.is(current[key], patch[key])) { changed = true; break; }
+      for (const key of Object.keys(nextPatch)) {
+        if (!Object.is(current[key], nextPatch[key])) { changed = true; break; }
       }
       if (!changed) return prev;
       const files = prev.files.slice();
-      files[idx] = { ...current, ...patch };
+      files[idx] = { ...current, ...nextPatch };
       return { ...prev, files };
     });
+  }, [setState]);
+
+  const syncConcurrency = useCallback(() => {
+    const n = activeDerivativesRef.current + activeOriginalsRef.current;
+    setState((prev) => (prev.activeConcurrency === n ? prev : { ...prev, activeConcurrency: n }));
   }, [setState]);
 
   /**
@@ -305,14 +317,36 @@ export function UploadQueueProvider({ children }) {
             }
             targetRef.current?.onPhotoUploaded?.(insertedPhoto);
           },
-          { signal: controller.signal, overlapOriginal: true, skipQuota: true, quietQuota: true }
+          {
+            signal: controller.signal,
+            overlapOriginal: true,
+            skipQuota: true,
+            quietQuota: true,
+            onConfirmedBytes: (bytes) => safePatch({ confirmedBytes: bytes }),
+            onMultipartCheckpoint: (checkpoint) => {
+              const nextCtx = {
+                ...(originalContextByIdRef.current.get(uf.id) || {}),
+                multipartCheckpoint: checkpoint,
+              };
+              originalContextByIdRef.current.set(uf.id, nextCtx);
+              const fromParts = confirmedBytesFromCheckpoint(
+                checkpoint,
+                uf.file?.size || uf.size || 0
+              );
+              safePatch({ uploadContext: nextCtx, confirmedBytes: fromParts });
+            },
+          }
         );
 
         if (session !== sessionRef.current) return;
 
         if (uploadContext?.originalDone) {
           originalContextByIdRef.current.delete(uf.id);
-          safePatch({ progress: 100, status: 'completed' });
+          safePatch({
+            progress: 100,
+            status: 'completed',
+            confirmedBytes: uf.file?.size || uf.size || 0,
+          });
           targetRef.current?.onPhotoUploaded?.(photoData);
           if (photographerId && uf.file?.size) {
             userStorageService.addLocalBytes(photographerId, uf.file.size);
@@ -375,6 +409,13 @@ export function UploadQueueProvider({ children }) {
         status: 'uploading',
         progress: Math.max(uf.progress || 25, 25),
         uploadSize: uf.file?.size || uf.size,
+        confirmedBytes: Math.max(
+          uf.confirmedBytes || 0,
+          confirmedBytesFromCheckpoint(
+            uploadContext.multipartCheckpoint,
+            uf.file?.size || uf.size || 0
+          )
+        ),
       });
 
       const controller = new AbortController();
@@ -392,17 +433,28 @@ export function UploadQueueProvider({ children }) {
           }),
           {
             signal: controller.signal,
+            onConfirmedBytes: (bytes) => safePatch({ confirmedBytes: bytes }),
             onMultipartCheckpoint: (checkpoint) => {
               const nextCtx = { ...uploadContext, multipartCheckpoint: checkpoint };
               originalContextByIdRef.current.set(uf.id, nextCtx);
-              safePatch({ uploadContext: nextCtx });
+              const fromParts = confirmedBytesFromCheckpoint(
+                checkpoint,
+                uf.file?.size || uf.size || 0
+              );
+              safePatch({ uploadContext: nextCtx, confirmedBytes: fromParts });
             },
           }
         );
 
         if (session !== sessionRef.current) return;
         originalContextByIdRef.current.delete(uf.id);
-        safePatch({ progress: 100, status: 'completed', resumable: false, errorMessage: undefined });
+        safePatch({
+          progress: 100,
+          status: 'completed',
+          confirmedBytes: uf.file?.size || uf.size || 0,
+          resumable: false,
+          errorMessage: undefined,
+        });
         targetRef.current?.onPhotoUploaded?.(photoData);
         if (uf.photographerId && uf.file?.size) {
           userStorageService.addLocalBytes(uf.photographerId, uf.file.size);
@@ -512,8 +564,9 @@ export function UploadQueueProvider({ children }) {
         pumpQueueRef.current();
       });
     }
+    syncConcurrency();
     noteQueueIdle();
-  }, [runDerivativeUpload, runOriginalUpload, noteQueueIdle]);
+  }, [runDerivativeUpload, runOriginalUpload, noteQueueIdle, syncConcurrency]);
 
   pumpQueueRef.current = pumpQueue;
 
@@ -702,6 +755,7 @@ export function UploadQueueProvider({ children }) {
         name: file.name,
         size: file.size,
         progress: 0,
+        confirmedBytes: 0,
         status: pausedRef.current ? 'waiting' : 'processing',
         previewUrl: undefined,
         mediaKind: getUploadMediaKindFromFile(file),
@@ -769,6 +823,7 @@ export function UploadQueueProvider({ children }) {
         ...prev,
         isOpen: true,
         isMinimized: false,
+        isStopped: false,
         activeTab: 'uploading',
         files: [...prev.files, ...allNew, ...erroredResume],
       }));
@@ -866,22 +921,38 @@ export function UploadQueueProvider({ children }) {
     activeDerivativesRef.current = 0;
     activeOriginalsRef.current = 0;
     activeJobIdsRef.current.clear();
+    for (const controller of abortControllersRef.current.values()) {
+      controller.abort();
+    }
     abortControllersRef.current.clear();
     originalContextByIdRef.current.clear();
     pausedRef.current = false;
     rateLimitedUntilRef.current = 0;
     if (rateLimitTimerRef.current) { clearTimeout(rateLimitTimerRef.current); rateLimitTimerRef.current = null; }
-    lastBatchTargetRef.current = null;
+    globalThis.__pixnxtUploading = false;
     setState((prev) => {
-      revokePreviews(prev.files);
-      return { ...initialUploadWidgetState };
+      const kept = prev.files.filter((f) => f.status === 'completed');
+      const dropped = prev.files.filter((f) => f.status !== 'completed');
+      revokePreviews(dropped);
+      if (kept.length === 0) {
+        lastBatchTargetRef.current = null;
+        return { ...initialUploadWidgetState };
+      }
+      return {
+        ...prev,
+        isPaused: false,
+        isStopped: true,
+        activeConcurrency: 0,
+        files: kept,
+        activeTab: 'complete',
+      };
     });
   }, []);
 
   const dismiss = useCallback(() => {
     setState((prev) => {
-      const { uploading } = uploadTabCounts(prev.files);
-      if (uploading > 0) return prev;
+      const counts = uploadTabCounts(prev.files);
+      if (counts.uploading + counts.waiting > 0 && !prev.isStopped) return prev;
       revokePreviews(prev.files);
       return { ...initialUploadWidgetState };
     });
@@ -889,8 +960,8 @@ export function UploadQueueProvider({ children }) {
 
   const closeWidget = useCallback(() => {
     setState((prev) => {
-      const { uploading } = uploadTabCounts(prev.files);
-      if (uploading > 0) {
+      const counts = uploadTabCounts(prev.files);
+      if (counts.uploading + counts.waiting > 0 && !prev.isStopped) {
         return { ...prev, isMinimized: true };
       }
       revokePreviews(prev.files);

@@ -53,7 +53,7 @@ export function isRateLimitedError(err) {
  * `users/<folder>/…` keys are preserved server-side.
  */
 /** One OPTIONS for the whole batch: path travels in a header, not the query string. */
-async function uploadViaWorkersApi(path, file, contentType, onProgress, abortSignal) {
+async function uploadViaWorkersApi(path, file, contentType, onProgress, abortSignal, options = {}) {
   const sendOnce = (token) =>
     new Promise((resolve, reject) => {
       if (abortSignal?.aborted) {
@@ -85,6 +85,7 @@ async function uploadViaWorkersApi(path, file, contentType, onProgress, abortSig
         cleanup();
         if (xhr.status >= 200 && xhr.status < 300) {
           onProgress?.(100);
+          options?.onConfirmedBytes?.(file.size);
           try {
             const data = JSON.parse(xhr.responseText);
             resolve({ path: data?.path || path, url: storageService.getPublicUrl(data?.path || path) });
@@ -186,7 +187,7 @@ function clientR2Configured() {
 }
 
 /** Browser → R2 with the same S3 client the SPA already ships. No Worker hop. */
-async function uploadViaClientDirect(path, file, contentType, onProgress, abortSignal) {
+async function uploadViaClientDirect(path, file, contentType, onProgress, abortSignal, options = {}) {
   const { r2Client, R2_BUCKET_NAME } = await import('../lib/r2');
   const { Upload } = await import('@aws-sdk/lib-storage');
   if (!R2_BUCKET_NAME) throw new Error('VITE_R2_BUCKET_NAME is not configured.');
@@ -213,6 +214,7 @@ async function uploadViaClientDirect(path, file, contentType, onProgress, abortS
     if (abortSignal?.aborted) throw new Error('Upload cancelled.');
     await upload.done();
     onProgress?.(100);
+    options?.onConfirmedBytes?.(file.size);
     return { path, url: storageService.getPublicUrl(path) };
   } finally {
     abortSignal?.removeEventListener('abort', onAbort);
@@ -461,7 +463,12 @@ async function uploadViaWorkerParts(path, file, contentType, onProgress, abortSi
     const sum = loaded.reduce((acc, n) => acc + n, 0);
     onProgress?.(Math.min(99, Math.round((sum / file.size) * 100)));
   };
+  const reportConfirmed = () => {
+    const confirmed = loaded.reduce((acc, n, i) => acc + (etags[i]?.etag ? n : 0), 0);
+    options.onConfirmedBytes?.(confirmed);
+  };
   report();
+  reportConfirmed();
   onCheckpoint?.(snapshotMultipartCheckpoint(path, uploadId, partSize, etags));
 
   const run = async () => {
@@ -485,6 +492,7 @@ async function uploadViaWorkerParts(path, file, contentType, onProgress, abortSi
       etags[index] = { partNumber: index + 1, etag };
       loaded[index] = end - start;
       report();
+      reportConfirmed();
       onCheckpoint?.(snapshotMultipartCheckpoint(path, uploadId, partSize, etags));
     }
   };
@@ -521,6 +529,7 @@ async function uploadViaWorkerParts(path, file, contentType, onProgress, abortSi
     throw err;
   }
   onProgress?.(100);
+  options.onConfirmedBytes?.(file.size);
   return { path, url: storageService.getPublicUrl(path), size: file.size };
 }
 
@@ -573,9 +582,10 @@ async function flushPresigns() {
   }
 }
 
-async function uploadFromPlan(plan, file, contentType, onProgress, abortSignal) {
+async function uploadFromPlan(plan, file, contentType, onProgress, abortSignal, options = {}) {
   if (plan.mode === 'put' && plan.url) {
     await xhrPutReliable(plan.url, file, contentType, onProgress, abortSignal);
+    options.onConfirmedBytes?.(file.size);
     return { path: plan.path, url: storageService.getPublicUrl(plan.path) };
   }
   const parts = plan.parts || [];
@@ -586,6 +596,13 @@ async function uploadFromPlan(plan, file, contentType, onProgress, abortSignal) 
   const report = () => {
     const sum = loaded.reduce((acc, n) => acc + n, 0);
     onProgress?.(Math.min(99, Math.round((sum / file.size) * 100)));
+  };
+  const reportConfirmed = () => {
+    const confirmed = parts.reduce((acc, part) => {
+      if (!etags[part.partNumber - 1]?.etag) return acc;
+      return acc + (part.end - part.start);
+    }, 0);
+    options.onConfirmedBytes?.(confirmed);
   };
   const run = async () => {
     while (queue.length) {
@@ -606,6 +623,7 @@ async function uploadFromPlan(plan, file, contentType, onProgress, abortSignal) 
       );
       if (!etag) throw new Error('Missing part ETag. R2 bucket CORS must expose ETag.');
       etags[part.partNumber - 1] = { partNumber: part.partNumber, etag };
+      reportConfirmed();
     }
   };
   await Promise.all(Array.from({ length: Math.min(DIRECT_PART_PARALLEL, parts.length) }, () => run()));
@@ -615,6 +633,7 @@ async function uploadFromPlan(plan, file, contentType, onProgress, abortSignal) 
     body: { path: plan.path, uploadId: plan.uploadId, parts: etags.filter(Boolean) },
   });
   onProgress?.(100);
+  options.onConfirmedBytes?.(file.size);
   return { path: plan.path, url: storageService.getPublicUrl(plan.path) };
 }
 
@@ -646,7 +665,7 @@ export async function __existsManyWith(fetchJson, paths, { chunkSize = 200, conc
 export const storageService = {
   /**
    * @param {AbortSignal} [abortSignal]
-   * @param {{ resumeCheckpoint?: object, onCheckpoint?: (cp: object) => void }} [options]
+   * @param {{ resumeCheckpoint?: object, onCheckpoint?: (cp: object) => void, onConfirmedBytes?: (n: number) => void }} [options]
    */
   async upload(path, file, onProgress, abortSignal, options = {}) {
     try {
@@ -663,6 +682,7 @@ export const storageService = {
       const partOptions = {
         resumeCheckpoint: options.resumeCheckpoint,
         onCheckpoint: options.onCheckpoint,
+        onConfirmedBytes: options.onConfirmedBytes,
       };
       let plan = null;
       if (directGate.available()) {
@@ -678,14 +698,21 @@ export const storageService = {
 
       if (strategy.type === 'direct') {
         try {
-          const result = await uploadFromPlan(strategy.plan, body, contentType, onProgress, abortSignal);
+          const result = await uploadFromPlan(
+            strategy.plan,
+            body,
+            contentType,
+            onProgress,
+            abortSignal,
+            partOptions
+          );
           directGate.noteSuccess();
           return result;
         } catch (err) {
           if (abortSignal?.aborted || /cancelled/i.test(err?.message || '')) throw err;
           if (clientR2Configured()) {
             console.warn('Worker-signed R2 PUT failed, retrying client-signed upload', err);
-            return await uploadViaClientDirect(path, body, contentType, onProgress, abortSignal);
+            return await uploadViaClientDirect(path, body, contentType, onProgress, abortSignal, partOptions);
           }
           if (!allowWorkerProxyFallback(true)) {
             directGate.noteTransientFailure();
@@ -696,7 +723,7 @@ export const storageService = {
 
       if (strategy.type === 'client-direct') {
         try {
-          return await uploadViaClientDirect(path, body, contentType, onProgress, abortSignal);
+          return await uploadViaClientDirect(path, body, contentType, onProgress, abortSignal, partOptions);
         } catch (err) {
           if (abortSignal?.aborted || /cancelled/i.test(err?.message || '')) throw err;
           console.warn('Client-signed R2 upload failed; Worker proxy is a last resort until bucket CORS allows PUT', err);
@@ -713,7 +740,7 @@ export const storageService = {
           partOptions
         );
       }
-      return await uploadViaWorkersApi(path, body, contentType, onProgress, abortSignal);
+      return await uploadViaWorkersApi(path, body, contentType, onProgress, abortSignal, partOptions);
     } catch (error) {
       console.error('R2 Upload Error:', {
         message: error.message,

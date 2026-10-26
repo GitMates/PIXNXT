@@ -5,7 +5,7 @@ export type UploadFileStatus =
   | 'completed'
   | 'error';
 
-export type UploadPanelTab = 'uploading' | 'complete' | 'failed';
+export type UploadPanelTab = 'uploading' | 'waiting' | 'complete' | 'failed';
 
 export type UploadMediaKind = 'image' | 'video' | 'gif' | 'raw';
 
@@ -17,6 +17,11 @@ export interface UploadQueueFile {
   size: number;
   /** Bytes sent to R2 after compression (for progress). */
   uploadSize?: number;
+  /**
+   * Original PUT/part bytes that returned 2xx. Never includes xhr buffer
+   * progress, so overall metrics cannot go backwards on a retry.
+   */
+  confirmedBytes?: number;
   progress: number;
   status: UploadFileStatus;
   previewUrl?: string;
@@ -39,6 +44,9 @@ export interface UploadWidgetState {
   isOpen: boolean;
   isMinimized: boolean;
   isPaused: boolean;
+  isStopped: boolean;
+  /** Files currently in flight (derivatives + originals). */
+  activeConcurrency: number;
   showDetails: boolean;
   activeTab: UploadPanelTab;
   files: UploadQueueFile[];
@@ -48,6 +56,8 @@ export const initialUploadWidgetState: UploadWidgetState = {
   isOpen: false,
   isMinimized: false,
   isPaused: false,
+  isStopped: false,
+  activeConcurrency: 0,
   showDetails: false,
   activeTab: 'uploading',
   files: [],
