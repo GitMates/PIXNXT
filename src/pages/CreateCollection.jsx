@@ -10,6 +10,7 @@ import { resolveUploadDefaults } from '../lib/uploadDefaults';
 import { guestDeliveryEventSettings } from '../lib/studioDefaults';
 import { getPublicGalleryUrl } from '../lib/publicSiteUrl';
 import { rememberCreatedCollection } from '../lib/galleryBoardCache';
+import { deliveryManageNavState } from '../lib/deliveryDashboardSeed';
 import {
     deliveryTemplatesFromList,
     describeTemplate,
@@ -383,18 +384,20 @@ const CreateCollection = () => {
             void photographerQuotaService.recordUsage(user.id, 'delivery', 1).catch(() => {});
 
             if (guestDeliveryEnabled) {
-                await guestDeliveryService.createLinkedEvent({
+                void guestDeliveryService.createLinkedEvent({
                     collectionId: created.id,
                     photographerId: user.id,
                     name: trimmed,
                     eventDate: date || null,
                     slug: collectionSlug,
                     settings: guestDeliveryEventSettings(guestProfileRef.current),
-                });
+                }).catch((err) => console.warn('Guest delivery event create deferred:', err));
             }
 
             rememberCreatedCollection(user.id, created);
-            navigate(`/deliveries/manage?id=${created.id}`);
+            navigate(`/deliveries/manage?id=${created.id}`, {
+                state: deliveryManageNavState(created),
+            });
         } catch (err) {
             console.error('Error creating collection:', err);
             const message = err.message || 'Failed to create delivery. Please try again.';

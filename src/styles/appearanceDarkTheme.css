@@ -6084,9 +6084,65 @@ body.dark-theme .theme-mono.cd-dashboard-shell .cd-dl-card {
 }
 
 body.dark-theme .theme-mono.cd-dashboard-shell .cd-basics-card-badge {
-  background: var(--bg-surface) !important;
+  background: var(--bg-app) !important;
   border-color: var(--border-card) !important;
   box-shadow: none !important;
+  color: var(--text-primary) !important;
+}
+
+body.dark-theme .theme-mono.cd-dashboard-shell .cd-basics-card-badge__text,
+body.dark-theme .theme-mono.cd-dashboard-shell .cd-basics-cal__mon,
+body.dark-theme .theme-mono.cd-dashboard-shell .cd-basics-card-badge .cd-basics-cal__mon {
+  color: var(--text-secondary) !important;
+}
+
+body.dark-theme .theme-mono.cd-dashboard-shell .cd-basics-cal,
+body.dark-theme .theme-mono.cd-dashboard-shell .cd-basics-card-badge .cd-basics-cal__day {
+  background: transparent !important;
+  border-color: transparent !important;
+  color: var(--text-heading) !important;
+}
+
+body.dark-theme .theme-mono.cd-dashboard-shell .cd-basics-note-banner {
+  background: var(--banner-bg) !important;
+  border: 1px solid var(--banner-border) !important;
+  color: var(--banner-text) !important;
+}
+
+body.dark-theme .theme-mono.cd-dashboard-shell .cd-basics-note-banner .cd-dl-row__title {
+  color: var(--text-primary) !important;
+}
+
+body.dark-theme .theme-mono.cd-dashboard-shell .cd-basics-note-banner .cd-dl-row__desc {
+  color: var(--banner-text) !important;
+}
+
+body.dark-theme .theme-mono.cd-dashboard-shell .cd-dl .cd-toggle-slider,
+body.dark-theme .theme-mono.cd-dashboard-shell .cd-toggle-slider {
+  background-color: var(--toggle-track-off) !important;
+}
+
+body.dark-theme .theme-mono.cd-dashboard-shell .cd-dl .cd-toggle input:checked + .cd-toggle-slider,
+body.dark-theme .theme-mono.cd-dashboard-shell .cd-toggle input:checked + .cd-toggle-slider {
+  background-color: var(--toggle-track-on) !important;
+}
+
+body.dark-theme .theme-mono.cd-dashboard-shell .cd-dl .cd-toggle-slider::before,
+body.dark-theme .theme-mono.cd-dashboard-shell .cd-dl .cd-toggle-slider:before,
+body.dark-theme .theme-mono.cd-dashboard-shell .cd-toggle-slider::before,
+body.dark-theme .theme-mono.cd-dashboard-shell .cd-toggle-slider:before {
+  background-color: var(--toggle-thumb) !important;
+}
+
+body.dark-theme .theme-mono.cd-dashboard-shell .cd-dl-select-input {
+  background-color: var(--bg-app) !important;
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23a0a0a0' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e") !important;
+  border-color: var(--border-input) !important;
+  color: var(--text-primary) !important;
+}
+
+body.dark-theme .theme-mono.cd-dashboard-shell .cd-dl-row__value,
+body.dark-theme .theme-mono.cd-dashboard-shell .cd-dl-row__preview {
   color: var(--text-primary) !important;
 }
 

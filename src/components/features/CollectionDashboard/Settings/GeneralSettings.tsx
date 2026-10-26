@@ -557,7 +557,7 @@ export const GeneralSettings: React.FC<GeneralSettingsProps> = ({
                                                 <p className="cd-dl-row__desc">{w.hiddenAtDesc}</p>
                                             </div>
                                             <div className="cd-dl-row__control">
-                                                <span style={{ fontSize: '14.5px', fontWeight: 500, color: '#2a241e' }}>11:59 pm IST</span>
+                                                <span className="cd-dl-row__value">11:59 pm IST</span>
                                             </div>
                                         </div>
                                     </div>
@@ -609,7 +609,7 @@ export const GeneralSettings: React.FC<GeneralSettingsProps> = ({
                                         <div className="cd-dl-row">
                                             <div className="cd-dl-row__copy">
                                                 <p className="cd-dl-row__title">{w.theMessage}</p>
-                                                <p className="cd-dl-row__desc" style={{ color: '#2a241e', fontWeight: 500, marginTop: '2px' }}>
+                                                <p className="cd-dl-row__desc cd-dl-row__preview">
                                                     {reminderPreview}
                                                 </p>
                                             </div>

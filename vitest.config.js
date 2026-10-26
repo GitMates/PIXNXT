@@ -13,6 +13,7 @@ export default defineConfig({
       'src/printstore/printstoreCartBeta.test.js',
       'src/lib/galleryMediaType.test.ts',
       'src/lib/deliveryDuplicate.test.js',
+      'src/lib/deliveryDashboardSeed.test.js',
       'src/lib/galleryBoardCache.test.js',
       'src/lib/desktopOnly.test.js',
       'src/lib/deliveryDownload.test.js',

@@ -17,6 +17,7 @@ import {
   removeCollectionFromBoard,
   upsertCollectionOnBoard,
 } from '../lib/galleryBoardCache';
+import { deliveryManageNavState } from '../lib/deliveryDashboardSeed';
 import { getCollectionCardCoverSrc } from '../lib/photoDisplayUrl';
 import { defaultCoverGradient } from '../lib/defaultCoverGradient';
 import { EditCollectionModal } from '../components/features/ClientGallery/EditCollectionModal';
@@ -416,7 +417,9 @@ const FolderView = () => {
       );
       rememberCreatedCollection(user.id, newRow);
       setDuplicateCollection(null);
-      navigate(`/deliveries/manage?id=${newRow.id}`);
+      navigate(`/deliveries/manage?id=${newRow.id}`, {
+        state: deliveryManageNavState(newRow),
+      });
     } catch (err) {
       console.error(err);
       alert(err?.message || 'Failed to duplicate delivery. Please try again.');

@@ -47,6 +47,7 @@ import {
     removeCollectionFromBoard,
     upsertCollectionOnBoard,
 } from '../lib/galleryBoardCache';
+import { deliveryManageNavState, matchingDeliverySeed, shouldBlockDeliveryOpen } from '../lib/deliveryDashboardSeed';
 import { GetDirectLinkModal } from '../components/features/CollectionDashboard/Share/GetDirectLinkModal';
 import { DeliverySharePublishPanel } from '../components/features/CollectionDashboard/Share/DeliverySharePublishPanel';
 import '../components/features/CollectionDashboard/Share/DeliverySharePublishPanel.css';
@@ -191,6 +192,7 @@ const CollectionDashboard = () => {
     const location = useLocation();
     const [searchParams] = useSearchParams();
     const collectionId = searchParams.get('id');
+    const routeSeed = matchingDeliverySeed(location.state?.seed, collectionId);
     const activityTabParam = searchParams.get('tab');
     const activitySubParam = searchParams.get('activity');
     const { user } = useAuth();
@@ -200,8 +202,10 @@ const CollectionDashboard = () => {
     const pendingUploadScrollRef = useRef(false);
 
     const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
-    const [collection, setCollection] = useState(null);
-    const [photos, setPhotos] = useState([]);
+    const [collection, setCollection] = useState(routeSeed);
+    const collectionRef = useRef(collection);
+    collectionRef.current = collection;
+    const [photos, setPhotos] = useState(() => (Array.isArray(routeSeed?.photos) ? routeSeed.photos : []));
     const [profile, setProfile] = useState(null);
     const preparingFilmIds = photos
         .filter((photo) => getPhotoStreamPhase(photo) === 'preparing')
@@ -314,13 +318,13 @@ const CollectionDashboard = () => {
             })
             .catch((error) => console.error('Error fetching watermarks:', error));
     }, [user?.id]);
-    const [loading, setLoading] = useState(true);
+    const [loading, setLoading] = useState(!routeSeed);
     const [error, setError] = useState(null);
     const [saving, setSaving] = useState(false);
     const [showUploadModal, setShowUploadModal] = useState(false);
     const [rawSkippedInfo, setRawSkippedInfo] = useState(null);
     const [activeMediaTab, setActiveMediaTab] = useState('upload');
-    const [status, setStatus] = useState(DELIVERY_STATUS.draft);
+    const [status, setStatus] = useState(() => (routeSeed ? uiDeliveryStatus(routeSeed) : DELIVERY_STATUS.draft));
     const [showStatusMenu, setShowStatusMenu] = useState(false);
     const [statusSaving, setStatusSaving] = useState(false);
     const [showShareDropdown, setShowShareDropdown] = useState(false);
@@ -693,7 +697,7 @@ const CollectionDashboard = () => {
     const skipDeliveryNameCommitRef = useRef(false);
     const [showArchiveConfirmModal, setShowArchiveConfirmModal] = useState(false);
     // SET STATES
-    const [sets, setSets] = useState([]);
+    const [sets, setSets] = useState(() => (Array.isArray(routeSeed?.sets) ? routeSeed.sets : []));
     const [activeSetId, setActiveSetId] = useState(null); // null = Highlights (all photos)
     const [showAddSetModal, setShowAddSetModal] = useState(false);
     const [newSetName, setNewSetName] = useState('');
@@ -953,7 +957,7 @@ const CollectionDashboard = () => {
     const [activeSettingsTab, setActiveSettingsTab] = useState('general'); // general, privacy, download, favorite
 
     // General Settings State
-    const [collectionUrl, setCollectionUrl] = useState('');
+    const [collectionUrl, setCollectionUrl] = useState(() => routeSeed?.slug || '');
     const [categoryTags, setCategoryTags] = useState([]);
     const [categoryTagsSaving, setCategoryTagsSaving] = useState(false);
     const [defaultWatermark, setDefaultWatermark] = useState('No watermark');
@@ -2896,6 +2900,18 @@ const CollectionDashboard = () => {
     }, [showWatermarkModal, defaultWatermark]);
 
     // Load delivery data via the Workers API
+    useLayoutEffect(() => {
+        const seed = matchingDeliverySeed(location.state?.seed, collectionId);
+        if (!seed || collection?.id === seed.id) return;
+        setCollection(seed);
+        setPhotos(Array.isArray(seed.photos) ? seed.photos : []);
+        setSets(Array.isArray(seed.sets) ? seed.sets : []);
+        setStatus(uiDeliveryStatus(seed));
+        if (seed.slug) setCollectionUrl(seed.slug);
+        setError(null);
+        setLoading(false);
+    }, [collectionId, collection?.id, location.state?.seed]);
+
     useEffect(() => {
         const fetchCollectionData = async () => {
             if (!collectionId) {
@@ -2903,17 +2919,32 @@ const CollectionDashboard = () => {
                 return;
             }
 
+            const seed = matchingDeliverySeed(location.state?.seed, collectionId);
+            const blockOpen = shouldBlockDeliveryOpen({
+                collectionId,
+                seed,
+                collection: collectionRef.current,
+            });
+
             try {
                 designHydratedRef.current = false;
                 settingsHydratedRef.current = false;
                 autosaveArmedRef.current = false;
                 slideshowColumnReadyRef.current = false;
-                setLoading(true);
+                if (blockOpen) {
+                    setLoading(true);
+                }
                 setError(null);
                 const data = await galleryService.getCollectionDashboardData(collectionId);
                 
                 if (!data) {
-                    setError('Delivery not found');
+                    if (shouldBlockDeliveryOpen({
+                        collectionId,
+                        seed,
+                        collection: collectionRef.current,
+                    })) {
+                        setError('Delivery not found');
+                    }
                     return;
                 }
                 
@@ -3112,14 +3143,20 @@ const CollectionDashboard = () => {
                     .catch((activityErr) => console.warn('Activity counts unavailable:', activityErr));
             } catch (err) {
                 console.error('Error fetching collection:', err);
-                setError(err.message || 'Failed to load delivery');
+                if (shouldBlockDeliveryOpen({
+                    collectionId,
+                    seed,
+                    collection: collectionRef.current,
+                })) {
+                    setError(err.message || 'Failed to load delivery');
+                }
             } finally {
                 setLoading(false);
             }
         };
 
         fetchCollectionData();
-    }, [collectionId, navigate]);
+    }, [collectionId, navigate, location.state?.seed]);
 
     useEffect(() => {
         clearMediaUrlCache();
@@ -7694,7 +7731,9 @@ const CollectionDashboard = () => {
                         const newRow = await galleryService.duplicateCollection(collectionId, photographerId);
                         rememberCreatedCollection(photographerId, newRow);
                         setShowDuplicateModal(false);
-                        navigate(`/deliveries/manage?id=${newRow.id}`);
+                        navigate(`/deliveries/manage?id=${newRow.id}`, {
+                            state: deliveryManageNavState(newRow),
+                        });
                     } catch (err) {
                         console.error('Failed to duplicate:', err);
                         alert(err?.message || 'Failed to duplicate delivery. Please try again.');

@@ -39,6 +39,7 @@ import {
   upsertCollectionOnBoard,
   writeGalleryBoard,
 } from '../lib/galleryBoardCache';
+import { deliveryManageNavState } from '../lib/deliveryDashboardSeed';
 import { FolderThumbGrid } from '../components/features/ClientGallery/FolderThumbGrid';
 import { EditCollectionModal } from '../components/features/ClientGallery/EditCollectionModal';
 import {
@@ -641,7 +642,9 @@ const ClientGallery = () => {
                 return [newRow, ...prev];
             });
             setDuplicateCollection(null);
-            navigate(`/deliveries/manage?id=${newRow.id}`);
+            navigate(`/deliveries/manage?id=${newRow.id}`, {
+                state: deliveryManageNavState(newRow),
+            });
         } catch (err) {
             console.error('Failed to duplicate collection:', err);
             alert(err?.message || 'Failed to duplicate delivery. Please try again.');

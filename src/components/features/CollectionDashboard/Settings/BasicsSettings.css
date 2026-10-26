@@ -129,10 +129,10 @@
   justify-content: center;
   width: 100%;
   height: 100%;
-  background: #fff;
-  border: 1px solid #ede8e1;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-card);
   border-radius: 8px;
-  color: #3c3834;
+  color: var(--text-primary);
   font-family: var(--font-display, Georgia, serif);
   line-height: 1.05;
 }
@@ -150,7 +150,7 @@
   font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: #8a7d72;
+  color: var(--text-secondary);
 }
 
 .cd-basics-grid-icon {
@@ -564,7 +564,7 @@
   font-feature-settings: 'lnum' 1;
   letter-spacing: -0.02em;
   line-height: 1;
-  color: #1a1a1a;
+  color: var(--text-heading);
   -webkit-font-smoothing: antialiased;
 }
 
@@ -575,7 +575,7 @@
   font-weight: 500;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: #a39485;
+  color: var(--text-secondary);
   white-space: nowrap;
 }
 
@@ -623,10 +623,24 @@
 }
 
 .cd-basics-note-banner {
-  background: #f4f1ec;
+  background: var(--banner-bg);
+  border: 1px solid var(--banner-border);
   border-radius: 12px;
   padding: 16px 20px;
   margin-bottom: 24px;
+  color: var(--banner-text);
+}
+
+.cd-dl-row__value {
+  font-size: 14.5px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.cd-dl-row__preview {
+  color: var(--text-primary);
+  font-weight: 500;
+  margin-top: 2px;
 }
 
 .cd-main-area--settings {
