@@ -129,6 +129,12 @@ const WORKER_PART_BYTES = 8 * 1024 * 1024;
 const WORKER_PART_PARALLEL = 3;
 const PART_ATTEMPTS = 5;
 
+/** Equal jitter around 1s, 2s, 4s. `attempt` is 0-based. */
+export function retryDelayMs(attempt, { random = Math.random, baseMs = 1000, capMs = 4000 } = {}) {
+  const base = Math.min(capMs, baseMs * 2 ** Math.max(0, attempt));
+  return Math.round(base * (0.5 + random()));
+}
+
 /**
  * Direct-to-R2 availability. `disabledByServer` is permanent (the Worker has
  * no S3 credentials). Anything else is transient: back off for a window and
@@ -148,7 +154,7 @@ export function __directUploadGate({ now = () => Date.now(), backoffMs = 30_000 
 const directGate = __directUploadGate();
 const DIRECT_PUT_ATTEMPTS = 3;
 /** Enough parallel parts to hide high RTT (e.g. India → R2). */
-export const DIRECT_PART_PARALLEL = 16;
+export const DIRECT_PART_PARALLEL = 3;
 
 export function resolveUploadStrategy({
   fileSize,
@@ -271,7 +277,7 @@ async function xhrPutReliable(url, body, contentType, onProgress, abortSignal, o
       if (abortSignal?.aborted || /cancelled/i.test(err?.message || '')) throw err;
       lastError = err;
       if (!retryablePartError(err) || attempt === DIRECT_PUT_ATTEMPTS - 1) throw err;
-      await waitForRetry(700 * (attempt + 1), abortSignal);
+      await waitForRetry(retryDelayMs(attempt), abortSignal);
     }
   }
   throw lastError || new Error('Network error uploading to storage.');
@@ -395,7 +401,7 @@ async function xhrPartReliable(path, uploadId, partNumber, blob, onProgress, abo
       if (abortSignal?.aborted || /cancelled/i.test(err?.message || '')) throw err;
       lastError = err;
       if (!retryablePartError(err) || attempt === PART_ATTEMPTS - 1) throw err;
-      await waitForRetry(700 * (attempt + 1), abortSignal);
+      await waitForRetry(retryDelayMs(attempt), abortSignal);
     }
   }
   throw lastError || new Error('Network error uploading to storage.');

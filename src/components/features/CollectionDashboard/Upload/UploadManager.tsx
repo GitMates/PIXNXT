@@ -287,7 +287,13 @@ export const UploadManager: React.FC<UploadManagerProps> = ({
             <OrangeCircularLoader />
           </span>
           <span className="upload-mini-label">
-            Uploading <strong>{totalCount}</strong>
+            {isPaused ? (
+              'Paused'
+            ) : (
+              <>
+                Uploading <strong>{inProgressCount}</strong>
+              </>
+            )}
           </span>
           {timeRemainingLabel && (
             <span className="upload-mini-time">{timeRemainingLabel}</span>
@@ -401,7 +407,7 @@ export const UploadManager: React.FC<UploadManagerProps> = ({
 
       {speedSample.slow && !isPaused && !isAllComplete && !isStopped && !isFinishedWithFailures ? (
         <p className="upload-slow-note">
-          Your connection has slowed down. Uploads continue, and nothing is lost if it drops for a moment.
+          Slow connection
         </p>
       ) : null}
 

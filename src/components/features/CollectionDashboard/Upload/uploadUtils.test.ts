@@ -84,11 +84,12 @@ const MB = 1024 * 1024;
 describe('formatUploadMb', () => {
   test('uses one decimal MB below 1000 MB and never shows 1084.0 MB', () => {
     expect(formatUploadMb(12.9 * MB)).toBe('12.9 MB');
+    expect(formatUploadMb(8 * MB)).toBe('8 MB');
     expect(formatUploadMb(1084 * MB)).toBe('1.08 GB');
   });
 
-  test('uses two decimal GB at and above 1000 MB', () => {
-    expect(formatUploadMb(1000 * MB)).toBe('1.00 GB');
+  test('uses two decimal GB at and above 1000 MB and drops trailing zeros', () => {
+    expect(formatUploadMb(1000 * MB)).toBe('1 GB');
     expect(formatUploadMb(1338.2 * MB)).toBe('1.34 GB');
   });
 });
@@ -99,7 +100,7 @@ describe('formatUploadBytePair', () => {
   });
 
   test('keeps both sides in MB when the total is under 1000 MB', () => {
-    expect(formatUploadBytePair(2.5 * MB, 8 * MB)).toBe('2.5 of 8.0 MB');
+    expect(formatUploadBytePair(2.5 * MB, 8 * MB)).toBe('2.5 of 8 MB');
   });
 });
 

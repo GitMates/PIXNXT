@@ -64,20 +64,24 @@ function bytesToMb(bytes: number): number {
   return bytes / BYTES_PER_MB;
 }
 
+function formatTrimmed(n: number, digits: number): string {
+  return n.toFixed(digits).replace(/\.?0+$/, '');
+}
+
 export function formatUploadMb(bytes: number): string {
   const mb = bytesToMb(bytes);
   if (mb < 0.01 && bytes > 0) return '<0.01 MB';
-  if (mb >= GB_THRESHOLD_MB) return `${(mb / 1000).toFixed(2)} GB`;
-  return `${mb.toFixed(1)} MB`;
+  if (mb >= GB_THRESHOLD_MB) return `${formatTrimmed(mb / 1000, 2)} GB`;
+  return `${formatTrimmed(mb, 1)} MB`;
 }
 
 export function formatUploadBytePair(doneBytes: number, totalBytes: number): string {
   const totalMb = bytesToMb(totalBytes);
   const doneMb = bytesToMb(doneBytes);
   if (totalMb >= GB_THRESHOLD_MB) {
-    return `${(doneMb / 1000).toFixed(2)} of ${(totalMb / 1000).toFixed(2)} GB`;
+    return `${formatTrimmed(doneMb / 1000, 2)} of ${formatTrimmed(totalMb / 1000, 2)} GB`;
   }
-  return `${doneMb.toFixed(1)} of ${totalMb.toFixed(1)} MB`;
+  return `${formatTrimmed(doneMb, 1)} of ${formatTrimmed(totalMb, 1)} MB`;
 }
 
 export function formatUploadSpeed(bytesPerSec: number): string {

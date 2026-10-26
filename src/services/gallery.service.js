@@ -594,8 +594,9 @@ export const galleryService = {
   },
 
   /**
-   * Phase 1: generate + upload web/thumb, insert DB row (grid can show immediately).
-   * Returns context needed for Phase 2 original upload.
+   * One photo slot: original PUT starts immediately while web/thumb encode
+   * off-thread. Derivative PUTs wait until the original has finished, so
+   * "N at a time" is N photos on the wire, not N requests.
    */
   async uploadPhotoDerivatives(
     collectionId,
@@ -628,13 +629,11 @@ export const galleryService = {
     const isPhotoshop = isPhotoshopFile(file);
     const mediaType = getUploadMediaType(file);
 
-    // Originals start immediately. Thumb/web encode in a worker and upload
-    // alongside the original instead of blocking it. EXIF starts after the
-    // original PUT is queued so it cannot delay the first byte.
+    // Original PUT starts now. Encode web/thumb on CPU in parallel, but do
+    // not PUT them until the original has left the wire.
     let origPercent = 0;
     let derivPercent = 0;
-    const reportOverlap = () => {
-      if (!overlapOriginal) return;
+    const reportSlot = () => {
       onProgress?.(Math.min(99, Math.round(origPercent * 0.8 + derivPercent * 0.2)));
     };
     const originalTask = overlapOriginal
@@ -656,7 +655,7 @@ export const galleryService = {
             uploadBody,
             (p) => {
               origPercent = p;
-              reportOverlap();
+              reportSlot();
             },
             signal,
             {
@@ -667,8 +666,6 @@ export const galleryService = {
         })()
       : null;
 
-    // Camera badge + Details. Never throws, and never runs before the original
-    // upload has been kicked off.
     const exifDetailsTask = !isVideo ? extractImageDetails(file) : null;
 
     let webFile = null;
@@ -720,8 +717,14 @@ export const galleryService = {
     }
 
     derivPercent = 25;
-    if (overlapOriginal) reportOverlap();
-    else onProgress?.(20);
+    reportSlot();
+
+    let originalResult = null;
+    if (originalTask) {
+      originalResult = await originalTask;
+      origPercent = 100;
+      reportSlot();
+    }
 
     const fileNameJpg = fileName.replace(/\.[^.]+$/, '.jpg');
     const webPath = `${basePath}/web/${fileNameJpg}`;
@@ -729,42 +732,32 @@ export const galleryService = {
 
     let webStoragePath = null;
     let thumbnailStoragePath = null;
+    let webUrl = null;
+    let thumbUrl = null;
 
-    const prepPromises = [];
     if (webFile) {
       webStoragePath = webPath;
-      prepPromises.push(
-        storageService.upload(webStoragePath, webFile, (p) => {
-          if (overlapOriginal) {
-            derivPercent = 25 + p * 0.4;
-            reportOverlap();
-          } else {
-            onProgress?.(20 + Math.round((p / 100) * 40));
-          }
-        }, signal)
-      );
+      const uploaded = await storageService.upload(webStoragePath, webFile, (p) => {
+        derivPercent = 25 + p * 0.35;
+        reportSlot();
+      }, signal);
+      webUrl = uploaded?.url || null;
     }
     if (thumbFile) {
       thumbnailStoragePath = thumbnailPath;
-      prepPromises.push(
-        storageService.upload(thumbnailStoragePath, thumbFile, (p) => {
-          if (overlapOriginal) {
-            derivPercent = 65 + p * 0.35;
-            reportOverlap();
-          } else {
-            onProgress?.(60 + Math.round((p / 100) * 35));
-          }
-        }, signal)
-      );
+      const uploaded = await storageService.upload(thumbnailStoragePath, thumbFile, (p) => {
+        derivPercent = 60 + p * 0.35;
+        reportSlot();
+      }, signal);
+      thumbUrl = uploaded?.url || null;
     }
-
-    const prepResults = await Promise.all(prepPromises);
-
-    let webUrl = null;
-    let thumbUrl = null;
-    if (isRaw || !isVideo) {
-      webUrl = webFile ? prepResults[0]?.url : null;
-      thumbUrl = thumbFile ? prepResults[webFile ? 1 : 0]?.url : null;
+    if (isVideo && thumbnailBlob) {
+      thumbnailStoragePath = thumbnailPath;
+      const uploaded = await storageService.upload(thumbnailPath, thumbnailBlob, (p) => {
+        derivPercent = 60 + p * 0.35;
+        reportSlot();
+      }, signal);
+      thumbUrl = uploaded?.url || null;
     }
 
     const parsedExif = exifDetailsTask ? await exifDetailsTask.catch(() => null) : null;
@@ -776,13 +769,13 @@ export const galleryService = {
       photographer_id: photographerId,
       set_id: setId,
       filename: file.name,
-      full_url: null,
+      full_url: originalResult?.url || null,
       web_url: webUrl,
       thumbnail_url: thumbUrl,
-      original_storage_path: null,
+      original_storage_path: originalResult ? filePath : null,
       web_storage_path: webStoragePath,
       thumbnail_storage_path: thumbnailStoragePath,
-      size_bytes: 0,
+      size_bytes: originalResult?.size ?? (originalResult ? file.size : 0),
       width: Number.isFinite(dimensions.width) ? dimensions.width : null,
       height: Number.isFinite(dimensions.height) ? dimensions.height : null,
       media_type: mediaType,
@@ -803,51 +796,13 @@ export const galleryService = {
       photographerQuotaService.notifyQuotaChanged();
     }
 
-    let finalPhoto = photoData;
-    if (originalTask) {
-      let uploadResult;
-      try {
-        uploadResult = await originalTask;
-      } catch (err) {
-        if (!signal?.aborted) {
-          await this.deletePhotos([photoData.id]).catch(() => {});
-          if (err && typeof err === 'object') err.removedPhotoId = photoData.id;
-        }
-        throw err;
-      }
-      try {
-        const finalizePatch = {
-          full_url: uploadResult.url,
-          original_storage_path: filePath,
-          size_bytes: uploadResult.size ?? file.size,
-        };
-        if (videoDurationSeconds != null) {
-          finalizePatch.video_duration_seconds = videoDurationSeconds;
-        }
-        finalPhoto =
-          (await dbUpdatePhotoRow(photoData.id, finalizePatch)) || {
-            ...photoData,
-            ...finalizePatch,
-          };
-      } catch (err) {
-        console.warn('Photo original finalize failed:', err?.message || err);
-        finalPhoto = {
-          ...photoData,
-          full_url: uploadResult.url,
-          original_storage_path: filePath,
-          size_bytes: file.size,
-          ...(videoDurationSeconds != null ? { video_duration_seconds: videoDurationSeconds } : {}),
-        };
-      }
-    }
-
     onProgress?.(100);
 
     return {
-      photoData: finalPhoto,
+      photoData,
       uploadContext: {
         collectionId,
-        photoId: finalPhoto.id,
+        photoId: photoData.id,
         file,
         mime,
         filePath,
@@ -857,7 +812,7 @@ export const galleryService = {
         isRaw,
         thumbnailBlob,
         originalDone: Boolean(originalTask),
-        photoData: finalPhoto,
+        photoData,
       },
     };
   },

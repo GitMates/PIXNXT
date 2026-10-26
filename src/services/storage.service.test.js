@@ -10,6 +10,7 @@ import {
   DIRECT_PART_PARALLEL,
   resolveUploadStrategy,
   allowWorkerProxyFallback,
+  retryDelayMs,
 } from './storage.service';
 
 function fakeXhr({ status, body, retryAfter }) {
@@ -96,9 +97,22 @@ describe('allowWorkerProxyFallback', () => {
   });
 });
 
+describe('retryDelayMs', () => {
+  test('uses 1s, 2s, 4s bases with jitter from half to 1.5x', () => {
+    expect(retryDelayMs(0, { random: () => 0 })).toBe(500);
+    expect(retryDelayMs(0, { random: () => 1 })).toBe(1500);
+    expect(retryDelayMs(1, { random: () => 0.5 })).toBe(2000);
+    expect(retryDelayMs(2, { random: () => 0.5 })).toBe(4000);
+  });
+
+  test('caps the base at 4s so later video part attempts do not wait longer', () => {
+    expect(retryDelayMs(4, { random: () => 0.5 })).toBe(4000);
+  });
+});
+
 describe('direct part parallelism', () => {
-  test('keeps enough in-flight parts to hide India→R2 RTT', () => {
-    expect(DIRECT_PART_PARALLEL).toBeGreaterThanOrEqual(16);
+  test('keeps part PUTs small so photo-level slots can own the link', () => {
+    expect(DIRECT_PART_PARALLEL).toBe(3);
   });
 });
 

@@ -45,7 +45,7 @@ export interface UploadWidgetState {
   isMinimized: boolean;
   isPaused: boolean;
   isStopped: boolean;
-  /** Files currently in flight (derivatives + originals). */
+  /** Adaptive photo-slot cap currently in use (2–12). */
   activeConcurrency: number;
   showDetails: boolean;
   activeTab: UploadPanelTab;

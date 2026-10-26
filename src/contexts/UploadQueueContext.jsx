@@ -21,17 +21,15 @@ import {
   isIncompleteUploadPhoto,
   createProgressThrottle,
   confirmedBytesFromCheckpoint,
+  getTotalConfirmedBytes,
 } from '../components/features/CollectionDashboard/Upload/uploadUtils';
+import {
+  createAdaptiveConcurrency,
+  uploadFailureKind,
+} from '../components/features/CollectionDashboard/Upload/adaptiveUploadConcurrency';
 import { createUploadQueueStore } from './uploadQueueStore';
 import { UploadQueueContext, UploadQueueStoreContext } from './uploadQueueContext';
 import { isRateLimitedError } from '../services/storage.service';
-
-/** Each slot uploads the original immediately and the thumb/web pair beside it. */
-const MAX_CONCURRENT_DERIVATIVES = 10;
-/** Full originals share less bandwidth so they finish faster each. */
-const LARGE_FILE_BYTES = 25 * 1024 * 1024;
-const MAX_CONCURRENT_ORIGINALS_SMALL = 10;
-const MAX_CONCURRENT_ORIGINALS_LARGE = 6;
 /**
  * Blob previews (`URL.createObjectURL(file)`) make the browser decode the
  * full original for a 40 px row. Fine for a handful of files, catastrophic
@@ -40,13 +38,6 @@ const MAX_CONCURRENT_ORIGINALS_LARGE = 6;
 const PREVIEW_BLOB_LIMIT = 40;
 /** Fallback wait when the API does not say how long (Retry-After missing). */
 const RATE_LIMIT_DEFAULT_WAIT_MS = 60 * 1000;
-
-function getMaxOriginalConcurrent(files, pending) {
-  const all = [...files, ...pending];
-  return all.some((f) => (f.file?.size || f.size || 0) >= LARGE_FILE_BYTES)
-    ? MAX_CONCURRENT_ORIGINALS_LARGE
-    : MAX_CONCURRENT_ORIGINALS_SMALL;
-}
 
 function revokePreviews(files) {
   files.forEach((f) => {
@@ -155,6 +146,8 @@ export function UploadQueueProvider({ children }) {
   /** Epoch ms until which pumpQueue must not start new jobs (rate limit). */
   const rateLimitedUntilRef = useRef(0);
   const rateLimitTimerRef = useRef(null);
+  const adaptiveRef = useRef(null);
+  if (!adaptiveRef.current) adaptiveRef.current = createAdaptiveConcurrency();
   /** Centered in-app notice (replaces native alert() popups). */
   const [notice, setNotice] = useState(null);
   const notifyNotice = useCallback((title, message) => {
@@ -208,7 +201,7 @@ export function UploadQueueProvider({ children }) {
   }, [setState]);
 
   const syncConcurrency = useCallback(() => {
-    const n = activeDerivativesRef.current + activeOriginalsRef.current;
+    const n = adaptiveRef.current.limit;
     setState((prev) => (prev.activeConcurrency === n ? prev : { ...prev, activeConcurrency: n }));
   }, [setState]);
 
@@ -375,6 +368,7 @@ export function UploadQueueProvider({ children }) {
           return;
         }
         console.error('Derivative upload failed:', err);
+        adaptiveRef.current.noteFailure(uploadFailureKind(err));
         if (err?.removedPhotoId) targetRef.current?.onPhotoRemoved?.(err.removedPhotoId);
         const message = uploadErrorMessage(err);
         const limitNotice = handleStorageLimitError(message);
@@ -476,6 +470,7 @@ export function UploadQueueProvider({ children }) {
           return;
         }
         console.error('Original upload failed:', err);
+        adaptiveRef.current.noteFailure(uploadFailureKind(err));
         const resumable = isResumableQueueError(err);
         const nextCtx = {
           ...uploadContext,
@@ -524,9 +519,11 @@ export function UploadQueueProvider({ children }) {
     if (Date.now() < rateLimitedUntilRef.current) return;
 
     pendingDerivativesRef.current = sortUploadQueueBySizeAsc(pendingDerivativesRef.current);
+    const maxSlots = adaptiveRef.current.limit;
+    const activeTotal = () => activeDerivativesRef.current + activeOriginalsRef.current;
 
     while (
-      activeDerivativesRef.current < MAX_CONCURRENT_DERIVATIVES &&
+      activeTotal() < maxSlots &&
       pendingDerivativesRef.current.length > 0
     ) {
       const uf = pendingDerivativesRef.current.shift();
@@ -541,16 +538,11 @@ export function UploadQueueProvider({ children }) {
       });
     }
 
-    // Originals are not gated on the rest of the batch. A resumed original
-    // starts while other files are still encoding thumb/web.
+    // Resumed originals share the same photo-level cap as new files.
     pendingOriginalsRef.current = sortUploadQueueBySizeAsc(pendingOriginalsRef.current);
-    const maxOriginals = getMaxOriginalConcurrent(
-      stateRef.current.files,
-      pendingOriginalsRef.current
-    );
 
     while (
-      activeOriginalsRef.current < maxOriginals &&
+      activeTotal() < maxSlots &&
       pendingOriginalsRef.current.length > 0
     ) {
       const uf = pendingOriginalsRef.current.shift();
@@ -746,6 +738,15 @@ export function UploadQueueProvider({ children }) {
       }
       globalThis.__pixnxtUploading = true;
 
+      if (
+        activeDerivativesRef.current === 0 &&
+        activeOriginalsRef.current === 0 &&
+        pendingDerivativesRef.current.length === 0 &&
+        pendingOriginalsRef.current.length === 0
+      ) {
+        adaptiveRef.current.reset();
+      }
+
       const sortedAccepted = sortFilesBySizeAsc(accepted);
       const sortedResumable = [...resumable].sort((a, b) => a.file.size - b.file.size);
 
@@ -825,6 +826,7 @@ export function UploadQueueProvider({ children }) {
         isMinimized: false,
         isStopped: false,
         activeTab: 'uploading',
+        activeConcurrency: adaptiveRef.current.limit,
         files: [...prev.files, ...allNew, ...erroredResume],
       }));
 
@@ -914,6 +916,24 @@ export function UploadQueueProvider({ children }) {
     if (rateLimitTimerRef.current) clearTimeout(rateLimitTimerRef.current);
   }, []);
 
+  useEffect(() => {
+    const id = setInterval(() => {
+      if (pausedRef.current) return;
+      const files = store.getState().files;
+      const busy = files.some(
+        (f) => f.status === 'uploading' || f.status === 'processing' || f.status === 'waiting'
+      );
+      if (!busy) return;
+      const prev = adaptiveRef.current.limit;
+      adaptiveRef.current.observe(getTotalConfirmedBytes(files));
+      if (adaptiveRef.current.limit !== prev) {
+        syncConcurrency();
+        pumpQueueRef.current();
+      }
+    }, 1000);
+    return () => clearInterval(id);
+  }, [store, syncConcurrency]);
+
   const cancel = useCallback(() => {
     sessionRef.current += 1;
     pendingDerivativesRef.current = [];
@@ -926,6 +946,7 @@ export function UploadQueueProvider({ children }) {
     }
     abortControllersRef.current.clear();
     originalContextByIdRef.current.clear();
+    adaptiveRef.current.reset();
     pausedRef.current = false;
     rateLimitedUntilRef.current = 0;
     if (rateLimitTimerRef.current) { clearTimeout(rateLimitTimerRef.current); rateLimitTimerRef.current = null; }
