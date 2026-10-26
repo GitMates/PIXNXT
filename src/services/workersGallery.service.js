@@ -316,9 +316,12 @@ export async function duplicateCollection(sourceCollectionId, photographerId) {
  */
 function keepCoverOnlyIfPatched(gallery, updateData) {
   if (!gallery || typeof gallery !== 'object') return gallery;
-  if (updateData && ('cover_url' in updateData || 'cover_photo_id' in updateData)) return gallery;
+  if (updateData && ('cover_url' in updateData || 'cover_photo_id' in updateData || 'cover_source' in updateData)) {
+    return gallery;
+  }
   delete gallery.cover_url;
   delete gallery.cover_photo_id;
+  delete gallery.cover_source;
   return gallery;
 }
 

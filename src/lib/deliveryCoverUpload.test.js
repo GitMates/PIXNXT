@@ -1,11 +1,17 @@
 import { describe, expect, it } from 'vitest';
 import {
+  COVER_MIN_WIDTH_PX,
   COVER_ONLY_DRAFT_FLAG,
   buildCoverOnlyDraft,
   buildDeliveryCoverStoragePath,
   buildDeliveryCoverThumbStoragePath,
+  coverEmptyPrimaryAction,
+  isAcceptedCoverDropFile,
   isCoverOnlyDraft,
+  isLowResolutionCover,
+  pickAutoCoverPhoto,
   resolveCoverPhotoId,
+  shouldApplyAutoCover,
 } from './deliveryCoverUpload';
 
 describe('buildDeliveryCoverStoragePath', () => {
@@ -57,5 +63,63 @@ describe('cover-only draft identity', () => {
   it('falls back only when no photo is selected', () => {
     expect(resolveCoverPhotoId(null, 'prev-id')).toBe('prev-id');
     expect(resolveCoverPhotoId(undefined, null)).toBeNull();
+  });
+});
+
+describe('empty cover actions', () => {
+  it('makes Upload primary when the delivery has no photos', () => {
+    expect(coverEmptyPrimaryAction(0)).toBe('upload');
+  });
+
+  it('makes From delivery primary once photos exist', () => {
+    expect(coverEmptyPrimaryAction(1)).toBe('from-delivery');
+    expect(coverEmptyPrimaryAction(24)).toBe('from-delivery');
+  });
+});
+
+describe('cover drop types', () => {
+  it('accepts jpeg, png and webp and ignores other files', () => {
+    expect(isAcceptedCoverDropFile({ type: 'image/jpeg', name: 'a.jpg' })).toBe(true);
+    expect(isAcceptedCoverDropFile({ type: 'image/png', name: 'a.png' })).toBe(true);
+    expect(isAcceptedCoverDropFile({ type: 'image/webp', name: 'a.webp' })).toBe(true);
+    expect(isAcceptedCoverDropFile({ type: 'image/heic', name: 'a.heic' })).toBe(false);
+    expect(isAcceptedCoverDropFile({ type: 'video/mp4', name: 'a.mp4' })).toBe(false);
+  });
+});
+
+describe('low-resolution cover warning', () => {
+  it('warns below 1600px wide and not when unknown or large enough', () => {
+    expect(COVER_MIN_WIDTH_PX).toBe(1600);
+    expect(isLowResolutionCover(1200)).toBe(true);
+    expect(isLowResolutionCover(1600)).toBe(false);
+    expect(isLowResolutionCover(null)).toBe(false);
+  });
+});
+
+describe('auto-cover after a finished batch', () => {
+  it('does not apply when a cover is already set or the photographer chose one', () => {
+    expect(shouldApplyAutoCover({ coverUrl: 'https://cdn.example/c.jpg' })).toBe(false);
+    expect(shouldApplyAutoCover({ coverPhotoId: 'p1' })).toBe(false);
+    expect(shouldApplyAutoCover({ coverSource: 'manual' })).toBe(false);
+    expect(shouldApplyAutoCover({ coverUrl: null, coverPhotoId: null, coverSource: null })).toBe(true);
+    expect(shouldApplyAutoCover({ coverSource: 'auto' })).toBe(true);
+  });
+
+  it('picks the first landscape still and skips video', () => {
+    const photos = [
+      { id: 'v1', media_type: 'video', width: 1920, height: 1080 },
+      { id: 'p-portrait', width: 1200, height: 1800, filename: 'a.jpg' },
+      { id: 'p-land', width: 2400, height: 1600, filename: 'b.jpg' },
+      { id: 'p-later', width: 3000, height: 2000, filename: 'c.jpg' },
+    ];
+    expect(pickAutoCoverPhoto(photos)?.id).toBe('p-land');
+  });
+
+  it('falls back to the first still when nothing is landscape', () => {
+    const photos = [
+      { id: 'v1', media_type: 'video', width: 1920, height: 1080 },
+      { id: 'p1', width: 1200, height: 1800, filename: 'a.jpg' },
+    ];
+    expect(pickAutoCoverPhoto(photos)?.id).toBe('p1');
   });
 });

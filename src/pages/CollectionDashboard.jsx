@@ -109,7 +109,12 @@ import { normalizeGalleryPhotoSort } from '../lib/galleryPhotoSort';
 import { clientGalleryEmailTemplatesService } from '../services/clientGalleryEmailTemplates.service';
 import { MEDIA_FILE_INPUT_ACCEPT, pickMediaFilesOrFallback } from '../lib/mediaFilePicker';
 import { setCoverPhotoDragData, endCoverPhotoDrag, isGalleryImagePhoto } from '../lib/coverPhotoDrag';
-import { buildCoverOnlyDraft, resolveCoverPhotoId } from '../lib/deliveryCoverUpload';
+import {
+  buildCoverOnlyDraft,
+  pickAutoCoverPhoto,
+  resolveCoverPhotoId,
+  shouldApplyAutoCover,
+} from '../lib/deliveryCoverUpload';
 import { DatePicker } from '../components/ui/DatePicker';
 import './CollectionDashboard.css';
 import '../styles/clientGalleryTheme.css';
@@ -2051,7 +2056,7 @@ const CollectionDashboard = () => {
         });
     };
 
-    const handleCoverPhotoSelect = async (photo) => {
+    const handleCoverPhotoSelect = async (photo, { source = 'manual' } = {}) => {
         const coverUrl = getPhotoFullDisplayUrl(photo) || getPhotoOriginalFileUrl(photo);
         if (!coverUrl || !collectionId) return;
         const defaultFocals = getDefaultCoverFocals();
@@ -2061,6 +2066,7 @@ const CollectionDashboard = () => {
             cover_focals: defaultFocals,
             cover_focal_x: 50,
             cover_focal_y: 50,
+            cover_source: source,
         });
         try {
             setIsCoverUploading(true);
@@ -2068,7 +2074,7 @@ const CollectionDashboard = () => {
                 collectionId,
                 coverUrl,
                 defaultFocals,
-                { cover_photo_id: photo.id }
+                { cover_photo_id: photo.id, cover_source: source }
             );
         } catch (err) {
             console.error('Failed to set cover:', err);
@@ -2092,6 +2098,7 @@ const CollectionDashboard = () => {
             cover_focals: focals,
             cover_focal_x: primary.x,
             cover_focal_y: primary.y,
+            cover_source: 'manual',
         });
         try {
             setIsCoverUploading(true);
@@ -2099,7 +2106,7 @@ const CollectionDashboard = () => {
                 collectionId,
                 coverUrl,
                 focals,
-                { cover_photo_id: nextCoverPhotoId }
+                { cover_photo_id: nextCoverPhotoId, cover_source: 'manual' }
             );
             const savedFocals = updated?.cover_focals;
             const hasSavedFocals =
@@ -2115,6 +2122,7 @@ const CollectionDashboard = () => {
                 cover_focals: hasSavedFocals ? savedFocals : focals,
                 cover_focal_x: updated?.cover_focal_x ?? primary.x,
                 cover_focal_y: updated?.cover_focal_y ?? primary.y,
+                cover_source: updated?.cover_source || 'manual',
             });
             setShowCoverModal(false);
             setCoverModalScope('all');
@@ -2142,6 +2150,7 @@ const CollectionDashboard = () => {
             cover_focals: collection?.cover_focals,
             cover_focal_x: collection?.cover_focal_x,
             cover_focal_y: collection?.cover_focal_y,
+            cover_source: collection?.cover_source,
         };
         coverDraftDirtyRef.current = false;
         setCoverModalPhotoOverride(photo);
@@ -2176,6 +2185,7 @@ const CollectionDashboard = () => {
             cover_focals: collection?.cover_focals,
             cover_focal_x: collection?.cover_focal_x,
             cover_focal_y: collection?.cover_focal_y,
+            cover_source: collection?.cover_source,
         };
 
         try {
@@ -2207,12 +2217,13 @@ const CollectionDashboard = () => {
                 cover_focals: defaultFocals,
                 cover_focal_x: 50,
                 cover_focal_y: 50,
+                cover_source: 'manual',
             });
             await galleryService.saveCollectionCoverFocals(
                 collectionId,
                 coverUrl,
                 defaultFocals,
-                { cover_photo_id: null }
+                { cover_photo_id: null, cover_source: 'manual' }
             );
             setCoverUploadProgress(100);
             coverDraftBackupRef.current = {
@@ -2221,6 +2232,7 @@ const CollectionDashboard = () => {
                 cover_focals: defaultFocals,
                 cover_focal_x: 50,
                 cover_focal_y: 50,
+                cover_source: 'manual',
             };
             coverDraftDirtyRef.current = false;
             return draft;
@@ -3481,6 +3493,7 @@ const CollectionDashboard = () => {
     const peopleLoadingRef = useRef(false);
     const photoAiAutoSyncKeyRef = useRef('');
     const uploadsWereBusyRef = useRef(false);
+    const coverAutoBusyRef = useRef(false);
 
     const loadPhotoAiPeople = useCallback(async (options = {}) => {
         if (!collectionId || photoAiTableMissing) return;
@@ -4026,6 +4039,42 @@ const CollectionDashboard = () => {
         loadPhotoAiPeople,
     ]);
 
+    // Auto-cover waits until the whole upload batch is idle, then picks the
+    // first landscape still. Manual covers are never overwritten.
+    useEffect(() => {
+        if (uploadQueueBusy) {
+            coverAutoBusyRef.current = true;
+            return;
+        }
+        if (!coverAutoBusyRef.current) return;
+        if (!collectionId || isCoverUploading) return;
+        if (!shouldApplyAutoCover({
+            coverUrl: collection?.cover_url,
+            coverPhotoId: collection?.cover_photo_id,
+            coverSource: collection?.cover_source,
+        })) {
+            coverAutoBusyRef.current = false;
+            return;
+        }
+        const photo = pickAutoCoverPhoto(photos);
+        if (!photo) {
+            if (photos.length > 0) coverAutoBusyRef.current = false;
+            return;
+        }
+        const readyUrl = photo.full_url || photo.web_url || photo.thumbnail_url;
+        if (!readyUrl) return;
+        coverAutoBusyRef.current = false;
+        void handleCoverPhotoSelect(photo, { source: 'auto' });
+    }, [
+        uploadQueueBusy,
+        collectionId,
+        collection?.cover_url,
+        collection?.cover_photo_id,
+        collection?.cover_source,
+        photos,
+        isCoverUploading,
+    ]);
+
     useEffect(() => {
         if (!highlightsEnabled && activeSetId == null && sets.length > 0) {
             setActiveSetId(sets[0].id);
@@ -4164,6 +4213,7 @@ const CollectionDashboard = () => {
             cover_focals: collection?.cover_focals,
             cover_focal_x: collection?.cover_focal_x,
             cover_focal_y: collection?.cover_focal_y,
+            cover_source: collection?.cover_source,
         };
         coverDraftDirtyRef.current = false;
         setCoverModalScope(scope);
@@ -4194,6 +4244,7 @@ const CollectionDashboard = () => {
             cover_focals: focals,
             cover_focal_x: primary.x,
             cover_focal_y: primary.y,
+            cover_source: 'manual',
         }, { live: false });
     };
 
@@ -4208,6 +4259,7 @@ const CollectionDashboard = () => {
             cover_focals: defaultFocals,
             cover_focal_x: 50,
             cover_focal_y: 50,
+            cover_source: null,
         });
         try {
             setIsCoverUploading(true);
@@ -4217,6 +4269,7 @@ const CollectionDashboard = () => {
                 cover_focals: defaultFocals,
                 cover_focal_x: 50,
                 cover_focal_y: 50,
+                cover_source: null,
             });
             setShowCoverModal(false);
             setCoverModalScope('all');
@@ -6155,15 +6208,14 @@ const CollectionDashboard = () => {
             <div className="cd-layout-body">
                 <CollectionDashboardSidebar
                     coverUrl={collection?.cover_url}
+                    coverSource={collection?.cover_source}
                     collectionId={collection?.id}
                     coverFocalX={collectionFocals.desktop?.x ?? collectionFocal.x}
                     coverFocalY={collectionFocals.desktop?.y ?? collectionFocal.y}
                     isCoverUploading={isCoverUploading}
                     coverUploadProgress={coverUploadProgress}
                     onCoverPhotoDrop={handleCoverPhotoDropById}
-                    onSelectCoverFromCollection={() =>
-                        openCoverModal('all', collection?.cover_url ? 'edit' : 'pick')
-                    }
+                    onSelectCoverFromCollection={() => openCoverModal('all', 'pick')}
                     onCoverFileSelect={(file) => void handleCoverFileSelect(file)}
                     isCollapsed={isSidebarCollapsed}
                     onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}

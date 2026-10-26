@@ -1,8 +1,14 @@
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { cn } from '../../../../lib/utils';
 import { COVER_IMAGE_ACCEPT } from '../../../../lib/mediaFilePicker';
 import { getFileMime, isImageMime } from '../../../../lib/fileMime';
 import { isRawImageFile } from '../../../../lib/rawImageFormats';
+import {
+  COVER_MIN_WIDTH_PX,
+  coverEmptyPrimaryAction,
+  isAcceptedCoverDropFile,
+  isLowResolutionCover,
+} from '../../../../lib/deliveryCoverUpload';
 import {
   getCoverPhotoIdFromDataTransfer,
   isCoverPhotoDrag,
@@ -10,13 +16,29 @@ import {
 } from '../../../../lib/coverPhotoDrag';
 import './SidebarCoverUpload.css';
 import { useAppLanguage } from '../../../../context/AppLanguageContext';
-import { defaultCoverGradient } from '../../../../lib/defaultCoverGradient';
+
+const COVER_HINT_ICON = (
+  <svg
+    viewBox="0 0 24 24"
+    width="26"
+    height="26"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="1.5"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    aria-hidden
+  >
+    <path d="M15 8h.01M12.5 21H6a3 3 0 0 1-3-3V6a3 3 0 0 1 3-3h12a3 3 0 0 1 3 3v6.5" />
+    <path d="m3 16 5-5c.93-.9 2.07-.9 3 0l4 4" />
+    <path d="m14 14 1-1c.67-.64 1.45-.82 2.18-.53M16 19h6M19 16v6" />
+  </svg>
+);
 
 const COVER_DROP_ICON = (
   <svg
-    xmlns="http://www.w3.org/2000/svg"
-    width="24"
-    height="24"
+    width="26"
+    height="26"
     viewBox="0 0 24 24"
     fill="none"
     stroke="currentColor"
@@ -25,9 +47,7 @@ const COVER_DROP_ICON = (
     strokeLinejoin="round"
     aria-hidden
   >
-    <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
-    <circle cx="8.5" cy="8.5" r="1.5" />
-    <polyline points="21 15 16 10 5 21" />
+    <path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2M7 9l5-5 5 5M12 4v12" />
   </svg>
 );
 
@@ -62,12 +82,21 @@ function CoverUploadProgressBar({ progress, active }) {
   );
 }
 
+function CoverFieldLabel({ title, note }) {
+  return (
+    <div className="cd-sidebar-cover-field-label">
+      <span>{title}</span>
+      {note ? <span className="cd-sidebar-cover-field-note">{note}</span> : null}
+    </div>
+  );
+}
+
 /**
- * Sidebar delivery cover — empty dropzone or filled preview with edit.
+ * Sidebar delivery cover — empty dropzone or filled preview with change.
  */
 export function SidebarCoverUpload({
   coverUrl,
-  collectionId,
+  coverSource = null,
   coverFocalX = 50,
   coverFocalY = 50,
   isUpdating = false,
@@ -80,9 +109,19 @@ export function SidebarCoverUpload({
   const { t } = useAppLanguage();
   const w = t.workspace;
   const [isDragging, setIsDragging] = useState(false);
+  const [probedWidth, setProbedWidth] = useState(null);
   const fileInputRef = useRef(null);
   const hasPhotos = Number(photoCount) > 0;
+  const primaryAction = coverEmptyPrimaryAction(photoCount);
   const showProgress = Boolean(isUpdating);
+  const hasCover = Boolean(coverUrl);
+  const lowRes = isLowResolutionCover(probedWidth);
+  const emptyNote = hasCover ? null : 'Auto-picked if left empty';
+  const filledNote = lowRes ? 'Low resolution — may look soft on large screens' : null;
+
+  useEffect(() => {
+    setProbedWidth(null);
+  }, [coverUrl]);
 
   const onDragOver = useCallback(
     (e) => {
@@ -119,7 +158,7 @@ export function SidebarCoverUpload({
         return;
       }
 
-      const file = Array.from(e.dataTransfer?.files || []).find(isCoverImageFile);
+      const file = Array.from(e.dataTransfer?.files || []).find(isAcceptedCoverDropFile);
       if (file) onCoverFileSelect?.(file);
     },
     [isUpdating, onPhotoDrop, onCoverFileSelect]
@@ -139,9 +178,21 @@ export function SidebarCoverUpload({
     (e) => {
       e.preventDefault();
       e.stopPropagation();
-      if (!isUpdating) onSelectFromCollection?.();
+      if (isUpdating || !hasPhotos) return;
+      onSelectFromCollection?.();
     },
-    [isUpdating, onSelectFromCollection]
+    [isUpdating, hasPhotos, onSelectFromCollection]
+  );
+
+  const handleChangeClick = useCallback(
+    (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (isUpdating) return;
+      if (hasPhotos) onSelectFromCollection?.();
+      else fileInputRef.current?.click();
+    },
+    [isUpdating, hasPhotos, onSelectFromCollection]
   );
 
   const handleFileInputChange = useCallback(
@@ -153,65 +204,79 @@ export function SidebarCoverUpload({
     [onCoverFileSelect]
   );
 
-  const hasCover = Boolean(coverUrl);
-
   const dropHandlers = {
     onDragOver,
     onDragLeave,
     onDrop,
   };
 
+  const fromDeliveryBtn = (
+    <span
+      className={cn('cd-sidebar-cover-tip', !hasPhotos && 'cd-sidebar-cover-tip--active')}
+      data-tip={hasPhotos ? undefined : 'Upload photos first'}
+    >
+      <button
+        type="button"
+        className={cn(
+          'cd-sidebar-cover-action-btn',
+          primaryAction === 'from-delivery' && 'cd-sidebar-cover-action-btn--primary',
+          !hasPhotos && 'cd-sidebar-cover-action-btn--quiet'
+        )}
+        onClick={handleSelectFromCollection}
+        aria-disabled={!hasPhotos}
+        disabled={isUpdating || !hasPhotos}
+        title={hasPhotos ? undefined : 'Upload photos first'}
+      >
+        From delivery
+      </button>
+    </span>
+  );
+
+  const uploadBtn = (
+    <button
+      type="button"
+      className={cn(
+        'cd-sidebar-cover-action-btn',
+        primaryAction === 'upload' && 'cd-sidebar-cover-action-btn--primary'
+      )}
+      onClick={handleBrowseClick}
+      disabled={isUpdating}
+    >
+      {w.upload}
+    </button>
+  );
+
   const emptyDropzone = (
     <>
       <div
         className={cn(
           'cd-sidebar-cover-dropzone',
-          collectionId && 'cd-sidebar-cover-dropzone--gradient',
           isDragging && 'dragging',
           isUpdating && 'uploading'
         )}
-        style={collectionId ? { background: defaultCoverGradient(collectionId) } : undefined}
       >
-        <div className="cd-sidebar-cover-empty-main">
+        <div className="cd-sidebar-cover-hint">
           <div className="cd-sidebar-cover-drop-icon" aria-hidden>
-            {COVER_DROP_ICON}
+            {COVER_HINT_ICON}
           </div>
-          {isUpdating ? null : isDragging ? (
-            <p className="cd-sidebar-cover-drop-hint">Drop to set cover</p>
-          ) : (
-            <div className="cd-sidebar-cover-actions">
-              {hasPhotos ? (
-                <>
-                  <button
-                    type="button"
-                    className="cd-sidebar-cover-action-btn cd-sidebar-cover-action-btn--primary"
-                    onClick={handleSelectFromCollection}
-                  >
-                    From delivery
-                  </button>
-                  <button
-                    type="button"
-                    className="cd-sidebar-cover-action-btn"
-                    onClick={handleBrowseClick}
-                  >
-                    {w.upload}
-                  </button>
-                </>
-              ) : (
-                <button
-                  type="button"
-                  className="cd-sidebar-cover-action-btn cd-sidebar-cover-action-btn--primary cd-sidebar-cover-action-btn--upload"
-                  onClick={handleBrowseClick}
-                >
-                  {w.uploadPhoto}
-                </button>
-              )}
-            </div>
-          )}
+          <p className="cd-sidebar-cover-drop-hint">Drop an image or choose one</p>
+          <small className="cd-sidebar-cover-drop-spec">16:9 · min {COVER_MIN_WIDTH_PX}px wide</small>
         </div>
+        {isUpdating ? null : isDragging ? null : (
+          <div className="cd-sidebar-cover-actions">
+            {fromDeliveryBtn}
+            {uploadBtn}
+          </div>
+        )}
+        {isDragging ? (
+          <div className="cd-sidebar-cover-dropmsg">
+            {COVER_DROP_ICON}
+            Release to set cover
+          </div>
+        ) : null}
         <CoverUploadProgressBar progress={uploadProgress} active={showProgress} />
       </div>
-      <span className="cd-sidebar-cover-field-label">{w.deliveryCover}</span>
+      <CoverFieldLabel title={w.deliveryCover} note={emptyNote} />
     </>
   );
 
@@ -237,34 +302,36 @@ export function SidebarCoverUpload({
 
       {hasCover ? (
         <>
-          <img
-            key={coverUrl.split('#')[0]}
-            src={coverUrl.split('#')[0]}
-            alt={w.deliveryCover}
-            draggable={false}
-            style={{ objectPosition: `${coverFocalX}% ${coverFocalY}%` }}
-          />
-          <div
-            className={cn(
-              'cd-sidebar-cover-dropzone cd-sidebar-cover-dropzone--overlay',
-              isDragging && 'dragging'
-            )}
-            aria-hidden
-          />
-          <div className="cd-sidebar-cover-caption">
-            <span className="cd-sidebar-cover-caption__label">{w.deliveryCover}</span>
-            <div className="cd-sidebar-cover-caption__actions">
-              <button
-                type="button"
-                className="cd-sidebar-cover-caption__edit"
-                onClick={handleSelectFromCollection}
-                disabled={isUpdating}
-              >
-                {w.edit}
-              </button>
-            </div>
+          <div className="cd-sidebar-cover-preview">
+            <img
+              key={coverUrl.split('#')[0]}
+              src={coverUrl.split('#')[0]}
+              alt={w.deliveryCover}
+              draggable={false}
+              style={{ objectPosition: `${coverFocalX}% ${coverFocalY}%` }}
+              onLoad={(e) => setProbedWidth(e.currentTarget.naturalWidth)}
+            />
+            {coverSource === 'auto' ? (
+              <span className="cd-sidebar-cover-auto-badge">AUTO</span>
+            ) : null}
+            <div
+              className={cn(
+                'cd-sidebar-cover-dropzone cd-sidebar-cover-dropzone--overlay',
+                isDragging && 'dragging'
+              )}
+              aria-hidden
+            />
+            <button
+              type="button"
+              className="cd-sidebar-cover-change"
+              onClick={handleChangeClick}
+              disabled={isUpdating}
+            >
+              Change
+            </button>
+            <CoverUploadProgressBar progress={uploadProgress} active={showProgress} />
           </div>
-          <CoverUploadProgressBar progress={uploadProgress} active={showProgress} />
+          <CoverFieldLabel title={w.deliveryCover} note={filledNote} />
         </>
       ) : (
         emptyDropzone

@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Delivery cover — reference</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600&family=Jost:wght@500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --q-terracotta:#B7682A;
+  --q-peach:#F3B68C;
+  --q-cream:#FBF6EE;
+  --q-ink:#2A211A;
+  --q-ink-2:#4A3726;
+  --q-muted:#9A7B5C;
+  --q-hint:#B39A80;
+  --q-border-dashed:#CDB9A3;   /* reuse the exact token used by "New photo set" */
+  --q-border:#D9C8B4;
+  --q-drop-bg:#F9E6D6;
+}
+*{box-sizing:border-box}
+body{margin:0;padding:32px 16px;background:#F3EEE6;font-family:'Plus Jakarta Sans',system-ui,sans-serif;color:var(--q-ink)}
+.wrap{max-width:320px;margin:0 auto}
+
+/* ---------- Cover zone ---------- */
+.cover{
+  position:relative;aspect-ratio:16/10;border-radius:12px;overflow:hidden;
+  border:1.5px dashed var(--q-border-dashed);
+  background:var(--q-cream);                 /* FIX 1: no gradient when empty */
+  display:flex;flex-direction:column;align-items:center;justify-content:flex-end;
+  padding-bottom:22px;                       /* buttons anchored lower */
+  transition:border-color .15s,background .15s;
+}
+.cover .hint{
+  position:absolute;top:22%;left:0;right:0;text-align:center;color:var(--q-muted);pointer-events:none
+}
+.cover .hint svg{width:26px;height:26px}
+.cover .hint p{margin:6px 0 0;font-size:12px}
+.cover .hint small{display:block;margin-top:2px;font-size:11px;color:var(--q-hint)}
+.actions{display:flex;gap:8px;position:relative;z-index:2}
+
+/* FIX 3: one filled button only */
+.btn{font:500 13px 'Plus Jakarta Sans',sans-serif;padding:7px 15px;border-radius:999px;cursor:pointer;
+  border:1px solid var(--q-border);background:#fff;color:var(--q-ink-2)}
+.btn.primary{background:var(--q-ink);border-color:var(--q-ink);color:var(--q-cream)}
+.btn.quiet{background:transparent;border-style:dashed;color:var(--q-hint);cursor:not-allowed}
+.btn:focus-visible{outline:2px solid var(--q-terracotta);outline-offset:2px}
+
+/* Tooltip for the quiet button (FIX 2) */
+.tip{position:relative}
+.tip[data-tip]:hover::after{content:attr(data-tip);position:absolute;bottom:calc(100% + 6px);left:50%;transform:translateX(-50%);
+  white-space:nowrap;background:var(--q-ink);color:var(--q-cream);font-size:11px;padding:5px 8px;border-radius:6px}
+
+/* Drag-over */
+.cover.drag{border-style:solid;border-color:var(--q-terracotta);background:var(--q-drop-bg)}
+.cover.drag .hint,.cover.drag .actions{visibility:hidden}
+.cover .dropmsg{display:none;position:absolute;inset:0;align-items:center;justify-content:center;flex-direction:column;color:var(--q-terracotta);font-size:12px;gap:6px}
+.cover.drag .dropmsg{display:flex}
+
+/* Filled state */
+.cover.filled{border:none;padding:0;justify-content:flex-start}
+.cover.filled img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;cursor:crosshair}
+.cover.filled .hint,.cover.filled .actions{display:none}
+.badge{position:absolute;top:10px;left:10px;z-index:3;font:500 11px Jost,sans-serif;letter-spacing:.06em;
+  background:rgba(42,33,26,.75);color:var(--q-cream);padding:3px 8px;border-radius:999px;display:none}
+.cover.auto .badge{display:block}
+.change{position:absolute;bottom:10px;right:10px;z-index:3;display:none}
+.cover.filled .change{display:block}
+.focal{position:absolute;width:18px;height:18px;margin:-9px 0 0 -9px;border:2px solid #fff;border-radius:50%;
+  box-shadow:0 0 0 1px rgba(0,0,0,.35);z-index:3;display:none;pointer-events:none}
+.cover.filled .focal{display:block}
+
+.label{font:500 11px Jost,sans-serif;letter-spacing:.08em;color:var(--q-muted);margin:10px 2px 0;display:flex;justify-content:space-between}
+.label span:last-child{letter-spacing:0;font-family:'Plus Jakarta Sans',sans-serif;text-transform:none}
+
+/* Demo controls only — delete in production */
+.demo{max-width:320px;margin:28px auto 0;font-size:12px;color:var(--q-muted);border-top:1px solid var(--q-border);padding-top:14px}
+.demo button{font:12px 'Plus Jakarta Sans',sans-serif;margin:4px 4px 0 0;padding:5px 10px;border-radius:6px;border:1px solid var(--q-border);background:#fff;cursor:pointer}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="cover" id="cover" tabindex="-1" aria-label="Delivery cover">
+    <div class="hint">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 8h.01M12.5 21H6a3 3 0 0 1-3-3V6a3 3 0 0 1 3-3h12a3 3 0 0 1 3 3v6.5"/><path d="m3 16 5-5c.93-.9 2.07-.9 3 0l4 4"/><path d="m14 14 1-1c.67-.64 1.45-.82 2.18-.53M16 19h6M19 16v6"/></svg>
+      <p>Drop an image or choose one</p>
+      <small>16:9 · min 1600px wide</small>
+    </div>
+
+    <div class="actions">
+      <span class="tip" id="fromTip"><button class="btn" id="fromBtn" type="button">From delivery</button></span>
+      <button class="btn" id="uploadBtn" type="button">Upload</button>
+    </div>
+
+    <div class="dropmsg">
+      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2M7 9l5-5 5 5M12 4v12"/></svg>
+      Release to set cover
+    </div>
+
+    <img id="img" alt="" hidden>
+    <span class="badge">AUTO</span>
+    <span class="focal" id="focal"></span>
+    <button class="btn change" id="changeBtn" type="button">Change</button>
+    <input type="file" id="file" accept="image/jpeg,image/png,image/webp" hidden>
+  </div>
+  <div class="label"><span>DELIVERY COVER</span><span id="sub"></span></div>
+</div>
+
+<div class="demo">
+  Demo only:
+  <div>
+    <button data-photos="0">New delivery, 0 photos</button>
+    <button data-photos="24">Photos uploaded</button>
+    <button id="autoDemo">Simulate auto-cover</button>
+  </div>
+</div>
+
+<script>
+const S = { photoCount: 0, cover: null, source: null, focal: { x: 50, y: 50 } };
+const $ = id => document.getElementById(id);
+const cover = $('cover'), fromBtn = $('fromBtn'), uploadBtn = $('uploadBtn'),
+      fromTip = $('fromTip'), img = $('img'), focal = $('focal'), file = $('file'), sub = $('sub');
+
+function render(){
+  const hasPhotos = S.photoCount > 0;
+
+  /* FIX 2 + 3: priority follows what is actually possible */
+  fromBtn.className = 'btn ' + (hasPhotos ? 'primary' : 'quiet');
+  uploadBtn.className = 'btn ' + (hasPhotos ? '' : 'primary');
+  fromBtn.setAttribute('aria-disabled', String(!hasPhotos));
+  hasPhotos ? fromTip.removeAttribute('data-tip') : fromTip.setAttribute('data-tip', 'Upload photos first');
+
+  const filled = !!S.cover;
+  cover.classList.toggle('filled', filled);
+  cover.classList.toggle('auto', filled && S.source === 'auto');
+  img.hidden = !filled;
+  if (filled){
+    img.src = S.cover;
+    img.style.objectPosition = `${S.focal.x}% ${S.focal.y}%`;
+    focal.style.left = S.focal.x + '%';
+    focal.style.top = S.focal.y + '%';
+  }
+  sub.textContent = filled ? 'Click image to set focus point' : (S.source === null ? 'Auto-picked if left empty' : '');
+}
+
+function setCover(src, source){ S.cover = src; S.source = source; S.focal = { x: 50, y: 50 }; render(); }
+
+function readFile(f){
+  if (!f || !/^image\//.test(f.type)) return;
+  const url = URL.createObjectURL(f);
+  const probe = new Image();
+  probe.onload = () => {
+    if (probe.naturalWidth < 1600) sub.textContent = 'Low resolution — may look soft on large screens';
+    setCover(url, 'manual');
+    if (probe.naturalWidth < 1600) sub.textContent = 'Low resolution — may look soft. Click to set focus';
+  };
+  probe.src = url;
+}
+
+/* Upload */
+uploadBtn.onclick = () => file.click();
+$('changeBtn').onclick = () => S.photoCount ? alert('Open photo picker (From delivery)') : file.click();
+file.onchange = e => readFile(e.target.files[0]);
+
+/* From delivery — no-op when empty */
+fromBtn.onclick = () => { if (S.photoCount) alert('Open photo picker for this delivery'); };
+
+/* FIX 4a: whole zone is a drop target */
+let depth = 0;
+cover.addEventListener('dragenter', e => { e.preventDefault(); depth++; cover.classList.add('drag'); });
+cover.addEventListener('dragover', e => e.preventDefault());
+cover.addEventListener('dragleave', () => { if (--depth <= 0){ depth = 0; cover.classList.remove('drag'); }});
+cover.addEventListener('drop', e => { e.preventDefault(); depth = 0; cover.classList.remove('drag'); readFile(e.dataTransfer.files[0]); });
+
+/* FIX 4b: focal point */
+img.addEventListener('click', e => {
+  const r = img.getBoundingClientRect();
+  S.focal = { x: Math.round((e.clientX - r.left) / r.width * 100), y: Math.round((e.clientY - r.top) / r.height * 100) };
+  render();
+});
+
+/* Demo wiring */
+document.querySelectorAll('[data-photos]').forEach(b => b.onclick = () => {
+  S.photoCount = +b.dataset.photos; S.cover = null; S.source = null; render();
+});
+/* FIX 4c: auto-cover = first landscape image once uploads finish (server-side in prod) */
+$('autoDemo').onclick = () => {
+  S.photoCount = 24;
+  setCover('https://images.unsplash.com/photo-1519741497674-611481863552?w=1600&q=80', 'auto');
+};
+
+render();
+</script>
+</body>
+</html>
