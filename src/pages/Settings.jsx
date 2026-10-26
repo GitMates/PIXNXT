@@ -201,6 +201,7 @@ const Settings = () => {
     return (
         <SidebarLayout>
             <div className="settings-page-wrapper">
+                <div className="settings-page-column">
                 <div className="settings-header-row">
                     <div>
                         <h1 className="settings-main-title">Settings</h1>
@@ -284,6 +285,7 @@ const Settings = () => {
                     {activeTab === 'access-defaults' && (
                         <AccessDefaultsTab profile={profile} updateProfile={updateProfile} />
                     )}
+                </div>
                 </div>
             </div>
 

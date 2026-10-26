@@ -1954,12 +1954,13 @@
 /* ── Settings Layout and Subnav Styles ── */
 
 .settings-page-wrapper {
-  --settings-content-max: 840px;
-  padding: 28px 40px 48px;
+  /* Same shell as Deliveries: full main pane, capped only on ultra-wide. */
+  --settings-content-max: 92rem;
+  padding: 2.5rem 2rem 3rem;
   font-family: inherit;
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
+  align-items: stretch;
   gap: 0;
   flex: 1 1 auto;
   width: 100%;
@@ -1973,13 +1974,13 @@
   -webkit-overflow-scrolling: touch;
 }
 
-.settings-page-wrapper > .settings-header-row,
-.settings-page-wrapper > .settings-primary-tabs,
-.settings-page-wrapper > .settings-pill-tabs,
-.settings-page-wrapper > .settings-right-content {
+.settings-page-column {
   width: 100%;
   max-width: var(--settings-content-max);
-  box-sizing: border-box;
+  margin-inline: auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 .settings-header-row {
@@ -2132,19 +2133,18 @@
 .settings-right-content {
   flex: 0 0 auto;
   width: 100%;
-  max-width: var(--settings-content-max, 720px);
+  max-width: none;
   min-width: 0;
   min-height: auto;
   overflow: visible;
   padding-right: 0;
   padding-bottom: 48px;
   box-sizing: border-box;
-  align-self: flex-start;
 }
 
 .settings-right-content--single {
   width: 100%;
-  max-width: var(--settings-content-max, 720px);
+  max-width: none;
 }
 
 .settings-columns-wrap {
