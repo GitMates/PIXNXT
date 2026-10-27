@@ -3,6 +3,7 @@ import { apiBase } from './api/client';
 import { isRawImageFilename } from './rawImageFormats';
 import { isBrowserDisplayableImageUrl } from './rawImagePreview';
 import { isPhotoshopFilename } from './fileMime';
+import { isLongFilmDownloadPreview } from './videoDelivery';
 
 /**
  * pub-*.r2.dev is not cached at the edge. Read those objects through the
@@ -356,7 +357,6 @@ export function getPhotoVideoSrc(photo) {
   if (!photo) return '';
   const phase = getPhotoStreamPhase(photo);
   if (phase === 'ready') return String(photo.stream_playback_hls);
-  if (phase === 'preparing') return '';
   const candidates = [photo.full_url, photo.web_url];
   for (const raw of candidates) {
     const url = resolveMediaUrl(raw);
@@ -366,9 +366,10 @@ export function getPhotoVideoSrc(photo) {
   return '';
 }
 
-/** True when Stream holds only the 3-minute Tier-3 preview clip. */
+/** Stream clip, or a long film that never entered Stream (R2 preview + download). */
 export function isVideoPreviewClip(photo) {
-  return Boolean(Number(photo?.stream_is_preview) === 1 || photo?.stream_is_preview === true);
+  if (Number(photo?.stream_is_preview) === 1 || photo?.stream_is_preview === true) return true;
+  return isLongFilmDownloadPreview(photo?.video_duration_seconds);
 }
 
 /** Still frame Cloudflare Stream generates for a ready film. */
@@ -400,7 +401,10 @@ export function getPhotoDisplayFallbacks(photo, preferOriginalAspect = false) {
   }
   if (isVideoMedia(photo)) {
     const phase = getPhotoStreamPhase(photo);
-    if (phase === 'preparing') return [];
+    if (phase === 'preparing') {
+      const src = getPhotoVideoSrc(photo);
+      return src ? [src] : [];
+    }
     if (phase === 'ready') {
       const hls = String(photo.stream_playback_hls || '');
       return hls ? [hls] : [];

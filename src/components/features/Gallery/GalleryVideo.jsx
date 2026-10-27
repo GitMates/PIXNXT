@@ -5,6 +5,7 @@ import {
   getPhotoVideoSrc,
   isVideoPreviewClip,
 } from '../../../lib/photoDisplayUrl';
+import { PREVIEW_LEN_SEC } from '../../../lib/videoDelivery';
 import './GalleryVideo.css';
 
 function isHlsUrl(src) {
@@ -45,7 +46,7 @@ export function GalleryVideo({
 
   useEffect(() => {
     const video = videoRef.current;
-    if (!video || !src || phase === 'preparing') return undefined;
+    if (!video || !src) return undefined;
     if (hoverPreview && !previewOn) return undefined;
     let cancelled = false;
     let hls = null;
@@ -92,7 +93,7 @@ export function GalleryVideo({
     };
   }, [src, phase, filmPlayback, autoPlay, hoverPreview, previewOn]);
 
-  if (phase === 'preparing') {
+  if (phase === 'preparing' && !src) {
     return (
       <div className={`gallery-video-preparing ${className}`.trim()} style={style} onClick={onClick}>
         {poster ? <img src={poster} alt="" /> : null}
@@ -163,13 +164,23 @@ export function GalleryVideo({
         playsInline={playsInline}
         preload={hoverPreview ? 'none' : 'metadata'}
         onError={() => setPlaybackFailed(true)}
+        onTimeUpdate={
+          isPreview
+            ? (e) => {
+                if (e.currentTarget.currentTime >= PREVIEW_LEN_SEC) {
+                  e.currentTarget.pause();
+                  e.currentTarget.currentTime = PREVIEW_LEN_SEC;
+                }
+              }
+            : undefined
+        }
         onMouseEnter={hoverPreview ? (e) => e.currentTarget.play().catch(() => {}) : undefined}
         onMouseLeave={hoverPreview ? (e) => { e.currentTarget.pause(); e.currentTarget.currentTime = 0; } : undefined}
       />
       {isPreview ? (
         <div className="gallery-video-preview-badge" aria-hidden="true">
           <span>
-            3-min preview · Full film
+            90s preview · Full film
             {durationMin > 0 ? ` (${durationMin}m)` : ''} available for download
           </span>
         </div>

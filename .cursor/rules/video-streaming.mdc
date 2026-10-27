@@ -5,24 +5,24 @@ globs: src/**/*video*.*, src/**/*gallery*.*, backend/src/**/*stream*.*, backend/
 
 # Video Streaming Architecture & Cost-Optimization Rules
 
-PIXNXT implements a 3-tier video architecture to prevent runaway Cloudflare Stream storage and bandwidth costs:
+PIXNXT uses a hybrid router (`backend/src/lib/videoDelivery.ts`, `PIXNXT/src/lib/videoDelivery.js`):
 
-1. **Tier 1 (Short Clips: <= 180s, <= 120MB, and MP4):**
-   - Served directly from Cloudflare R2 via HTTP 206 Byte-Range progressive streaming (`Content-Range`).
-   - Does NOT use Cloudflare Stream (`stream_uid` remains null). Egress and storage cost: $0.
+1. **Tier 1 (Short Clips: <= 180s, <= 50MB, web-safe MP4/M4V/WebM):**
+   - Served directly from Cloudflare R2 via HTTP 206 Byte-Range progressive streaming.
+   - Does NOT use Cloudflare Stream (`stream_uid` remains null).
+   - Unknown duration + small web-safe MP4 also stays on R2 so a failed browser probe cannot bill Stream.
 
-2. **Tier 2 (Highlight Films: 3 to 30 minutes):**
+2. **Highlights (above Tier 1, duration <= 45 min):**
    - Ingested into Cloudflare Stream via `/copy` from R2.
-   - Delivered as multi-bitrate HLS (`.m3u8`) with adaptive bitrate (ABR) via `hls.js`.
+   - Delivered as multi-bitrate HLS (`.m3u8`) with ABR via `hls.js`.
+   - Client keeps playing the R2 original while Stream is `pending`/`processing`.
 
-3. **Tier 3 (Feature Films: > 30 minutes):**
-   - Uploaded to Cloudflare R2 for full-length master preservation.
-   - Ingested to Stream -> Standalone 3-minute clip generated via `/clip` -> Full-length master purged from Stream.
-   - Stream stores and serves ONLY the 3-minute preview clip (`stream_is_preview = 1`).
-   - The client gallery displays a discreet minimal preview badge with a direct download button to download the master file from R2 at $0 egress cost.
+3. **Long films (known duration > 45 min):**
+   - Master stays on R2 only. Do **not** start Stream ingest.
+   - Client plays a 90s preview then download. If Stream later reports a long duration for an unknown-at-upload file, `/clip` + purge the parent (fallback ABR preview).
 
 ### Key References & Documentation:
-- Detailed implementation steps: `PIXNXT/docs/VIDEO_STREAMING_IMPLEMENTATION_PLAN.md`
+- Router: `backend/src/lib/videoDelivery.ts` and `src/lib/videoDelivery.js`
 - Frontend player: `src/components/features/Gallery/GalleryVideo.jsx`
 - Backend ingest & clipping: `backend/src/lib/stream.ts`
 - R2 byte-range server: `backend/src/routes/r2.ts`
