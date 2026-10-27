@@ -36,6 +36,8 @@ export function AccountQuotaMeters({
   defaultExpanded = false,
   /** Sidebar: Storage bar only — detail rows live on Studio identity. */
   storageOnly = false,
+  streamMinutesUsed,
+  streamMinutesTotal,
 }) {
   const [expanded, setExpanded] = useState(() => {
     if (storageOnly || !collapsible) return true;
@@ -127,6 +129,26 @@ export function AccountQuotaMeters({
           <div className="aqm-row__fill" style={{ width: `${storagePct}%` }} />
         </div>
       </div>
+
+      {streamMinutesTotal != null && Number(streamMinutesTotal) > 0 ? (
+        <div className={`aqm-row${quotaPercent(streamMinutesUsed, streamMinutesTotal) >= 85 ? ' aqm-row--warn' : ''}`}>
+          <div className="aqm-row__head">
+            <span className="aqm-row__label">Stream minutes</span>
+            <span className="aqm-row__meta">
+              {Number(streamMinutesUsed) || 0} / {Number(streamMinutesTotal)} min
+            </span>
+          </div>
+          <div className="aqm-row__bar">
+            <div
+              className={`aqm-row__fill${quotaPercent(streamMinutesUsed, streamMinutesTotal) >= 85 ? ' aqm-row__fill--warn' : ''}`}
+              style={{ width: `${quotaPercent(streamMinutesUsed, streamMinutesTotal)}%` }}
+            />
+          </div>
+          <p className="aqm-row__note">
+            {Math.max(0, Number(streamMinutesTotal) - (Number(streamMinutesUsed) || 0))} min left · all deliveries
+          </p>
+        </div>
+      ) : null}
 
       {showDetails &&
         detailRows.map((row) => (

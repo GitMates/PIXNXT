@@ -1,4 +1,5 @@
 import { userStorageService } from './userStorage.service';
+import { POOL_DEFAULT_MIN } from '../lib/videoDelivery';
 
 export const QUOTA_CHANGED_EVENT = 'pixnxt-quota-changed';
 
@@ -253,6 +254,8 @@ function emptySnapshot() {
     delivery_used_count: 0,
     storage_limit_bytes: null,
     storage_used_bytes: null,
+    stream_minutes_total: POOL_DEFAULT_MIN,
+    stream_minutes_used: 0,
   };
 }
 
@@ -294,6 +297,8 @@ function normalizeSnapshot(data) {
         : null,
     storage_used_bytes:
       data?.storage_used_bytes != null ? Math.max(0, Number(data.storage_used_bytes) || 0) : null,
+    stream_minutes_total: asLimit(data?.stream_minutes_total) || POOL_DEFAULT_MIN,
+    stream_minutes_used: asUsed(data?.stream_minutes_used),
   };
   return snap;
 }

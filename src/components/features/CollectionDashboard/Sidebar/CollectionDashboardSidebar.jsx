@@ -489,6 +489,8 @@ export function CollectionDashboardSidebar({
             storageOnly
             storageLabel={formatStorageMeter(usedBytes, maxBytes)}
             storagePct={storagePct}
+            streamMinutesUsed={quotaSnapshot?.stream_minutes_used}
+            streamMinutesTotal={quotaSnapshot?.stream_minutes_total}
           />
         </div>
 

@@ -13,17 +13,26 @@ PIXNXT uses a hybrid router (`backend/src/lib/videoDelivery.ts`, `PIXNXT/src/lib
    - Unknown duration + small web-safe MP4 also stays on R2 so a failed browser probe cannot bill Stream.
 
 2. **Highlights (above Tier 1, duration <= 45 min):**
-   - Ingested into Cloudflare Stream via `/copy` from R2.
+   - Ingested into Cloudflare Stream via `/copy` from R2 **only if** the studio stream-minutes pool can reserve `ceil(duration/60)`.
    - Delivered as multi-bitrate HLS (`.m3u8`) with ABR via `hls.js`.
    - Client keeps playing the R2 original while Stream is `pending`/`processing`.
+   - If the pool cannot cover the film, it is shared as download + 90s preview (`fallback_reason=pool`).
 
 3. **Long films (known duration > 45 min):**
    - Master stays on R2 only. Do **not** start Stream ingest.
-   - Client plays a 90s preview then download. If Stream later reports a long duration for an unknown-at-upload file, `/clip` + purge the parent (fallback ABR preview).
+   - Client plays a 90s preview (from `preview_start_sec`, default ~10% snapped to 30s) then download.
+   - Studio can later spend pool minutes to stream it from the tile drawer.
+   - If Stream later reports a long duration for an unknown-at-upload file, `/clip` + purge the parent (fallback ABR preview) and release reserved minutes.
+
+Pool lives on `photographer_quotas.stream_minutes_total/used`. Reserve is one atomic UPDATE. An already-streaming film is never dropped because the pool ran out.
+
+Workers cannot run ffmpeg — the 90s preview is a player cap on the R2 master, not a transcoded file.
 
 ### Key References & Documentation:
 - Router: `backend/src/lib/videoDelivery.ts` and `src/lib/videoDelivery.js`
+- Pool: `backend/src/lib/streamPool.ts`
 - Frontend player: `src/components/features/Gallery/GalleryVideo.jsx`
+- Studio drawer: `src/components/features/CollectionDashboard/VideoDelivery/`
 - Backend ingest & clipping: `backend/src/lib/stream.ts`
 - R2 byte-range server: `backend/src/routes/r2.ts`
 - Browser probe: `src/lib/videoProbe.js`

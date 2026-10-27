@@ -378,8 +378,9 @@ export function getPhotoVideoSrc(photo) {
   return '';
 }
 
-/** Stream clip, or a long film that never entered Stream (R2 preview + download). */
+/** Stream clip, or a long / pool-fallback film that clients preview then download. */
 export function isVideoPreviewClip(photo) {
+  if (photo?.delivery_mode === 'download') return true;
   if (Number(photo?.stream_is_preview) === 1 || photo?.stream_is_preview === true) return true;
   return isLongFilmDownloadPreview(photo?.video_duration_seconds);
 }

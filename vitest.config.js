@@ -22,6 +22,7 @@ export default defineConfig({
       'src/lib/starredFlag.test.js',
       'src/lib/photoDisplayUrl.grid.test.js',
       'src/lib/photoDisplayUrl.video.test.js',
+      'src/lib/videoDelivery.test.js',
       'src/lib/masonryColumnDistribution.test.ts',
       'src/components/features/CollectionDashboard/Upload/**/*.test.{js,ts}',
       'src/__smoke.test.js',

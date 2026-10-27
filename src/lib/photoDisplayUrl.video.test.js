@@ -42,6 +42,18 @@ describe('gallery video source', () => {
     expect(getPhotoVideoSrc(photo)).toBe(photo.full_url);
   });
 
+  it('treats an explicit download-mode film as a preview', () => {
+    const photo = {
+      media_type: 'video',
+      filename: 'highlight.mp4',
+      video_duration_seconds: 12 * 60,
+      delivery_mode: 'download',
+      fallback_reason: 'pool',
+      full_url: 'https://cdn.example/films/highlight.mp4',
+    };
+    expect(isVideoPreviewClip(photo)).toBe(true);
+  });
+
   it('does not mark a short R2 clip as a preview', () => {
     const photo = {
       media_type: 'video',

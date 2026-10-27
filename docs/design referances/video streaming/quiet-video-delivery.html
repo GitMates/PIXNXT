@@ -1,0 +1,785 @@
+<title>Quiet — Video delivery</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<!--
+  QUIET — PIXNXT · v1.4 · Video delivery on the real delivery screen
+  Rev 2 · proposal, not frozen
+
+  REV 2 — WHY
+  Rev 1 assumed a Films tab. The live screen (deliveries/manage) has none:
+  videos sit inside each set, in a VIDEOS row above PHOTOS. The rules are
+  unchanged; where they surface moved:
+  · State lives ON THE TILE (duration always, chip only when not streaming).
+  · Options open in a SIDE DRAWER, not an inline card (cards can't expand in a grid).
+  · Stream minutes sit UNDER STORAGE in the sidebar.
+  · One notice line above VIDEOS, only when a film in this set didn't stream.
+  Plus four corrections to the current screen, listed in section 3.
+-->
+<style>
+/* Layout: doc chrome + the live delivery shell (sidebar + set view + drawer) + client phone.
+   1. TOKENS — Quiet v1.4 values verbatim. Selectors restructured only so an
+      explicit Light choice beats a dark OS. Zero added, zero redefined. */
+:root{
+  --canvas:#F7F6F3; --surface:#FFFFFF; --surface-sunk:#F1EFEB; --surface-raised:#FFFFFF;
+  --ink:#1C1917; --ink-body:#44403C; --ink-muted:#736C67; --ink-icon:#A8A29E;
+  --line:rgba(28,25,23,0.09); --line-strong:rgba(28,25,23,0.18);
+  --accent:#B7682A; --accent-text:#9E561F; --accent-wash:#FBF1E8;
+  --ok-fg:#3F6B45;   --ok-bg:#EDF3EE;
+  --warn-fg:#8A6316; --warn-bg:#FAF2E3;
+  --idle-fg:#6B6560; --idle-bg:#F2F0EC;
+  --stop-fg:#8C3A32; --stop-bg:#F9EDEB;
+  --proof-surround:#E8E6E3; --proof-edge:rgba(0,0,0,0.14);
+  --shade:rgba(28,25,23,0.42); --pop-shadow:0 18px 44px rgba(28,25,23,0.16);
+  --display:'Fraunces',Georgia,serif;
+  --ui:'Plus Jakarta Sans',-apple-system,BlinkMacSystemFont,sans-serif;
+  --s1:4px;--s2:8px;--s3:12px;--s4:16px;--s5:20px;--s6:24px;--s8:32px;
+  --s10:40px;--s12:48px;--s16:64px;--s20:80px;
+  --r-sm:6px;--r-md:10px;--r-lg:14px;--r-xl:20px;--r-pill:999px;
+  --sidebar:248px;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --canvas:#121110; --surface:#1C1B19; --surface-sunk:#252320; --surface-raised:#232120;
+    --ink:#F5F3F0; --ink-body:#D6D2CC; --ink-muted:#A29A91; --ink-icon:#6E665E;
+    --line:rgba(255,255,255,0.10); --line-strong:rgba(255,255,255,0.20);
+    --accent:#D08544; --accent-text:#E09A5C; --accent-wash:rgba(208,133,68,0.16);
+    --ok-fg:#86C694;   --ok-bg:rgba(134,198,148,0.13);
+    --warn-fg:#DFB25C; --warn-bg:rgba(223,178,92,0.13);
+    --idle-fg:#A29A91; --idle-bg:rgba(255,255,255,0.06);
+    --stop-fg:#E08C82; --stop-bg:rgba(224,140,130,0.13);
+    --proof-surround:#0D0C0B; --proof-edge:rgba(255,255,255,0.16);
+    --shade:rgba(0,0,0,0.62); --pop-shadow:0 18px 44px rgba(0,0,0,0.55);
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --canvas:#121110; --surface:#1C1B19; --surface-sunk:#252320; --surface-raised:#232120;
+  --ink:#F5F3F0; --ink-body:#D6D2CC; --ink-muted:#A29A91; --ink-icon:#6E665E;
+  --line:rgba(255,255,255,0.10); --line-strong:rgba(255,255,255,0.20);
+  --accent:#D08544; --accent-text:#E09A5C; --accent-wash:rgba(208,133,68,0.16);
+  --ok-fg:#86C694;   --ok-bg:rgba(134,198,148,0.13);
+  --warn-fg:#DFB25C; --warn-bg:rgba(223,178,92,0.13);
+  --idle-fg:#A29A91; --idle-bg:rgba(255,255,255,0.06);
+  --stop-fg:#E08C82; --stop-bg:rgba(224,140,130,0.13);
+  --proof-surround:#0D0C0B; --proof-edge:rgba(255,255,255,0.16);
+  --shade:rgba(0,0,0,0.62); --pop-shadow:0 18px 44px rgba(0,0,0,0.55);
+  color-scheme:dark;
+}
+
+/* 2. BASE */
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--canvas);font-family:var(--ui);font-size:14px;line-height:1.5;color:var(--ink-body);-webkit-font-smoothing:antialiased}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:300;background:var(--surface)}
+button{font:inherit;color:inherit;background:none;border:none;cursor:pointer;text-align:left}
+input{font:inherit}
+[hidden]{display:none!important}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:3px}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+
+/* 3. DOC CHROME — not product */
+.dochead{position:sticky;top:env(safe-area-inset-top,0px);z-index:200;background:var(--surface);border-bottom:1px solid var(--line);
+  padding-block:var(--s3);padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));
+  display:flex;align-items:center;gap:var(--s4);flex-wrap:wrap}
+.doclogo{font-family:var(--display);font-size:17px;color:var(--ink)}
+.doclogo b{font-weight:500}
+.docver{font-size:10.5px;font-weight:700;letter-spacing:.11em;text-transform:uppercase;color:var(--accent-text);background:var(--accent-wash);padding:3px 9px;border-radius:var(--r-pill)}
+.docnav{display:flex;gap:var(--s1);margin-left:auto;flex-wrap:wrap}
+.docnav a{font-size:12.5px;color:var(--ink-muted);text-decoration:none;padding:5px 10px;border-radius:var(--r-sm)}
+.docnav a:hover{background:var(--surface-sunk);color:var(--ink)}
+.themeswitch{display:flex;gap:2px;background:var(--surface-sunk);padding:3px;border-radius:var(--r-pill)}
+.themeswitch button{font-size:11.5px;padding:5px 11px;border-radius:var(--r-pill);color:var(--ink-body)}
+.themeswitch button[aria-pressed="true"]{background:var(--surface);color:var(--ink);font-weight:600;border:1px solid var(--line)}
+.wrap{padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.section{max-width:1280px;margin:0 auto;padding-block:var(--s12) 0}
+.sec-kicker{font-size:10.5px;font-weight:700;letter-spacing:.13em;text-transform:uppercase;color:var(--accent-text)}
+.section h2{font-family:var(--display);font-size:30px;font-weight:400;color:var(--ink);letter-spacing:-.018em;margin:var(--s3) 0 var(--s2);text-wrap:balance}
+.lede{font-size:14px;color:var(--ink-muted);max-width:74ch;margin-bottom:var(--s6)}
+.lede b{color:var(--ink-body)}
+.devnote{border-left:2px solid var(--accent);padding:var(--s3) 0 var(--s3) var(--s5);margin:var(--s5) 0;font-size:13px;color:var(--ink-body);max-width:80ch;line-height:1.62}
+.devnote b{color:var(--ink);font-weight:600}
+.devnote.stop{border-left-color:var(--stop-fg)}
+.devnote.stop b{color:var(--stop-fg)}
+code{font-family:ui-monospace,Menlo,monospace;font-size:12px;background:var(--surface-sunk);padding:1px 5px;border-radius:4px;color:var(--ink)}
+.frame{border:1px solid var(--line);border-radius:var(--r-xl);overflow:hidden;background:var(--canvas)}
+.frame-cap{display:flex;align-items:center;gap:var(--s3);padding:var(--s3) var(--s5);flex-wrap:wrap;background:var(--surface);border-bottom:1px solid var(--line);font-size:12px;color:var(--ink-muted);min-width:0}
+.frame-cap b{color:var(--ink);font-weight:600;font-size:12.5px;overflow-wrap:anywhere}
+.dots{display:flex;gap:5px}.dots i{width:8px;height:8px;border-radius:50%;background:var(--line-strong)}
+.rig{display:flex;align-items:center;gap:var(--s2);padding:var(--s3) var(--s5);background:var(--surface);border-top:1px solid var(--line);flex-wrap:wrap;font-size:12px;color:var(--ink-muted)}
+.rig > b{font-size:9.5px;font-weight:700;letter-spacing:.13em;text-transform:uppercase;color:var(--ink-body);margin-right:var(--s2)}
+.rig button{padding:6px var(--s4);border-radius:var(--r-pill);border:1px solid var(--line);background:var(--surface);font-size:12px;color:var(--ink-body)}
+.rig button:hover{border-color:var(--line-strong)}
+.rig button[aria-pressed="true"]{border-color:var(--accent);background:var(--accent-wash);color:var(--accent-text);font-weight:600}
+.rig .note{margin-left:auto;max-width:50ch;text-align:right}
+@media (max-width:760px){.rig .note{margin-left:0;text-align:left}}
+.dt-wrap{overflow-x:auto;margin-top:var(--s4)}
+.dt{width:100%;min-width:680px;border-collapse:collapse;font-size:13px;border:1px solid var(--line);border-radius:var(--r-md);overflow:hidden;background:var(--surface)}
+.dt th{text-align:left;font-size:9.5px;letter-spacing:.13em;text-transform:uppercase;color:var(--ink-body);font-weight:700;padding:10px var(--s4);border-bottom:1px solid var(--line);background:var(--surface-sunk)}
+.dt td{padding:11px var(--s4);border-bottom:1px solid var(--line);color:var(--ink-body);vertical-align:top}
+.dt tr:last-child td{border-bottom:none}
+.dt td b{color:var(--ink);font-weight:600}
+.rules{display:grid;gap:var(--s2);margin:var(--s4) 0 var(--s16)}
+.rules li{list-style:none;font-size:13.5px;color:var(--ink-body);padding-left:var(--s6);position:relative;line-height:1.6;max-width:86ch}
+.rules li::before{content:"";position:absolute;left:0;top:9px;width:6px;height:6px;border-radius:50%;background:var(--accent)}
+.rules li b{color:var(--ink);font-weight:600}
+
+/* 4. CONTROLS */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;padding:9px var(--s5);border-radius:var(--r-pill);font-size:13px;font-weight:600;white-space:nowrap;border:1px solid transparent;transition:.15s}
+.btn-primary{background:var(--ink);color:var(--canvas)}
+.btn-primary:hover{opacity:.87}
+.btn-ghost{border-color:var(--line);background:var(--surface);color:var(--ink-body);font-weight:500}
+.btn-ghost:hover{border-color:var(--line-strong)}
+.btn-sm{padding:7px var(--s4);font-size:12.5px}
+.btn-block{width:100%}
+.link{color:var(--accent-text);font-weight:600;font-size:12.5px;text-decoration:underline;text-underline-offset:3px;text-decoration-color:var(--line-strong)}
+.link.quiet{color:var(--ink-muted);font-weight:500}
+.status{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:600;white-space:nowrap;padding:3px 9px;border-radius:var(--r-pill)}
+.status .dot{width:6px;height:6px;border-radius:50%;flex:0 0 6px;background:currentColor}
+.s-ok{color:var(--ok-fg);background:var(--ok-bg)}
+.s-idle{color:var(--idle-fg);background:var(--idle-bg)}
+.s-warn{color:var(--warn-fg);background:var(--warn-bg)}
+.s-warn .dot{animation:pulse 1.2s ease-in-out infinite}
+@keyframes pulse{50%{opacity:.25}}
+.meter{height:3px;border-radius:2px;background:var(--surface-sunk);overflow:hidden}
+.meter>i{display:block;height:100%;background:var(--accent);border-radius:2px;transition:width .3s}
+.meter[data-tone="tight"]>i{background:var(--warn-fg)}
+
+/* 5. THE DELIVERY SHELL — mirrors deliveries/manage */
+.app{display:flex;position:relative;min-height:760px;overflow:hidden}
+.side{width:var(--sidebar);flex:0 0 var(--sidebar);border-right:1px solid var(--line);background:var(--canvas);display:flex;flex-direction:column}
+.side-head{display:flex;align-items:center;gap:var(--s3);padding:var(--s4) var(--s4) var(--s3)}
+.back{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;color:var(--ink-body);flex:none}
+.back:hover{background:var(--surface-sunk)}
+.side-head h3{font-family:var(--display);font-weight:400;font-size:20px;color:var(--ink);line-height:1.15;letter-spacing:-.01em}
+.side-head p{font-family:var(--display);font-size:12.5px;color:var(--ink-muted)}
+.cover{height:150px;background:var(--proof-surround);position:relative;display:flex;align-items:flex-end;justify-content:space-between;padding:var(--s3)}
+.cover::before{content:"";position:absolute;inset:0;background:linear-gradient(180deg,transparent 45%,var(--shade))}
+.cover span{position:relative;font-size:9.5px;font-weight:700;letter-spacing:.13em;text-transform:uppercase;color:var(--surface)}
+.cover button{position:relative;background:var(--surface);color:var(--ink);font-size:12px;font-weight:600;padding:5px 12px;border-radius:var(--r-pill)}
+.media{padding:var(--s4) var(--s3) var(--s3)}
+.media-head{display:flex;justify-content:space-between;align-items:baseline;padding:0 var(--s2) var(--s2)}
+.media-head b{font-size:9.5px;font-weight:700;letter-spacing:.13em;text-transform:uppercase;color:var(--ink-body)}
+.media-head span{font-size:11px;color:var(--ink-muted);font-variant-numeric:tabular-nums}
+.sets{display:grid;gap:2px;padding-left:var(--s3);border-left:1px solid var(--line);margin-left:var(--s2)}
+.set{display:flex;align-items:center;gap:var(--s2);padding:6px var(--s2) 6px var(--s3);border-radius:var(--r-sm);border:1px solid transparent}
+.set:hover{background:var(--surface-sunk)}
+.set[aria-current="true"]{background:var(--surface);border-color:var(--line)}
+.set .pick{flex:1;min-width:0;display:flex;align-items:baseline;gap:var(--s2)}
+.set .nm{font-size:13px;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.set[aria-current="true"] .nm{font-weight:600}
+.set .ct{margin-left:auto;font-size:11px;color:var(--ink-muted);white-space:nowrap;font-variant-numeric:tabular-nums}
+.set[data-hidden="true"] .nm{color:var(--ink-muted);text-decoration:line-through;text-decoration-color:var(--line-strong)}
+.eye{width:24px;height:24px;border-radius:var(--r-sm);display:grid;place-items:center;color:var(--ink-icon);flex:none}
+.eye:hover{background:var(--surface-sunk);color:var(--ink-body)}
+.eye[aria-pressed="false"]{color:var(--stop-fg)}
+.newset{margin:var(--s3) 0 0 var(--s5);border:1px dashed var(--line-strong);border-radius:var(--r-sm);padding:6px var(--s3);font-size:12.5px;color:var(--ink-body);display:inline-flex;align-items:center;gap:var(--s2)}
+.vis{font-size:11px;color:var(--ink-muted);margin:var(--s2) 0 0 var(--s5)}
+.vis b{color:var(--ink-body);font-weight:600}
+.snav{padding:var(--s3) var(--s3);display:grid;gap:2px}
+.snav span{display:flex;align-items:center;gap:var(--s3);padding:7px var(--s3);font-size:13px;color:var(--ink-body);border-radius:var(--r-sm)}
+.snav span em{margin-left:auto;font-style:normal;font-size:11px;color:var(--ink-muted)}
+.side-foot{margin-top:auto;border-top:1px solid var(--line)}
+.meterblock{padding:var(--s3) var(--s4);display:grid;gap:7px}
+.meterblock + .meterblock{border-top:1px solid var(--line)}
+.mrow{display:flex;justify-content:space-between;align-items:baseline;gap:var(--s2)}
+.mrow b{font-size:9.5px;font-weight:700;letter-spacing:.13em;text-transform:uppercase;color:var(--ink-body)}
+.mrow span{font-size:11.5px;color:var(--ink);font-weight:600;font-variant-numeric:tabular-nums}
+.mnote{font-size:10.5px;color:var(--ink-muted)}
+.acct{display:flex;align-items:center;gap:var(--s3);padding:var(--s3) var(--s4);border-top:1px solid var(--line)}
+.acct .av{width:30px;height:30px;border-radius:var(--r-sm);background:var(--ink);color:var(--canvas);display:grid;place-items:center;font-family:var(--display);font-size:14px;flex:none}
+.acct b{display:block;font-size:12.5px;color:var(--ink);font-weight:600}
+.acct small{font-size:10.5px;color:var(--ink-muted)}
+
+.mainc{flex:1;min-width:0;display:flex;flex-direction:column}
+.topbar{display:flex;align-items:center;gap:var(--s3);padding:var(--s3) var(--s6);border-bottom:1px solid var(--line);background:var(--canvas);flex-wrap:wrap}
+.pub{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:var(--ink);border:1px solid var(--line);border-radius:var(--r-pill);padding:5px 12px;background:var(--surface)}
+.pub i{width:6px;height:6px;border-radius:50%;background:var(--ok-fg)}
+.saved{font-size:12px;color:var(--ink-muted)}
+.tacts{margin-left:auto;display:flex;gap:var(--s2);flex-wrap:wrap}
+.body{padding:var(--s6) var(--s8) var(--s10);display:grid;gap:var(--s8)}
+@media (max-width:760px){.body{padding:var(--s5) var(--s4) var(--s8)}.topbar{padding:var(--s3) var(--s4)}}
+.sethead{display:flex;align-items:baseline;gap:var(--s3);flex-wrap:wrap}
+.sethead h4{font-family:var(--display);font-weight:400;font-size:26px;color:var(--ink);letter-spacing:-.015em}
+.sethead span{font-size:12.5px;color:var(--ink-muted);font-variant-numeric:tabular-nums}
+.sethead .hiddenpill{font-size:11px;font-weight:600;color:var(--stop-fg);background:var(--stop-bg);padding:2px 9px;border-radius:var(--r-pill)}
+.sethead .btn{margin-left:auto}
+.people{display:flex;align-items:center;gap:var(--s5);flex-wrap:wrap}
+.vlabel{writing-mode:vertical-rl;transform:rotate(180deg);font-size:9.5px;font-weight:700;letter-spacing:.13em;text-transform:uppercase;color:var(--ink-muted)}
+.circ{display:grid;justify-items:center;gap:6px;font-size:12px;color:var(--ink-body)}
+.circ span{width:56px;height:56px;border-radius:50%;border:1px dashed var(--line-strong);display:grid;place-items:center;color:var(--ink-body);background:var(--surface)}
+.idx{background:var(--ink);color:var(--canvas);border-radius:var(--r-pill);padding:14px var(--s5);font-weight:600;font-size:14px;display:inline-flex;gap:var(--s2);align-items:center}
+.blk{display:grid;gap:var(--s3)}
+.blk-head{display:flex;align-items:baseline;gap:var(--s3);border-top:1px solid var(--line);padding-top:var(--s4)}
+.blk-head b{font-size:10px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-body)}
+.blk-head span{font-size:11.5px;color:var(--ink-muted);font-variant-numeric:tabular-nums}
+.notice{display:flex;align-items:center;gap:var(--s3);flex-wrap:wrap;font-size:12.5px;color:var(--ink-body);background:var(--surface);border:1px solid var(--line);border-radius:var(--r-md);padding:9px var(--s4)}
+.notice .ic{color:var(--idle-fg);display:grid;place-items:center}
+.notice b{color:var(--ink);font-weight:600}
+.notice .acts{margin-left:auto;display:flex;gap:var(--s4)}
+.vtiles{display:flex;gap:var(--s4);flex-wrap:wrap;align-items:flex-start}
+.vtile{display:grid;gap:6px;max-width:100%}
+.vthumb{height:168px;max-width:100%;border-radius:var(--r-md);background:var(--proof-surround);border:1px solid var(--proof-edge);position:relative;overflow:hidden;transition:transform .15s,box-shadow .15s}
+.vtile:hover .vthumb{box-shadow:var(--pop-shadow)}
+.vtile[aria-expanded="true"] .vthumb{outline:2px solid var(--accent);outline-offset:2px}
+.vthumb::before{content:"";position:absolute;inset:0;background:linear-gradient(180deg,transparent 50%,var(--shade))}
+.vthumb .dur{position:absolute;left:8px;bottom:7px;font-size:11px;font-weight:700;color:var(--surface);font-variant-numeric:tabular-nums;display:flex;align-items:center;gap:5px}
+.vthumb .chip{position:absolute;right:7px;top:7px}
+.vthumb .chip .status{background:var(--surface)}
+.vcap{font-size:12.5px;color:var(--ink);font-weight:500;max-width:300px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ptiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(112px,1fr));gap:var(--s2)}
+.ptile{aspect-ratio:4/5;border-radius:var(--r-sm);background:var(--proof-surround);border:1px solid var(--proof-edge)}
+.ptile.more{display:grid;place-items:center;font-size:13px;font-weight:600;color:var(--ink-body);background:var(--surface-sunk);border-style:dashed}
+.empty{font-size:12.5px;color:var(--ink-muted)}
+
+/* drawer */
+.scrim{position:absolute;inset:0;background:var(--shade);opacity:0;pointer-events:none;transition:opacity .2s;z-index:5}
+.scrim[data-on="true"]{opacity:1;pointer-events:auto}
+.drawer{position:absolute;top:0;right:0;bottom:0;width:min(400px,100%);background:var(--surface);border-left:1px solid var(--line);box-shadow:var(--pop-shadow);
+  transform:translateX(102%);transition:transform .22s ease;z-index:6;display:flex;flex-direction:column;overflow-y:auto}
+.drawer[data-on="true"]{transform:none}
+.dr-head{display:flex;align-items:center;gap:var(--s3);padding:var(--s4) var(--s5);border-bottom:1px solid var(--line)}
+.dr-head b{font-size:9.5px;font-weight:700;letter-spacing:.13em;text-transform:uppercase;color:var(--ink-body)}
+.dr-head button{margin-left:auto;width:30px;height:30px;border-radius:50%;display:grid;place-items:center;color:var(--ink-body)}
+.dr-head button:hover{background:var(--surface-sunk)}
+.dr-body{padding:var(--s5);display:grid;gap:var(--s5)}
+.dr-thumb{height:150px;border-radius:var(--r-md);background:var(--proof-surround);border:1px solid var(--proof-edge);margin:0 auto;max-width:100%}
+.dr-title{font-family:var(--display);font-size:21px;color:var(--ink);letter-spacing:-.01em;line-height:1.2}
+.dr-meta{font-size:12.5px;color:var(--ink-muted);font-variant-numeric:tabular-nums;margin-top:3px;display:flex;gap:var(--s3);align-items:center;flex-wrap:wrap}
+.dr-lead{font-size:13px;color:var(--ink-body);line-height:1.55}
+.dr-lead b{color:var(--ink);font-weight:600}
+.pvc{display:grid;gap:6px}
+.pvc label{font-size:11px;color:var(--ink-body);font-weight:600;letter-spacing:.06em;text-transform:uppercase}
+.pvc-row{display:flex;align-items:center;gap:var(--s3)}
+.pvc input[type=range]{flex:1;min-width:0;accent-color:var(--accent)}
+.pvc output{font-size:12px;color:var(--ink);font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap}
+.pvc small{font-size:11px;color:var(--ink-muted)}
+.dr-cost{border:1px solid var(--line);border-radius:var(--r-md);overflow:hidden}
+.dr-cost div{display:flex;justify-content:space-between;gap:var(--s3);padding:8px var(--s4);font-size:12.5px;border-bottom:1px solid var(--line);font-variant-numeric:tabular-nums}
+.dr-cost div:last-child{border-bottom:none}
+.dr-cost div span{color:var(--ink-muted)}
+.dr-cost div b{color:var(--ink);font-weight:600}
+.dr-cost div[data-tone="short"] b{color:var(--stop-fg)}
+.dr-acts{display:grid;gap:var(--s2)}
+.dr-confirm{background:var(--surface-sunk);border-radius:var(--r-md);padding:var(--s4);display:grid;gap:var(--s3)}
+
+.toast{position:fixed;left:50%;bottom:calc(var(--s6) + env(safe-area-inset-bottom,0px));transform:translate(-50%,20px);background:var(--ink);color:var(--canvas);font-size:13px;font-weight:600;padding:10px var(--s5);border-radius:var(--r-pill);opacity:0;pointer-events:none;transition:.25s;z-index:400;box-shadow:var(--pop-shadow);max-width:calc(100% - 32px)}
+.toast[data-on="true"]{opacity:1;transform:translate(-50%,0)}
+
+@media (max-width:860px){
+  .app{flex-direction:column}
+  .side{width:100%;flex:none;border-right:none;border-bottom:1px solid var(--line)}
+  .cover{height:110px}
+  .drawer{position:fixed;z-index:350}
+  .scrim{position:fixed;z-index:340}
+}
+
+/* Text over footage: canvas in light, ink in dark, so it stays light on the shade in both. */
+.vthumb .dur,.cover span,.ccover h4,.ccover p,.pbar span{color:var(--canvas)!important}
+.pbar .track i{background:var(--canvas)!important}
+:root[data-theme="dark"] :is(.vthumb .dur,.cover span,.ccover h4,.ccover p,.pbar span){color:var(--ink)!important}
+:root[data-theme="dark"] .pbar .track i{background:var(--ink)!important}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]) :is(.vthumb .dur,.cover span,.ccover h4,.ccover p,.pbar span){color:var(--ink)!important}
+  :root:not([data-theme="light"]) .pbar .track i{background:var(--ink)!important}
+}
+
+/* 6. CLIENT PHONE */
+.clientgrid{display:flex;gap:var(--s10);align-items:flex-start;flex-wrap:wrap}
+.phone{width:380px;max-width:100%;flex:none;border:1px solid var(--line-strong);border-radius:32px;padding:10px;background:var(--surface-sunk);box-shadow:var(--pop-shadow)}
+.screen{border-radius:24px;overflow:hidden;background:var(--canvas);height:740px;overflow-y:auto}
+.ccover{height:170px;background:var(--proof-surround);position:relative;display:flex;align-items:flex-end;padding:var(--s5)}
+.ccover::before{content:"";position:absolute;inset:0;background:linear-gradient(180deg,transparent 30%,var(--shade))}
+.ccover div{position:relative}
+.ccover h4{font-family:var(--display);font-weight:400;font-size:30px;color:var(--surface);letter-spacing:-.02em;line-height:1.05}
+.ccover p{font-size:10.5px;color:var(--surface);opacity:.88;letter-spacing:.11em;text-transform:uppercase;font-weight:600;margin-top:4px}
+.csets{display:flex;gap:var(--s2);padding:var(--s4);overflow-x:auto;background:var(--surface);border-bottom:1px solid var(--line)}
+.csets button{flex:none;font-size:12.5px;padding:6px 14px;border-radius:var(--r-pill);border:1px solid var(--line);color:var(--ink-body)}
+.csets button[aria-pressed="true"]{background:var(--ink);color:var(--canvas);border-color:var(--ink);font-weight:600}
+.cset{padding:var(--s5) var(--s4) var(--s8);display:grid;gap:var(--s6)}
+.cfilm{display:grid;gap:var(--s3)}
+.cf-title{font-size:14px;color:var(--ink);font-weight:600}
+.cf-meta{font-size:12px;color:var(--ink-muted);font-variant-numeric:tabular-nums}
+.player{position:relative;max-width:100%;border-radius:var(--r-md);overflow:hidden;background:var(--proof-surround);border:1px solid var(--proof-edge);margin:0 auto;width:100%}
+.player.v{width:62%}
+.player::before{content:"";position:absolute;inset:0;background:linear-gradient(170deg,transparent 35%,var(--shade))}
+.pbtn{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:52px;height:52px;border-radius:50%;background:var(--surface);color:var(--ink);display:grid;place-items:center;box-shadow:var(--pop-shadow)}
+.ptag{position:absolute;left:10px;top:10px;font-size:10.5px;font-weight:700;background:var(--surface);color:var(--ink);padding:3px 8px;border-radius:var(--r-pill);font-variant-numeric:tabular-nums}
+.pbar{position:absolute;left:10px;right:10px;bottom:10px;display:flex;align-items:center;gap:var(--s2)}
+.pbar .track{flex:1;height:3px;border-radius:2px;background:var(--line-strong);overflow:hidden}
+.pbar .track i{display:block;height:100%;background:var(--surface)}
+.pbar span{font-size:10.5px;font-weight:600;color:var(--surface);font-variant-numeric:tabular-nums;white-space:nowrap}
+.pend{position:absolute;inset:0;background:var(--shade);display:grid;place-items:center;text-align:center;padding:var(--s4)}
+.pend div{background:var(--surface);border-radius:var(--r-md);padding:var(--s3) var(--s4);font-size:12.5px;color:var(--ink-body);max-width:260px}
+.pend b{color:var(--ink);display:block;font-size:13px}
+.dlbox{border:1px solid var(--line);border-radius:var(--r-md);background:var(--surface);padding:var(--s4);display:grid;gap:var(--s3)}
+.dl-top{display:flex;justify-content:space-between;align-items:baseline;gap:var(--s3)}
+.dl-top b{font-size:13px;color:var(--ink);font-weight:600}
+.dl-top span{font-size:12px;color:var(--ink-muted);font-variant-numeric:tabular-nums}
+.dl-hint{font-size:11.5px;color:var(--ink-muted);line-height:1.5}
+.dl-prog{display:grid;gap:6px}
+.dl-prog .row{display:flex;justify-content:space-between;gap:var(--s3);font-size:12px;color:var(--ink-body);font-variant-numeric:tabular-nums}
+.dl-msg{font-size:12px;border-radius:var(--r-sm);padding:8px var(--s3);line-height:1.45}
+.dl-msg[data-tone="warn"]{background:var(--warn-bg);color:var(--warn-fg)}
+.dl-msg[data-tone="ok"]{background:var(--ok-bg);color:var(--ok-fg)}
+.cphotos{display:grid;grid-template-columns:repeat(3,1fr);gap:4px}
+.cphotos i{aspect-ratio:1;background:var(--proof-surround);border-radius:3px}
+.cnotes{flex:1;min-width:260px;max-width:540px}
+</style>
+
+<header class="dochead">
+  <div class="doclogo"><b>Quiet</b> — Video delivery</div>
+  <span class="docver">Rev 2 · on the live screen</span>
+  <nav class="docnav">
+    <a href="#studio">Studio</a>
+    <a href="#client">Client</a>
+    <a href="#fixes">Corrections</a>
+    <a href="#rules">Rules</a>
+  </nav>
+  <div class="themeswitch" role="group" aria-label="Theme">
+    <button data-theme-set="light" aria-pressed="false">Light</button>
+    <button data-theme-set="auto" aria-pressed="true">Auto</button>
+    <button data-theme-set="dark" aria-pressed="false">Dark</button>
+  </div>
+</header>
+
+<main class="wrap">
+<!-- ============ STUDIO ============ -->
+<section class="section" id="studio">
+  <div class="sec-kicker">Studio · deliveries/manage</div>
+  <h2>Videos stay in their sets. The tile carries the state.</h2>
+  <p class="lede">Same screen as today: sets in the sidebar, VIDEOS above PHOTOS in each set. A film that streams looks like any other tile. A film that didn't stream gets a chip, and its set gets one line above the videos. <b>Click any video tile</b> to open its options. The client phone below follows everything you change here.</p>
+
+  <div class="frame">
+    <div class="frame-cap"><span class="dots"><i></i><i></i><i></i></span><b>pixnxt.in/deliveries/manage?id=…</b></div>
+    <div class="app" data-app>
+      <aside class="side" aria-label="Delivery">
+        <div class="side-head">
+          <button class="back" aria-label="Back to deliveries"><svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9.5 4 5.5 8l4 4"/></svg></button>
+          <div><h3>Aditi &amp; Rajat</h3><p>14 November 2026</p></div>
+        </div>
+        <div class="cover"><span>Delivery cover</span><button type="button">Edit</button></div>
+        <div class="media">
+          <div class="media-head"><b>Media</b><span data-media-total></span></div>
+          <div class="sets" data-sets></div>
+          <button class="newset" type="button"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M8 3v10M3 8h10"/></svg>New set</button>
+          <div class="vis" data-vis></div>
+        </div>
+        <nav class="snav" aria-label="Delivery tools">
+          <span><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M3 13l1-4 7-7 3 3-7 7z"/></svg>Design</span>
+          <span><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="8" cy="8" r="5.5"/><path d="M8 5v3l2 1.5"/></svg>Activity<em>6</em></span>
+          <span><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="8" cy="8" r="2.2"/><path d="M8 1.8v1.6M8 12.6v1.6M14.2 8h-1.6M3.4 8H1.8"/></svg>Settings</span>
+        </nav>
+        <div class="side-foot">
+          <div class="meterblock">
+            <div class="mrow"><b>Storage</b><span>14 / 100 GB</span></div>
+            <div class="meter"><i style="width:14%"></i></div>
+          </div>
+          <div class="meterblock" aria-live="polite">
+            <div class="mrow"><b>Stream minutes</b><span data-pool-val></span></div>
+            <div class="meter" data-pool-meter><i style="width:0"></i></div>
+            <div class="mnote" data-pool-note></div>
+          </div>
+          <div class="acct"><span class="av">K</span><span><b>karakovanphotography</b><small>Studio owner</small></span></div>
+        </div>
+      </aside>
+
+      <div class="mainc">
+        <div class="topbar">
+          <span class="pub"><i></i>Published</span>
+          <span class="saved">All changes saved · 20:33</span>
+          <div class="tacts">
+            <button class="btn btn-ghost btn-sm" type="button">Find People</button>
+            <button class="btn btn-ghost btn-sm" type="button">More</button>
+            <button class="btn btn-ghost btn-sm" type="button">Preview</button>
+            <button class="btn btn-ghost btn-sm" type="button">Share</button>
+          </div>
+        </div>
+        <div class="body" data-body></div>
+      </div>
+
+      <div class="scrim" data-scrim></div>
+      <aside class="drawer" data-drawer aria-label="Film options" aria-hidden="true"></aside>
+    </div>
+    <div class="rig" role="group" aria-label="Scenario">
+      <b>Scenario</b>
+      <button type="button" data-rig="short" aria-pressed="false">Short films only</button>
+      <button type="button" data-rig="trad" aria-pressed="true">Wedding with traditional</button>
+      <button type="button" data-rig="full" aria-pressed="false">Minutes nearly used</button>
+      <span class="note" data-rig-note></span>
+    </div>
+  </div>
+
+  <div class="devnote"><b>Pick "Short films only" first.</b> Every tile shows a duration and nothing else. There's no chip, no notice line and no new control. A studio that never uploads long video never meets the choice.</div>
+  <div class="devnote"><b>The notice line is per set and dismissible.</b> "Hide" removes the line; the chips on the tiles stay. A studio that has decided download is fine isn't nagged.</div>
+  <div class="devnote"><b>The drawer replaces rev 1's inline card</b>, because a card can't expand inside a tile grid without breaking the row. It opens over the set from the right, and works for any video tile, streaming or not.</div>
+</section>
+
+<!-- ============ CLIENT ============ -->
+<section class="section" id="client">
+  <div class="sec-kicker">Client · gallery on a phone</div>
+  <h2>Same sets, videos first, a download that survives bad networks</h2>
+  <p class="lede">Hidden sets don't appear. Streamed films play. Other films play a 90-second preview, then hand over to a download that shows its size and <b>picks up where it stopped</b>. The client never sees the words "streaming disabled".</p>
+  <div class="clientgrid">
+    <div>
+      <div class="phone"><div class="screen">
+        <div class="ccover"><div><h4>Aditi &amp; Rajat</h4><p>Karakovan Photography · Nov 2026</p></div></div>
+        <div class="csets" data-csets role="group" aria-label="Sets"></div>
+        <div class="cset" data-cset></div>
+      </div></div>
+      <div class="rig" style="border:1px solid var(--line);border-radius:var(--r-md);margin-top:var(--s4)" role="group" aria-label="Network">
+        <b>Network</b>
+        <button type="button" data-net="drop" aria-pressed="false">Drop connection</button>
+        <button type="button" data-net="back" aria-pressed="true">Back online</button>
+      </div>
+    </div>
+    <div class="cnotes">
+      <div class="devnote"><b>Try it.</b> Open the Muhurtham set, play the preview (runs 15× fast, stops at 1:30), then start the download and press "Drop connection" partway through.</div>
+      <div class="devnote stop"><b>Resume is the whole feature.</b> A 4 GB download restarting from zero at 80% on 4G is the moment the client goes back to the Drive link. R2 serves range requests. The downloader must use them, and needs testing on Android Chrome over a weak connection before beta.</div>
+      <div class="devnote"><b>Hide a set in the studio sidebar</b> (the eye icon) and it leaves the phone immediately. That's correction 2 below working end to end.</div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ FIXES ============ -->
+<section class="section" id="fixes">
+  <div class="sec-kicker">Corrections to the current screen</div>
+  <h2>Four things the live screen gets wrong</h2>
+  <div class="dt-wrap">
+  <table class="dt">
+    <thead><tr><th>#</th><th>Today</th><th>Problem</th><th>In this prototype</th></tr></thead>
+    <tbody>
+      <tr><td><b>1</b></td><td>Vertical video centred in a square white card. No duration, no status</td><td>Most of the tile is empty, and a 2-hour traditional video looks the same as a 30-second reel</td><td>Tile takes the video's own shape at a fixed height. Duration always shows. A chip appears only when the film doesn't stream</td></tr>
+      <tr><td><b>2</b></td><td>"1 of 1 sets visible to your client" with two sets listed</td><td>The line contradicts the list beside it. Either a counting bug or wrong copy</td><td>Counted from the sets. Each set has an eye toggle; hidden sets are struck through and labelled in the set view</td></tr>
+      <tr><td><b>3</b></td><td>Header says "22 photos · 1 film"; sets say 21 and 2</td><td>Set counts mix photos and films, so a long video disappears into a photo number</td><td>Sets read <code>120 · 1 film</code>. Header reads the same way, totalled</td></tr>
+      <tr><td><b>4</b></td><td>"Upload sel…" under PEOPLE</td><td>Truncated label on the one control that needs explaining</td><td>"Selfie" in full. Short enough to fit; the vertical PEOPLE label gives the context</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <div class="devnote"><b>Also renamed: "New photo set" to "New set".</b> Sets hold films too, so the old label misdescribes them. Add a set heading in the main area as well. Today nothing in the main area names the set you're looking at.</div>
+</section>
+
+<!-- ============ RULES ============ -->
+<section class="section" id="rules">
+  <div class="sec-kicker">For the dev team</div>
+  <h2>Rules</h2>
+  <div class="dt-wrap">
+  <table class="dt">
+    <thead><tr><th>Film</th><th>Auto result</th><th>Tile</th><th>Set notice</th><th>Client</th></tr></thead>
+    <tbody>
+      <tr><td><b>Up to 45 min, fits minutes</b></td><td>Stream</td><td>Duration only</td><td>None</td><td>Player</td></tr>
+      <tr><td><b>Up to 45 min, minutes used</b></td><td>Download + preview</td><td>Duration + chip</td><td>Yes</td><td>Preview + download</td></tr>
+      <tr><td><b>Over 45 min</b></td><td>Download + preview</td><td>Duration + chip</td><td>Yes</td><td>Preview + download</td></tr>
+      <tr><td><b>Switched to stream</b></td><td>Preparing, then stream</td><td>"Preparing" chip</td><td>Counts until ready</td><td>Download until ready, then player</td></tr>
+      <tr><td><b>Switched back</b></td><td>Download + preview</td><td>Duration + chip</td><td>Yes</td><td>Preview + download</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <ul class="rules">
+    <li><b>R2 master always.</b> Stream is a derived copy made from R2. Switching never needs a re-upload.</li>
+    <li><b>Stream minutes are one pool per studio</b>, shown under Storage, counted as stored minutes of streamed films, rounded up per film. They replace the 30-minute rule and the 2-hour cap.</li>
+    <li><b>Threshold is 45 minutes</b>, a server constant. Check it against real cinematic cuts before fixing it.</li>
+    <li><b>Auto-assignment runs in upload order across sets.</b> A film already streaming never drops to download because the pool ran out.</li>
+    <li><b>Preview is 90 seconds</b>, starting near 10% of runtime, rounded to 30 s, made with ffmpeg at upload. The studio can move it in the drawer.</li>
+    <li><b>Upload asks nothing.</b> When a batch contains a video, one hint line shows in the upload panel: long films go out as download with a preview, and any film can be switched later.</li>
+    <li><b>Hidden sets</b> are excluded from the client gallery, and their films still count against stream minutes if they stream. The drawer says so.</li>
+    <li><b>No video goes through Guest Delivery.</b> Photos only.</li>
+    <li><b>Tokens.</b> Quiet v1.4 values unmodified.</li>
+  </ul>
+</section>
+</main>
+
+<div class="toast" data-toast role="status" aria-live="polite"></div>
+
+<script>
+(function(){
+'use strict';
+var root=document.documentElement;
+document.querySelectorAll('[data-theme-set]').forEach(function(b){
+  b.addEventListener('click',function(){
+    var t=b.dataset.themeSet;
+    if(t==='auto') root.removeAttribute('data-theme'); else root.setAttribute('data-theme',t);
+    document.querySelectorAll('[data-theme-set]').forEach(function(o){o.setAttribute('aria-pressed',String(o===b));});
+  });
+});
+
+var THRESH=45*60, PREVIEW=90, PACK=120, MB_PER_MIN=37.5, TILE_H=168;
+function pad(n){return String(n).padStart(2,'0');}
+function fmt(s){s=Math.max(0,Math.round(s));var h=Math.floor(s/3600),m=Math.floor(s%3600/60),x=s%60;return h?h+':'+pad(m)+':'+pad(x):m+':'+pad(x);}
+function human(s){var h=Math.floor(s/3600),m=Math.round(s%3600/60);return h?h+'h '+pad(m)+'m':m+' min';}
+function mins(s){return Math.ceil(s/60);}
+function gb(s){return s/60*MB_PER_MIN/1000;}
+function defStart(d){return Math.round(d*0.1/30)*30;}
+function plural(n,w){return n+' '+w+(n===1?'':'s');}
+
+var FILMS={
+  teaser:{title:'Teaser',dur:228,ar:9/16},
+  high:{title:'Highlight film',dur:750,ar:16/9},
+  cine:{title:'Cinematic film',dur:2320,ar:16/9},
+  muhur:{title:'Traditional · Muhurtham',dur:6730,ar:16/9},
+  recep:{title:'Traditional · Reception',dur:5045,ar:16/9}
+};
+var RIG={
+  short:{other:30,sets:[{id:'hl',name:'Highlights',photos:120,films:['teaser','high']},{id:'pt',name:'Portraits',photos:48,films:[]}],
+    note:'No long films. Tiles show duration only. Nothing new to learn.'},
+  trad:{other:10,sets:[{id:'hl',name:'Highlights',photos:120,films:['teaser','high','cine']},{id:'mu',name:'Muhurtham',photos:340,films:['muhur']},
+    {id:'re',name:'Reception',photos:410,films:['recep']},{id:'pt',name:'Portraits',photos:48,films:[]}],
+    note:'Cinematic streams. Both traditional videos get a chip and a set notice.'},
+  full:{other:95,sets:[{id:'hl',name:'Highlights',photos:120,films:['teaser','high','cine']},{id:'mu',name:'Muhurtham',photos:340,films:['muhur']},
+    {id:'re',name:'Reception',photos:410,films:['recep']},{id:'pt',name:'Portraits',photos:48,films:[]}],
+    note:'Minutes run out before the cinematic film, so it falls back too.'}
+};
+
+var S, C={play:{},dl:{},online:true,set:null};
+
+function load(key){
+  var r=RIG[key];
+  S={other:r.other,total:120,sets:[],films:{},cur:r.sets.length>1?r.sets[1].id:r.sets[0].id,drawer:null,confirm:false,hideNotice:{}};
+  var u=r.other;
+  r.sets.forEach(function(st){
+    S.sets.push({id:st.id,name:st.name,photos:st.photos,films:st.films.slice(),visible:true});
+    st.films.forEach(function(id){
+      var f=Object.assign({id:id,set:st.id},FILMS[id]);
+      f.start=defStart(f.dur);
+      if(f.dur<=THRESH&&u+mins(f.dur)<=S.total){f.mode='stream';u+=mins(f.dur);f.reason='';}
+      else{f.mode='download';f.reason=f.dur>THRESH?'long':'pool';}
+      f.status='ready';f.client=f.mode;
+      S.films[id]=f;
+    });
+  });
+  if(key==='short') S.cur='hl';
+  C.play={};C.dl={};C.set=null;
+  document.querySelector('[data-rig-note]').textContent=r.note;
+  closeDrawer(true);
+  render();
+}
+function used(){var u=S.other;Object.keys(S.films).forEach(function(k){var f=S.films[k];if(f.mode==='stream')u+=mins(f.dur);});return u;}
+function left(){return S.total-used();}
+function setOf(id){return S.sets.filter(function(s){return s.id===id;})[0];}
+function countLabel(st){return st.photos+(st.films.length?' · '+plural(st.films.length,'film'):'');}
+
+var EYE='<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M1.5 8S4 3.5 8 3.5 14.5 8 14.5 8 12 12.5 8 12.5 1.5 8 1.5 8z"/><circle cx="8" cy="8" r="2"/></svg>';
+var EYE_OFF='<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 2l12 12M6.6 3.7A6 6 0 0 1 8 3.5C12 3.5 14.5 8 14.5 8a12 12 0 0 1-1.8 2.4M4.3 5.2A11 11 0 0 0 1.5 8S4 12.5 8 12.5c1 0 1.9-.3 2.7-.7"/></svg>';
+var CLIP='<svg width="11" height="11" viewBox="0 0 16 16" fill="currentColor"><path d="M5 3.2v9.6a.6.6 0 0 0 .9.5l7.4-4.8a.6.6 0 0 0 0-1L5.9 2.7a.6.6 0 0 0-.9.5z"/></svg>';
+
+function chip(f){
+  if(f.status==='preparing') return '<span class="status s-warn"><span class="dot"></span>Preparing</span>';
+  if(f.mode==='download') return '<span class="status s-idle"><span class="dot"></span>Download + preview</span>';
+  return '';
+}
+
+function renderSide(){
+  var ph=0,fl=0;S.sets.forEach(function(s){ph+=s.photos;fl+=s.films.length;});
+  document.querySelector('[data-media-total]').textContent=ph+' photos'+(fl?' · '+plural(fl,'film'):'');
+  document.querySelector('[data-sets]').innerHTML=S.sets.map(function(s){
+    return '<div class="set" data-set="'+s.id+'" aria-current="'+(s.id===S.cur)+'" data-hidden="'+(!s.visible)+'">'+
+      '<button class="pick" data-act="pickset"><span class="nm">'+s.name+'</span><span class="ct">'+countLabel(s)+'</span></button>'+
+      '<button class="eye" data-act="eye" aria-pressed="'+s.visible+'" aria-label="'+(s.visible?'Hide ':'Show ')+s.name+' from your client">'+(s.visible?EYE:EYE_OFF)+'</button></div>';
+  }).join('');
+  var vis=S.sets.filter(function(s){return s.visible;}).length;
+  document.querySelector('[data-vis]').innerHTML='<b>'+vis+' of '+S.sets.length+'</b> sets visible to your client';
+  var u=used(),pct=Math.min(100,u/S.total*100);
+  document.querySelector('[data-pool-val]').textContent=u+' / '+S.total+' min';
+  var m=document.querySelector('[data-pool-meter]');m.firstElementChild.style.width=pct+'%';m.dataset.tone=pct>85?'tight':'';
+  document.querySelector('[data-pool-note]').textContent=Math.max(0,S.total-u)+' min left · all deliveries';
+}
+
+function renderBody(){
+  var st=setOf(S.cur);
+  var films=st.films.map(function(id){return S.films[id];});
+  var dl=films.filter(function(f){return f.mode==='download'||f.status==='preparing';});
+  var h='<div class="sethead"><h4>'+st.name+'</h4><span>'+countLabel(st)+'</span>'+(st.visible?'':'<span class="hiddenpill">Hidden from client</span>')+
+    '<button class="btn btn-ghost btn-sm" type="button">Add media</button></div>';
+  h+='<div class="people"><span class="vlabel">People</span>'+
+    '<div class="circ"><span><svg width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3"><rect x="2" y="4.5" width="12" height="8.5" rx="1.5"/><circle cx="8" cy="8.7" r="2.2"/><path d="M6 4.5l1-1.5h2l1 1.5"/></svg></span>Selfie</div>'+
+    '<div class="circ"><span><svg width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3"><path d="M13 8a5 5 0 1 1-1.5-3.5M13 2.5v3h-3"/></svg></span>Refresh</div>'+
+    '<button class="idx" type="button"><svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M13 8a5 5 0 1 1-1.5-3.5M13 2.5v3h-3"/></svg>Index faces</button></div>';
+  h+='<div class="blk"><div class="blk-head"><b>Videos</b><span>'+(films.length?plural(films.length,'film'):'')+'</span></div>';
+  if(dl.length&&!S.hideNotice[st.id]){
+    var dlOnly=dl.filter(function(f){return f.status!=='preparing';});
+    var txt=dlOnly.length
+      ? '<b>'+(dlOnly.length===1?'1 film':dlOnly.length+' films')+'</b> shared as download with a preview. Clients can still watch the preview.'
+      : 'Preparing the stream. <b>Your client keeps the download until it\'s ready.</b>';
+    h+='<div class="notice"><span class="ic"><svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="6"/><path d="M8 7v4M8 5h.01"/></svg></span><span>'+txt+'</span>'+
+      '<span class="acts">'+(dlOnly.length?'<button class="link" data-act="review" data-film="'+dlOnly[0].id+'">Review</button>':'')+'<button class="link quiet" data-act="hidenotice">Hide</button></span></div>';
+  }
+  if(films.length){
+    h+='<div class="vtiles">'+films.map(function(f){
+      var w=Math.round(TILE_H*f.ar);
+      return '<button class="vtile" data-act="open" data-film="'+f.id+'" aria-expanded="'+(S.drawer===f.id)+'" aria-label="'+f.title+', '+human(f.dur)+'. Options">'+
+        '<span class="vthumb" style="display:block;width:'+w+'px"><span class="dur">'+CLIP+fmt(f.dur)+'</span><span class="chip">'+chip(f)+'</span></span>'+
+        '<span class="vcap" style="max-width:'+Math.max(w,140)+'px">'+f.title+'</span></button>';
+    }).join('')+'</div>';
+  } else h+='<p class="empty">No videos in this set.</p>';
+  h+='</div>';
+  var n=Math.min(st.photos,11);
+  h+='<div class="blk"><div class="blk-head"><b>Photos</b><span>'+st.photos+'</span></div><div class="ptiles">';
+  for(var i=0;i<n;i++) h+='<span class="ptile"></span>';
+  if(st.photos>n) h+='<span class="ptile more">+'+(st.photos-n)+'</span>';
+  h+='</div></div>';
+  document.querySelector('[data-body]').innerHTML=h;
+}
+
+function renderDrawer(){
+  var d=document.querySelector('[data-drawer]');
+  if(!S.drawer){d.innerHTML='';return;}
+  var f=S.films[S.drawer], st=setOf(f.set), need=mins(f.dur), l=left(), fits=need<=l;
+  var w=Math.round(150*f.ar);
+  var h='<div class="dr-head"><b>Film</b><button data-act="close" aria-label="Close">'+
+    '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 4l8 8M12 4l-8 8"/></svg></button></div><div class="dr-body">'+
+    '<div class="dr-thumb" style="width:'+w+'px"></div>'+
+    '<div><div class="dr-title">'+f.title+'</div><div class="dr-meta"><span>'+human(f.dur)+' · '+gb(f.dur).toFixed(1)+' GB · '+st.name+'</span>'+
+    (f.status==='preparing'?chip(f):f.mode==='stream'?'<span class="status s-ok"><span class="dot"></span>Streams</span>':chip(f))+'</div></div>';
+  if(f.status==='preparing'){
+    h+='<p class="dr-lead">Preparing the stream. <b>Your client keeps the download until it\'s ready</b>, usually a few minutes for a long film.</p>';
+  } else if(f.mode==='stream'){
+    h+='<p class="dr-lead">Your client plays this in the gallery. It uses <b>'+need+' stream minutes</b>'+(st.visible?'':', even while this set is hidden')+'.</p>';
+    if(!S.confirm) h+='<div class="dr-acts"><button class="btn btn-ghost btn-block" data-act="ask">Switch to download with preview</button></div>';
+    else h+='<div class="dr-confirm"><p class="dr-lead">Your client will get a 90-second preview and a download instead. <b>Frees '+need+' stream minutes.</b></p>'+
+      '<div class="dr-acts"><button class="btn btn-primary btn-block" data-act="unstream">Switch to download</button><button class="btn btn-ghost btn-block" data-act="cancel">Cancel</button></div></div>';
+  } else {
+    var lead=(f.reason==='pool'&&!fits)
+      ? 'Your stream minutes are used up, so this film is shared as a <b>download with a 90-second preview</b>.'
+      : 'Shared as a <b>download with a 90-second preview</b>. Your client watches the preview and saves the full film.';
+    var max=Math.max(0,Math.floor((f.dur-PREVIEW)/30)*30);
+    h+='<p class="dr-lead">'+lead+'</p>'+
+      '<div class="pvc"><label for="pv-'+f.id+'">Preview starts at</label><div class="pvc-row">'+
+      '<input type="range" id="pv-'+f.id+'" data-pv min="0" max="'+max+'" step="30" value="'+f.start+'">'+
+      '<output data-pv-out>'+fmt(f.start)+' – '+fmt(f.start+PREVIEW)+'</output></div><small>Skip the title cards. Pick a moment that sells the full film.</small></div>'+
+      '<div class="dr-cost"><div><span>Streaming this film needs</span><b>'+need+' min</b></div>'+
+      '<div'+(fits?'':' data-tone="short"')+'><span>You have left</span><b>'+Math.max(0,l)+' min</b></div></div>'+
+      '<div class="dr-acts">'+(fits
+        ?'<button class="btn btn-primary btn-block" data-act="stream">Stream this film</button>'
+        :'<button class="btn btn-primary btn-block" data-act="add">Add '+PACK+' stream minutes</button>')+
+      '<button class="btn btn-ghost btn-block" data-act="close">Keep as download</button></div>';
+  }
+  h+='</div>';
+  d.innerHTML=h;
+}
+
+function openDrawer(id){S.drawer=id;S.confirm=false;renderBody();renderDrawer();
+  var d=document.querySelector('[data-drawer]');d.dataset.on='true';d.setAttribute('aria-hidden','false');
+  document.querySelector('[data-scrim]').dataset.on='true';
+  var c=d.querySelector('[data-act="close"]');if(c)c.focus();}
+function closeDrawer(silent){var was=S&&S.drawer;if(S){S.drawer=null;S.confirm=false;}
+  var d=document.querySelector('[data-drawer]');d.dataset.on='false';d.setAttribute('aria-hidden','true');
+  document.querySelector('[data-scrim]').dataset.on='false';
+  if(!silent){renderBody();var t=was&&document.querySelector('.vtile[data-film="'+was+'"]');if(t)t.focus();}}
+
+/* CLIENT */
+function icon(run){return run?'<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><rect x="4" y="3" width="3" height="10" rx="1"/><rect x="9" y="3" width="3" height="10" rx="1"/></svg>'
+  :'<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M5 3.2v9.6a.6.6 0 0 0 .9.5l7.4-4.8a.6.6 0 0 0 0-1L5.9 2.7a.6.6 0 0 0-.9.5z"/></svg>';}
+function renderClient(){
+  var vis=S.sets.filter(function(s){return s.visible;});
+  if(!vis.length){document.querySelector('[data-csets]').innerHTML='';document.querySelector('[data-cset]').innerHTML='<p class="empty">Nothing shared yet.</p>';return;}
+  if(!C.set||!vis.some(function(s){return s.id===C.set;})) C.set=(vis.filter(function(s){return s.films.some(function(id){return S.films[id].client==='download';});})[0]||vis[0]).id;
+  document.querySelector('[data-csets]').innerHTML=vis.map(function(s){return '<button type="button" data-cset-pick="'+s.id+'" aria-pressed="'+(s.id===C.set)+'">'+s.name+'</button>';}).join('');
+  var st=setOf(C.set), h='';
+  st.films.forEach(function(id){
+    var f=S.films[id], vcls=f.ar<1?' v':'', ar='aspect-ratio:'+(f.ar<1?'9/16':'16/9');
+    if(f.client==='stream'){
+      var p=C.play[id]||{t:0,run:false};
+      h+='<div class="cfilm" data-cid="'+id+'"><div class="player'+vcls+'" style="'+ar+'">'+
+        (p.run||p.t>0?'<div class="pbar"><div class="track"><i style="width:'+(p.t/f.dur*100)+'%"></i></div><span>'+fmt(p.t)+' / '+fmt(f.dur)+'</span></div>':'')+
+        '<button class="pbtn" data-cact="play" aria-label="'+(p.run?'Pause ':'Play ')+f.title+'">'+icon(p.run)+'</button></div>'+
+        '<div><div class="cf-title">'+f.title+'</div><div class="cf-meta">'+human(f.dur)+'</div></div></div>';
+      return;
+    }
+    var q=C.play[id]||{t:0,run:false,end:false}, d=C.dl[id]||{state:'idle',got:0}, tot=gb(f.dur);
+    h+='<div class="cfilm" data-cid="'+id+'"><div class="player'+vcls+'" style="'+ar+'"><span class="ptag">Preview · 1:30</span>'+
+      (q.run||q.t>0?'<div class="pbar"><div class="track"><i style="width:'+(q.t/PREVIEW*100)+'%"></i></div><span>'+fmt(f.start+q.t)+' / '+fmt(f.dur)+'</span></div>':'')+
+      (q.end?'<div class="pend"><div><b>That\'s the preview.</b>Download the full film below to watch all '+human(f.dur)+'.</div></div>'
+            :'<button class="pbtn" data-cact="play" aria-label="'+(q.run?'Pause':'Play')+' preview of '+f.title+'">'+icon(q.run)+'</button>')+
+      '</div><div class="cf-title">'+f.title+'</div><div class="dlbox"><div class="dl-top"><b>Full film</b><span>'+human(f.dur)+' · '+tot.toFixed(1)+' GB</span></div>';
+    if(d.state==='idle') h+='<div class="dl-hint">Large file. Use Wi-Fi if you can. If your connection drops, the download carries on from where it stopped.</div><button class="btn btn-primary btn-block" data-cact="dl">Download full film</button>';
+    else if(d.state==='done') h+='<div class="dl-msg" data-tone="ok">Saved to your phone · '+tot.toFixed(1)+' GB</div>';
+    else{
+      var pct=d.got/tot*100;
+      h+='<div class="dl-prog"><div class="row"><span>'+d.got.toFixed(1)+' of '+tot.toFixed(1)+' GB</span><span>'+Math.floor(pct)+'%</span></div><div class="meter"><i style="width:'+pct+'%"></i></div></div>';
+      if(d.state==='dropped') h+='<div class="dl-msg" data-tone="warn">Connection lost at '+d.got.toFixed(1)+' GB. It continues from here when you\'re back online.</div>';
+      else h+='<button class="btn btn-ghost btn-block" data-cact="'+(d.state==='paused'?'resume':'pause')+'">'+(d.state==='paused'?'Resume':'Pause')+'</button>';
+    }
+    h+='</div></div>';
+  });
+  h+='<div class="cphotos" aria-label="'+st.photos+' photos">';for(var i=0;i<Math.min(st.photos,12);i++)h+='<i></i>';h+='</div>';
+  document.querySelector('[data-cset]').innerHTML=h;
+}
+
+function render(){renderSide();renderBody();renderDrawer();renderClient();}
+
+var toastT;
+function toast(msg){var t=document.querySelector('[data-toast]');t.textContent=msg;t.dataset.on='true';clearTimeout(toastT);toastT=setTimeout(function(){t.dataset.on='false';},2200);}
+
+document.querySelector('[data-app]').addEventListener('click',function(e){
+  if(e.target.matches('[data-scrim]')){closeDrawer();return;}
+  var b=e.target.closest('[data-act]');if(!b)return;
+  var a=b.dataset.act;
+  if(a==='pickset'){S.cur=b.closest('[data-set]').dataset.set;closeDrawer(true);renderSide();renderBody();return;}
+  if(a==='eye'){var st=setOf(b.closest('[data-set]').dataset.set);st.visible=!st.visible;
+    toast(st.name+(st.visible?' is visible to your client':' is hidden from your client'));render();return;}
+  if(a==='open'||a==='review'){openDrawer(b.dataset.film);return;}
+  if(a==='hidenotice'){S.hideNotice[S.cur]=true;renderBody();return;}
+  if(a==='close'){closeDrawer();return;}
+  var f=S.films[S.drawer];if(!f)return;
+  if(a==='stream'){
+    if(mins(f.dur)>left())return;
+    f.mode='stream';f.status='preparing';f.reason='';toast('Preparing stream for '+f.title);
+    setTimeout(function(){if(f.mode==='stream'&&f.status==='preparing'){f.status='ready';f.client='stream';delete C.dl[f.id];delete C.play[f.id];render();toast(f.title+' now streams');}},2600);
+  }
+  else if(a==='add'){S.total+=PACK;toast('Added '+PACK+' stream minutes');}
+  else if(a==='ask'){S.confirm=true;}
+  else if(a==='cancel'){S.confirm=false;}
+  else if(a==='unstream'){f.mode='download';f.status='ready';f.client='download';f.reason=f.dur>THRESH?'long':'manual';S.confirm=false;
+    delete C.play[f.id];S.hideNotice[f.set]=false;toast(f.title+' is now a download with preview');}
+  render();
+  var first=document.querySelector('[data-drawer] .dr-acts button, [data-drawer] [data-act="close"]');if(first)first.focus();
+});
+document.querySelector('[data-drawer]').addEventListener('input',function(e){
+  if(!e.target.matches('[data-pv]'))return;
+  var f=S.films[S.drawer];f.start=+e.target.value;
+  e.target.parentNode.querySelector('[data-pv-out]').textContent=fmt(f.start)+' – '+fmt(f.start+PREVIEW);
+  renderClient();
+});
+document.addEventListener('keydown',function(e){if(e.key==='Escape'&&S&&S.drawer)closeDrawer();});
+
+document.querySelector('[data-csets]').addEventListener('click',function(e){
+  var b=e.target.closest('[data-cset-pick]');if(!b)return;C.set=b.dataset.csetPick;renderClient();
+});
+document.querySelector('[data-cset]').addEventListener('click',function(e){
+  var b=e.target.closest('[data-cact]');if(!b)return;
+  var id=b.closest('[data-cid]').dataset.cid,a=b.dataset.cact;
+  Object.keys(C.play).forEach(function(k){if(k!==id)C.play[k].run=false;});
+  if(a==='play'){var p=C.play[id]||(C.play[id]={t:0,run:false,end:false});p.run=!p.run;}
+  else if(a==='dl'){C.dl[id]={state:C.online?'running':'dropped',got:0};}
+  else if(a==='pause'){C.dl[id].state='paused';}
+  else if(a==='resume'){C.dl[id].state=C.online?'running':'dropped';}
+  renderClient();
+});
+document.querySelectorAll('[data-net]').forEach(function(b){
+  b.addEventListener('click',function(){
+    C.online=b.dataset.net==='back';
+    document.querySelectorAll('[data-net]').forEach(function(o){o.setAttribute('aria-pressed',String(o===b));});
+    Object.keys(C.dl).forEach(function(k){var d=C.dl[k];if(!C.online&&d.state==='running')d.state='dropped';else if(C.online&&d.state==='dropped')d.state='running';});
+    renderClient();
+  });
+});
+setInterval(function(){
+  var dirty=false;
+  Object.keys(S.films).forEach(function(id){
+    var f=S.films[id],p=C.play[id];
+    if(p&&p.run){if(f.client==='stream'){p.t=Math.min(f.dur,p.t+2);if(p.t>=f.dur)p.run=false;}
+      else{p.t=Math.min(PREVIEW,p.t+3);if(p.t>=PREVIEW){p.run=false;p.end=true;}}dirty=true;}
+    var d=C.dl[id];if(d&&d.state==='running'){var tot=gb(f.dur);d.got=Math.min(tot,d.got+tot/40);if(d.got>=tot)d.state='done';dirty=true;}
+  });
+  if(dirty)renderClient();
+},200);
+
+document.querySelectorAll('[data-rig]').forEach(function(b){
+  b.addEventListener('click',function(){
+    document.querySelectorAll('[data-rig]').forEach(function(o){o.setAttribute('aria-pressed',String(o===b));});
+    load(b.dataset.rig);
+  });
+});
+load('trad');
+})();
+</script>

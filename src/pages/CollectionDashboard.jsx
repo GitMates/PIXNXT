@@ -152,6 +152,10 @@ import {
     stripMediaUrlHash,
 } from '../lib/focalPoint';
 import { CollectionGridPhoto } from '../components/features/CollectionDashboard/Media/CollectionGridPhoto';
+import { VideoDeliveryChip } from '../components/features/CollectionDashboard/VideoDelivery/VideoDeliveryChip';
+import { VideoDeliveryDrawer } from '../components/features/CollectionDashboard/VideoDelivery/VideoDeliveryDrawer';
+import { VideoDeliveryNotice, downloadPreviewCount } from '../components/features/CollectionDashboard/VideoDelivery/VideoDeliveryNotice';
+import { studioVideoChip } from '../lib/videoDelivery';
 import CollectionPhotoSortableGrid from '../components/features/CollectionDashboard/Media/CollectionPhotoSortableGrid';
 import { RawPhotoPlaceholder } from '../components/features/CollectionDashboard/Media/RawPhotoPlaceholder';
 import {
@@ -206,6 +210,9 @@ const CollectionDashboard = () => {
     const collectionRef = useRef(collection);
     collectionRef.current = collection;
     const [photos, setPhotos] = useState(() => (Array.isArray(routeSeed?.photos) ? routeSeed.photos : []));
+    const [videoDrawerPhotoId, setVideoDrawerPhotoId] = useState(null);
+    const [videoNoticeHidden, setVideoNoticeHidden] = useState(false);
+    const [streamPool, setStreamPool] = useState(null);
     const [profile, setProfile] = useState(null);
     const preparingFilmIds = photos
         .filter((photo) => getPhotoStreamPhase(photo) === 'preparing')
@@ -699,6 +706,7 @@ const CollectionDashboard = () => {
     // SET STATES
     const [sets, setSets] = useState(() => (Array.isArray(routeSeed?.sets) ? routeSeed.sets : []));
     const [activeSetId, setActiveSetId] = useState(null); // null = Highlights (all photos)
+    const videoNoticeKey = collectionId ? `pixnxt-vd-notice:${collectionId}:${activeSetId || 'all'}` : null;
     const [showAddSetModal, setShowAddSetModal] = useState(false);
     const [newSetName, setNewSetName] = useState('');
     const [newSetDescription, setNewSetDescription] = useState('');
@@ -713,6 +721,31 @@ const CollectionDashboard = () => {
     const [toastMessage, setToastMessage] = useState(null);
     const [toastVariant, setToastVariant] = useState('default');
     const toastTimerRef = useRef(null);
+
+    useEffect(() => {
+        if (!user?.id) return undefined;
+        let cancelled = false;
+        photographerQuotaService.fetchSnapshot(user.id).then((snap) => {
+            if (cancelled || !snap) return;
+            setStreamPool({
+                total: snap.stream_minutes_total,
+                used: snap.stream_minutes_used,
+                remaining: Math.max(0, (snap.stream_minutes_total || 0) - (snap.stream_minutes_used || 0)),
+            });
+        }).catch(() => {});
+        return () => { cancelled = true; };
+    }, [user?.id]);
+
+    useEffect(() => {
+        if (!videoNoticeKey) return;
+        try {
+            const raw = localStorage.getItem(videoNoticeKey);
+            const parsed = raw ? JSON.parse(raw) : null;
+            setVideoNoticeHidden(Boolean(parsed?.hidden));
+        } catch {
+            setVideoNoticeHidden(false);
+        }
+    }, [videoNoticeKey]);
 
     const [draggedSetIndex, setDraggedSetIndex] = useState(null);
     const [dragOverSetIndex, setDragOverSetIndex] = useState(null);
@@ -6556,6 +6589,24 @@ const CollectionDashboard = () => {
                                     {section.title ? (
                                         <p className="cd-media-section__title">{section.title}</p>
                                     ) : null}
+                                    {section.id !== 'photos' && !videoNoticeHidden ? (
+                                        <VideoDeliveryNotice
+                                            photos={section.photos}
+                                            onReview={() => {
+                                                const first = section.photos.find((item) => studioVideoChip(item) === 'download');
+                                                if (first) setVideoDrawerPhotoId(first.id);
+                                            }}
+                                            onHide={() => {
+                                                setVideoNoticeHidden(true);
+                                                if (videoNoticeKey) {
+                                                    localStorage.setItem(
+                                                        videoNoticeKey,
+                                                        JSON.stringify({ hidden: true, count: downloadPreviewCount(section.photos) })
+                                                    );
+                                                }
+                                            }}
+                                        />
+                                    ) : null}
                                     <CollectionPhotoSortableGrid
                                         gridRef={section.id === 'videos' || section.id === 'all' ? photosGridRef : undefined}
                                         photos={section.photos}
@@ -6584,6 +6635,12 @@ const CollectionDashboard = () => {
                                                             index={index}
                                                             containInCell
                                                         />
+                                                        {isVideoMedia(photo) ? (
+                                                            <VideoDeliveryChip
+                                                                photo={photo}
+                                                                onOpen={(item) => setVideoDrawerPhotoId(item.id)}
+                                                            />
+                                                        ) : null}
                                                         {showCameraBadges && cameraLabel ? (
                                                             <span className="cd-photo-overlay-badge cd-photo-overlay-badge--camera">
                                                                 {cameraLabel}
@@ -8203,6 +8260,25 @@ const CollectionDashboard = () => {
                     </div>
                 </div>
             )}
+
+            {videoDrawerPhotoId ? (
+                <VideoDeliveryDrawer
+                    photo={photos.find((item) => item.id === videoDrawerPhotoId)}
+                    quota={{
+                        stream_minutes_total: streamPool?.total,
+                        stream_minutes_used: streamPool?.used,
+                    }}
+                    onClose={() => setVideoDrawerPhotoId(null)}
+                    onPhoto={(next) => {
+                        setPhotos((prev) => prev.map((item) => (item.id === next.id ? { ...item, ...next } : item)));
+                        if (next.delivery_mode === 'download') {
+                            setVideoNoticeHidden(false);
+                            if (videoNoticeKey) localStorage.removeItem(videoNoticeKey);
+                        }
+                    }}
+                    onPool={(pool) => setStreamPool(pool)}
+                />
+            ) : null}
 
             {/* ───── LIGHTBOX / OPEN ───── */}
             {lightboxOpenIndex >= 0 && (() => {

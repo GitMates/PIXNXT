@@ -2,6 +2,16 @@
   margin-top: 10px;
 }
 
+.aqm-row__note {
+  margin: 6px 0 0;
+  font-size: 10px;
+  color: #8c827a;
+}
+
+.aqm-row__fill--warn {
+  background: #8a5a00;
+}
+
 .aqm-row__head {
   display: flex;
   align-items: center;

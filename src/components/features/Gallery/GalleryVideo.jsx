@@ -6,7 +6,7 @@ import {
   isVideoPreviewClip,
 } from '../../../lib/photoDisplayUrl';
 import { startNativeMediaDownload } from '../../../lib/downloadPhoto';
-import { PREVIEW_LEN_SEC } from '../../../lib/videoDelivery';
+import { PREVIEW_LEN_SEC, previewWindow } from '../../../lib/videoDelivery';
 import './GalleryVideo.css';
 
 function isHlsUrl(src) {
@@ -147,6 +147,7 @@ export function GalleryVideo({
   }
 
   const isPreview = isVideoPreviewClip(photo);
+  const preview = previewWindow(photo);
   const durationMin = Math.round((Number(photo?.video_duration_seconds) || 0) / 60);
 
   return (
@@ -168,12 +169,26 @@ export function GalleryVideo({
         playsInline={playsInline}
         preload={hoverPreview ? 'none' : 'metadata'}
         onError={() => setPlaybackFailed(true)}
+        onLoadedMetadata={
+          isPreview
+            ? (e) => {
+                if (preview.startSec > 0 && e.currentTarget.currentTime < preview.startSec - 0.25) {
+                  e.currentTarget.currentTime = preview.startSec;
+                }
+              }
+            : undefined
+        }
         onTimeUpdate={
           isPreview
             ? (e) => {
-                if (e.currentTarget.currentTime >= PREVIEW_LEN_SEC) {
-                  e.currentTarget.pause();
-                  e.currentTarget.currentTime = PREVIEW_LEN_SEC;
+                const video = e.currentTarget;
+                if (preview.startSec > 0 && video.currentTime < preview.startSec - 0.5) {
+                  video.currentTime = preview.startSec;
+                  return;
+                }
+                if (video.currentTime >= preview.endSec) {
+                  video.pause();
+                  video.currentTime = preview.endSec;
                   setPreviewEnded(true);
                 }
               }
@@ -185,7 +200,7 @@ export function GalleryVideo({
       {isPreview && !previewEnded ? (
         <div className="gallery-video-preview-badge" aria-hidden="true">
           <span>
-            90s preview · Full film
+            {PREVIEW_LEN_SEC}s preview · Full film
             {durationMin > 0 ? ` (${durationMin}m)` : ''} available for download
           </span>
         </div>

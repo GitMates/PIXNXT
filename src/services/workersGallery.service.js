@@ -663,6 +663,20 @@ export async function updatePhoto(id, updateData) {
   return data?.photo;
 }
 
+export async function updatePhotoVideoDelivery(id, body) {
+  const data = await apiFetch(`/v1/galleries/photos/${id}/video-delivery`, {
+    method: 'POST',
+    body,
+  });
+  try {
+    const { photographerQuotaService } = await import('./photographerQuota.service');
+    photographerQuotaService.notifyQuotaChanged?.();
+  } catch {
+    /* ignore */
+  }
+  return data;
+}
+
 export async function deletePhotos(ids) {
   if (!ids || ids.length === 0) return;
   await apiFetch('/v1/galleries/photos/delete', { method: 'POST', body: { ids } });

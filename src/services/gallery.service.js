@@ -1559,6 +1559,10 @@ export const galleryService = {
     return (await workersGallery()).updatePhoto(id, updateData);
   },
 
+  async updatePhotoVideoDelivery(id, body) {
+    return (await workersGallery()).updatePhotoVideoDelivery(id, body);
+  },
+
   /**
    * Delete photos from Cloudflare R2 and the database (plus related rows).
    */
