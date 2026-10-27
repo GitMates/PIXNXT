@@ -214,6 +214,7 @@ export function PhotoLightbox({
                     controls
                     autoPlay
                     playsInline
+                    onDownload={showDownload ? onDownload : undefined}
                   />
                 </div>
               ) : currentMediaUrl ? (

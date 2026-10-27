@@ -624,8 +624,26 @@ export async function downloadPhotosToZip(
   };
 }
 
+/** Hand a video to the browser download manager. Never buffer a multi-GB film in JS. */
+export function startNativeMediaDownload(photo: BulkDownloadPhoto | null | undefined): boolean {
+  if (!photo) return false;
+  const url = getPhotoDownloadUrl(photo) || getPhotoDownloadUrlCandidates(photo)[0] || '';
+  if (!url) return false;
+  const filename = getPhotoDownloadFilename(photo, 0);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  link.rel = 'noopener noreferrer';
+  link.target = '_blank';
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  return true;
+}
+
 /**
  * Download one photo/video as a real file (image or video extension), not a zip.
+ * Videos use the native downloader so a 4 GB film is never buffered in JS.
  * @param options.preferOriginal — use full/original first (free gallery download when paid digital is off)
  * @param options.watermarkOptions — optional Album Proofer watermark overlay
  */
@@ -633,6 +651,10 @@ export async function downloadSinglePhotoFile(
   photo: BulkDownloadPhoto,
   options: DownloadSinglePhotoOptions = {}
 ): Promise<void> {
+  if (isVideoMedia(photo)) {
+    if (startNativeMediaDownload(photo)) return;
+    throw new Error('Failed to download this file. Please try again.');
+  }
   const { preferOriginal = false, resolution, videoResolution, watermarkOptions } = options;
   let blob = await fetchPhotoBlob(photo, { preferOriginal, resolution, videoResolution });
   if (!blob) {

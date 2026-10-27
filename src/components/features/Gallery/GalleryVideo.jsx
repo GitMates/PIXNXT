@@ -5,6 +5,7 @@ import {
   getPhotoVideoSrc,
   isVideoPreviewClip,
 } from '../../../lib/photoDisplayUrl';
+import { startNativeMediaDownload } from '../../../lib/downloadPhoto';
 import { PREVIEW_LEN_SEC } from '../../../lib/videoDelivery';
 import './GalleryVideo.css';
 
@@ -30,6 +31,7 @@ export function GalleryVideo({
   hoverPreview = false,
   fit = 'contain',
   onClick,
+  onDownload,
 }) {
   const videoRef = useRef(null);
   const phase = getPhotoStreamPhase(photo);
@@ -38,10 +40,12 @@ export function GalleryVideo({
   const [previewOn, setPreviewOn] = useState(false);
   const [previewFrame, setPreviewFrame] = useState(false);
   const [playbackFailed, setPlaybackFailed] = useState(false);
+  const [previewEnded, setPreviewEnded] = useState(false);
   const streamFailed = String(photo?.stream_status || '') === 'error';
 
   useEffect(() => {
     setPlaybackFailed(false);
+    setPreviewEnded(false);
   }, [src, photo?.id]);
 
   useEffect(() => {
@@ -170,6 +174,7 @@ export function GalleryVideo({
                 if (e.currentTarget.currentTime >= PREVIEW_LEN_SEC) {
                   e.currentTarget.pause();
                   e.currentTarget.currentTime = PREVIEW_LEN_SEC;
+                  setPreviewEnded(true);
                 }
               }
             : undefined
@@ -177,12 +182,31 @@ export function GalleryVideo({
         onMouseEnter={hoverPreview ? (e) => e.currentTarget.play().catch(() => {}) : undefined}
         onMouseLeave={hoverPreview ? (e) => { e.currentTarget.pause(); e.currentTarget.currentTime = 0; } : undefined}
       />
-      {isPreview ? (
+      {isPreview && !previewEnded ? (
         <div className="gallery-video-preview-badge" aria-hidden="true">
           <span>
             90s preview · Full film
             {durationMin > 0 ? ` (${durationMin}m)` : ''} available for download
           </span>
+        </div>
+      ) : null}
+      {isPreview && previewEnded ? (
+        <div className="gallery-video-preview-end">
+          <p>
+            That&apos;s the preview. Download the full film
+            {durationMin > 0 ? ` (${durationMin}m)` : ''} to watch the rest.
+          </p>
+          <button
+            type="button"
+            className="gallery-video-preview-download"
+            onClick={(e) => {
+              e.stopPropagation();
+              if (onDownload) onDownload();
+              else startNativeMediaDownload(photo);
+            }}
+          >
+            Download full film
+          </button>
         </div>
       ) : null}
       {(playbackFailed || streamFailed) && !isHlsUrl(src) ? (

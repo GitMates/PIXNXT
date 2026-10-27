@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { STREAM_AUTO_MAX_SEC } from './videoDelivery';
 import {
+  getPhotoDownloadUrl,
+  getPhotoDownloadUrlCandidates,
   getPhotoStreamPhase,
   getPhotoVideoSrc,
   isVideoPreviewClip,
@@ -48,5 +50,30 @@ describe('gallery video source', () => {
       full_url: 'https://cdn.example/films/reel.mp4',
     };
     expect(isVideoPreviewClip(photo)).toBe(false);
+  });
+
+  it('downloads the R2 master for a long film even if Stream holds a preview clip', () => {
+    const photo = {
+      media_type: 'video',
+      filename: 'muhurtham.mp4',
+      video_duration_seconds: STREAM_AUTO_MAX_SEC + 30,
+      stream_uid: 'previewclip',
+      stream_is_preview: 1,
+      full_url: 'https://cdn.example/films/muhurtham.mp4',
+    };
+    expect(getPhotoDownloadUrl(photo)).toBe(photo.full_url);
+    expect(getPhotoDownloadUrlCandidates(photo)[0]).toBe(photo.full_url);
+  });
+
+  it('downloads the R2 original for a streamed highlight when the master exists', () => {
+    const photo = {
+      media_type: 'video',
+      filename: 'highlight.mp4',
+      stream_uid: 'fulluid',
+      stream_status: 'ready',
+      stream_playback_hls: 'https://videodelivery.net/abc/manifest/video.m3u8',
+      full_url: 'https://cdn.example/films/highlight.mp4',
+    };
+    expect(getPhotoDownloadUrl(photo)).toBe(photo.full_url);
   });
 });

@@ -206,14 +206,26 @@ export function getPhotoOriginalFileUrl(photo) {
 /**
  * Best URL for client download — JPEG preview for RAW when available (avoids 20MB+ hangs).
  */
+function videoMasterUrl(photo) {
+  const candidates = [photo?.full_url, photo?.original_storage_path, photo?.web_url];
+  for (const raw of candidates) {
+    const url = resolveMediaUrl(raw);
+    if (!url || urlLooksLikeImage(url)) continue;
+    return url;
+  }
+  return '';
+}
+
+function videoStreamDownloadUrl(photo) {
+  const streamUid = photo?.stream_uid || photo?.streamUid;
+  if (!streamUid) return '';
+  return `/v1/stream/${encodeURIComponent(streamUid)}/download?file=1`;
+}
+
 export function getPhotoDownloadUrl(photo) {
   if (!photo) return '';
   if (isVideoMedia(photo)) {
-    const streamUid = photo.stream_uid || photo.streamUid;
-    if (streamUid) {
-      return `/v1/stream/${encodeURIComponent(streamUid)}/download?file=1`;
-    }
-    return resolveMediaUrl(photo.full_url || photo.web_url || '');
+    return videoMasterUrl(photo) || videoStreamDownloadUrl(photo);
   }
   if (isRawMedia(photo)) {
     return resolveMediaUrl(photo.full_url || '');
@@ -259,15 +271,15 @@ export function getPhotoDownloadUrlCandidates(photo) {
   };
 
   if (isVideoMedia(photo)) {
+    push(photo.full_url);
+    push(photo.original_storage_path);
+    push(photo.web_url);
     const streamUid = photo.stream_uid || photo.streamUid;
     if (streamUid) {
       push(`/v1/stream/${encodeURIComponent(streamUid)}/download?file=1`);
       push(`https://customer-j2pg7eej5vcvuljf.cloudflarestream.com/${encodeURIComponent(streamUid)}/downloads/default.mp4`);
       push(`https://videodelivery.net/${encodeURIComponent(streamUid)}/downloads/default.mp4`);
     }
-    push(photo.full_url);
-    push(photo.original_storage_path);
-    push(photo.web_url);
     push(photo.thumbnail_url);
     return out;
   }

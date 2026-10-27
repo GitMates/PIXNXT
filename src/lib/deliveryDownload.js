@@ -224,15 +224,15 @@ function candidateDownloadUrls(photo, options = {}) {
     urls.push(value);
   };
   if (isVideoMedia(photo)) {
+    push(photo.full_url);
+    push(photo.original_storage_path);
+    push(photo.web_url);
     const streamUid = photo.stream_uid || photo.streamUid;
     if (streamUid) {
       push(`/v1/stream/${encodeURIComponent(streamUid)}/download?file=1`);
       push(`https://customer-j2pg7eej5vcvuljf.cloudflarestream.com/${encodeURIComponent(streamUid)}/downloads/default.mp4`);
       push(`https://videodelivery.net/${encodeURIComponent(streamUid)}/downloads/default.mp4`);
     }
-    push(photo.full_url);
-    push(photo.original_storage_path);
-    push(photo.web_url);
     const videoSrc = getPhotoVideoSrc(photo);
     if (isUsableDownloadUrl(videoSrc)) push(videoSrc);
     push(photo.thumbnail_url);
