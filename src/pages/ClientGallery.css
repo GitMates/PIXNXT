@@ -564,6 +564,9 @@
     object-fit: cover;
     object-position: center;
     transition: transform 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+    -webkit-user-drag: none;
+    user-select: none;
+    pointer-events: none;
   }
 
   .cg-style-73:hover .cg-card-cover img {
@@ -1282,6 +1285,9 @@
   width: 100%;
   height: 100%;
   object-fit: cover;
+  -webkit-user-drag: none;
+  user-select: none;
+  pointer-events: none;
 }
 
 .dl-cover-fallback {
@@ -1453,6 +1459,12 @@
   width: 100%;
   height: 100%;
   object-fit: cover;
+}
+
+.dl-row-thumb img {
+  -webkit-user-drag: none;
+  user-select: none;
+  pointer-events: none;
 }
 
 .dl-row-title {

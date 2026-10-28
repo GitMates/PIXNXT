@@ -609,6 +609,8 @@
   color: #2a241e;
   cursor: pointer;
   appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
   outline: none;
 }
 

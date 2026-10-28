@@ -6067,10 +6067,17 @@ body.dark-theme .theme-mono.cd-dashboard-shell .cd-dl-status.cd-dl-status--name-
   border-bottom-color: var(--border-card) !important;
 }
 
-body.dark-theme .theme-mono.cd-dashboard-shell .cd-dl-status__title,
+body.dark-theme .theme-mono.cd-dashboard-shell .cd-dl-status__title {
+  color: var(--text-heading) !important;
+}
+
 body.dark-theme .theme-mono.cd-dashboard-shell .cd-dl-status__desc,
 body.dark-theme .theme-mono.cd-dashboard-shell .cd-dl-status__copy {
   color: var(--text-body) !important;
+}
+
+body.dark-theme .theme-mono.cd-dashboard-shell .cd-dl-status__desc strong {
+  color: var(--text-heading) !important;
 }
 
 body.dark-theme .theme-mono.cd-dashboard-shell .cd-dl-body {
@@ -6135,8 +6142,14 @@ body.dark-theme .theme-mono.cd-dashboard-shell .cd-toggle-slider:before {
 }
 
 body.dark-theme .theme-mono.cd-dashboard-shell .cd-dl-select-input {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
   background-color: var(--bg-app) !important;
   background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23a0a0a0' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e") !important;
+  background-repeat: no-repeat !important;
+  background-position: right 12px center !important;
+  background-size: 14px !important;
   border-color: var(--border-input) !important;
   color: var(--text-primary) !important;
 }
