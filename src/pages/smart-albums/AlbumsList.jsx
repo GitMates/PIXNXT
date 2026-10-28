@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { openClientAlbumPreview, getSmartAlbumPreviewShareUrl, openShareByEmail, openWhatsAppShare } from '../../lib/shareSmartAlbum';
@@ -27,6 +27,10 @@ import AlbumStatusFilterPopover, {
 import { AppToast, useAppToast } from '../../components/ui/AppToast';
 import { DeleteDeliveryModal } from '../../components/features/ClientGallery/DeleteDeliveryModal';
 import { runOptimisticDelete } from '../../lib/optimisticDelete';
+import {
+    readAlbumsListCache,
+    writeAlbumsListCache,
+} from '../../lib/albumsListCache';
 import '../../components/portal/portal.css';
 import '../../components/smart-albums/AlbumStatusFilterPopover.css';
 import './SmartAlbums.css';
@@ -137,6 +141,17 @@ const AlbumsList = ({ starredOnly = false, proofFilter = 'all' }) => {
     const [albums, setAlbums] = useState([]);
     const [proofSummaries, setProofSummaries] = useState({});
     const [loading, setLoading] = useState(true);
+    const hydratedUserRef = useRef(null);
+
+    const setAlbumsAndCache = useCallback((updater) => {
+        setAlbums((prev) => {
+            const next = typeof updater === 'function' ? updater(prev) : updater;
+            if (user?.id) {
+                writeAlbumsListCache(user.id, { albums: next });
+            }
+            return next;
+        });
+    }, [user?.id]);
     const [searchQuery, setSearchQuery] = useState('');
     const [starFilter, setStarFilter] = useState(starredOnly ? 'starred' : 'all');
     const [createdFilter, setCreatedFilter] = useState('newest');
@@ -184,29 +199,46 @@ const AlbumsList = ({ starredOnly = false, proofFilter = 'all' }) => {
             return;
         }
 
+        const cached = readAlbumsListCache(user.id);
+        const hideSpinner = silent || Boolean(cached?.albums);
+
         try {
-            if (!silent) setLoading(true);
-            const data = starredOnly
-                ? await smartAlbumsService.getStarredAlbums(user.id)
-                : await smartAlbumsService.getAlbums(user.id);
+            if (!hideSpinner) setLoading(true);
+            const data = await smartAlbumsService.getAlbums(user.id);
+            writeAlbumsListCache(user.id, { albums: data });
+            setAlbums(data);
+            setLoading(false);
             const summaries = await smartAlbumCommentsService.getAlbumProofSummaries(
                 data.map((album) => album.id)
             );
+            writeAlbumsListCache(user.id, { albums: data, proofSummaries: summaries });
             setProofSummaries(summaries);
-            setAlbums(data);
         } catch (err) {
             console.error(err);
-            setAlbums([]);
-            setProofSummaries({});
-        } finally {
+            const latest = readAlbumsListCache(user.id);
+            if (!latest?.albums?.length) {
+                setAlbums([]);
+                setProofSummaries({});
+            }
             setLoading(false);
         }
-    }, [user?.id, starredOnly]);
+    }, [user?.id]);
+
+    useLayoutEffect(() => {
+        if (!user?.id || hydratedUserRef.current === user.id) return;
+        const cached = readAlbumsListCache(user.id);
+        hydratedUserRef.current = user.id;
+        if (!cached?.albums) return;
+        setAlbums(cached.albums);
+        setProofSummaries(cached.proofSummaries || {});
+        setLoading(false);
+    }, [user?.id]);
 
     useEffect(() => {
         if (authLoading) return;
-        void loadAlbums();
-    }, [authLoading, loadAlbums]);
+        const cached = user?.id ? readAlbumsListCache(user.id) : null;
+        void loadAlbums({ silent: Boolean(cached?.albums) });
+    }, [authLoading, loadAlbums, user?.id]);
 
     useEffect(() => {
         if (!user?.id) {
@@ -306,20 +338,20 @@ const AlbumsList = ({ starredOnly = false, proofFilter = 'all' }) => {
             setSettingsAnchor(null);
 
             // Immediately remove from list state so it vanishes instantly
-            setAlbums((prev) => prev.filter((a) => a.id !== albumId));
+            setAlbumsAndCache((prev) => prev.filter((a) => a.id !== albumId));
 
             // Background deletion process
             smartAlbumsService.deleteAlbum(user.id, albumId).catch((err) => {
                 console.error('Background album deletion failed:', err);
                 // Restore album if deletion fails
-                setAlbums((prev) => {
+                setAlbumsAndCache((prev) => {
                     if (prev.some((a) => a.id === albumId)) return prev;
                     return [snapshot, ...prev];
                 });
                 showToast('Failed to delete album.', { variant: 'error', duration: 4000 });
             });
         },
-        [user, closeContextMenu, showToast],
+        [user, closeContextMenu, showToast, setAlbumsAndCache],
     );
 
     const handleDeleteAlbum = (album) => {
@@ -354,7 +386,7 @@ const AlbumsList = ({ starredOnly = false, proofFilter = 'all' }) => {
         setDuplicateBusyId(album.id);
         try {
             const copy = await smartAlbumsService.duplicateAlbum(user.id, album.id);
-            setAlbums((prev) => [copy, ...prev]);
+            setAlbumsAndCache((prev) => [copy, ...prev]);
             setDuplicateAlbum(null);
         } catch (err) {
             console.error(err);
@@ -409,7 +441,7 @@ const AlbumsList = ({ starredOnly = false, proofFilter = 'all' }) => {
                     photographerProfile,
                 });
                 const sentAt = new Date().toISOString();
-                setAlbums((prev) =>
+                setAlbumsAndCache((prev) =>
                     prev.map((row) =>
                         row.id === album.id
                             ? {
@@ -437,7 +469,7 @@ const AlbumsList = ({ starredOnly = false, proofFilter = 'all' }) => {
                 setRemindingAlbumId(null);
             }
         },
-        [remindingAlbumId, showToast, photographerProfile]
+        [remindingAlbumId, showToast, photographerProfile, setAlbumsAndCache]
     );
 
     const handleGetQrCode = useCallback(
@@ -476,7 +508,7 @@ const AlbumsList = ({ starredOnly = false, proofFilter = 'all' }) => {
                 editAlbum.id,
                 payload
             );
-            setAlbums((prev) =>
+            setAlbumsAndCache((prev) =>
                 prev.map((a) => (a.id === updated.id ? { ...a, ...updated } : a))
             );
             return updated;
@@ -980,7 +1012,7 @@ const AlbumsList = ({ starredOnly = false, proofFilter = 'all' }) => {
                 photographerId={user?.id}
                 onAlbumUpdated={(updated) => {
                     if (!updated?.id) return;
-                    setAlbums((prev) =>
+                    setAlbumsAndCache((prev) =>
                         prev.map((a) => (a.id === updated.id ? { ...a, ...updated } : a))
                     );
                 }}
@@ -1004,7 +1036,7 @@ const AlbumsList = ({ starredOnly = false, proofFilter = 'all' }) => {
                 photographerId={user?.id}
                 onSaved={(updated) => {
                     if (!updated?.id) return;
-                    setAlbums((prev) =>
+                    setAlbumsAndCache((prev) =>
                         prev.map((a) => (a.id === updated.id ? { ...a, ...updated } : a))
                     );
                     setSettingsAlbum((current) =>

@@ -15,6 +15,7 @@ export default defineConfig({
       'src/lib/deliveryDuplicate.test.js',
       'src/lib/deliveryDashboardSeed.test.js',
       'src/lib/galleryBoardCache.test.js',
+      'src/lib/albumsListCache.test.js',
       'src/lib/desktopOnly.test.js',
       'src/lib/deliveryDownload.test.js',
       'src/lib/deliveryCoverUpload.test.js',

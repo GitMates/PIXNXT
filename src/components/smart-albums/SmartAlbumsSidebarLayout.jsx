@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import SidebarLayout from '../SidebarLayout';
 import SmartAlbumNotifications from './SmartAlbumNotifications';
@@ -13,11 +13,24 @@ import {
     getAlbumProofStatus,
     mergeAlbumProofTimestamps,
 } from './albumProofStatus';
+import { readAlbumsListCache } from '../../lib/albumsListCache';
 import '../portal/portal.css';
 import './SmartAlbumsSidebar.css';
 
 function isNeedsYouTone(tone) {
     return tone === 'awaiting' || tone === 'feedback' || tone === 'revision';
+}
+
+function countsFromAlbums(albums, summaries) {
+    let needsYou = 0;
+    let approved = 0;
+    for (const album of albums || []) {
+        const merged = mergeAlbumProofTimestamps(album, summaries?.[album.id] || null);
+        const tone = getAlbumProofStatus(merged).tone;
+        if (isNeedsYouTone(tone)) needsYou += 1;
+        if (tone === 'approved') approved += 1;
+    }
+    return { albums: (albums || []).length, needsYou, approved };
 }
 
 /**
@@ -39,18 +52,17 @@ const SmartAlbumsSidebarLayout = ({ children }) => {
             const summaries = await smartAlbumCommentsService.getAlbumProofSummaries(
                 data.map((album) => album.id)
             );
-
-            let needsYou = 0;
-            let approved = 0;
-            for (const album of data) {
-                const merged = mergeAlbumProofTimestamps(album, summaries[album.id] || null);
-                const tone = getAlbumProofStatus(merged).tone;
-                if (isNeedsYouTone(tone)) needsYou += 1;
-                if (tone === 'approved') approved += 1;
-            }
-            setNavCounts({ albums: data.length, needsYou, approved });
+            setNavCounts(countsFromAlbums(data, summaries));
         } catch (err) {
             console.error(err);
+        }
+    }, [user?.id]);
+
+    useLayoutEffect(() => {
+        if (!user?.id) return;
+        const cached = readAlbumsListCache(user.id);
+        if (cached?.albums) {
+            setNavCounts(countsFromAlbums(cached.albums, cached.proofSummaries));
         }
     }, [user?.id]);
 

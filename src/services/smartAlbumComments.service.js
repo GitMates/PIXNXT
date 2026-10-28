@@ -16,6 +16,8 @@ const submittedByAlbum = Object.create(null);
 
 const GUEST_KEY_PREFIX = 'pixnxt_album_guest_';
 
+const proofSummariesInflight = new Map();
+
 export const COMMENTS_CHANGED_EVENT = 'pixnxt-album-comments-changed';
 export const COMMENTS_SEEN_CHANGED_EVENT = 'pixnxt-album-comments-seen-changed';
 export const GUEST_COMMENTS_SEEN_CHANGED_EVENT = 'pixnxt-album-guest-comments-seen-changed';
@@ -965,6 +967,22 @@ export const smartAlbumCommentsService = {
     async getAlbumProofSummaries(albumIds) {
         if (!Array.isArray(albumIds) || albumIds.length === 0) return {};
 
+        const key = albumIds.map(String).sort().join(',');
+        const pending = proofSummariesInflight.get(key);
+        if (pending) return pending;
+
+        const request = this._loadAlbumProofSummaries(albumIds);
+        proofSummariesInflight.set(key, request);
+        try {
+            return await request;
+        } finally {
+            if (proofSummariesInflight.get(key) === request) {
+                proofSummariesInflight.delete(key);
+            }
+        }
+    },
+
+    async _loadAlbumProofSummaries(albumIds) {
         const summaries = {};
         albumIds.forEach((albumId) => {
             summaries[albumId] = {
