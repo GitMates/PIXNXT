@@ -21,11 +21,10 @@ export function labelName(label) {
 }
 
 /**
- * Concept groups for AI search. AWS Rekognition rarely returns the generic
- * word a user types (e.g. "food") — it returns specific labels like "Meal",
- * "Dish", "Plate", "Curry". Expand the query so common concepts match.
- * Keys and values are lowercase; keep this list in sync with what
- * Rekognition typically returns (DetectLabels, MinConfidence 70).
+ * Umbrella concepts. Only expand when the user types the key itself
+ * ("food" → meal/dish/curry). Never expand a specific label like "tie"
+ * out to the rest of its group — that made Library search match almost
+ * every wedding photo.
  */
 export const AI_SEARCH_CONCEPTS = {
   food: [
@@ -38,30 +37,26 @@ export const AI_SEARCH_CONCEPTS = {
     'biryani', 'thali',
   ],
   wedding: ['wedding', 'bride', 'groom', 'ceremony', 'reception', 'mandap', 'phera'],
-  bride: ['bride', 'wedding', 'saree', 'sari', 'lehenga', 'veil'],
-  groom: ['groom', 'wedding', 'sherwani', 'suit', 'tie'],
-  baby: ['baby', 'infant', 'toddler', 'child', 'kid', 'newborn'],
-  family: ['family', 'group', 'people', 'person', 'crowd', 'gathering'],
-  portrait: ['portrait', 'person', 'face', 'head'],
-  nature: ['nature', 'outdoors', 'tree', 'plant', 'flower', 'garden', 'park', 'sky', 'mountain', 'beach', 'sea', 'water'],
-  dance: ['dance', 'dancing', 'party', 'celebration', 'music'],
-  decoration: ['decoration', 'decor', 'flower', 'stage', 'lighting', 'ornament'],
+  bride: ['bride', 'saree', 'sari', 'lehenga', 'veil'],
+  groom: ['groom', 'sherwani', 'tuxedo'],
+  baby: ['baby', 'infant', 'newborn', 'toddler'],
+  family: ['family', 'group', 'gathering'],
+  portrait: ['portrait'],
+  nature: ['nature', 'outdoors', 'tree', 'plant', 'flower', 'garden', 'park', 'sky', 'mountain', 'beach', 'sea'],
+  dance: ['dance', 'dancing'],
+  decoration: ['decoration', 'decor', 'ornament'],
 };
 
-/** Reverse index: label -> concept keys containing it. Built lazily. */
-let labelToConceptsCache = null;
-function getLabelToConcepts() {
-  if (labelToConceptsCache) return labelToConceptsCache;
-  labelToConceptsCache = new Map();
-  for (const [concept, terms] of Object.entries(AI_SEARCH_CONCEPTS)) {
-    for (const term of terms) {
-      const key = String(term).toLowerCase();
-      if (!labelToConceptsCache.has(key)) labelToConceptsCache.set(key, new Set());
-      labelToConceptsCache.get(key).add(concept);
-    }
-  }
-  return labelToConceptsCache;
-}
+/** Tight aliases only — not whole concept groups. */
+export const AI_SEARCH_SYNONYMS = {
+  tie: ['necktie', 'bowtie', 'bow-tie'],
+  necktie: ['tie', 'bowtie'],
+  bowtie: ['tie', 'necktie', 'bow-tie'],
+  saree: ['sari'],
+  sari: ['saree'],
+  photo: ['photograph'],
+  photograph: ['photo'],
+};
 
 /** Singularize a token for matching ("foods" -> "food", "dishes" -> "dish"). */
 export function singularizeSearchToken(token) {
@@ -72,11 +67,50 @@ export function singularizeSearchToken(token) {
   return t;
 }
 
+function addSynonyms(set, token) {
+  const synonyms = AI_SEARCH_SYNONYMS[token];
+  if (!synonyms) return;
+  for (const term of synonyms) set.add(term);
+}
+
+/** Terms that should match a single query token (token + aliases + umbrella). */
+export function termsForSearchToken(token) {
+  const t = String(token || '').toLowerCase();
+  if (!t) return [];
+  const singular = singularizeSearchToken(t);
+  const terms = new Set([t, singular]);
+  addSynonyms(terms, t);
+  addSynonyms(terms, singular);
+  const group = AI_SEARCH_CONCEPTS[t] || AI_SEARCH_CONCEPTS[singular];
+  if (group) {
+    for (const term of group) terms.add(term);
+  }
+  return Array.from(terms);
+}
+
+/**
+ * Whole-word match. "tie" hits "tie", "bow tie", "necktie" — not "parties",
+ * "suit", or "wedding".
+ */
+export function textMatchesSearchTerm(haystack, term) {
+  const text = String(haystack || '').toLowerCase();
+  const t = String(term || '').toLowerCase();
+  if (!text || !t) return false;
+  if (text === t) return true;
+
+  const parts = text.split(/[^a-z0-9]+/).filter(Boolean);
+  for (const part of parts) {
+    if (part === t) return true;
+    const extra = part.length - t.length;
+    if (extra >= 3 && extra <= 8 && part.endsWith(t)) return true;
+  }
+  return false;
+}
+
 /**
  * Expand a normalized query into matchable terms.
- * - Direct concept hit ("food") -> all concept terms.
- * - Label belonging to a concept ("curry") -> sibling terms + concept key,
- *   so searching "curry" also finds "Meal"/"Food" photos and vice versa.
+ * Umbrella keys ("food") expand to the group. Specific labels ("tie", "curry")
+ * only add tight synonyms.
  */
 export function expandAiSearchTerms(normalizedQuery) {
   const tokens = String(normalizedQuery || '')
@@ -85,27 +119,9 @@ export function expandAiSearchTerms(normalizedQuery) {
     .map((t) => t.trim())
     .filter(Boolean);
   const expanded = new Set();
-  const labelToConcepts = getLabelToConcepts();
 
   for (const token of tokens) {
-    const singular = singularizeSearchToken(token);
-    expanded.add(token);
-    expanded.add(singular);
-
-    // Token is a concept key ("food") -> add every term in the group.
-    const group = AI_SEARCH_CONCEPTS[token] || AI_SEARCH_CONCEPTS[singular];
-    if (group) {
-      for (const term of group) expanded.add(term);
-    }
-
-    // Token is a member label ("curry", "meal") -> add concept key + siblings.
-    const concepts = labelToConcepts.get(token) || labelToConcepts.get(singular);
-    if (concepts) {
-      for (const concept of concepts) {
-        expanded.add(concept);
-        for (const term of AI_SEARCH_CONCEPTS[concept] || []) expanded.add(term);
-      }
-    }
+    for (const term of termsForSearchToken(token)) expanded.add(term);
   }
 
   return { tokens, expanded: Array.from(expanded) };
@@ -132,51 +148,42 @@ export function filterPhotosByDateRange(photos, range) {
   });
 }
 
+function photoMatchesTerms(photo, metadataByPhotoId, terms) {
+  const filename = String(photo.filename || '').toLowerCase();
+  const collectionName = String(photo.collection?.name || '').toLowerCase();
+  const labels = (metadataByPhotoId?.[photo.id]?.labels || [])
+    .map((l) => labelName(l).toLowerCase())
+    .filter(Boolean);
+
+  for (const term of terms) {
+    if (!term) continue;
+    if (textMatchesSearchTerm(filename, term)) return true;
+    if (textMatchesSearchTerm(collectionName, term)) return true;
+    if (labels.some((label) => textMatchesSearchTerm(label, term))) return true;
+  }
+  return false;
+}
+
 /** Filter photos by filename + Rekognition labels (with concept expansion) */
 export function filterPhotosByAiSearch(photos, metadataByPhotoId, query) {
   const normalized = normalizePhotoSearchQuery(query);
   if (!normalized) return photos;
 
-  const { tokens } = expandAiSearchTerms(normalized);
+  const { tokens, expanded } = expandAiSearchTerms(normalized);
+  const list = photos || [];
 
-  const photoMatchesToken = (photo, token) => {
-    const singular = singularizeSearchToken(token);
-    const variants = new Set([token, singular]);
-    const labelToConcepts = getLabelToConcepts();
-    const concepts = labelToConcepts.get(token) || labelToConcepts.get(singular);
-    if (concepts) {
-      for (const concept of concepts) {
-        variants.add(concept);
-        for (const term of AI_SEARCH_CONCEPTS[concept] || []) variants.add(term);
-      }
-    }
-    const group = AI_SEARCH_CONCEPTS[token] || AI_SEARCH_CONCEPTS[singular];
-    if (group) for (const term of group) variants.add(term);
-
-    const filename = String(photo.filename || '').toLowerCase();
-    const collectionName = String(photo.collection?.name || '').toLowerCase();
-    const labels = (metadataByPhotoId?.[photo.id]?.labels || [])
-      .map((l) => labelName(l).toLowerCase())
-      .filter(Boolean);
-
-    for (const variant of variants) {
-      if (!variant) continue;
-      if (filename.includes(variant)) return true;
-      if (collectionName.includes(variant)) return true;
-      if (labels.some((label) => label.includes(variant) || variant.includes(label))) return true;
-    }
-    return false;
-  };
-
-  // Single-token queries (the common case: "food", "person"): match if the
-  // token or any of its concept synonyms hits. This unions exact + synonym
-  // matches so "food" finds "Food", "Meal", "Dish" and "Curry" photos.
+  // Single-token queries ("food", "tie"): match the token or its tight aliases.
+  // "food" still expands to meal/dish/curry. "tie" does not expand to wedding.
   if (tokens.length <= 1) {
-    return (photos || []).filter((photo) => photoMatchesToken(photo, tokens[0] || normalized));
+    return list.filter((photo) => photoMatchesTerms(photo, metadataByPhotoId, expanded));
   }
 
   // Multi-word queries ("red saree"): every token must match somewhere (AND).
-  return (photos || []).filter((photo) => tokens.every((token) => photoMatchesToken(photo, token)));
+  return list.filter((photo) =>
+    tokens.every((token) =>
+      photoMatchesTerms(photo, metadataByPhotoId, termsForSearchToken(token))
+    )
+  );
 }
 
 /** Filter photos that contain a specific Rekognition face id */
