@@ -3177,8 +3177,6 @@ const GalleryView = () => {
             onShareClick={() => setShowShareModal(true)}
             onSlideshowClick={handleStartSlideshow}
             onShopClick={handleShopHeaderClick}
-            showPrintLab={collection?.store_enabled === true}
-            onPrintLabClick={() => setShowPrintLabModal(true)}
             showBuyGallery={vaultPlan?.vault_enabled === true && !vaultPurchasedState}
             buyGalleryLabel="Buy Link"
             onBuyGalleryClick={openVaultModal}
