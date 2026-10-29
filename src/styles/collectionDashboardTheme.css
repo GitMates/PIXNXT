@@ -939,3 +939,60 @@
 .theme-mono.cd-dashboard-shell .cd-modal-overlay {
   background-color: oklch(0 0 0 / 0.35) !important;
 }
+
+/* This file loads after appearanceDarkTheme and was keeping cream modal chrome. */
+body.dark-theme .theme-mono.cd-dashboard-shell {
+  --cd-bg: var(--bg-app);
+  --cd-surface: var(--bg-modal);
+  --cd-inset: var(--bg-surface);
+  --cd-foreground: var(--text-primary);
+  --cd-muted: var(--text-secondary);
+  --cd-border: var(--border-card);
+  --cd-hover: var(--bg-surface-hover);
+  --cd-line: var(--border-card);
+}
+
+body.dark-theme .theme-mono.cd-dashboard-shell .cd-modal,
+body.dark-theme .theme-mono.cd-dashboard-shell .cd-modal-header,
+body.dark-theme .theme-mono.cd-dashboard-shell .cd-modal-body,
+body.dark-theme .theme-mono.cd-dashboard-shell .cd-modal-footer {
+  background: var(--bg-modal) !important;
+  background-color: var(--bg-modal) !important;
+  color: var(--text-primary) !important;
+  border-color: var(--border-card) !important;
+}
+
+body.dark-theme .theme-mono.cd-dashboard-shell .cd-modal-title {
+  color: var(--text-heading) !important;
+}
+
+body.dark-theme .theme-mono.cd-dashboard-shell .cd-modal-body p,
+body.dark-theme .theme-mono.cd-dashboard-shell .cd-modal-text {
+  color: var(--text-body) !important;
+}
+
+body.dark-theme .theme-mono.cd-dashboard-shell .cd-modal-close {
+  color: var(--text-secondary) !important;
+}
+
+body.dark-theme .theme-mono.cd-dashboard-shell .cd-modal-close:hover {
+  color: var(--text-primary) !important;
+  background: var(--bg-surface-hover) !important;
+}
+
+body.dark-theme .theme-mono.cd-dashboard-shell .cd-modal-overlay {
+  background-color: rgba(0, 0, 0, 0.72) !important;
+}
+
+body.dark-theme .theme-mono.cd-dashboard-shell .cd-btn-secondary,
+body.dark-theme .theme-mono.cd-dashboard-shell .cd-cancel-btn {
+  color: var(--text-primary) !important;
+  background: transparent !important;
+  border: 1px solid var(--border-card) !important;
+}
+
+body.dark-theme .theme-mono.cd-dashboard-shell .cd-btn-primary {
+  background-color: var(--accent-primary) !important;
+  background-image: none !important;
+  color: var(--text-heading) !important;
+}

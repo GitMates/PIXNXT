@@ -7840,9 +7840,17 @@ body.dark-theme .theme-mono.cd-dashboard-shell .cd-notice-modal {
 }
 
 body.dark-theme .cd-modal-header,
+body.dark-theme .cd-modal-body,
+body.dark-theme .cd-modal-footer,
+body.dark-theme .theme-mono.cd-dashboard-shell .cd-modal-header,
+body.dark-theme .theme-mono.cd-dashboard-shell .cd-modal-body,
+body.dark-theme .theme-mono.cd-dashboard-shell .cd-modal-footer {
+  background: var(--bg-modal) !important;
+  border-color: var(--border-card) !important;
+}
+
 body.dark-theme .cd-modal-title,
 body.dark-theme .cd-notice-title,
-body.dark-theme .theme-mono.cd-dashboard-shell .cd-modal-header,
 body.dark-theme .theme-mono.cd-dashboard-shell .cd-modal-title,
 body.dark-theme .theme-mono.cd-dashboard-shell .cd-notice-title {
   color: var(--text-primary) !important;

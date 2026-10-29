@@ -229,6 +229,17 @@ export function uploadBytesDone(file: UploadQueueFile): number {
   return Math.round((total * file.progress) / 100);
 }
 
+/** Bytes shown in the MB pair and Mbps sample: xhr progress, never below R2-confirmed. */
+export function wireBytesForFile(file: UploadQueueFile): number {
+  const total = uploadTotalBytes(file);
+  if (file.status === 'completed') return total;
+  return Math.min(total, Math.max(confirmedBytesForFile(file), uploadBytesDone(file)));
+}
+
+export function getTotalWireBytes(files: UploadQueueFile[]): number {
+  return files.reduce((sum, file) => sum + wireBytesForFile(file), 0);
+}
+
 /** True only when the original PUT went backwards — not during web/thumb after 100% confirmed. */
 export function fileIsRetrying(file: UploadQueueFile): boolean {
   if (file.status !== 'uploading' && file.status !== 'processing') return false;
@@ -254,7 +265,7 @@ export function uploadFileCredit(file: UploadQueueFile): number {
   if (file.status !== 'uploading' && file.status !== 'processing') return 0;
   const total = uploadTotalBytes(file);
   if (!total) return 0;
-  return 0.7 * Math.min(1, confirmedBytesForFile(file) / total);
+  return 0.7 * Math.min(1, wireBytesForFile(file) / total);
 }
 
 export function getTotalProgressBytes(files: UploadQueueFile[]): number {

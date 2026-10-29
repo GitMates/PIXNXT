@@ -10,9 +10,8 @@ import {
   formatUploadEta,
   formatUploadMb,
   formatUploadSpeed,
-  getTotalConfirmedBytes,
-  getTotalProgressBytes,
   getTotalUploadBytes,
+  getTotalWireBytes,
   originalsStillInFlight,
   uploadBytesDone,
   uploadOverallPercent,
@@ -218,7 +217,7 @@ export const UploadManager: React.FC<UploadManagerProps> = ({
   }, [isAllComplete, onDismiss, isStopped]);
 
   const totalBytes = useMemo(() => getTotalUploadBytes(state.files), [state.files]);
-  const doneBytes = useMemo(() => getTotalProgressBytes(state.files), [state.files]);
+  const doneBytes = useMemo(() => getTotalWireBytes(state.files), [state.files]);
   const finishing = hasActiveUploads && !isPaused && !isStopped && !originalsStillInFlight(state.files);
 
   useEffect(() => {
@@ -228,8 +227,8 @@ export const UploadManager: React.FC<UploadManagerProps> = ({
   useEffect(() => {
     if (!hasActiveUploads || isPaused || isStopped) return undefined;
     const interval = window.setInterval(() => {
-      const confirmed = getTotalConfirmedBytes(filesRef.current);
-      setSpeedSample(speedTrackerRef.current!.tick(confirmed));
+      const wired = getTotalWireBytes(filesRef.current);
+      setSpeedSample(speedTrackerRef.current!.tick(wired));
     }, 1000);
     return () => window.clearInterval(interval);
   }, [hasActiveUploads, isPaused, isStopped]);

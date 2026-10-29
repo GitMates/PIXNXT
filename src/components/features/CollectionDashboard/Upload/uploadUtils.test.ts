@@ -14,7 +14,9 @@ import {
   formatUploadSpeed,
   getTotalConfirmedBytes,
   getTotalProgressBytes,
+  getTotalWireBytes,
   originalsStillInFlight,
+  wireBytesForFile,
   selectRenderedRows,
   uploadOverallPercent,
   uploadTabCounts,
@@ -182,6 +184,30 @@ describe('confirmed bytes', () => {
       { ...mkFile('b', 'uploading'), size: 8 * MB, progress: 50, confirmedBytes: 2 * MB },
     ];
     expect(getTotalConfirmedBytes(files)).toBe(10 * MB);
+  });
+
+  test('a large in-flight video still counts xhr progress when R2 has not confirmed yet', () => {
+    const file = {
+      ...mkFile('v', 'uploading'),
+      size: 150 * MB,
+      progress: 39,
+      confirmedBytes: 0,
+    };
+    expect(confirmedBytesForFile(file)).toBe(0);
+    expect(wireBytesForFile(file)).toBe(Math.round(0.39 * 150 * MB));
+    expect(getTotalWireBytes([file])).toBe(Math.round(0.39 * 150 * MB));
+    expect(uploadOverallPercent([file])).toBeGreaterThan(0);
+    expect(uploadOverallPercent([file])).toBeLessThan(100);
+  });
+
+  test('wire bytes stay at confirmed size when xhr progress goes backwards on retry', () => {
+    const file = {
+      ...mkFile('a', 'uploading'),
+      size: 10 * MB,
+      progress: 5,
+      confirmedBytes: 4 * MB,
+    };
+    expect(wireBytesForFile(file)).toBe(4 * MB);
   });
 
   test('counts finished multipart parts from a checkpoint', () => {

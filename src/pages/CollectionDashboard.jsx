@@ -8462,7 +8462,7 @@ const CollectionDashboard = () => {
                             </button>
                         </div>
                         <div className="cd-modal-body">
-                            <p style={{ fontSize: '15px', color: '#444', lineHeight: '1.6', margin: '10px 0' }}>
+                            <p className="cd-modal-text">
                                 Are you sure you want to delete {deleteConfirmCopy.summary}? This action cannot be undone and will remove them from all sets.
                             </p>
                         </div>
