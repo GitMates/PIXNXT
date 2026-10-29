@@ -17,7 +17,12 @@ export function CollectionCardCover({ collection, alt = '', className, style, de
   const candidates = useMemo(() => {
     const list = getCollectionCardCoverCandidates(collection);
     const cached = collection?.id ? readCachedCollectionCover(collection.id) : '';
-    if (cached && !list.includes(cached)) list.push(cached);
+    if (cached && !list.includes(cached)) {
+      const cover = String(collection?.cover_url || collection?.cover || collection?.list_cover_url || '');
+      const coverStem = cover.replace(/.*\//, '').replace(/\.[^.?#]+.*/, '');
+      const cachedStem = cached.replace(/.*\//, '').replace(/\.[^.?#]+.*/, '');
+      if (coverStem && cachedStem === coverStem) list.push(cached);
+    }
     return list;
   }, [collection?.id, collection?.cover_url, collection?.cover, collection?.list_cover_url]);
 

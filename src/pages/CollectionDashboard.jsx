@@ -45,6 +45,7 @@ import {
     markCollectionDeleteSettled,
     rememberCreatedCollection,
     removeCollectionFromBoard,
+    syncCollectionCoverOnBoard,
     upsertCollectionOnBoard,
 } from '../lib/galleryBoardCache';
 import { deliveryManageNavState, matchingDeliverySeed, shouldBlockDeliveryOpen } from '../lib/deliveryDashboardSeed';
@@ -155,8 +156,10 @@ import { CollectionGridPhoto } from '../components/features/CollectionDashboard/
 import CollectionPhotoSortableGrid from '../components/features/CollectionDashboard/Media/CollectionPhotoSortableGrid';
 import { RawPhotoPlaceholder } from '../components/features/CollectionDashboard/Media/RawPhotoPlaceholder';
 import {
+    forgetCollectionCover,
     getPhotoFullDisplayUrl,
     getPhotoOriginalFileUrl,
+    rememberCollectionCover,
     getPhotoStreamPhase,
     getPhotoVideoPoster,
     getPhotoVideoSrc,
@@ -2045,6 +2048,14 @@ const CollectionDashboard = () => {
 
     const applyCoverLocal = (patch, { live = true } = {}) => {
         setCollection((prev) => (prev ? { ...prev, ...patch } : prev));
+        const photographerId = collection?.photographer_id || user?.id;
+        if (photographerId && collectionId) {
+            syncCollectionCoverOnBoard(photographerId, collectionId, patch);
+        }
+        if (collectionId && Object.prototype.hasOwnProperty.call(patch, 'cover_url')) {
+            forgetCollectionCover(collectionId);
+            if (patch.cover_url) rememberCollectionCover(collectionId, patch.cover_url);
+        }
         if (!live) return;
         broadcastGalleryLive({
             type: 'SETTINGS_UPDATED',

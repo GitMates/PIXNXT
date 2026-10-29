@@ -193,6 +193,75 @@ describe('galleryBoardCache', () => {
     ).toEqual(['demo-2', 'mca']);
   });
 
+  it('keeps a just-saved cover when a stale list refetch still has the old image', () => {
+    writeGalleryBoard(
+      'user-1',
+      [
+        {
+          id: 'hack',
+          name: 'CIT HACKATHON',
+          cover_url: 'https://cdn.example/new-cover.jpg',
+          cover_photo_id: 'p2',
+          updated_at: '2026-10-29T11:10:00.000Z',
+        },
+      ],
+      [],
+      storage,
+    );
+
+    const merged = mergeFetchedBoardCollections(
+      'user-1',
+      [
+        {
+          id: 'hack',
+          name: 'CIT HACKATHON',
+          cover_url: 'https://cdn.example/old-cover.jpg',
+          cover_photo_id: 'p1',
+          photo_count: 72,
+          updated_at: '2026-10-29T11:00:00.000Z',
+        },
+      ],
+      storage,
+    );
+    expect(merged.find((c) => c.id === 'hack')).toMatchObject({
+      cover_url: 'https://cdn.example/new-cover.jpg',
+      cover_photo_id: 'p2',
+      photo_count: 72,
+    });
+  });
+
+  it('uses the API cover when the list row is newer than the board', () => {
+    writeGalleryBoard(
+      'user-1',
+      [
+        {
+          id: 'hack',
+          cover_url: 'https://cdn.example/local.jpg',
+          updated_at: '2026-10-29T11:00:00.000Z',
+        },
+      ],
+      [],
+      storage,
+    );
+
+    const merged = mergeFetchedBoardCollections(
+      'user-1',
+      [
+        {
+          id: 'hack',
+          cover_url: 'https://cdn.example/remote.jpg',
+          photo_count: 10,
+          updated_at: '2026-10-29T11:20:00.000Z',
+        },
+      ],
+      storage,
+    );
+    expect(merged.find((c) => c.id === 'hack')).toMatchObject({
+      cover_url: 'https://cdn.example/remote.jpg',
+      photo_count: 10,
+    });
+  });
+
   it('keeps a just-toggled star when a stale list refetch still has the old flag', () => {
     writeGalleryBoard(
       'user-1',

@@ -160,6 +160,41 @@ export function clearCollectionPendingCreate(userId, collectionId, storage = def
   writePendingCreateMap(userId, map, storage);
 }
 
+const COVER_BOARD_FIELDS = [
+  'cover_url',
+  'cover',
+  'list_cover_url',
+  'cover_photo_id',
+  'cover_source',
+  'cover_focal_x',
+  'cover_focal_y',
+  'cover_focals',
+];
+
+function boardRowIsNewer(boardRow, apiRow) {
+  const boardAt = boardRow?.updated_at;
+  const apiAt = apiRow?.updated_at;
+  if (!boardAt) return false;
+  if (!apiAt) return true;
+  return String(boardAt) > String(apiAt);
+}
+
+function mergeBoardOverlay(apiRow, boardRow) {
+  if (!boardRow) return apiRow;
+  let next = apiRow;
+  if (boardRow.is_starred !== undefined) {
+    next = { ...next, is_starred: boardRow.is_starred };
+  }
+  if (boardRowIsNewer(boardRow, apiRow) && COVER_BOARD_FIELDS.some((key) => key in boardRow)) {
+    const coverPatch = {};
+    for (const key of COVER_BOARD_FIELDS) {
+      if (key in boardRow) coverPatch[key] = boardRow[key];
+    }
+    next = { ...next, ...coverPatch, updated_at: boardRow.updated_at || next.updated_at };
+  }
+  return next;
+}
+
 /**
  * Merge list-API rows with optimistic creates so a slow/incomplete refetch
  * cannot wipe deliveries the user just created.
@@ -170,11 +205,9 @@ export function mergeFetchedBoardCollections(userId, fetched, storage = defaultS
   const boardById = new Map(
     (readGalleryBoard(userId, storage)?.collections || []).map((c) => [c.id, c]),
   );
-  const apiRows = filterPendingDeletedCollections(userId, fetched || [], storage).map((c) => {
-    const boardRow = boardById.get(c.id);
-    if (!boardRow || boardRow.is_starred === undefined) return c;
-    return { ...c, is_starred: boardRow.is_starred };
-  });
+  const apiRows = filterPendingDeletedCollections(userId, fetched || [], storage).map((c) =>
+    mergeBoardOverlay(c, boardById.get(c.id)),
+  );
   const byId = new Map(apiRows.map((c) => [c.id, c]));
 
   const pendingCreates = readPendingCreateMap(userId, storage);
@@ -284,6 +317,20 @@ export function upsertCollectionOnBoard(userId, collection, storage = defaultSto
   const next = upsertCollectionOnBoardData(readGalleryBoard(userId, storage), collection);
   writeGalleryBoard(userId, next.collections, next.folders, storage);
   return next;
+}
+
+/** Write cover fields to the Deliveries board so navigating back paints immediately. */
+export function syncCollectionCoverOnBoard(userId, collectionId, patch, storage = defaultStorage()) {
+  if (!userId || !collectionId || !patch) return null;
+  return upsertCollectionOnBoard(
+    userId,
+    {
+      id: collectionId,
+      ...patch,
+      updated_at: patch.updated_at || new Date().toISOString(),
+    },
+    storage,
+  );
 }
 
 /** Optimistic create/duplicate — board row + pending-create so refetch cannot wipe it. */

@@ -547,6 +547,17 @@ export function rememberCollectionCover(collectionId, url) {
   return src;
 }
 
+export function forgetCollectionCover(collectionId) {
+  if (!collectionId) return;
+  coverMemory.delete(String(collectionId));
+  if (typeof window === 'undefined') return;
+  try {
+    sessionStorage.removeItem(`${COVER_CACHE_PREFIX}${collectionId}`);
+  } catch {
+    /* ignore */
+  }
+}
+
 export function readCachedCollectionCover(collectionId) {
   if (!collectionId) return '';
   const mem = coverMemory.get(String(collectionId));
