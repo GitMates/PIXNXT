@@ -5,6 +5,8 @@
  * their public paths. Everything else falls through to the SPA/assets.
  */
 
+import { crashQueryGateStatus, hasBearerToken, jsonError } from "./crashQueryGate.js";
+
 const DEFAULT_API = "https://pixnxt-api.pixnxt.workers.dev";
 
 /** Same list as the Worker's public.ts — only crawlers get OG HTML. */
@@ -40,13 +42,33 @@ export async function onRequest(context) {
   }
 
   // Admin Crash Report live tab — inject ADMIN_TOKEN server-side (never ship in Vite bundle).
+  // Caller must already be an authenticated PIXNXT admin; otherwise this would
+  // hand crash dumps to anyone who can hit the Pages Function.
   if (path === "/api/crash-query" && request.method === "GET") {
     const crash = String(env.CRASH_WORKER_URL || env.VITE_CRASH_WORKER_URL || "").trim().replace(/\/+$/, "");
     if (!crash) {
-      return new Response(JSON.stringify({ error: "CRASH_WORKER_URL not configured" }), {
-        status: 503,
-        headers: { "Content-Type": "application/json" },
-      });
+      return jsonError(503, "CRASH_WORKER_URL not configured");
+    }
+    const bearer = hasBearerToken(request.headers);
+    let adminStatus = 0;
+    if (bearer) {
+      try {
+        const check = await fetch(`${api}/v1/admin/who-emails`, {
+          method: "GET",
+          headers: {
+            Authorization: request.headers.get("Authorization") || "",
+            Accept: "application/json",
+          },
+        });
+        adminStatus = check.status;
+      } catch {
+        adminStatus = 503;
+      }
+    }
+    const gate = crashQueryGateStatus({ hasBearer: bearer, adminStatus });
+    if (gate !== 0) {
+      const message = gate === 401 ? "Authentication required" : gate === 403 ? "Admin access required" : "Crash query unavailable";
+      return jsonError(gate, message);
     }
     const target = new URL(`${crash}/query`);
     url.searchParams.forEach((v, k) => {

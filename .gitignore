@@ -28,3 +28,12 @@ dist-ssr
 
 # Local git worktrees (superpowers / agent isolation)
 .worktrees
+
+# Wrangler / Playwright output must not ship in the repo
+.wrangler/
+test-results/
+playwright-report/
+blob-report/
+
+# Word lock files
+~$*

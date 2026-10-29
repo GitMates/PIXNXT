@@ -64,7 +64,7 @@ describe('resolveUploadStrategy', () => {
     });
   });
 
-  test('uses client-signed R2 when the Worker cannot presign', () => {
+  test('never uses browser R2 credentials even if they are present', () => {
     expect(
       resolveUploadStrategy({
         fileSize: 400_000,
@@ -72,7 +72,7 @@ describe('resolveUploadStrategy', () => {
         plan: null,
         clientDirectAvailable: true,
       })
-    ).toEqual({ type: 'client-direct' });
+    ).toEqual({ type: 'worker-put' });
   });
 
   test('does not choose the Worker single-PUT proxy when a direct path exists', () => {

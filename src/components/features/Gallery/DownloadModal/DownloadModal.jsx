@@ -688,7 +688,7 @@ export const DownloadModal = ({
         await apiFetch('/v1/emails/order-placed', {
           method: 'POST',
           auth: false,
-          body: { orderId: order.id, recipientEmail: targetEmail, collectionSlug: collection.slug ?? null },
+          body: { orderId: order.id, sessionId: `digital-${collection.id}`, collectionSlug: collection.slug ?? null },
         }).catch((emailErr) => {
           console.warn('Could not trigger order placing email:', emailErr);
         });

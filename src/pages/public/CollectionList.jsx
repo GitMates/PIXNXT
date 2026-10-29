@@ -8,6 +8,7 @@ import { getCollectionCardCoverSrc } from '../../lib/photoDisplayUrl';
 import { defaultCoverGradient } from '../../lib/defaultCoverGradient';
 import { AppLoader } from '../../components/ui/AppLoading';
 import { shouldShowPixnxtBranding } from '../../lib/pixnxtBranding';
+import { sanitizePhotographerHtml } from '../../lib/sanitizePhotographerHtml';
 
 const ITEMS_PER_PAGE = 12;
 
@@ -578,10 +579,11 @@ const CollectionList = ({ slug, photographerProfile = null }) => {
               <div
                 style={{ fontSize: 14, color: '#374151', lineHeight: 1.6 }}
                 dangerouslySetInnerHTML={{
-                  __html:
+                  __html: sanitizePhotographerHtml(
                     legalModal === 'tos'
                       ? profile?.tos_text || ''
                       : profile?.privacy_policy_text || '',
+                  ),
                 }}
               />
               <button

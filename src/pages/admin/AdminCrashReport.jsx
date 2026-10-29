@@ -13,10 +13,9 @@ import {
   AdminStatCard,
   AdminModal,
 } from '../../components/admin/AdminUi';
-import { apiFetch } from '../../lib/api/client';
+import { apiFetch, getAccessToken } from '../../lib/api/client';
 
 const WORKER_URL = (import.meta.env.VITE_CRASH_WORKER_URL || '').replace(/\/+$/, '');
-const QUERY_TOKEN = (import.meta.env.VITE_CRASH_QUERY_TOKEN || '').trim();
 
 const RANGE_PRESETS = [
   { id: '24h', label: 'Last 24 hours', hours: 24 },
@@ -361,10 +360,13 @@ export default function AdminCrashReport() {
 
       let next = null;
       try {
-        const proxyRes = await fetch(`/api/crash-query?${params.toString()}`);
+        const token = getAccessToken();
+        const headers = { Accept: 'application/json' };
+        if (token) headers.Authorization = `Bearer ${token}`;
+        const proxyRes = await fetch(`/api/crash-query?${params.toString()}`, { headers });
         next = await parseRows(proxyRes);
       } catch (e) {
-        if (e.status === 401 || /unauthorized/i.test(String(e.message))) throw e;
+        if (e.status === 401 || e.status === 403 || /unauthorized|admin access/i.test(String(e.message))) throw e;
         next = null;
       }
 
@@ -374,9 +376,9 @@ export default function AdminCrashReport() {
           setRows([]);
           return;
         }
-        const directParams = new URLSearchParams(params);
-        if (QUERY_TOKEN) directParams.set('token', QUERY_TOKEN);
-        const res = await fetch(`${WORKER_URL}/query?${directParams.toString()}`);
+        // Direct worker URL is a last-resort unauthenticated probe only when
+        // the worker itself is open. Never attach a VITE_ query token.
+        const res = await fetch(`${WORKER_URL}/query?${params.toString()}`);
         next = await parseRows(res);
         if (next == null) throw new Error(`Query failed (${res.status})`);
       }

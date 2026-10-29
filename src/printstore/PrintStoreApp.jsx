@@ -314,7 +314,7 @@ const handlePlaceOrderWorkers = async ({
       auth: false,
       body: {
         orderId,
-        recipientEmail: shippingDetails.email,
+        sessionId: activeSessionId,
         collectionSlug: slugVal || undefined,
       },
     });

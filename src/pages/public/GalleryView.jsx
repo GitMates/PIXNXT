@@ -38,6 +38,7 @@ import { GalleryBackToTop } from '../../components/features/Gallery/GalleryBackT
 import { GalleryEmptyGrid } from '../../components/features/Gallery/GalleryEmptyGrid/GalleryEmptyGrid';
 import { smoothScrollToElement, smoothScrollToTop } from '../../lib/smoothGalleryScroll';
 import { getPhotoFullDisplayUrl, getWebResolutionUrl, getPhotoStreamPhase, resolveMediaUrl } from '../../lib/photoDisplayUrl';
+import { sanitizePhotographerHtml } from '../../lib/sanitizePhotographerHtml';
 import { stampCrashUser } from '../../lib/crashLogger';
 import { getStoreViewPhotoUrl, toStoreCartPhoto } from '../../lib/storePhotoQuality';
 import {
@@ -3379,7 +3380,7 @@ const GalleryView = () => {
             <h2 className="text-xl font-medium mb-4">Terms of Service</h2>
             <div
               className="text-sm text-gray-700 prose prose-sm max-w-none"
-              dangerouslySetInnerHTML={{ __html: tosText }}
+              dangerouslySetInnerHTML={{ __html: sanitizePhotographerHtml(tosText) }}
             />
             <button className="mt-6 px-4 py-2 bg-gray-100 rounded-lg hover:bg-gray-200" onClick={() => setShowTosModal(false)}>Close</button>
           </div>
@@ -3391,7 +3392,7 @@ const GalleryView = () => {
             <h2 className="text-xl font-medium mb-4">Privacy Policy</h2>
             <div
               className="text-sm text-gray-700 prose prose-sm max-w-none"
-              dangerouslySetInnerHTML={{ __html: privacyText }}
+              dangerouslySetInnerHTML={{ __html: sanitizePhotographerHtml(privacyText) }}
             />
             <button className="mt-6 px-4 py-2 bg-gray-100 rounded-lg hover:bg-gray-200" onClick={() => setShowPrivacyModal(false)}>Close</button>
           </div>

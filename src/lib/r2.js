@@ -1,26 +1,8 @@
-import { S3Client } from '@aws-sdk/client-s3';
-
-const accountId = import.meta.env.VITE_R2_ACCOUNT_ID;
-const accessKeyId = import.meta.env.VITE_R2_ACCESS_KEY_ID;
-const secretAccessKey = import.meta.env.VITE_R2_SECRET_ACCESS_KEY;
-
-if (!accountId || !accessKeyId || !secretAccessKey) {
-  // Cloudflare-only: uploads go via the Workers API (no client bucket credentials needed).
-}
-
-export const r2Client = new S3Client({
-  region: 'auto',
-  endpoint: `https://${accountId}.r2.cloudflarestorage.com`,
-  credentials: {
-    accessKeyId,
-    secretAccessKey,
-  },
-  forcePathStyle: true,
-  /** SDK v3 defaults break browser → R2 uploads (extra checksum headers vs CORS). */
-  requestChecksumCalculation: 'WHEN_REQUIRED',
-  responseChecksumValidation: 'WHEN_REQUIRED',
-});
-
+/**
+ * Public R2 display settings only. Bucket credentials must never be VITE_
+ * prefixed — Vite inlines those into the browser bundle.
+ * Uploads go through the Workers API (`/v1/r2/direct` presign).
+ */
 export const R2_BUCKET_NAME = import.meta.env.VITE_R2_BUCKET_NAME;
 export const R2_PUBLIC_URL = import.meta.env.VITE_R2_PUBLIC_URL;
 

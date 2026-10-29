@@ -162,7 +162,6 @@ export function resolveUploadStrategy({
   resumeCheckpoint = null,
   directAvailable,
   plan,
-  clientDirectAvailable,
 }) {
   const tooLargeForProxy = fileSize > workerProxyMax;
   if (resumeCheckpoint?.uploadId && tooLargeForProxy) {
@@ -170,9 +169,6 @@ export function resolveUploadStrategy({
   }
   if (directAvailable && plan?.enabled) {
     return { type: 'direct', plan };
-  }
-  if (clientDirectAvailable) {
-    return { type: 'client-direct' };
   }
   if (tooLargeForProxy) return { type: 'worker-parts' };
   return { type: 'worker-put' };
@@ -183,49 +179,6 @@ export function allowWorkerProxyFallback(hadEnabledDirectPlan) {
   return hadEnabledDirectPlan !== true;
 }
 
-function clientR2Configured() {
-  return Boolean(
-    import.meta.env.VITE_R2_ACCOUNT_ID &&
-      import.meta.env.VITE_R2_ACCESS_KEY_ID &&
-      import.meta.env.VITE_R2_SECRET_ACCESS_KEY &&
-      import.meta.env.VITE_R2_BUCKET_NAME
-  );
-}
-
-/** Browser → R2 with the same S3 client the SPA already ships. No Worker hop. */
-async function uploadViaClientDirect(path, file, contentType, onProgress, abortSignal, options = {}) {
-  const { r2Client, R2_BUCKET_NAME } = await import('../lib/r2');
-  const { Upload } = await import('@aws-sdk/lib-storage');
-  if (!R2_BUCKET_NAME) throw new Error('VITE_R2_BUCKET_NAME is not configured.');
-  const upload = new Upload({
-    client: r2Client,
-    params: {
-      Bucket: R2_BUCKET_NAME,
-      Key: path,
-      Body: file,
-      ContentType: contentType,
-    },
-    queueSize: DIRECT_PART_PARALLEL,
-    partSize: 8 * 1024 * 1024,
-    leavePartsOnError: false,
-  });
-  upload.on('httpUploadProgress', (evt) => {
-    if (evt.total) onProgress?.(Math.min(99, Math.round((evt.loaded / evt.total) * 100)));
-  });
-  const onAbort = () => {
-    void upload.abort();
-  };
-  abortSignal?.addEventListener('abort', onAbort, { once: true });
-  try {
-    if (abortSignal?.aborted) throw new Error('Upload cancelled.');
-    await upload.done();
-    onProgress?.(100);
-    options?.onConfirmedBytes?.(file.size);
-    return { path, url: storageService.getPublicUrl(path) };
-  } finally {
-    abortSignal?.removeEventListener('abort', onAbort);
-  }
-}
 const presignWaiters = [];
 let presignScheduled = false;
 
@@ -699,7 +652,6 @@ export const storageService = {
         resumeCheckpoint: partOptions.resumeCheckpoint,
         directAvailable: directGate.available(),
         plan,
-        clientDirectAvailable: clientR2Configured(),
       });
 
       if (strategy.type === 'direct') {
@@ -716,23 +668,10 @@ export const storageService = {
           return result;
         } catch (err) {
           if (abortSignal?.aborted || /cancelled/i.test(err?.message || '')) throw err;
-          if (clientR2Configured()) {
-            console.warn('Worker-signed R2 PUT failed, retrying client-signed upload', err);
-            return await uploadViaClientDirect(path, body, contentType, onProgress, abortSignal, partOptions);
-          }
           if (!allowWorkerProxyFallback(true)) {
             directGate.noteTransientFailure();
             throw err;
           }
-        }
-      }
-
-      if (strategy.type === 'client-direct') {
-        try {
-          return await uploadViaClientDirect(path, body, contentType, onProgress, abortSignal, partOptions);
-        } catch (err) {
-          if (abortSignal?.aborted || /cancelled/i.test(err?.message || '')) throw err;
-          console.warn('Client-signed R2 upload failed; Worker proxy is a last resort until bucket CORS allows PUT', err);
         }
       }
 
