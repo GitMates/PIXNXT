@@ -59,9 +59,15 @@ export function uploadInProgressTitle(files: UploadQueueFile[], inProgressCount:
 
 const BYTES_PER_MB = 1024 * 1024;
 const GB_THRESHOLD_MB = 1000;
+/** Decimal megabits (Speedtest / Pixiset). 1 Mbps = 125_000 bytes/s. */
+const BYTES_PER_DECIMAL_MBPS = 1_000_000 / 8;
 
 function bytesToMb(bytes: number): number {
   return bytes / BYTES_PER_MB;
+}
+
+export function bytesPerSecToMbps(bytesPerSec: number): number {
+  return Math.max(0, bytesPerSec / BYTES_PER_DECIMAL_MBPS);
 }
 
 function formatTrimmed(n: number, digits: number): string {
@@ -85,8 +91,9 @@ export function formatUploadBytePair(doneBytes: number, totalBytes: number): str
 }
 
 export function formatUploadSpeed(bytesPerSec: number): string {
-  const mb = Math.max(0, bytesToMb(bytesPerSec));
-  return `${mb.toFixed(1)} MB/s`;
+  const mbps = bytesPerSecToMbps(bytesPerSec);
+  if (mbps < 0.1 && bytesPerSec > 0) return '<0.1 Mbps';
+  return `${mbps.toFixed(1)} Mbps`;
 }
 
 /** Human-readable ETA for the upload panel header. */
@@ -108,23 +115,25 @@ export function formatUploadEta(
 }
 
 export const CONNECTION_HEALTH_LEVELS = [
-  { h: 0, word: 'Stalled', minMBps: 0 },
-  { h: 1, word: 'Slow', minMBps: 0.01 },
-  { h: 2, word: 'Fair', minMBps: 0.4 },
-  { h: 3, word: 'Good', minMBps: 1 },
-  { h: 4, word: 'Fast', minMBps: 3 },
+  { h: 0, word: 'Stalled', minMbps: 0 },
+  { h: 1, word: 'Slow', minMbps: 0.1 },
+  { h: 2, word: 'Fair', minMbps: 10 },
+  { h: 3, word: 'Good', minMbps: 25 },
+  { h: 4, word: 'Fast', minMbps: 50 },
+  { h: 5, word: 'Very fast', minMbps: 100 },
 ] as const;
 
 export function connectionHealthForSpeed(
   bytesPerSec: number,
-  { stalledForSeconds = 0 }: { stalledForSeconds?: number } = {}
+  { stalledForSeconds = 0, finishing = false }: { stalledForSeconds?: number; finishing?: boolean } = {}
 ): { h: number; word: string } {
+  if (finishing) return { h: 3, word: 'Finishing' };
   if (stalledForSeconds >= 10) return { h: 0, word: 'Stalled' };
-  const mbps = Math.max(0, bytesToMb(bytesPerSec));
+  const mbps = bytesPerSecToMbps(bytesPerSec);
   let level: { h: number; word: string } = CONNECTION_HEALTH_LEVELS[1];
   for (const band of CONNECTION_HEALTH_LEVELS) {
     if (band.h === 0) continue;
-    if (mbps >= band.minMBps) level = { h: band.h, word: band.word };
+    if (mbps >= band.minMbps) level = { h: band.h, word: band.word };
   }
   return level;
 }
@@ -220,12 +229,44 @@ export function uploadBytesDone(file: UploadQueueFile): number {
   return Math.round((total * file.progress) / 100);
 }
 
+/** True only when the original PUT went backwards — not during web/thumb after 100% confirmed. */
+export function fileIsRetrying(file: UploadQueueFile): boolean {
+  if (file.status !== 'uploading' && file.status !== 'processing') return false;
+  const total = uploadTotalBytes(file);
+  if (!total) return false;
+  const confirmedPct = Math.round((confirmedBytesForFile(file) / total) * 100);
+  if (confirmedPct >= 100) return false;
+  const xhrPct = Math.min(100, Math.round((uploadBytesDone(file) / total) * 100));
+  return confirmedPct > 0 && xhrPct < confirmedPct;
+}
+
 export function getTotalUploadBytes(files: UploadQueueFile[]): number {
   return files.reduce((sum, f) => sum + uploadTotalBytes(f), 0);
 }
 
 export function getTotalBytesDone(files: UploadQueueFile[]): number {
   return files.reduce((sum, f) => sum + uploadBytesDone(f), 0);
+}
+
+/** How much of one photo counts toward the batch bar. Completed = 1; in-flight originals cap at 0.7. */
+export function uploadFileCredit(file: UploadQueueFile): number {
+  if (file.status === 'completed') return 1;
+  if (file.status !== 'uploading' && file.status !== 'processing') return 0;
+  const total = uploadTotalBytes(file);
+  if (!total) return 0;
+  return 0.7 * Math.min(1, confirmedBytesForFile(file) / total);
+}
+
+export function getTotalProgressBytes(files: UploadQueueFile[]): number {
+  return files.reduce((sum, file) => sum + uploadFileCredit(file) * uploadTotalBytes(file), 0);
+}
+
+export function originalsStillInFlight(files: UploadQueueFile[]): boolean {
+  return files.some((file) => {
+    if (file.status !== 'uploading' && file.status !== 'processing') return false;
+    const total = uploadTotalBytes(file);
+    return total > 0 && confirmedBytesForFile(file) < total;
+  });
 }
 
 export function filterFilesByTab(files: UploadQueueFile[], tab: UploadPanelTab): UploadQueueFile[] {
@@ -246,11 +287,16 @@ export function uploadTabCounts(files: UploadQueueFile[]) {
   };
 }
 
-/** Overall progress — confirmed original bytes only, so retries cannot reverse the bar. */
+/** Overall progress follows finished photos. Originals-in-flight count 70% so the bar cannot hit 100% while previews remain. */
 export function uploadOverallPercent(files: UploadQueueFile[]): number {
-  const total = getTotalUploadBytes(files);
-  if (total <= 0) return 0;
-  return Math.min(100, Math.round((getTotalConfirmedBytes(files) / total) * 100));
+  if (files.length === 0) return 0;
+  const credit = files.reduce((sum, file) => sum + uploadFileCredit(file), 0);
+  const pct = Math.round((credit / files.length) * 100);
+  const busy = files.some(
+    (file) => file.status === 'uploading' || file.status === 'processing' || file.status === 'waiting'
+  );
+  if (busy) return Math.min(99, pct);
+  return Math.min(100, pct);
 }
 
 export type IncompleteUploadPhoto = {

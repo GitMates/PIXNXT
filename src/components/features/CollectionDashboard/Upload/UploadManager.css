@@ -238,10 +238,12 @@
   font-weight: 600;
 }
 
+.upload-health-pill.health-5 .upload-health-word,
 .upload-health-pill.health-4 .upload-health-word,
 .upload-health-pill.health-3 .upload-health-word {
   color: #3f6b45;
 }
+.upload-health-pill.health-5 .upload-health-dot,
 .upload-health-pill.health-4 .upload-health-dot,
 .upload-health-pill.health-3 .upload-health-dot {
   background: #3f6b45;

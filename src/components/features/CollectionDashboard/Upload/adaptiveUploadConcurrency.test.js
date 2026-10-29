@@ -4,9 +4,9 @@ import { createAdaptiveConcurrency, uploadFailureKind } from './adaptiveUploadCo
 const MB = 1024 * 1024;
 
 describe('createAdaptiveConcurrency', () => {
-  test('starts at 4 parallel photo slots', () => {
+  test('starts at 8 parallel original slots', () => {
     const c = createAdaptiveConcurrency({ now: () => 0 });
-    expect(c.limit).toBe(4);
+    expect(c.limit).toBe(8);
   });
 
   test('does not change the limit after the first 5 s window', () => {
@@ -15,7 +15,7 @@ describe('createAdaptiveConcurrency', () => {
     c.observe(5 * MB);
     t = 5000;
     c.observe(10 * MB);
-    expect(c.limit).toBe(4);
+    expect(c.limit).toBe(8);
   });
 
   test('adds 1 slot when the next 5 s window is more than 10% faster', () => {
@@ -26,44 +26,55 @@ describe('createAdaptiveConcurrency', () => {
     c.observe(5 * MB);
     t = 10000;
     c.observe(11 * MB);
-    expect(c.limit).toBe(5);
+    expect(c.limit).toBe(9);
   });
 
-  test('halves when throughput falls, and never goes below 2', () => {
+  test('drops one slot when original throughput falls, and never goes below 6', () => {
     let t = 0;
-    const c = createAdaptiveConcurrency({ now: () => t, start: 6 });
-    c.observe(0);
+    const c = createAdaptiveConcurrency({ now: () => t, start: 8 });
+    c.observe(0, { originalsInFlight: true });
     t = 5000;
-    c.observe(10 * MB);
+    c.observe(10 * MB, { originalsInFlight: true });
     t = 10000;
-    c.observe(11 * MB);
-    expect(c.limit).toBe(3);
+    c.observe(11 * MB, { originalsInFlight: true });
+    expect(c.limit).toBe(7);
     t = 15000;
-    c.observe(11 * MB);
-    expect(c.limit).toBe(2);
+    c.observe(11 * MB, { originalsInFlight: true });
+    expect(c.limit).toBe(6);
     t = 20000;
-    c.observe(11 * MB);
-    expect(c.limit).toBe(2);
+    c.observe(11 * MB, { originalsInFlight: true });
+    expect(c.limit).toBe(6);
   });
 
-  test('never raises above 12', () => {
+  test('does not cut slots during a preview-only window with no originals in flight', () => {
     let t = 0;
-    const c = createAdaptiveConcurrency({ now: () => t, start: 11 });
+    const c = createAdaptiveConcurrency({ now: () => t, start: 8 });
+    c.observe(0, { originalsInFlight: true });
+    t = 5000;
+    c.observe(10 * MB, { originalsInFlight: true });
+    t = 10000;
+    c.observe(10 * MB, { originalsInFlight: false });
+    expect(c.limit).toBe(8);
+  });
+
+  test('never raises above 16', () => {
+    let t = 0;
+    const c = createAdaptiveConcurrency({ now: () => t, start: 15 });
     c.observe(0);
     t = 5000;
     c.observe(5 * MB);
     t = 10000;
     c.observe(11 * MB);
-    expect(c.limit).toBe(12);
+    expect(c.limit).toBe(16);
     t = 15000;
     c.observe(20 * MB);
-    expect(c.limit).toBe(12);
+    expect(c.limit).toBe(16);
   });
 
-  test('a network error or timeout halves immediately', () => {
-    const c = createAdaptiveConcurrency({ now: () => 0, start: 8 });
-    expect(c.noteFailure('network')).toBe(4);
-    expect(c.noteFailure('timeout')).toBe(2);
+  test('a network error or timeout drops toward the floor but not below 6', () => {
+    const c = createAdaptiveConcurrency({ now: () => 0, start: 12 });
+    expect(c.noteFailure('network')).toBe(6);
+    expect(c.noteFailure('timeout')).toBe(6);
   });
 
   test('rate limits, auth failures, and cancels do not change the limit', () => {
@@ -89,7 +100,7 @@ describe('createAdaptiveConcurrency', () => {
     c.observe(18 * MB);
     t = 10000;
     c.observe(20.4 * MB);
-    expect(c.limit).toBe(4);
+    expect(c.limit).toBe(8);
   });
 });
 

@@ -4,13 +4,16 @@ import {
   confirmedBytesForFile,
   connectionHealthForSpeed,
   createConfirmedSpeedTracker,
+  fileIsRetrying,
   filterFilesByTab,
   formatUploadBytePair,
   formatUploadEta,
   formatUploadMb,
   formatUploadSpeed,
   getTotalConfirmedBytes,
+  getTotalProgressBytes,
   getTotalUploadBytes,
+  originalsStillInFlight,
   uploadBytesDone,
   uploadOverallPercent,
   uploadTabCounts,
@@ -73,18 +76,9 @@ function fileRowPercent(file: UploadWidgetState['files'][number]) {
   const total = uploadTotalBytes(file);
   const confirmedPct = total ? Math.round((confirmedBytesForFile(file) / total) * 100) : 0;
   const xhrPct = !total
-    ? Math.min(100, Math.max(0, file.progress || 0))
-    : Math.min(100, Math.round((uploadBytesDone(file) / total) * 100));
-  return Math.max(xhrPct, confirmedPct);
-}
-
-function fileIsRetrying(file: UploadWidgetState['files'][number]) {
-  if (file.status !== 'uploading' && file.status !== 'processing') return false;
-  const total = uploadTotalBytes(file);
-  if (!total) return false;
-  const confirmedPct = Math.round((confirmedBytesForFile(file) / total) * 100);
-  const xhrPct = Math.min(100, Math.round((uploadBytesDone(file) / total) * 100));
-  return confirmedPct > 0 && xhrPct < confirmedPct;
+    ? Math.min(99, Math.max(0, file.progress || 0))
+    : Math.min(99, Math.round((uploadBytesDone(file) / total) * 100));
+  return Math.min(99, Math.max(xhrPct, confirmedPct));
 }
 
 function stayInLabel(destinationLabel: string) {
@@ -224,7 +218,8 @@ export const UploadManager: React.FC<UploadManagerProps> = ({
   }, [isAllComplete, onDismiss, isStopped]);
 
   const totalBytes = useMemo(() => getTotalUploadBytes(state.files), [state.files]);
-  const doneBytes = useMemo(() => getTotalConfirmedBytes(state.files), [state.files]);
+  const doneBytes = useMemo(() => getTotalProgressBytes(state.files), [state.files]);
+  const finishing = hasActiveUploads && !isPaused && !isStopped && !originalsStillInFlight(state.files);
 
   useEffect(() => {
     if (state.files.length === 0) speedTrackerRef.current?.reset(0);
@@ -242,6 +237,7 @@ export const UploadManager: React.FC<UploadManagerProps> = ({
   const remainingBytes = Math.max(0, totalBytes - doneBytes);
   const health = connectionHealthForSpeed(speedSample.bytesPerSec, {
     stalledForSeconds: speedSample.stalledForSeconds,
+    finishing,
   });
   const atATime = Math.max(1, state.activeConcurrency || inProgressCount);
 
@@ -251,6 +247,7 @@ export const UploadManager: React.FC<UploadManagerProps> = ({
     if (isAllComplete) return 'All uploaded';
     if (isFinishedWithFailures) return `${failedCount} failed`;
     if (pendingCount > 0) {
+      if (finishing) return 'Finishing photos…';
       return formatUploadEta(remainingBytes, speedSample.bytesPerSec, speedSample.ticks);
     }
     return '';
@@ -264,6 +261,7 @@ export const UploadManager: React.FC<UploadManagerProps> = ({
     isFinishedWithFailures,
     failedCount,
     pendingCount,
+    finishing,
   ]);
 
   const { rows: renderedRows, hidden: hiddenRows } = useMemo(
@@ -390,11 +388,11 @@ export const UploadManager: React.FC<UploadManagerProps> = ({
             ) : (
               <span
                 className={`upload-health-pill health-${health.h}`}
-                aria-label={`Connection ${health.word}, ${formatUploadSpeed(speedSample.bytesPerSec).replace(' MB/s', '')} megabytes per second`}
+                aria-label={`Connection ${health.word}, ${formatUploadSpeed(speedSample.bytesPerSec)}`}
               >
                 <span className="upload-health-dot" aria-hidden="true" />
                 <span className="upload-health-word">{health.word}</span>
-                <strong>{formatUploadSpeed(speedSample.bytesPerSec)}</strong>
+                {finishing ? null : <strong>{formatUploadSpeed(speedSample.bytesPerSec)}</strong>}
               </span>
             )}
             <span className="meta-dot">·</span>
@@ -405,7 +403,7 @@ export const UploadManager: React.FC<UploadManagerProps> = ({
         )}
       </div>
 
-      {speedSample.slow && !isPaused && !isAllComplete && !isStopped && !isFinishedWithFailures ? (
+      {speedSample.slow && !finishing && !isPaused && !isAllComplete && !isStopped && !isFinishedWithFailures ? (
         <p className="upload-slow-note">
           Slow connection
         </p>

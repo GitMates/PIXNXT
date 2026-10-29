@@ -6,12 +6,15 @@ import {
   connectionHealthForSpeed,
   createConfirmedSpeedTracker,
   createProgressThrottle,
+  fileIsRetrying,
   filterFilesByTab,
   formatUploadBytePair,
   formatUploadEta,
   formatUploadMb,
   formatUploadSpeed,
   getTotalConfirmedBytes,
+  getTotalProgressBytes,
+  originalsStillInFlight,
   selectRenderedRows,
   uploadOverallPercent,
   uploadTabCounts,
@@ -105,9 +108,9 @@ describe('formatUploadBytePair', () => {
 });
 
 describe('formatUploadSpeed', () => {
-  test('shows one decimal MB/s', () => {
-    expect(formatUploadSpeed(0.8 * MB)).toBe('0.8 MB/s');
-    expect(formatUploadSpeed(1.4 * MB)).toBe('1.4 MB/s');
+  test('shows megabits per second like Speedtest and Pixiset', () => {
+    expect(formatUploadSpeed(125_000)).toBe('1.0 Mbps');
+    expect(formatUploadSpeed(12_500_000)).toBe('100.0 Mbps');
   });
 });
 
@@ -124,16 +127,21 @@ describe('formatUploadEta', () => {
 });
 
 describe('connectionHealthForSpeed', () => {
-  test('uses absolute MB/s bands and a word at every level', () => {
+  test('uses Mbps bands and levels Fast at 50, Very fast at 100', () => {
     expect(connectionHealthForSpeed(0, { stalledForSeconds: 10 }).word).toBe('Stalled');
-    expect(connectionHealthForSpeed(0.18 * MB).word).toBe('Slow');
-    expect(connectionHealthForSpeed(0.8 * MB).word).toBe('Fair');
-    expect(connectionHealthForSpeed(1.6 * MB).word).toBe('Good');
-    expect(connectionHealthForSpeed(4.2 * MB).word).toBe('Fast');
+    expect(connectionHealthForSpeed(125_000).word).toBe('Slow');
+    expect(connectionHealthForSpeed(1_250_000).word).toBe('Fair');
+    expect(connectionHealthForSpeed(3_125_000).word).toBe('Good');
+    expect(connectionHealthForSpeed(6_250_000).word).toBe('Fast');
+    expect(connectionHealthForSpeed(12_500_000).word).toBe('Very fast');
   });
 
   test('does not call near-zero speed Stalled until 10 quiet seconds', () => {
     expect(connectionHealthForSpeed(0, { stalledForSeconds: 3 }).word).toBe('Slow');
+  });
+
+  test('says Finishing instead of Stalled when originals are done and previews remain', () => {
+    expect(connectionHealthForSpeed(0, { stalledForSeconds: 12, finishing: true }).word).toBe('Finishing');
   });
 });
 
@@ -148,14 +156,24 @@ describe('confirmed bytes', () => {
     expect(confirmedBytesForFile(file)).toBe(2 * MB);
   });
 
-  test('overall percent uses confirmed bytes so a retry cannot move the bar backwards', () => {
+  test('overall percent stays below 100 while photos are still finishing after originals land', () => {
+    const files = [
+      { ...mkFile('a', 'completed'), size: 10 * MB, progress: 100, confirmedBytes: 10 * MB },
+      { ...mkFile('b', 'uploading'), size: 10 * MB, progress: 88, confirmedBytes: 10 * MB },
+    ];
+    expect(uploadOverallPercent(files)).toBeLessThan(100);
+    expect(getTotalProgressBytes(files)).toBeLessThan(20 * MB);
+    expect(originalsStillInFlight(files)).toBe(false);
+  });
+
+  test('overall percent does not drop when an in-flight original retries', () => {
     const files = [
       { ...mkFile('a', 'completed'), size: 10 * MB, progress: 100, confirmedBytes: 10 * MB },
       { ...mkFile('b', 'uploading'), size: 10 * MB, progress: 5, confirmedBytes: 4 * MB },
     ];
-    expect(uploadOverallPercent(files)).toBe(70);
+    const before = uploadOverallPercent(files);
     const retried = files.map((f) => (f.id === 'b' ? { ...f, progress: 0 } : f));
-    expect(uploadOverallPercent(retried)).toBe(70);
+    expect(uploadOverallPercent(retried)).toBe(before);
   });
 
   test('sums confirmed bytes across the batch', () => {
@@ -213,6 +231,28 @@ describe('createConfirmedSpeedTracker', () => {
       sample = tracker.tick(confirmed);
     }
     expect(sample.slow).toBe(true);
+  });
+});
+
+describe('fileIsRetrying', () => {
+  test('does not flag Retrying after the original has landed and previews are still going', () => {
+    const file = {
+      ...mkFile('a', 'uploading'),
+      size: 10 * MB,
+      progress: 88,
+      confirmedBytes: 10 * MB,
+    };
+    expect(fileIsRetrying(file)).toBe(false);
+  });
+
+  test('still flags a real retry while the original is in flight', () => {
+    const file = {
+      ...mkFile('a', 'uploading'),
+      size: 10 * MB,
+      progress: 20,
+      confirmedBytes: 4 * MB,
+    };
+    expect(fileIsRetrying(file)).toBe(true);
   });
 });
 

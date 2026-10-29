@@ -27,6 +27,7 @@ import {
   createAdaptiveConcurrency,
   uploadFailureKind,
 } from '../components/features/CollectionDashboard/Upload/adaptiveUploadConcurrency';
+import { createOriginalSlotLedger } from '../components/features/CollectionDashboard/Upload/originalUploadSlots';
 import { createUploadQueueStore } from './uploadQueueStore';
 import { UploadQueueContext, UploadQueueStoreContext } from './uploadQueueContext';
 import { isRateLimitedError } from '../services/storage.service';
@@ -148,6 +149,8 @@ export function UploadQueueProvider({ children }) {
   const rateLimitTimerRef = useRef(null);
   const adaptiveRef = useRef(null);
   if (!adaptiveRef.current) adaptiveRef.current = createAdaptiveConcurrency();
+  const originalSlotsRef = useRef(null);
+  if (!originalSlotsRef.current) originalSlotsRef.current = createOriginalSlotLedger();
   /** Centered in-app notice (replaces native alert() popups). */
   const [notice, setNotice] = useState(null);
   const notifyNotice = useCallback((title, message) => {
@@ -316,6 +319,11 @@ export function UploadQueueProvider({ children }) {
             skipQuota: true,
             quietQuota: true,
             onConfirmedBytes: (bytes) => safePatch({ confirmedBytes: bytes }),
+            onOriginalComplete: () => {
+              if (originalSlotsRef.current.release(uf.id)) {
+                pumpQueueRef.current();
+              }
+            },
             onMultipartCheckpoint: (checkpoint) => {
               const nextCtx = {
                 ...(originalContextByIdRef.current.get(uf.id) || {}),
@@ -520,37 +528,41 @@ export function UploadQueueProvider({ children }) {
 
     pendingDerivativesRef.current = sortUploadQueueBySizeAsc(pendingDerivativesRef.current);
     const maxSlots = adaptiveRef.current.limit;
-    const activeTotal = () => activeDerivativesRef.current + activeOriginalsRef.current;
+    const slots = originalSlotsRef.current;
 
     while (
-      activeTotal() < maxSlots &&
+      slots.held < maxSlots &&
       pendingDerivativesRef.current.length > 0
     ) {
       const uf = pendingDerivativesRef.current.shift();
       if (!uf) break;
 
+      slots.acquire(uf.id);
       activeDerivativesRef.current += 1;
       activeJobIdsRef.current.add(uf.id);
       void runDerivativeUpload(uf).finally(() => {
+        slots.release(uf.id);
         activeDerivativesRef.current -= 1;
         activeJobIdsRef.current.delete(uf.id);
         pumpQueueRef.current();
       });
     }
 
-    // Resumed originals share the same photo-level cap as new files.
+    // Resumed originals share the same original-PUT cap as new files.
     pendingOriginalsRef.current = sortUploadQueueBySizeAsc(pendingOriginalsRef.current);
 
     while (
-      activeTotal() < maxSlots &&
+      slots.held < maxSlots &&
       pendingOriginalsRef.current.length > 0
     ) {
       const uf = pendingOriginalsRef.current.shift();
       if (!uf) break;
 
+      slots.acquire(uf.id);
       activeOriginalsRef.current += 1;
       activeJobIdsRef.current.add(uf.id);
       void runOriginalUpload(uf).finally(() => {
+        slots.release(uf.id);
         activeOriginalsRef.current -= 1;
         activeJobIdsRef.current.delete(uf.id);
         pumpQueueRef.current();
@@ -745,6 +757,7 @@ export function UploadQueueProvider({ children }) {
         pendingOriginalsRef.current.length === 0
       ) {
         adaptiveRef.current.reset();
+        originalSlotsRef.current.reset();
       }
 
       const sortedAccepted = sortFilesBySizeAsc(accepted);
@@ -925,7 +938,9 @@ export function UploadQueueProvider({ children }) {
       );
       if (!busy) return;
       const prev = adaptiveRef.current.limit;
-      adaptiveRef.current.observe(getTotalConfirmedBytes(files));
+      adaptiveRef.current.observe(getTotalConfirmedBytes(files), {
+        originalsInFlight: originalSlotsRef.current.held > 0,
+      });
       if (adaptiveRef.current.limit !== prev) {
         syncConcurrency();
         pumpQueueRef.current();
@@ -947,6 +962,7 @@ export function UploadQueueProvider({ children }) {
     abortControllersRef.current.clear();
     originalContextByIdRef.current.clear();
     adaptiveRef.current.reset();
+    originalSlotsRef.current.reset();
     pausedRef.current = false;
     rateLimitedUntilRef.current = 0;
     if (rateLimitTimerRef.current) { clearTimeout(rateLimitTimerRef.current); rateLimitTimerRef.current = null; }

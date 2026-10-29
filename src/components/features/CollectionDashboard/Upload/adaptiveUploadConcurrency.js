@@ -1,7 +1,7 @@
-/** Photo-level upload slots. AIMD finds ~3–4 on a thin link and ~8–12 on fibre. */
-export const ADAPTIVE_START = 4;
-export const ADAPTIVE_FLOOR = 2;
-export const ADAPTIVE_CEILING = 12;
+/** Original-file slots. Stay high enough to fill fibre; do not collapse during previews. */
+export const ADAPTIVE_START = 8;
+export const ADAPTIVE_FLOOR = 6;
+export const ADAPTIVE_CEILING = 16;
 export const ADAPTIVE_WINDOW_MS = 5000;
 const RISE_RATIO = 0.1;
 
@@ -47,7 +47,7 @@ export function createAdaptiveConcurrency({
     get limit() {
       return limit;
     },
-    observe(confirmedTotal) {
+    observe(confirmedTotal, { originalsInFlight = true } = {}) {
       const t = now();
       const gained = Math.max(0, confirmedTotal - lastConfirmed);
       lastConfirmed = Math.max(lastConfirmed, confirmedTotal);
@@ -55,12 +55,18 @@ export function createAdaptiveConcurrency({
       const elapsed = t - windowStart;
       if (elapsed < windowMs) return limit;
 
+      if (!originalsInFlight) {
+        windowStart = t;
+        windowBytes = 0;
+        return limit;
+      }
+
       const throughput = windowBytes / (elapsed / 1000);
       if (prevThroughput != null) {
         if (throughput > prevThroughput * (1 + RISE_RATIO)) {
           limit = clampLimit(limit + 1, floor, ceiling);
         } else if (throughput < prevThroughput) {
-          halve();
+          limit = clampLimit(limit - 1, floor, ceiling);
         }
       }
       prevThroughput = throughput;

@@ -96,6 +96,7 @@ import {
   isIncompleteUploadPhoto,
   resolveOriginalStoragePath,
 } from '../components/features/CollectionDashboard/Upload/uploadUtils';
+import { previewPutGate } from '../components/features/CollectionDashboard/Upload/uploadPreviewGate';
 
 function getUploadVariantOptions() {
   const defaults = resolveUploadDefaults(null);
@@ -594,9 +595,9 @@ export const galleryService = {
   },
 
   /**
-   * One photo slot: original PUT starts immediately while web/thumb encode
-   * off-thread. Derivative PUTs wait until the original has finished, so
-   * "N at a time" is N photos on the wire, not N requests.
+   * Original PUT starts immediately while web/thumb encode off-thread.
+   * `onOriginalComplete` fires as soon as the original has left the wire so
+   * the queue can start the next original. Preview PUTs share a small gate.
    */
   async uploadPhotoDerivatives(
     collectionId,
@@ -724,6 +725,7 @@ export const galleryService = {
       originalResult = await originalTask;
       origPercent = 100;
       reportSlot();
+      options.onOriginalComplete?.();
     }
 
     const fileNameJpg = fileName.replace(/\.[^.]+$/, '.jpg');
@@ -735,29 +737,56 @@ export const galleryService = {
     let webUrl = null;
     let thumbUrl = null;
 
-    if (webFile) {
-      webStoragePath = webPath;
-      const uploaded = await storageService.upload(webStoragePath, webFile, (p) => {
-        derivPercent = 25 + p * 0.35;
-        reportSlot();
-      }, signal);
-      webUrl = uploaded?.url || null;
-    }
-    if (thumbFile) {
-      thumbnailStoragePath = thumbnailPath;
-      const uploaded = await storageService.upload(thumbnailStoragePath, thumbFile, (p) => {
-        derivPercent = 60 + p * 0.35;
-        reportSlot();
-      }, signal);
-      thumbUrl = uploaded?.url || null;
-    }
-    if (isVideo && thumbnailBlob) {
-      thumbnailStoragePath = thumbnailPath;
-      const uploaded = await storageService.upload(thumbnailPath, thumbnailBlob, (p) => {
-        derivPercent = 60 + p * 0.35;
-        reportSlot();
-      }, signal);
-      thumbUrl = uploaded?.url || null;
+    const hasWeb = Boolean(webFile);
+    const hasThumb = Boolean(thumbFile) || Boolean(isVideo && thumbnailBlob);
+    if (hasWeb || hasThumb) {
+      await previewPutGate.acquire(signal);
+      try {
+        let webPct = 0;
+        let thumbPct = 0;
+        const reportPreviews = () => {
+          const webWeight = hasWeb ? 0.35 : 0;
+          const thumbWeight = hasThumb ? 0.35 : 0;
+          derivPercent = 25 + webPct * webWeight + thumbPct * thumbWeight;
+          reportSlot();
+        };
+        const previewJobs = [];
+        if (webFile) {
+          webStoragePath = webPath;
+          previewJobs.push(
+            storageService.upload(webStoragePath, webFile, (p) => {
+              webPct = p;
+              reportPreviews();
+            }, signal).then((uploaded) => {
+              webUrl = uploaded?.url || null;
+            })
+          );
+        }
+        if (thumbFile) {
+          thumbnailStoragePath = thumbnailPath;
+          previewJobs.push(
+            storageService.upload(thumbnailStoragePath, thumbFile, (p) => {
+              thumbPct = p;
+              reportPreviews();
+            }, signal).then((uploaded) => {
+              thumbUrl = uploaded?.url || null;
+            })
+          );
+        } else if (isVideo && thumbnailBlob) {
+          thumbnailStoragePath = thumbnailPath;
+          previewJobs.push(
+            storageService.upload(thumbnailPath, thumbnailBlob, (p) => {
+              thumbPct = p;
+              reportPreviews();
+            }, signal).then((uploaded) => {
+              thumbUrl = uploaded?.url || null;
+            })
+          );
+        }
+        await Promise.all(previewJobs);
+      } finally {
+        previewPutGate.release();
+      }
     }
 
     const parsedExif = exifDetailsTask ? await exifDetailsTask.catch(() => null) : null;
