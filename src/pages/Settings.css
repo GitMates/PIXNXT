@@ -2020,8 +2020,10 @@
   box-shadow: none;
 }
 
+
 .settings-search-icon {
   flex-shrink: 0;
+  color: #8c827a;
 }
 
 .settings-search-input {
@@ -2031,6 +2033,9 @@
   font-size: 13px;
   color: #1a1a1a;
   width: 100%;
+  appearance: none;
+  -webkit-appearance: none;
+  box-shadow: none;
 }
 
 

@@ -70,14 +70,17 @@
 }
 
 .cd-design-preview-pane.mobile .cd-preview-canvas {
+  --cd-phone-radius: 54px;
+  --cd-phone-bezel: 9px;
+  --cd-phone-inner-radius: calc(var(--cd-phone-radius) - var(--cd-phone-bezel));
   max-width: 375px;
   width: 375px;
   height: 720px;
   min-height: 720px;
-  border-radius: 42px;
-  border: 9px solid #1d1d1f;
+  border-radius: var(--cd-phone-radius);
+  border: var(--cd-phone-bezel) solid #1d1d1f;
   overflow: hidden;
-  clip-path: inset(0 round 42px);
+  clip-path: inset(0 round var(--cd-phone-radius));
   scrollbar-width: none;
   -ms-overflow-style: none;
   flex: none;
@@ -89,6 +92,9 @@
 
 .cd-phone-shell {
   --cd-phone-status-h: 52px;
+  --cd-phone-radius: 54px;
+  --cd-phone-bezel: 9px;
+  --cd-phone-inner-radius: calc(var(--cd-phone-radius) - var(--cd-phone-bezel));
   position: relative;
   width: 393px;
   margin: 0 auto;
@@ -96,8 +102,8 @@
   background: transparent;
   border: none;
   overflow: visible;
-  border-radius: 42px;
-  box-shadow: 0 24px 48px rgba(0, 0, 0, 0.22);
+  border-radius: var(--cd-phone-radius);
+  box-shadow: none;
 }
 
 .cd-phone-btn {
@@ -156,7 +162,7 @@
   flex: 1 1 auto;
   min-height: 0;
   height: 100%;
-  border-radius: 0 0 33px 33px;
+  border-radius: 0 0 var(--cd-phone-inner-radius, 45px) var(--cd-phone-inner-radius, 45px);
   overflow-x: hidden;
   overflow-y: auto;
   scrollbar-width: none;
@@ -181,6 +187,7 @@
   color: #1c1917;
   z-index: 50;
   pointer-events: none;
+  border-radius: var(--cd-phone-inner-radius, 45px) var(--cd-phone-inner-radius, 45px) 0 0;
 }
 
 .cd-phone-chrome__time {

@@ -4277,21 +4277,40 @@ body.dark-theme .settings-pill-tab.is-active {
 }
 
 body.dark-theme .settings-search-wrap {
-  background: var(--surface);
-  border-color: var(--border);
+  background: var(--bg-surface);
+  border-color: var(--border-input);
 }
 
-body.dark-theme .settings-search-input {
-  color: var(--ink);
+body.dark-theme .settings-search-icon {
+  color: var(--text-muted);
+}
+
+body.dark-theme .settings-search-input,
+body.dark-theme .settings-search-input:focus,
+body.dark-theme .settings-search-input:focus-visible {
+  background: transparent !important;
+  background-color: transparent !important;
+  box-shadow: none !important;
+  color: var(--text-primary) !important;
+  -webkit-text-fill-color: var(--text-primary) !important;
+  caret-color: var(--text-primary);
 }
 
 body.dark-theme .settings-search-input::placeholder {
-  color: var(--ink-muted);
+  color: var(--text-secondary);
+  opacity: 1;
+}
+
+body.dark-theme .settings-search-input:-webkit-autofill,
+body.dark-theme .settings-search-input:-webkit-autofill:hover,
+body.dark-theme .settings-search-input:-webkit-autofill:focus {
+  -webkit-box-shadow: 0 0 0 1000px var(--bg-surface) inset !important;
+  box-shadow: none !important;
 }
 
 body.dark-theme .settings-search-wrap:focus-within {
-  border-color: var(--gd-accent-border, var(--accent-primary-hover));
-  box-shadow: 0 0 0 1.5px color-mix(in srgb, var(--accent-primary) 25%, transparent);
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 0 1.5px color-mix(in srgb, var(--accent-primary) 28%, transparent);
 }
 
 body.dark-theme .gd-overline,
@@ -5770,8 +5789,20 @@ body.dark-theme .theme-mono.cd-dashboard-shell .cd-design-preview-column {
 }
 
 body.dark-theme .theme-mono.cd-dashboard-shell .cd-design-dual-preview__frames {
-  background: var(--bg-surface) !important;
-  border-color: var(--border-card) !important;
+  background: transparent !important;
+  border-color: transparent !important;
+}
+
+body.dark-theme .cd-phone-shell {
+  box-shadow: none;
+}
+
+body.dark-theme .cd-design-frame--mobile {
+  box-shadow: none !important;
+}
+
+body.dark-theme .cd-design-frame--mobile::before {
+  background: rgb(0 0 0 / 0.55);
 }
 
 body.dark-theme .theme-mono.cd-dashboard-shell .cd-design-panel {
@@ -9605,7 +9636,7 @@ body.dark-theme .theme-mono .cg-field-shell.neu-inset .dp-icon {
    :focus { background:#fff }) otherwise flash a white box while typing,
    so light text disappears. Public galleries and the print store keep
    their own field colors. */
-body.dark-theme input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='color']):not([type='file']):not([type='button']):not([type='submit']):not([type='reset']):not([type='hidden']):focus:not(.gallery-view-page *):not(.printstore-container *):not(.auth-page *),
+body.dark-theme input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='color']):not([type='file']):not([type='button']):not([type='submit']):not([type='reset']):not([type='hidden']):not(.settings-search-input):focus:not(.gallery-view-page *):not(.printstore-container *):not(.auth-page *),
 body.dark-theme textarea:focus:not(.gallery-view-page *):not(.printstore-container *):not(.auth-page *),
 body.dark-theme select:focus:not(.gallery-view-page *):not(.printstore-container *):not(.auth-page *) {
   background-color: var(--bg-app) !important;

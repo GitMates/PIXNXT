@@ -23,6 +23,7 @@ export default defineConfig({
       'src/lib/fileMime.test.js',
       'src/lib/starredFlag.test.js',
       'src/lib/photoDisplayUrl.grid.test.js',
+      'src/lib/faceAvatar.test.js',
       'src/lib/masonryColumnDistribution.test.ts',
       'src/lib/sanitizePhotographerHtml.test.js',
       'src/services/photographerQuota.service.test.js',
