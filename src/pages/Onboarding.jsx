@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { ArrowLeft, ArrowRight, Check, Loader2, Lock } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { galleryService } from '../services/gallery.service';
@@ -42,7 +42,6 @@ function browserTimeZone() {
 export default function Onboarding() {
   const { user, refresh, logout } = useAuth();
   const navigate = useNavigate();
-  const location = useLocation();
 
   const [step, setStep] = useState(0);
   const [form, setForm] = useState(() => ({
@@ -256,7 +255,10 @@ export default function Onboarding() {
         /* navigation should not depend on the metadata refresh */
       }
 
-      navigate(resolvePostOnboardingPath(location.state?.from), { replace: true });
+      // Always land on the dashboard after first-run setup.
+      // `location.state?.from` can be a client-facing delivery/gallery URL
+      // (e.g. /delivery/…) which is not a useful post-onboarding destination.
+      navigate(resolvePostOnboardingPath(null), { replace: true });
     } catch (err) {
       setError(err?.message || 'We could not save your details. Please try again.');
       setSaving(false);

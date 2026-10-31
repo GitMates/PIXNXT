@@ -12,7 +12,7 @@
  */
 
 export const ONBOARDING_PATH = '/onboarding';
-export const DEFAULT_POST_ONBOARDING_PATH = '/client-gallery';
+export const DEFAULT_POST_ONBOARDING_PATH = '/dashboard';
 
 /** Common dial codes, India first because PIXNXT's primary market is India. */
 export const PHONE_COUNTRIES = [
