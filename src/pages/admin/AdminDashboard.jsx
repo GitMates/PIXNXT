@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
-import { HardDrive, Images, Layers, ScanFace, Users } from 'lucide-react';
+import { HardDrive, Images, Layers, ScanFace, Users, Phone, Building2 } from 'lucide-react';
 import { apiFetch } from '../../lib/api/client';
 import { AppSpinner } from '../../components/ui/AppLoading';
 import {
@@ -121,11 +121,12 @@ const AdminDashboard = () => {
   };
 
   const loadRef = useRef(loadStats);
-  loadRef.current = loadStats;
+  useEffect(() => {
+    loadRef.current = loadStats;
+  });
 
   useEffect(() => {
     let isMounted = true;
-    setLoading(true);
     loadRef.current().finally(() => {
       if (isMounted) setLoading(false);
     });
@@ -166,6 +167,10 @@ const AdminDashboard = () => {
     ? num(stats.storageUsedBytes)
     : rows.reduce((s, p) => s + num(p.storage_used_bytes), 0);
 
+  // /v1/admin/photographers returns newest first. Keep a short view of the
+  // onboarding contact details on the Overview without another request.
+  const newestStudios = rows.slice(0, 5);
+
   const atLimitRows = rows.filter(
     (p) =>
       accountDisabled(p) ||
@@ -194,6 +199,47 @@ const AdminDashboard = () => {
           <AdminStatCard label="Photographers" value={loading ? '—' : photographerCount.toLocaleString()} loading={loading} to="/admin/users" icon={Users} />
           <AdminStatCard label="Active deliveries" value={loading ? '—' : deliveryCount.toLocaleString()} loading={loading} to="/admin/usage" icon={Images} />
           <AdminStatCard label="Storage used" value={loading ? '—' : formatBytes(storageUsed)} loading={loading} to="/admin/quotas" icon={HardDrive} />
+        </div>
+      </AdminSection>
+
+      <AdminSection title="Newest studios" hint="Mobile and studio details from Cloudflare D1">
+        <div className="ad-panel ad-card overflow-hidden">
+          {loading ? (
+            <div className="px-6 py-8 flex justify-center">
+              <AppSpinner size="sm" />
+            </div>
+          ) : newestStudios.length === 0 ? (
+            <p className="px-6 py-8 text-center text-sm ad-muted-text">No studios have signed up yet.</p>
+          ) : (
+            <ul className="divide-y divide-[var(--ad-line)]">
+              {newestStudios.map((p) => (
+                <li key={p.id} className="ad-row flex items-center gap-3 px-5 py-3.5">
+                  <div className="ad-avatar w-9 h-9 rounded-full flex items-center justify-center bg-[var(--ad-ink)] text-[var(--ad-card)] shrink-0 text-sm font-semibold">
+                    {(p.display_name || p.email || 'U').charAt(0).toUpperCase()}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="font-semibold ad-ink text-sm truncate">{p.display_name || 'Unnamed'}</p>
+                    <p className="ad-muted-text text-xs truncate">{p.email}</p>
+                  </div>
+                  <div className="min-w-0 text-right">
+                    <p className="inline-flex items-center gap-1.5 text-[13px] font-medium ad-ink">
+                      <Phone className="w-3.5 h-3.5 ad-faint-text shrink-0" />
+                      {p.phone || <span className="ad-faint-text">Mobile not added</span>}
+                    </p>
+                    <p className="flex items-center justify-end gap-1.5 text-[11px] ad-faint-text min-w-0">
+                      <Building2 className="w-3 h-3 shrink-0" />
+                      <span className="truncate max-w-[280px]">
+                        {[p.business_name, p.business_country, p.time_zone].filter(Boolean).join(' · ') || 'Studio details not added'}
+                      </span>
+                    </p>
+                  </div>
+                  <Link to="/admin/users" className="ad-btn-secondary ad-action-btn shrink-0 px-3 py-1.5 text-xs font-semibold">
+                    Manage
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
       </AdminSection>
 

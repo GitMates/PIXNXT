@@ -73,23 +73,8 @@ export const PHONE_COUNTRIES = [
 /** Used when the visitor's country is not in the curated list. */
 export const OTHER_COUNTRY = { iso: 'OTHER', name: 'Other', dial: '' };
 
-const COUNTRIES_BY_ISO = new Map(PHONE_COUNTRIES.map((country) => [country.iso, country]));
-
-/** Best-effort country from the browser locale (never throws). */
+/** First-run onboarding defaults to India; a saved profile country overrides it. */
 export function guessDefaultCountry() {
-  if (typeof navigator === 'undefined') return PHONE_COUNTRIES[0];
-  const candidates = Array.isArray(navigator.languages) && navigator.languages.length
-    ? navigator.languages
-    : [navigator.language];
-  for (const locale of candidates) {
-    if (!locale) continue;
-    try {
-      const region = new Intl.Locale(String(locale)).region;
-      if (region && COUNTRIES_BY_ISO.has(region)) return COUNTRIES_BY_ISO.get(region);
-    } catch {
-      /* older browser or malformed locale */
-    }
-  }
   return PHONE_COUNTRIES[0];
 }
 

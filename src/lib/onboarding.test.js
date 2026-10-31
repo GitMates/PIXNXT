@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   DEFAULT_POST_ONBOARDING_PATH,
   PHONE_COUNTRIES,
+  guessDefaultCountry,
   normalizePhoneNumber,
   prettifyAccountName,
   profileFlagEnabled,
@@ -13,6 +14,12 @@ import {
 } from './onboarding.js';
 
 const india = PHONE_COUNTRIES.find((country) => country.iso === 'IN');
+
+describe('guessDefaultCountry', () => {
+  it('defaults first-run onboarding to India', () => {
+    expect(guessDefaultCountry()).toMatchObject({ iso: 'IN', name: 'India', dial: '+91' });
+  });
+});
 
 describe('normalizePhoneNumber', () => {
   it('builds E.164 from a local number', () => {

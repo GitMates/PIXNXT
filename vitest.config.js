@@ -18,6 +18,7 @@ export default defineConfig({
       'src/lib/albumsListCache.test.js',
       'src/lib/photoAiSearch.test.js',
       'src/lib/desktopOnly.test.js',
+      'src/lib/adminPhotographerProfile.test.js',
       'src/lib/onboarding.test.js',
       'src/lib/deliveryDownload.test.js',
       'src/lib/deliveryCoverUpload.test.js',

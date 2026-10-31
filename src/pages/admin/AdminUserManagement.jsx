@@ -1,7 +1,24 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Search, User, AlertCircle, X, Mail, Ban, CheckCircle2, Download } from 'lucide-react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import {
+  Search,
+  User,
+  AlertCircle,
+  X,
+  Mail,
+  Ban,
+  CheckCircle2,
+  Download,
+  Phone,
+  Building2,
+  MapPin,
+  Clock3,
+  Eye,
+  EyeOff,
+  IdCard,
+} from 'lucide-react';
 import { AppLoader, AppSpinner } from '../../components/ui/AppLoading';
 import { apiFetch } from '../../lib/api/client';
+import { mapAdminPhotographer } from '../../lib/adminPhotographerProfile';
 import {
   broadcastPhotographerLimitsChanged,
   onPhotographerLimitsBroadcast,
@@ -9,7 +26,6 @@ import {
 } from '../../lib/photographerLiveSync';
 import {
   AdminModal,
-  AdminModalActions,
   AdminPageHeader,
   AdminStatCard,
 } from '../../components/admin/AdminUi';
@@ -55,6 +71,24 @@ function formatLastLogin(value) {
   return { short, title: d.toLocaleString() };
 }
 
+function formatDateTime(value) {
+  if (!value) return '—';
+  const d = new Date(value);
+  return Number.isNaN(d.getTime()) ? String(value) : d.toLocaleString();
+}
+
+function ProfileFact({ icon: Icon, label, children }) {
+  return (
+    <div className="rounded-xl border border-[var(--ad-line)] bg-[var(--ad-sunk)] px-3.5 py-3 min-w-0">
+      <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider ad-faint-text">
+        {Icon ? <Icon className="w-3.5 h-3.5 shrink-0" /> : null}
+        {label}
+      </div>
+      <div className="mt-1.5 text-sm ad-ink break-words">{children}</div>
+    </div>
+  );
+}
+
 const AdminUserManagement = () => {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -68,39 +102,29 @@ const AdminUserManagement = () => {
   const [emailTarget, setEmailTarget] = useState(null);
   const [emailSubject, setEmailSubject] = useState('');
   const [emailMessage, setEmailMessage] = useState('');
+  const [profileTarget, setProfileTarget] = useState(null);
 
-  const fetchUsers = async ({ silent = false } = {}) => {
+  const fetchUsers = useCallback(async ({ silent = false } = {}) => {
     if (!silent) setLoading(true);
     setError(null);
     setMigrationWarning(null);
     // Workers: quotas flattened onto each row.
     try {
       const res = await apiFetch('/v1/admin/photographers?limit=500');
-      setUsers(
-        (res?.photographers || []).map((p) => ({
-          id: p.id,
-          name: p.display_name || 'Unnamed',
-          email: p.email,
-          plan: p.plan || 'Unknown',
-          isDisabled: Number(p.is_disabled) === 1 || p.is_disabled === true,
-          lastLoginAt: p.last_login_at || null,
-          joinedAt: p.created_at || null,
-          storageUsedBytes: Number(p.storage_used_bytes) || 0,
-          deliveryCount: Number(p.delivery_count ?? p.delivery_used_count) || 0,
-          albumCount: Number(p.album_count ?? p.album_used_count) || 0,
-        }))
-      );
+      setUsers((res?.photographers || []).map(mapAdminPhotographer));
     } catch (err) {
       console.error('Error fetching users:', err);
       setError(err.message || 'Failed to load users.');
     } finally {
       if (!silent) setLoading(false);
     }
-  };
+  }, []);
 
-  // Ref so the live subscription always calls the latest fetch without re-subscribing.
+  // Keep the live subscription pointed at the latest fetch without resubscribing.
   const fetchUsersRef = useRef(fetchUsers);
-  fetchUsersRef.current = fetchUsers;
+  useEffect(() => {
+    fetchUsersRef.current = fetchUsers;
+  }, [fetchUsers]);
 
   useEffect(() => {
     fetchUsersRef.current();
@@ -163,7 +187,9 @@ const AdminUserManagement = () => {
 
   const filteredUsers = users.filter((u) => {
     const q = searchQuery.toLowerCase();
-    if (q && !(u.name.toLowerCase().includes(q) || (u.email || '').toLowerCase().includes(q))) return false;
+    const searchable = [u.name, u.email, u.phone, u.businessName, u.businessCountry];
+    if (q && !searchable.some((value) => String(value || '').toLowerCase().includes(q))) return false;
+    if (statusFilter === 'onboarding-pending' && u.onboardingComplete) return false;
     if (statusFilter === 'active' && u.isDisabled) return false;
     if (statusFilter === 'disabled' && !u.isDisabled) return false;
     if (statusFilter === 'never-login' && u.lastLoginAt) return false;
@@ -200,13 +226,19 @@ const AdminUserManagement = () => {
   };
 
   const exportCsv = () => {
-    const head = 'name,email,plan,status,last_login,joined,deliveries,albums,storage_used_bytes';
+    const head = 'name,email,mobile,studio_name,business_country,time_zone,show_phone,onboarding_complete,plan,status,last_login,joined,deliveries,albums,storage_used_bytes';
     const esc = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
     const body = sortedUsers
       .map((u) =>
         [
           u.name,
           u.email,
+          u.phone,
+          u.businessName,
+          u.businessCountry,
+          u.timeZone,
+          u.showPhone ? 'yes' : 'no',
+          u.onboardingComplete ? 'yes' : 'no',
           u.plan,
           u.isDisabled ? 'disabled' : 'active',
           u.lastLoginAt || '',
@@ -231,7 +263,7 @@ const AdminUserManagement = () => {
     <div className="space-y-6 relative">
       <AdminPageHeader
         title="User Management"
-        subtitle="Photographers, login activity, and account status."
+        subtitle="Photographers, onboarding details, login activity, and account status."
         actions={(
           <button
             type="button"
@@ -273,7 +305,7 @@ const AdminUserManagement = () => {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 ad-faint-text" />
             <input
               type="text"
-              placeholder="Search users by name or email..."
+              placeholder="Search by name, email, mobile, or studio..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="ad-input w-full pl-9 pr-4 py-2 ad-sunk border border-[var(--ad-line)] rounded-xl text-sm outline-none"
@@ -288,6 +320,7 @@ const AdminUserManagement = () => {
             <option value="all">All statuses</option>
             <option value="active">Active</option>
             <option value="disabled">Disabled</option>
+            <option value="onboarding-pending">Onboarding pending</option>
             <option value="never-login">Never logged in</option>
             <option value="inactive">Inactive 30+ days</option>
           </select>
@@ -336,21 +369,22 @@ const AdminUserManagement = () => {
 
       {!error && !loading && (
         <div className="ad-panel ad-card overflow-hidden">
-          <div className="overflow-hidden">
-            <table className="w-full text-left text-sm" style={{ tableLayout: 'fixed' }}>
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[960px] text-left text-sm" style={{ tableLayout: 'fixed' }}>
               <thead className="bg-[var(--ad-sunk)] border-b border-[var(--ad-line)]">
                 <tr>
-                  <th className="px-5 py-3.5 font-semibold ad-muted-text text-xs uppercase tracking-wider" style={{ width: '26%' }}>Photographer</th>
-                  <th className="px-4 py-3.5 font-semibold ad-muted-text text-xs uppercase tracking-wider" style={{ width: '16%' }}>Last login</th>
-                  <th className="px-4 py-3.5 font-semibold ad-muted-text text-xs uppercase tracking-wider" style={{ width: '18%' }}>Activity</th>
-                  <th className="px-4 py-3.5 font-semibold ad-muted-text text-xs uppercase tracking-wider" style={{ width: '12%' }}>Status</th>
-                  <th className="px-4 py-3.5 font-semibold ad-muted-text text-xs uppercase tracking-wider text-right" style={{ width: '28%' }}>Action</th>
+                  <th className="px-5 py-3.5 font-semibold ad-muted-text text-xs uppercase tracking-wider" style={{ width: '20%' }}>Photographer</th>
+                  <th className="px-4 py-3.5 font-semibold ad-muted-text text-xs uppercase tracking-wider" style={{ width: '23%' }}>Mobile &amp; studio</th>
+                  <th className="px-4 py-3.5 font-semibold ad-muted-text text-xs uppercase tracking-wider" style={{ width: '12%' }}>Last login</th>
+                  <th className="px-4 py-3.5 font-semibold ad-muted-text text-xs uppercase tracking-wider" style={{ width: '13%' }}>Activity</th>
+                  <th className="px-4 py-3.5 font-semibold ad-muted-text text-xs uppercase tracking-wider" style={{ width: '10%' }}>Status</th>
+                  <th className="px-4 py-3.5 font-semibold ad-muted-text text-xs uppercase tracking-wider text-right" style={{ width: '22%' }}>Action</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[var(--ad-line)]">
                 {sortedUsers.length === 0 ? (
                   <tr>
-                    <td colSpan="5" className="px-6 py-12 text-center">
+                    <td colSpan="6" className="px-6 py-12 text-center">
                       <p className="ad-muted-text">
                         {filtersActive ? 'No photographers match the current filters.' : 'No photographers yet.'}
                       </p>
@@ -380,6 +414,36 @@ const AdminUserManagement = () => {
                           </div>
                         </td>
                         <td className="px-4 py-4 min-w-0">
+                          {user.phone ? (
+                            <>
+                              <a
+                                href={`tel:${user.phone}`}
+                                className="inline-flex items-center gap-1.5 text-[13px] font-medium ad-ink hover:underline"
+                                title={`Call ${user.phone}`}
+                              >
+                                <Phone className="w-3.5 h-3.5 ad-faint-text shrink-0" />
+                                <span className="truncate">{user.phone}</span>
+                              </a>
+                              <p className="mt-0.5 flex items-center gap-1 text-[10px] ad-faint-text">
+                                {user.showPhone ? <Eye className="w-3 h-3" /> : <EyeOff className="w-3 h-3" />}
+                                {user.showPhone ? 'Shown on public profile' : 'Kept private'}
+                              </p>
+                            </>
+                          ) : (
+                            <p className="text-[13px] font-medium ad-faint-text">Mobile not added</p>
+                          )}
+                          <p className="mt-1 flex items-center gap-1.5 text-[12px] ad-muted-text min-w-0">
+                            <Building2 className="w-3.5 h-3.5 ad-faint-text shrink-0" />
+                            <span className="truncate">{user.businessName || 'Studio name not added'}</span>
+                          </p>
+                          <p className="mt-0.5 flex items-center gap-1.5 text-[11px] ad-faint-text min-w-0">
+                            <MapPin className="w-3 h-3 shrink-0" />
+                            <span className="truncate">
+                              {[user.businessCountry, user.timeZone].filter(Boolean).join(' · ') || 'Location not set'}
+                            </span>
+                          </p>
+                        </td>
+                        <td className="px-4 py-4 min-w-0">
                           <p className="text-[13px] font-medium ad-ink" title={lastLogin.title}>{lastLogin.short}</p>
                           <p className="text-[11px] ad-faint-text">Joined {formatDateShort(user.joinedAt)}</p>
                         </td>
@@ -395,23 +459,36 @@ const AdminUserManagement = () => {
                           ) : (
                             <span className="ad-pill ad-pill--ok">Active</span>
                           )}
+                          {!user.onboardingComplete && (
+                            <span className="ad-pill ad-pill--warn mt-1.5">Setup pending</span>
+                          )}
                         </td>
                         <td className="px-4 py-4">
                           <div className="flex items-center justify-end gap-2">
                             <button
                               type="button"
-                              onClick={() => openEmailComposer(user)}
-                              title={`Send email to ${user.email}`}
+                              onClick={() => setProfileTarget(user)}
+                              title={`View ${user.name}'s onboarding details`}
                               className="ad-action-btn ad-btn-secondary inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold transition-colors"
                             >
-                              <Mail className="w-3.5 h-3.5" />Email
+                              <IdCard className="w-3.5 h-3.5" />Details
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => openEmailComposer(user)}
+                              title={`Send email to ${user.email}`}
+                              aria-label={`Send email to ${user.email}`}
+                              className="ad-action-btn ad-btn-secondary inline-flex items-center justify-center px-2.5 py-1.5 text-xs font-semibold transition-colors"
+                            >
+                              <Mail className="w-3.5 h-3.5" />
                             </button>
                             <button
                               type="button"
                               disabled={busy}
                               onClick={() => toggleDisabled(user)}
                               title={user.isDisabled ? 'Re-enable this account' : 'Disable this account'}
-                              className={`ad-action-btn inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors disabled:opacity-60 ${
+                              aria-label={user.isDisabled ? `Re-enable ${user.name}` : `Disable ${user.name}`}
+                              className={`ad-action-btn inline-flex items-center justify-center gap-1 px-2.5 py-1.5 text-xs font-semibold rounded-lg whitespace-nowrap transition-colors disabled:opacity-60 ${
                                 confirming
                                   ? 'bg-[var(--ad-bad)] text-white hover:opacity-90'
                                   : user.isDisabled
@@ -426,7 +503,7 @@ const AdminUserManagement = () => {
                               ) : (
                                 <Ban className="w-3.5 h-3.5" />
                               )}
-                              {confirming ? `Confirm ${user.isDisabled ? 'enable' : 'disable'}?` : user.isDisabled ? 'Enable' : 'Disable'}
+                              {confirming ? 'Confirm?' : null}
                             </button>
                           </div>
                         </td>
@@ -487,6 +564,116 @@ const AdminUserManagement = () => {
                 />
               </div>
               <p className="text-[11px] ad-faint-text">Opens your mail app addressed to {emailTarget.email} with this subject and message.</p>
+        </AdminModal>
+      )}
+
+      {profileTarget && (
+        <AdminModal
+          open
+          onClose={() => setProfileTarget(null)}
+          title="Onboarding profile"
+          subtitle={`${profileTarget.name} · ${profileTarget.email}`}
+          avatar={(profileTarget.name || profileTarget.email || 'U').charAt(0).toUpperCase()}
+          size="lg"
+          footer={(
+            <>
+              <button
+                type="button"
+                onClick={() => setProfileTarget(null)}
+                className="ad-btn-secondary px-4 py-2.5 text-sm"
+              >
+                Close
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const target = profileTarget;
+                  setProfileTarget(null);
+                  openEmailComposer(target);
+                }}
+                className="ad-btn-primary px-5 py-2.5 text-sm inline-flex items-center gap-2"
+              >
+                <Mail className="w-4 h-4" />Email photographer
+              </button>
+            </>
+          )}
+        >
+          <div className="flex flex-wrap items-center gap-2">
+            <span className={`ad-pill ${profileTarget.onboardingComplete ? 'ad-pill--ok' : 'ad-pill--warn'}`}>
+              {profileTarget.onboardingComplete
+                ? 'Onboarding complete'
+                : profileTarget.onboardingStarted
+                  ? 'Onboarding incomplete'
+                  : 'Onboarding not started'}
+            </span>
+            {profileTarget.phone ? (
+              <span className={`ad-pill ${profileTarget.showPhone ? 'ad-pill--ok' : 'ad-pill--muted'}`}>
+                {profileTarget.showPhone ? 'Mobile public' : 'Mobile private'}
+              </span>
+            ) : null}
+            {profileTarget.isDisabled ? <span className="ad-pill ad-pill--bad">Account disabled</span> : null}
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+            <ProfileFact icon={User} label="Full name">{profileTarget.name}</ProfileFact>
+            <ProfileFact icon={Phone} label="Mobile number">
+              {profileTarget.phone ? (
+                <a href={`tel:${profileTarget.phone}`} className="font-medium hover:underline">
+                  {profileTarget.phone}
+                </a>
+              ) : (
+                <span className="ad-faint-text">Not added</span>
+              )}
+            </ProfileFact>
+            <ProfileFact icon={Building2} label="Studio / business name">
+              {profileTarget.businessName || <span className="ad-faint-text">Not added</span>}
+            </ProfileFact>
+            <ProfileFact icon={profileTarget.showPhone ? Eye : EyeOff} label="Mobile visibility">
+              {profileTarget.showPhone ? 'Shown on public profile' : 'Kept private'}
+            </ProfileFact>
+            <ProfileFact icon={User} label="First name">
+              {profileTarget.firstName || <span className="ad-faint-text">Not added</span>}
+            </ProfileFact>
+            <ProfileFact icon={User} label="Last name">
+              {profileTarget.lastName || <span className="ad-faint-text">Not added</span>}
+            </ProfileFact>
+            <ProfileFact icon={MapPin} label="Business country">
+              {profileTarget.businessCountry || <span className="ad-faint-text">Not added</span>}
+            </ProfileFact>
+            <ProfileFact icon={Clock3} label="Time zone">
+              {profileTarget.timeZone || <span className="ad-faint-text">Not added</span>}
+            </ProfileFact>
+            <ProfileFact icon={Mail} label="Login email">{profileTarget.email}</ProfileFact>
+            <ProfileFact icon={IdCard} label="Photographer ID">
+              <span className="font-mono text-[11px] break-all">{profileTarget.id}</span>
+            </ProfileFact>
+          </div>
+
+          <div className="pt-1">
+            <h3 className="text-[11px] font-semibold uppercase tracking-wider ad-faint-text mb-2.5">Account</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+              <ProfileFact icon={IdCard} label="Plan">{profileTarget.plan}</ProfileFact>
+              <ProfileFact icon={CheckCircle2} label="Account status">
+                {profileTarget.isDisabled ? 'Disabled' : 'Active'}
+              </ProfileFact>
+              <ProfileFact icon={User} label="Joined">
+                {formatDateTime(profileTarget.joinedAt)}
+              </ProfileFact>
+              <ProfileFact icon={Clock3} label="Last login">
+                {formatDateTime(profileTarget.lastLoginAt)}
+              </ProfileFact>
+              <ProfileFact icon={Building2} label="Content">
+                {profileTarget.deliveryCount.toLocaleString()} deliveries · {profileTarget.albumCount.toLocaleString()} albums
+              </ProfileFact>
+              <ProfileFact icon={MapPin} label="Storage used">
+                {formatBytes(profileTarget.storageUsedBytes)}
+              </ProfileFact>
+            </div>
+          </div>
+
+          <p className="text-[11px] ad-faint-text">
+            These details are read from the photographer&apos;s profile row in Cloudflare D1.
+          </p>
         </AdminModal>
       )}
     </div>

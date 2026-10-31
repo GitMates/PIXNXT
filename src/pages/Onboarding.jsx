@@ -4,6 +4,7 @@ import { ArrowLeft, ArrowRight, Check, Loader2, Lock } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { galleryService } from '../services/gallery.service';
 import { markOnboardingComplete } from '../hooks/useOnboardingGate';
+import CountrySelect from '../components/onboarding/CountrySelect';
 import {
   OTHER_COUNTRY,
   PHONE_COUNTRIES,
@@ -416,20 +417,11 @@ export default function Onboarding() {
                   <div className="onb-field">
                     <label className="onb-label" htmlFor="onb-phone">Mobile number</label>
                     <div className="onb-phone-row">
-                      <select
-                        className="onb-select onb-country"
+                      <CountrySelect
                         value={form.country.iso}
-                        onChange={(event) => handleCountryChange(event.target.value)}
-                        aria-label="Country"
+                        onChange={handleCountryChange}
                         disabled={saving}
-                      >
-                        {PHONE_COUNTRIES.map((country) => (
-                          <option key={`${country.iso}-${country.dial}`} value={country.iso}>
-                            {country.name} ({country.dial})
-                          </option>
-                        ))}
-                        <option value="OTHER">Other country</option>
-                      </select>
+                      />
 
                       {form.country.iso === 'OTHER' ? (
                         <input
