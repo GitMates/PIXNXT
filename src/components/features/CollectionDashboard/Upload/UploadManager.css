@@ -131,27 +131,44 @@
   color: #1c1917;
 }
 
-/* Subheader (destination path & time/status) */
-.upload-card-subheader {
+.upload-card-dest {
+  padding: 0 24px 8px;
+  font-size: 12px;
+  color: #736c67;
+}
+
+.upload-card-headline {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  padding: 0 24px 14px;
+  gap: 12px;
+  padding: 0 24px 12px;
+  flex-wrap: wrap;
 }
 
-.upload-card-path {
-  font-size: 13.5px; /* slightly minimized font size */
-  font-weight: 500;
-  color: #8c857e;
+.upload-card-count {
+  font-family: Georgia, serif;
+  font-size: 26px;
+  color: #1c1917;
+  letter-spacing: -0.015em;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+
+.upload-card-count small {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  font-size: 13px;
+  color: #736c67;
+  letter-spacing: 0;
+  margin-left: 6px;
 }
 
 .upload-card-time-status {
-  font-family: Georgia, serif;
-  font-size: 18px; /* minimized status / time left font size */
+  font-size: 13px;
   font-weight: 500;
   color: #1c1917;
   text-align: right;
-  line-height: 1;
+  font-variant-numeric: tabular-nums;
 }
 
 /* Progress bar container */
@@ -173,44 +190,186 @@
 
 /* Clean State theme adjustments */
 .state-clean .upload-card-progress-bar {
-  background: #196f3d; /* green bar for clean success */
+  background: #3f6b45;
 }
 
-/* Meta text and Action buttons section */
-.upload-card-meta-section {
+.state-paused .upload-card-progress-bar {
+  background: #a8a29e;
+}
+
+.upload-card-stats {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 0 16px 20px; /* reduced padding to fit single line */
-  gap: 12px;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+  padding: 0 24px 12px;
+  font-size: 12.5px;
+  color: #44403c;
+  font-variant-numeric: tabular-nums;
 }
 
-.upload-card-meta-text {
-  font-size: 11px; /* smaller font size for single line */
-  color: #8c857e;
-  line-height: 1.4;
-  flex: 1;
-  min-width: 0;
-  white-space: nowrap; /* show on single same line */
-  overflow: hidden;
-  text-overflow: ellipsis; /* protect layout if it overflows */
-}
-
-.upload-card-meta-text strong {
-  font-weight: 700;
+.upload-card-stats strong {
   color: #1c1917;
+  font-weight: 600;
 }
 
 .meta-dot {
-  margin: 0 5px;
-  color: #cfc9c0;
+  color: #a8a29e;
+}
+
+.upload-speed-pill,
+.upload-health-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 2px 9px 2px 8px;
+  border-radius: 999px;
+  background: #f1efeb;
+}
+
+.upload-health-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.upload-health-word {
+  font-weight: 600;
+}
+
+.upload-health-pill.health-5 .upload-health-word,
+.upload-health-pill.health-4 .upload-health-word,
+.upload-health-pill.health-3 .upload-health-word {
+  color: #3f6b45;
+}
+.upload-health-pill.health-5 .upload-health-dot,
+.upload-health-pill.health-4 .upload-health-dot,
+.upload-health-pill.health-3 .upload-health-dot {
+  background: #3f6b45;
+}
+
+.upload-health-pill.health-2 .upload-health-word {
+  color: #8a6316;
+}
+.upload-health-pill.health-2 .upload-health-dot {
+  background: #8a6316;
+}
+.upload-health-pill.health-2 {
+  background: #faf2e3;
+}
+
+.upload-health-pill.health-1 .upload-health-word,
+.upload-health-pill.health-0 .upload-health-word {
+  color: #8c3a32;
+}
+.upload-health-pill.health-1 .upload-health-dot,
+.upload-health-pill.health-0 .upload-health-dot {
+  background: #8c3a32;
+}
+.upload-health-pill.health-1,
+.upload-health-pill.health-0 {
+  background: #f9edeb;
+}
+
+.upload-health-pill.health-0 .upload-health-dot,
+.upload-health-pill.health-1 .upload-health-dot {
+  animation: upload-health-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes upload-health-pulse {
+  50% { opacity: 0.3; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .upload-health-pill.health-0 .upload-health-dot,
+  .upload-health-pill.health-1 .upload-health-dot {
+    animation: none;
+  }
+}
+
+.upload-slow-note {
+  margin: 0 24px 12px;
+  font-size: 12px;
+  color: #8a6316;
+  background: #faf2e3;
+  border-radius: 6px;
+  padding: 8px 12px;
+  line-height: 1.45;
+}
+
+.upload-cancel-confirm {
+  margin: 0 24px 16px;
+  background: #f9edeb;
+  border-radius: 10px;
+  padding: 12px 16px;
+  display: grid;
+  gap: 12px;
+}
+
+.upload-cancel-confirm p {
+  margin: 0;
+  font-size: 12.5px;
+  color: #44403c;
+  line-height: 1.5;
+}
+
+.upload-cancel-confirm p b,
+.upload-cancel-confirm p strong {
+  color: #1c1917;
+}
+
+.upload-done-box {
+  margin: 0 24px 16px;
+  background: #edf3ee;
+  border-radius: 10px;
+  padding: 12px 16px;
+  font-size: 12.5px;
+  color: #3f6b45;
+  line-height: 1.5;
 }
 
 .upload-card-actions {
   display: flex;
-  gap: 6px; /* reduced gap */
+  gap: 8px;
   align-items: center;
   flex-shrink: 0;
+}
+
+.upload-card-actions-end {
+  justify-content: flex-end;
+  padding: 0 24px 16px;
+}
+
+.row-retry-chip {
+  font-size: 11px;
+  font-weight: 600;
+  color: #8a6316;
+  background: #faf2e3;
+  padding: 1px 7px;
+  border-radius: 999px;
+  margin-right: 8px;
+}
+
+.row-waiting-text {
+  font-size: 12.5px;
+  color: #736c67;
+  font-weight: 500;
+}
+
+.btn-danger-solid {
+  background: #8c3a32;
+  color: #ffffff;
+  border: 1px solid #8c3a32;
+  font-size: 12.5px;
+  font-weight: 600;
+  padding: 6px 12px;
+  border-radius: 20px;
+  cursor: pointer;
+}
+
+.btn-danger-solid:hover {
+  background: #7a322b;
 }
 
 /* Button variants */
@@ -409,6 +568,8 @@
 .upload-card-row-right {
   margin-left: 16px;
   flex-shrink: 0;
+  display: flex;
+  align-items: center;
 }
 
 .row-percent-text {

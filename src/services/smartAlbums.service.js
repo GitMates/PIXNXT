@@ -25,6 +25,11 @@ import { getAlbumCoverColor, clearAlbumCoverColor } from '../components/smart-al
 import { getAlbumSpineBoundsOverride, clearAlbumSpineBoundsOverride } from '../components/smart-albums/albumSpineSettings';
 import { duplicateAlbumAssets } from '../components/smart-albums/albumDuplicate';
 import { repairAlbumPreviewFromServer, previewNeedsAssetRepair } from '../lib/repairAlbumPreview';
+import {
+  prependAlbumToListCache,
+  removeAlbumFromListCache,
+  writeAlbumsListCache,
+} from '../lib/albumsListCache';
 
 
 
@@ -37,6 +42,8 @@ const SETTINGS_OVR_KEY = 'pixnxt_smart_album_settings_ovr';
 const PAGECOUNT_OVR_KEY = 'pixnxt_smart_album_pagecount_ovr';
 
 const GRID_SETTINGS_OVR_KEY = 'pixnxt_smart_album_grid_settings_ovr';
+
+const albumsListInflight = new Map();
 
 
 
@@ -823,9 +830,26 @@ export const smartAlbumsService = {
   },
 
   async getAlbums(photographerId) {
-    const { apiFetch } = await workersApi();
-    const data = await apiFetch('/v1/proofer/studio/albums');
-    return mergeAlbumRows(data?.albums || [], photographerId);
+    if (!photographerId) return [];
+    const pending = albumsListInflight.get(photographerId);
+    if (pending) return pending;
+
+    const request = (async () => {
+      const { apiFetch } = await workersApi();
+      const data = await apiFetch('/v1/proofer/studio/albums');
+      const albums = mergeAlbumRows(data?.albums || [], photographerId);
+      writeAlbumsListCache(photographerId, { albums });
+      return albums;
+    })();
+
+    albumsListInflight.set(photographerId, request);
+    try {
+      return await request;
+    } finally {
+      if (albumsListInflight.get(photographerId) === request) {
+        albumsListInflight.delete(photographerId);
+      }
+    }
   },
 
 
@@ -951,7 +975,9 @@ export const smartAlbumsService = {
       // Record creation usage (backend also live-counts creations).
       void photographerQuotaService.recordUsage(photographer_id, 'album', 1).catch(() => {});
       photographerQuotaService.notifyQuotaChanged();
-      return mapAlbumRow(data, photographer_id);
+      const created = mapAlbumRow(data, photographer_id);
+      prependAlbumToListCache(photographer_id, created);
+      return created;
     }
 
     if (error && shouldUseLocalStore(error)) {
@@ -997,7 +1023,7 @@ export const smartAlbumsService = {
           replies_enabled: defaults.multiUserCollaboration,
         });
 
-        return mapAlbumRow(
+        const created = mapAlbumRow(
             {
                 ...album,
                 has_covers: has_covers === true,
@@ -1006,6 +1032,8 @@ export const smartAlbumsService = {
             },
             photographer_id
         );
+        prependAlbumToListCache(photographer_id, created);
+        return created;
 
     }
 
@@ -1429,6 +1457,7 @@ export const smartAlbumsService = {
     const { apiFetch } = await workersApi();
     await apiFetch(`/v1/proofer/studio/albums/${albumId}`, { method: 'DELETE' });
     removeLocalAlbum(photographerId, albumId);
+    removeAlbumFromListCache(photographerId, albumId);
     userStorageService.notifyStorageChanged();
   },
 

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Heart, Share2, Play, Download, ShoppingCart, ArrowDownToLine, Infinity, Printer } from 'lucide-react';
+import { Heart, Share2, Play, Download, ShoppingCart, ArrowDownToLine, Infinity } from 'lucide-react';
 import { AppSpinner } from '@/components/ui/AppLoading';
 import { cn } from '../../../../lib/utils';
 import { galleryChromeStyles, GalleryChromeVariant, getGalleryChromeVariant } from './galleryChromeStyles';
@@ -39,8 +39,6 @@ export interface GalleryStickyNavProps {
   onShareClick?: () => void;
   onSlideshowClick?: () => void;
   onShopClick?: () => void;
-  showPrintLab?: boolean;
-  onPrintLabClick?: () => void;
   showBuyGallery?: boolean;
   buyGalleryLabel?: string;
   onBuyGalleryClick?: () => void;
@@ -89,8 +87,6 @@ export const GalleryStickyNav: React.FC<GalleryStickyNavProps> = ({
   onShareClick,
   onSlideshowClick,
   onShopClick,
-  showPrintLab = true,
-  onPrintLabClick,
   showBuyGallery = false,
   buyGalleryLabel = 'Buy Gallery',
   onBuyGalleryClick,
@@ -212,7 +208,7 @@ export const GalleryStickyNav: React.FC<GalleryStickyNavProps> = ({
     } catch (e) {}
     const cartCount = Array.isArray(cartItems) ? cartItems.length : 0;
 
-    const showSeparator = showPrintLab || showDownload;
+    const showSeparator = showDownload;
     const printDownloadTitle = isDownloadingAll
       ? downloadLabel && downloadLabel !== 'Download'
         ? downloadLabel
@@ -223,19 +219,6 @@ export const GalleryStickyNav: React.FC<GalleryStickyNavProps> = ({
 
     return (
       <div className={cn("flex items-center", isCompact ? "gap-1.5" : isMobileGalleryNav ? "gap-2" : "gap-4")}>
-        {showPrintLab && (
-          <button
-            type="button"
-            aria-label="Print"
-            title="Print"
-            className="flex shrink-0 items-center justify-center transition-opacity hover:opacity-50"
-            onClick={onPrintLabClick}
-            style={{ color: 'var(--gallery-text)' }}
-          >
-            <Printer size={iconSize} className="shrink-0 stroke-[2.25]" />
-          </button>
-        )}
-
         {showDownload && (
           <button
             type="button"

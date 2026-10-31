@@ -24,6 +24,8 @@ function FolderThumbImg({ url }) {
       alt=""
       loading="lazy"
       decoding="async"
+      draggable={false}
+      onDragStart={(event) => event.preventDefault()}
       onError={() => {
         if (index + 1 < candidates.length) setIndex((i) => i + 1);
         else setFailed(true);

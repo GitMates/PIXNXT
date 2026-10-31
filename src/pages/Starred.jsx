@@ -114,6 +114,7 @@ const Starred = () => {
                 title="Starred"
                 toolbar={(
                     <ClientGallerySubpageTabs
+                        variant="appearance"
                         tabs={[
                             { id: 'deliveries', label: 'Deliveries' },
                             { id: 'photos', label: 'Photos' },

@@ -20,17 +20,17 @@ import {
   uploadTabCounts,
   isIncompleteUploadPhoto,
   createProgressThrottle,
+  confirmedBytesFromCheckpoint,
+  getTotalConfirmedBytes,
 } from '../components/features/CollectionDashboard/Upload/uploadUtils';
+import {
+  createAdaptiveConcurrency,
+  uploadFailureKind,
+} from '../components/features/CollectionDashboard/Upload/adaptiveUploadConcurrency';
+import { createOriginalSlotLedger } from '../components/features/CollectionDashboard/Upload/originalUploadSlots';
 import { createUploadQueueStore } from './uploadQueueStore';
 import { UploadQueueContext, UploadQueueStoreContext } from './uploadQueueContext';
 import { isRateLimitedError } from '../services/storage.service';
-
-/** Each slot uploads the original immediately and the thumb/web pair beside it. */
-const MAX_CONCURRENT_DERIVATIVES = 10;
-/** Full originals share less bandwidth so they finish faster each. */
-const LARGE_FILE_BYTES = 25 * 1024 * 1024;
-const MAX_CONCURRENT_ORIGINALS_SMALL = 10;
-const MAX_CONCURRENT_ORIGINALS_LARGE = 6;
 /**
  * Blob previews (`URL.createObjectURL(file)`) make the browser decode the
  * full original for a 40 px row. Fine for a handful of files, catastrophic
@@ -39,13 +39,6 @@ const MAX_CONCURRENT_ORIGINALS_LARGE = 6;
 const PREVIEW_BLOB_LIMIT = 40;
 /** Fallback wait when the API does not say how long (Retry-After missing). */
 const RATE_LIMIT_DEFAULT_WAIT_MS = 60 * 1000;
-
-function getMaxOriginalConcurrent(files, pending) {
-  const all = [...files, ...pending];
-  return all.some((f) => (f.file?.size || f.size || 0) >= LARGE_FILE_BYTES)
-    ? MAX_CONCURRENT_ORIGINALS_LARGE
-    : MAX_CONCURRENT_ORIGINALS_SMALL;
-}
 
 function revokePreviews(files) {
   files.forEach((f) => {
@@ -154,6 +147,10 @@ export function UploadQueueProvider({ children }) {
   /** Epoch ms until which pumpQueue must not start new jobs (rate limit). */
   const rateLimitedUntilRef = useRef(0);
   const rateLimitTimerRef = useRef(null);
+  const adaptiveRef = useRef(null);
+  if (!adaptiveRef.current) adaptiveRef.current = createAdaptiveConcurrency();
+  const originalSlotsRef = useRef(null);
+  if (!originalSlotsRef.current) originalSlotsRef.current = createOriginalSlotLedger();
   /** Centered in-app notice (replaces native alert() popups). */
   const [notice, setNotice] = useState(null);
   const notifyNotice = useCallback((title, message) => {
@@ -189,15 +186,26 @@ export function UploadQueueProvider({ children }) {
       const idx = prev.files.findIndex((f) => f.id === id);
       if (idx === -1) return prev;
       const current = prev.files[idx];
+      let nextPatch = patch;
+      if (Object.prototype.hasOwnProperty.call(patch, 'confirmedBytes')) {
+        const nextConfirmed = Math.max(current.confirmedBytes || 0, patch.confirmedBytes || 0);
+        if (nextConfirmed === (current.confirmedBytes || 0) && Object.keys(patch).length === 1) return prev;
+        nextPatch = { ...patch, confirmedBytes: nextConfirmed };
+      }
       let changed = false;
-      for (const key of Object.keys(patch)) {
-        if (!Object.is(current[key], patch[key])) { changed = true; break; }
+      for (const key of Object.keys(nextPatch)) {
+        if (!Object.is(current[key], nextPatch[key])) { changed = true; break; }
       }
       if (!changed) return prev;
       const files = prev.files.slice();
-      files[idx] = { ...current, ...patch };
+      files[idx] = { ...current, ...nextPatch };
       return { ...prev, files };
     });
+  }, [setState]);
+
+  const syncConcurrency = useCallback(() => {
+    const n = adaptiveRef.current.limit;
+    setState((prev) => (prev.activeConcurrency === n ? prev : { ...prev, activeConcurrency: n }));
   }, [setState]);
 
   /**
@@ -305,14 +313,41 @@ export function UploadQueueProvider({ children }) {
             }
             targetRef.current?.onPhotoUploaded?.(insertedPhoto);
           },
-          { signal: controller.signal, overlapOriginal: true, skipQuota: true, quietQuota: true }
+          {
+            signal: controller.signal,
+            overlapOriginal: true,
+            skipQuota: true,
+            quietQuota: true,
+            onConfirmedBytes: (bytes) => safePatch({ confirmedBytes: bytes }),
+            onOriginalComplete: () => {
+              if (originalSlotsRef.current.release(uf.id)) {
+                pumpQueueRef.current();
+              }
+            },
+            onMultipartCheckpoint: (checkpoint) => {
+              const nextCtx = {
+                ...(originalContextByIdRef.current.get(uf.id) || {}),
+                multipartCheckpoint: checkpoint,
+              };
+              originalContextByIdRef.current.set(uf.id, nextCtx);
+              const fromParts = confirmedBytesFromCheckpoint(
+                checkpoint,
+                uf.file?.size || uf.size || 0
+              );
+              safePatch({ uploadContext: nextCtx, confirmedBytes: fromParts });
+            },
+          }
         );
 
         if (session !== sessionRef.current) return;
 
         if (uploadContext?.originalDone) {
           originalContextByIdRef.current.delete(uf.id);
-          safePatch({ progress: 100, status: 'completed' });
+          safePatch({
+            progress: 100,
+            status: 'completed',
+            confirmedBytes: uf.file?.size || uf.size || 0,
+          });
           targetRef.current?.onPhotoUploaded?.(photoData);
           if (photographerId && uf.file?.size) {
             userStorageService.addLocalBytes(photographerId, uf.file.size);
@@ -341,6 +376,7 @@ export function UploadQueueProvider({ children }) {
           return;
         }
         console.error('Derivative upload failed:', err);
+        adaptiveRef.current.noteFailure(uploadFailureKind(err));
         if (err?.removedPhotoId) targetRef.current?.onPhotoRemoved?.(err.removedPhotoId);
         const message = uploadErrorMessage(err);
         const limitNotice = handleStorageLimitError(message);
@@ -375,6 +411,13 @@ export function UploadQueueProvider({ children }) {
         status: 'uploading',
         progress: Math.max(uf.progress || 25, 25),
         uploadSize: uf.file?.size || uf.size,
+        confirmedBytes: Math.max(
+          uf.confirmedBytes || 0,
+          confirmedBytesFromCheckpoint(
+            uploadContext.multipartCheckpoint,
+            uf.file?.size || uf.size || 0
+          )
+        ),
       });
 
       const controller = new AbortController();
@@ -392,17 +435,28 @@ export function UploadQueueProvider({ children }) {
           }),
           {
             signal: controller.signal,
+            onConfirmedBytes: (bytes) => safePatch({ confirmedBytes: bytes }),
             onMultipartCheckpoint: (checkpoint) => {
               const nextCtx = { ...uploadContext, multipartCheckpoint: checkpoint };
               originalContextByIdRef.current.set(uf.id, nextCtx);
-              safePatch({ uploadContext: nextCtx });
+              const fromParts = confirmedBytesFromCheckpoint(
+                checkpoint,
+                uf.file?.size || uf.size || 0
+              );
+              safePatch({ uploadContext: nextCtx, confirmedBytes: fromParts });
             },
           }
         );
 
         if (session !== sessionRef.current) return;
         originalContextByIdRef.current.delete(uf.id);
-        safePatch({ progress: 100, status: 'completed', resumable: false, errorMessage: undefined });
+        safePatch({
+          progress: 100,
+          status: 'completed',
+          confirmedBytes: uf.file?.size || uf.size || 0,
+          resumable: false,
+          errorMessage: undefined,
+        });
         targetRef.current?.onPhotoUploaded?.(photoData);
         if (uf.photographerId && uf.file?.size) {
           userStorageService.addLocalBytes(uf.photographerId, uf.file.size);
@@ -424,6 +478,7 @@ export function UploadQueueProvider({ children }) {
           return;
         }
         console.error('Original upload failed:', err);
+        adaptiveRef.current.noteFailure(uploadFailureKind(err));
         const resumable = isResumableQueueError(err);
         const nextCtx = {
           ...uploadContext,
@@ -472,48 +527,50 @@ export function UploadQueueProvider({ children }) {
     if (Date.now() < rateLimitedUntilRef.current) return;
 
     pendingDerivativesRef.current = sortUploadQueueBySizeAsc(pendingDerivativesRef.current);
+    const maxSlots = adaptiveRef.current.limit;
+    const slots = originalSlotsRef.current;
 
     while (
-      activeDerivativesRef.current < MAX_CONCURRENT_DERIVATIVES &&
+      slots.held < maxSlots &&
       pendingDerivativesRef.current.length > 0
     ) {
       const uf = pendingDerivativesRef.current.shift();
       if (!uf) break;
 
+      slots.acquire(uf.id);
       activeDerivativesRef.current += 1;
       activeJobIdsRef.current.add(uf.id);
       void runDerivativeUpload(uf).finally(() => {
+        slots.release(uf.id);
         activeDerivativesRef.current -= 1;
         activeJobIdsRef.current.delete(uf.id);
         pumpQueueRef.current();
       });
     }
 
-    // Originals are not gated on the rest of the batch. A resumed original
-    // starts while other files are still encoding thumb/web.
+    // Resumed originals share the same original-PUT cap as new files.
     pendingOriginalsRef.current = sortUploadQueueBySizeAsc(pendingOriginalsRef.current);
-    const maxOriginals = getMaxOriginalConcurrent(
-      stateRef.current.files,
-      pendingOriginalsRef.current
-    );
 
     while (
-      activeOriginalsRef.current < maxOriginals &&
+      slots.held < maxSlots &&
       pendingOriginalsRef.current.length > 0
     ) {
       const uf = pendingOriginalsRef.current.shift();
       if (!uf) break;
 
+      slots.acquire(uf.id);
       activeOriginalsRef.current += 1;
       activeJobIdsRef.current.add(uf.id);
       void runOriginalUpload(uf).finally(() => {
+        slots.release(uf.id);
         activeOriginalsRef.current -= 1;
         activeJobIdsRef.current.delete(uf.id);
         pumpQueueRef.current();
       });
     }
+    syncConcurrency();
     noteQueueIdle();
-  }, [runDerivativeUpload, runOriginalUpload, noteQueueIdle]);
+  }, [runDerivativeUpload, runOriginalUpload, noteQueueIdle, syncConcurrency]);
 
   pumpQueueRef.current = pumpQueue;
 
@@ -693,6 +750,16 @@ export function UploadQueueProvider({ children }) {
       }
       globalThis.__pixnxtUploading = true;
 
+      if (
+        activeDerivativesRef.current === 0 &&
+        activeOriginalsRef.current === 0 &&
+        pendingDerivativesRef.current.length === 0 &&
+        pendingOriginalsRef.current.length === 0
+      ) {
+        adaptiveRef.current.reset();
+        originalSlotsRef.current.reset();
+      }
+
       const sortedAccepted = sortFilesBySizeAsc(accepted);
       const sortedResumable = [...resumable].sort((a, b) => a.file.size - b.file.size);
 
@@ -702,6 +769,7 @@ export function UploadQueueProvider({ children }) {
         name: file.name,
         size: file.size,
         progress: 0,
+        confirmedBytes: 0,
         status: pausedRef.current ? 'waiting' : 'processing',
         previewUrl: undefined,
         mediaKind: getUploadMediaKindFromFile(file),
@@ -769,7 +837,9 @@ export function UploadQueueProvider({ children }) {
         ...prev,
         isOpen: true,
         isMinimized: false,
+        isStopped: false,
         activeTab: 'uploading',
+        activeConcurrency: adaptiveRef.current.limit,
         files: [...prev.files, ...allNew, ...erroredResume],
       }));
 
@@ -859,6 +929,26 @@ export function UploadQueueProvider({ children }) {
     if (rateLimitTimerRef.current) clearTimeout(rateLimitTimerRef.current);
   }, []);
 
+  useEffect(() => {
+    const id = setInterval(() => {
+      if (pausedRef.current) return;
+      const files = store.getState().files;
+      const busy = files.some(
+        (f) => f.status === 'uploading' || f.status === 'processing' || f.status === 'waiting'
+      );
+      if (!busy) return;
+      const prev = adaptiveRef.current.limit;
+      adaptiveRef.current.observe(getTotalConfirmedBytes(files), {
+        originalsInFlight: originalSlotsRef.current.held > 0,
+      });
+      if (adaptiveRef.current.limit !== prev) {
+        syncConcurrency();
+        pumpQueueRef.current();
+      }
+    }, 1000);
+    return () => clearInterval(id);
+  }, [store, syncConcurrency]);
+
   const cancel = useCallback(() => {
     sessionRef.current += 1;
     pendingDerivativesRef.current = [];
@@ -866,22 +956,40 @@ export function UploadQueueProvider({ children }) {
     activeDerivativesRef.current = 0;
     activeOriginalsRef.current = 0;
     activeJobIdsRef.current.clear();
+    for (const controller of abortControllersRef.current.values()) {
+      controller.abort();
+    }
     abortControllersRef.current.clear();
     originalContextByIdRef.current.clear();
+    adaptiveRef.current.reset();
+    originalSlotsRef.current.reset();
     pausedRef.current = false;
     rateLimitedUntilRef.current = 0;
     if (rateLimitTimerRef.current) { clearTimeout(rateLimitTimerRef.current); rateLimitTimerRef.current = null; }
-    lastBatchTargetRef.current = null;
+    globalThis.__pixnxtUploading = false;
     setState((prev) => {
-      revokePreviews(prev.files);
-      return { ...initialUploadWidgetState };
+      const kept = prev.files.filter((f) => f.status === 'completed');
+      const dropped = prev.files.filter((f) => f.status !== 'completed');
+      revokePreviews(dropped);
+      if (kept.length === 0) {
+        lastBatchTargetRef.current = null;
+        return { ...initialUploadWidgetState };
+      }
+      return {
+        ...prev,
+        isPaused: false,
+        isStopped: true,
+        activeConcurrency: 0,
+        files: kept,
+        activeTab: 'complete',
+      };
     });
   }, []);
 
   const dismiss = useCallback(() => {
     setState((prev) => {
-      const { uploading } = uploadTabCounts(prev.files);
-      if (uploading > 0) return prev;
+      const counts = uploadTabCounts(prev.files);
+      if (counts.uploading + counts.waiting > 0 && !prev.isStopped) return prev;
       revokePreviews(prev.files);
       return { ...initialUploadWidgetState };
     });
@@ -889,8 +997,8 @@ export function UploadQueueProvider({ children }) {
 
   const closeWidget = useCallback(() => {
     setState((prev) => {
-      const { uploading } = uploadTabCounts(prev.files);
-      if (uploading > 0) {
+      const counts = uploadTabCounts(prev.files);
+      if (counts.uploading + counts.waiting > 0 && !prev.isStopped) {
         return { ...prev, isMinimized: true };
       }
       revokePreviews(prev.files);

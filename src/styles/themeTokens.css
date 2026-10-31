@@ -11,6 +11,7 @@
   --bg: var(--canvas);
   --surface: #ffffff;
   --surface-sunk: #f0efeb;
+  --sunk: var(--surface-sunk);
   --ink: #1d1916;
   --ink-body: #44403c;
   --ink-muted: #857f7b;
@@ -111,6 +112,7 @@ body.dark-theme {
   --bg: var(--bg-app);
   --surface: var(--bg-surface);
   --surface-sunk: var(--bg-sidebar);
+  --sunk: var(--surface-sunk);
   --ink: var(--text-heading);
   --ink-body: var(--text-body);
   --ink-muted: var(--text-secondary);

@@ -1,16 +1,19 @@
 import React, { useMemo, useState, useEffect, useRef } from 'react';
 import type { UploadWidgetState } from './uploadTypes';
 import {
+  confirmedBytesForFile,
+  connectionHealthForSpeed,
+  createConfirmedSpeedTracker,
+  fileIsRetrying,
   filterFilesByTab,
+  formatUploadBytePair,
+  formatUploadEta,
   formatUploadMb,
   formatUploadSpeed,
-  formatUploadTimeRemaining,
   getTotalUploadBytes,
-  getTotalBytesDone,
-  uploadActiveLabel,
+  getTotalWireBytes,
+  originalsStillInFlight,
   uploadBytesDone,
-  uploadCompleteSummary,
-  uploadInProgressTitle,
   uploadOverallPercent,
   uploadTabCounts,
   uploadTotalBytes,
@@ -70,8 +73,16 @@ function fileRowPercent(file: UploadWidgetState['files'][number]) {
   if (file.status === 'completed') return 100;
   if (file.status === 'error') return 0;
   const total = uploadTotalBytes(file);
-  if (!total) return Math.min(100, Math.max(0, file.progress || 0));
-  return Math.min(100, Math.round((uploadBytesDone(file) / total) * 100));
+  const confirmedPct = total ? Math.round((confirmedBytesForFile(file) / total) * 100) : 0;
+  const xhrPct = !total
+    ? Math.min(99, Math.max(0, file.progress || 0))
+    : Math.min(99, Math.round((uploadBytesDone(file) / total) * 100));
+  return Math.min(99, Math.max(xhrPct, confirmedPct));
+}
+
+function stayInLabel(destinationLabel: string) {
+  const parts = destinationLabel.split(/\s*(?:→|\/)\s*/).filter(Boolean);
+  return parts[parts.length - 1] || destinationLabel || 'this set';
 }
 
 type UploadRowProps = { file: UploadWidgetState['files'][number] };
@@ -108,8 +119,10 @@ const UploadRow = React.memo(function UploadRow({ file }: UploadRowProps) {
             file.errorMessage || 'Connection dropped'
           ) : isDone ? (
             formatUploadMb(file.size)
+          ) : file.status === 'waiting' ? (
+            formatUploadMb(file.size)
           ) : (
-            `${formatUploadMb(uploadBytesDone(file))} of ${formatUploadMb(uploadTotalBytes(file))}`
+            formatUploadBytePair(uploadBytesDone(file), uploadTotalBytes(file))
           )}
         </div>
       </div>
@@ -129,8 +142,13 @@ const UploadRow = React.memo(function UploadRow({ file }: UploadRowProps) {
               <polyline points="20 6 9 17 4 12"></polyline>
             </svg>
           </span>
+        ) : file.status === 'waiting' ? (
+          <span className="row-waiting-text">Waiting</span>
         ) : (
-          <span className="row-percent-text">{pct}%</span>
+          <>
+            {fileIsRetrying(file) ? <span className="row-retry-chip">Retrying</span> : null}
+            <span className="row-percent-text">{pct}%</span>
+          </>
         )}
       </div>
 
@@ -159,26 +177,33 @@ export const UploadManager: React.FC<UploadManagerProps> = ({
 }) => {
   if (!state.isOpen) return null;
 
-  const [speed, setSpeed] = useState(0);
-  const [nowTick, setNowTick] = useState(() => Date.now());
-  const prevBytesRef = useRef(0);
-  const prevTimeRef = useRef(Date.now());
-  const lastValidSpeedRef = useRef(0);
-  const lastEtaSpeedRef = useRef(0);
-  const uploadStartedAtRef = useRef<number | null>(null);
+  const [confirmCancel, setConfirmCancel] = useState(false);
+  const [speedSample, setSpeedSample] = useState({
+    bytesPerSec: 0,
+    slow: false,
+    stalled: false,
+    ticks: 0,
+    stalledForSeconds: 0,
+  });
+  const speedTrackerRef = useRef<ReturnType<typeof createConfirmedSpeedTracker> | null>(null);
+  if (!speedTrackerRef.current) speedTrackerRef.current = createConfirmedSpeedTracker();
   const filesRef = useRef(state.files);
   filesRef.current = state.files;
 
   const counts = useMemo(() => uploadTabCounts(state.files), [state.files]);
   const completedCount = counts.complete;
   const failedCount = counts.failed;
+  const waitingCount = counts.waiting;
   const totalCount = state.files.length;
   const inProgressCount = counts.uploading;
+  const pendingCount = inProgressCount + waitingCount;
   const hasActiveUploads = inProgressCount > 0;
   const overallPercent = useMemo(() => uploadOverallPercent(state.files), [state.files]);
+  const isStopped = Boolean(state.isStopped);
 
-  const isAllComplete = totalCount > 0 && completedCount === totalCount && inProgressCount === 0 && failedCount === 0;
-  const isFinishedWithFailures = failedCount > 0 && inProgressCount === 0;
+  const isAllComplete =
+    totalCount > 0 && completedCount === totalCount && pendingCount === 0 && failedCount === 0;
+  const isFinishedWithFailures = failedCount > 0 && pendingCount === 0 && !isStopped;
   const resumableFailedCount = useMemo(
     () => state.files.filter((f) => f.status === 'error' && f.resumable).length,
     [state.files]
@@ -186,105 +211,57 @@ export const UploadManager: React.FC<UploadManagerProps> = ({
   const retryLabel = resumableFailedCount > 0 ? `Resume ${failedCount}` : `Retry ${failedCount}`;
 
   useEffect(() => {
-    if (!isAllComplete || !onDismiss) return undefined;
+    if (!isAllComplete || !onDismiss || isStopped) return undefined;
     const timer = window.setTimeout(() => onDismiss(), 2000);
     return () => window.clearTimeout(timer);
-  }, [isAllComplete, onDismiss]);
+  }, [isAllComplete, onDismiss, isStopped]);
 
   const totalBytes = useMemo(() => getTotalUploadBytes(state.files), [state.files]);
-  const doneBytes = useMemo(() => getTotalBytesDone(state.files), [state.files]);
+  const doneBytes = useMemo(() => getTotalWireBytes(state.files), [state.files]);
+  const finishing = hasActiveUploads && !isPaused && !isStopped && !originalsStillInFlight(state.files);
 
   useEffect(() => {
-    if (hasActiveUploads && uploadStartedAtRef.current == null) {
-      uploadStartedAtRef.current = Date.now();
-    }
-    if (!hasActiveUploads && (isAllComplete || isFinishedWithFailures)) {
-      uploadStartedAtRef.current = null;
-      lastEtaSpeedRef.current = 0;
-    }
-  }, [hasActiveUploads, isAllComplete, isFinishedWithFailures]);
+    if (state.files.length === 0) speedTrackerRef.current?.reset(0);
+  }, [state.files.length]);
 
   useEffect(() => {
-    if (!hasActiveUploads) {
-      setSpeed(0);
-      lastValidSpeedRef.current = 0;
-      return undefined;
-    }
+    if (!hasActiveUploads || isPaused || isStopped) return undefined;
+    const interval = window.setInterval(() => {
+      const wired = getTotalWireBytes(filesRef.current);
+      setSpeedSample(speedTrackerRef.current!.tick(wired));
+    }, 1000);
+    return () => window.clearInterval(interval);
+  }, [hasActiveUploads, isPaused, isStopped]);
 
-    const interval = setInterval(() => {
-      const now = Date.now();
-      const currentDone = getTotalBytesDone(filesRef.current);
-      const timeDiff = (now - prevTimeRef.current) / 1000;
-
-      if (timeDiff > 0) {
-        const bytesDiff = currentDone - prevBytesRef.current;
-        const instantSpeed = bytesDiff > 0 ? bytesDiff / timeDiff : 0;
-
-        if (instantSpeed > 0) {
-          const smoothed =
-            lastValidSpeedRef.current > 0
-              ? lastValidSpeedRef.current * 0.4 + instantSpeed * 0.6
-              : instantSpeed;
-          lastValidSpeedRef.current = smoothed;
-          lastEtaSpeedRef.current = smoothed;
-          setSpeed(smoothed);
-        } else if (lastValidSpeedRef.current > 0) {
-          const decayed = lastValidSpeedRef.current * 0.85;
-          lastValidSpeedRef.current = decayed > 1024 ? decayed : 0;
-          setSpeed(lastValidSpeedRef.current);
-        } else {
-          setSpeed(0);
-        }
-      }
-
-      prevBytesRef.current = currentDone;
-      prevTimeRef.current = now;
-    }, 400);
-
-    return () => clearInterval(interval);
-  }, [hasActiveUploads]);
-
-  useEffect(() => {
-    if (inProgressCount <= 0 || isPaused) return undefined;
-    const tick = setInterval(() => setNowTick(Date.now()), 1000);
-    return () => clearInterval(tick);
-  }, [inProgressCount, isPaused]);
-
-  const sessionAverageSpeed = useMemo(() => {
-    const started = uploadStartedAtRef.current;
-    if (!started || doneBytes < 32 * 1024) return 0;
-    const elapsed = (nowTick - started) / 1000;
-    if (elapsed < 2) return 0;
-    return doneBytes / elapsed;
-  }, [doneBytes, nowTick]);
-
-  const etaSpeed = speed > 0 ? speed : lastEtaSpeedRef.current || sessionAverageSpeed;
   const remainingBytes = Math.max(0, totalBytes - doneBytes);
-  const secondsLeft = etaSpeed > 0 ? Math.max(0, Math.round(remainingBytes / etaSpeed)) : 0;
+  const health = connectionHealthForSpeed(speedSample.bytesPerSec, {
+    stalledForSeconds: speedSample.stalledForSeconds,
+    finishing,
+  });
+  const atATime = Math.max(1, state.activeConcurrency || inProgressCount);
 
   const timeRemainingLabel = useMemo(() => {
     if (isPaused) return 'Paused';
-    if (isAllComplete) return 'All done';
+    if (isStopped) return 'Stopped';
+    if (isAllComplete) return 'All uploaded';
     if (isFinishedWithFailures) return `${failedCount} failed`;
-    if (inProgressCount > 0) {
-      const eta = formatUploadTimeRemaining(secondsLeft);
-      if (eta) return eta;
-      return 'Calculating…';
+    if (pendingCount > 0) {
+      if (finishing) return 'Finishing photos…';
+      return formatUploadEta(remainingBytes, speedSample.bytesPerSec, speedSample.ticks);
     }
     return '';
   }, [
-    secondsLeft,
+    remainingBytes,
+    speedSample.bytesPerSec,
+    speedSample.ticks,
     isPaused,
+    isStopped,
     isAllComplete,
     isFinishedWithFailures,
     failedCount,
-    inProgressCount,
+    pendingCount,
+    finishing,
   ]);
-
-  const formattedSpeed = useMemo(
-    () => (isPaused ? 'Paused' : inProgressCount > 0 ? formatUploadSpeed(speed) : ''),
-    [speed, inProgressCount, isPaused]
-  );
 
   const { rows: renderedRows, hidden: hiddenRows } = useMemo(
     () => selectRenderedRows(filterFilesByTab(state.files, state.activeTab), MAX_RENDERED_ROWS),
@@ -307,7 +284,13 @@ export const UploadManager: React.FC<UploadManagerProps> = ({
             <OrangeCircularLoader />
           </span>
           <span className="upload-mini-label">
-            Uploading <strong>{totalCount}</strong>
+            {isPaused ? (
+              'Paused'
+            ) : (
+              <>
+                Uploading <strong>{inProgressCount}</strong>
+              </>
+            )}
           </span>
           {timeRemainingLabel && (
             <span className="upload-mini-time">{timeRemainingLabel}</span>
@@ -331,7 +314,7 @@ export const UploadManager: React.FC<UploadManagerProps> = ({
 
   // Header Icon based on State
   let headerIcon = <OrangeCircularLoader />;
-  if (isPaused) {
+  if (isStopped || isPaused) {
     headerIcon = <PausedIcon />;
   } else if (isAllComplete) {
     headerIcon = <CleanCheckIcon />;
@@ -344,7 +327,7 @@ export const UploadManager: React.FC<UploadManagerProps> = ({
     ? 'state-clean'
     : isFinishedWithFailures
       ? 'state-failed'
-      : isPaused
+      : isPaused || isStopped
         ? 'state-paused'
         : 'state-uploading';
 
@@ -364,62 +347,105 @@ export const UploadManager: React.FC<UploadManagerProps> = ({
         </button>
       </header>
 
-      {/* Destination Path & Time Remaining */}
-      <div className="upload-card-subheader">
-        <div className="upload-card-path">
-          {destinationLabel.replace(' / ', ' → ')}
-        </div>
-        <div className="upload-card-time-status">
-          {timeRemainingLabel}
-        </div>
+      <div className="upload-card-dest">
+        {destinationLabel.replace(' / ', ' → ')}
       </div>
 
-      {/* Main Progress Bar */}
-      <div className="upload-card-progress-container">
-        <div 
+      <div className="upload-card-headline">
+        <div className="upload-card-count">
+          {completedCount} of {totalCount}
+          <small>photos</small>
+        </div>
+        <div className="upload-card-time-status">{timeRemainingLabel}</div>
+      </div>
+
+      <div
+        className="upload-card-progress-container"
+        role="progressbar"
+        aria-label="Upload progress"
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuenow={overallPercent}
+      >
+        <div
           className="upload-card-progress-bar"
           style={{ width: `${overallPercent}%` }}
         />
       </div>
 
-      {/* Meta details & Action Buttons */}
-      <div className="upload-card-meta-section">
-        <div className="upload-card-meta-text">
-          <strong>{completedCount}</strong> of <strong>{totalCount}</strong>
-          <span className="meta-dot">·</span>
-          {formatUploadMb(doneBytes)} of {formatUploadMb(totalBytes)}
-          {!isPaused && !isAllComplete && !isFinishedWithFailures && formattedSpeed && (
-            <>
-              <span className="meta-dot">·</span>
-              {formattedSpeed}
-            </>
-          )}
-          {!isPaused && !isAllComplete && !isFinishedWithFailures && (
-            <>
-              <span className="meta-dot">·</span>
-              {overallPercent}%
-            </>
-          )}
-        </div>
+      <div className="upload-card-stats" aria-live="off">
+        {isAllComplete || isStopped ? (
+          <span>
+            <strong>{formatUploadMb(doneBytes)}</strong> uploaded
+          </span>
+        ) : (
+          <>
+            <span>{formatUploadBytePair(doneBytes, totalBytes)}</span>
+            <span className="meta-dot">·</span>
+            {isPaused ? (
+              <span className="upload-speed-pill"><strong>Paused</strong></span>
+            ) : (
+              <span
+                className={`upload-health-pill health-${health.h}`}
+                aria-label={`Connection ${health.word}, ${formatUploadSpeed(speedSample.bytesPerSec)}`}
+              >
+                <span className="upload-health-dot" aria-hidden="true" />
+                <span className="upload-health-word">{health.word}</span>
+                {finishing ? null : <strong>{formatUploadSpeed(speedSample.bytesPerSec)}</strong>}
+              </span>
+            )}
+            <span className="meta-dot">·</span>
+            <span>
+              <strong>{atATime}</strong> at a time
+            </span>
+          </>
+        )}
+      </div>
 
-        <div className="upload-card-actions">
-          {/* Uploading State Actions */}
-          {!isPaused && !isAllComplete && !isFinishedWithFailures && (
+      {speedSample.slow && !finishing && !isPaused && !isAllComplete && !isStopped && !isFinishedWithFailures ? (
+        <p className="upload-slow-note">
+          Slow connection
+        </p>
+      ) : null}
+
+      {confirmCancel && !isAllComplete && !isStopped ? (
+        <div className="upload-cancel-confirm">
+          <p>
+            Stop <strong>{totalCount - completedCount} remaining uploads?</strong> The {completedCount} already
+            uploaded stay in {stayInLabel(destinationLabel)}.
+          </p>
+          <div className="upload-card-actions">
+            <button
+              type="button"
+              className="btn-danger-solid"
+              onClick={() => {
+                setConfirmCancel(false);
+                onCancel();
+              }}
+            >
+              Stop uploads
+            </button>
+            <button type="button" className="btn-secondary" onClick={() => setConfirmCancel(false)}>
+              Keep uploading
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className="upload-card-actions upload-card-actions-end">
+          {!isPaused && !isAllComplete && !isFinishedWithFailures && !isStopped && (
             <>
               <button type="button" className="btn-secondary" onClick={onPause}>Pause</button>
-              <button type="button" className="btn-cancel" onClick={onCancel}>Cancel</button>
+              <button type="button" className="btn-cancel" onClick={() => setConfirmCancel(true)}>Cancel</button>
             </>
           )}
 
-          {/* Paused State Actions */}
-          {isPaused && (
+          {isPaused && !isStopped && (
             <>
               <button type="button" className="btn-primary" onClick={onResume}>Resume</button>
-              <button type="button" className="btn-cancel" onClick={onCancel}>Cancel</button>
+              <button type="button" className="btn-cancel" onClick={() => setConfirmCancel(true)}>Cancel</button>
             </>
           )}
 
-          {/* Finished with Failures Actions */}
           {isFinishedWithFailures && (
             <>
               <button type="button" className="btn-primary" onClick={onRetry}>{retryLabel}</button>
@@ -427,12 +453,24 @@ export const UploadManager: React.FC<UploadManagerProps> = ({
             </>
           )}
 
-          {/* Finished Clean Actions */}
-          {isAllComplete && (
+          {(isAllComplete || isStopped) && (
             <button type="button" className="btn-secondary" onClick={onDismiss}>Close</button>
           )}
         </div>
-      </div>
+      )}
+
+      {isAllComplete ? (
+        <div className="upload-done-box">
+          <b>All {totalCount} photos uploaded.</b> They&apos;re in {stayInLabel(destinationLabel)} and visible to your
+          client once you publish.
+        </div>
+      ) : null}
+      {isStopped ? (
+        <div className="upload-done-box">
+          <b>Stopped.</b> {completedCount} photos uploaded and kept in {stayInLabel(destinationLabel)}. Add the rest
+          again whenever you&apos;re ready.
+        </div>
+      ) : null}
 
       {/* Tabs */}
       <div className="upload-card-tabs-container">
@@ -440,7 +478,8 @@ export const UploadManager: React.FC<UploadManagerProps> = ({
           {(
             [
               { id: 'uploading' as const, label: 'Uploading', count: counts.uploading },
-              { id: 'complete' as const, label: 'Complete', count: counts.complete },
+              { id: 'waiting' as const, label: 'Waiting', count: counts.waiting },
+              { id: 'complete' as const, label: 'Done', count: counts.complete },
               ...(failedCount > 0 ? [{ id: 'failed' as const, label: 'Failed', count: failedCount }] : []),
             ] as const
           ).map((tab) => (
@@ -463,7 +502,15 @@ export const UploadManager: React.FC<UploadManagerProps> = ({
       {/* Files List */}
       <div className="upload-card-list">
         {renderedRows.length === 0 ? (
-          <p className="upload-card-empty">No files in this tab.</p>
+          <p className="upload-card-empty">
+            {state.activeTab === 'uploading'
+              ? 'Nothing uploading right now.'
+              : state.activeTab === 'waiting'
+                ? 'Nothing waiting.'
+                : state.activeTab === 'complete'
+                  ? 'Nothing finished yet.'
+                  : 'No files in this tab.'}
+          </p>
         ) : (
           <>
             {renderedRows.map((file) => (
@@ -479,7 +526,7 @@ export const UploadManager: React.FC<UploadManagerProps> = ({
       {/* Bottom Footer Note / CTA */}
       <footer className="upload-card-footer">
         {/* Uploading / Paused note */}
-        {(inProgressCount > 0 || isPaused) && !isFinishedWithFailures && !isAllComplete && (
+        {(pendingCount > 0 || isPaused) && !isFinishedWithFailures && !isAllComplete && !isStopped && (
           <span className="footer-note-text">
             Keep this tab open. Closing it stops the upload.
           </span>

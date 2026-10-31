@@ -20,10 +20,10 @@ const FEATURED_COVER_IDS: CoverStyleId[] = [
   'left',
   'stripe',
   'journal',
+  'classic',
 ];
 
 const MORE_COVER_IDS: CoverStyleId[] = [
-  'classic',
   'vintage',
   'outline',
   'divider',
@@ -299,7 +299,7 @@ export const DesignPanel: React.FC<DesignTabProps> = ({
         <section className="cd-design-panel__section">
           <h3 className="cd-design-panel__section-title">Cover layout</h3>
 
-          <div className={cn('cd-design-panel__cover-grid', !moreCoversOpen && 'is-five')}>
+          <div className="cd-design-panel__cover-grid">
             {featuredCovers.map((style) => (
               <CoverLayoutCard
                 key={style.id}

@@ -10,6 +10,7 @@ import { getShareUrlForCollection, getQrCodeImageUrl } from '../lib/shareCollect
 import { getCoverFocalForSurface, stripMediaUrlHash } from '../lib/focalPoint';
 import './CollectionShare.css';
 import { AppLoader } from '../components/ui/AppLoading';
+import { sanitizePhotographerHtml } from '../lib/sanitizePhotographerHtml';
 
 const CollectionShare = () => {
     const [searchParams] = useSearchParams();
@@ -649,7 +650,7 @@ const CollectionShare = () => {
 
                             {/* Email Message Content */}
                             <div className="cs-email-body-content">
-                                <div dangerouslySetInnerHTML={{ __html: body || '<p>Enter your text here...</p>' }} />
+                                <div dangerouslySetInnerHTML={{ __html: sanitizePhotographerHtml(body || '<p>Enter your text here...</p>') }} />
                                 
                                 {/* Access Details if selected */}
                                 {(includePassword || includePrivatePassword) && (

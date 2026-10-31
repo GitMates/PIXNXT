@@ -1,0 +1,465 @@
+<title>Quiet — Upload panel</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<!--
+  QUIET — PIXNXT · v1.4 · Upload panel · Rev 1 · proposal
+  Follows the upload test of 26 Oct 2026 (claude/PIXNXT-Upload-Test-26Oct-handoff.md).
+  Layout: doc chrome, then the panel floating over a dimmed delivery, rig below, notes.
+-->
+<style>
+:root{
+  --canvas:#F7F6F3; --surface:#FFFFFF; --surface-sunk:#F1EFEB;
+  --ink:#1C1917; --ink-body:#44403C; --ink-muted:#736C67; --ink-icon:#A8A29E;
+  --line:rgba(28,25,23,0.09); --line-strong:rgba(28,25,23,0.18);
+  --accent:#B7682A; --accent-text:#9E561F; --accent-wash:#FBF1E8;
+  --ok-fg:#3F6B45; --ok-bg:#EDF3EE;
+  --warn-fg:#8A6316; --warn-bg:#FAF2E3;
+  --idle-fg:#6B6560; --idle-bg:#F2F0EC;
+  --stop-fg:#8C3A32; --stop-bg:#F9EDEB;
+  --proof-surround:#E8E6E3; --proof-edge:rgba(0,0,0,0.14);
+  --shade:rgba(28,25,23,0.42); --pop-shadow:0 18px 44px rgba(28,25,23,0.16);
+  --display:'Fraunces',Georgia,serif;
+  --ui:'Plus Jakarta Sans',-apple-system,BlinkMacSystemFont,sans-serif;
+  --s1:4px;--s2:8px;--s3:12px;--s4:16px;--s5:20px;--s6:24px;--s8:32px;--s10:40px;--s12:48px;--s16:64px;
+  --r-sm:6px;--r-md:10px;--r-lg:14px;--r-xl:20px;--r-pill:999px;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --canvas:#121110; --surface:#1C1B19; --surface-sunk:#252320;
+    --ink:#F5F3F0; --ink-body:#D6D2CC; --ink-muted:#A29A91; --ink-icon:#6E665E;
+    --line:rgba(255,255,255,0.10); --line-strong:rgba(255,255,255,0.20);
+    --accent:#D08544; --accent-text:#E09A5C; --accent-wash:rgba(208,133,68,0.16);
+    --ok-fg:#86C694; --ok-bg:rgba(134,198,148,0.13);
+    --warn-fg:#DFB25C; --warn-bg:rgba(223,178,92,0.13);
+    --idle-fg:#A29A91; --idle-bg:rgba(255,255,255,0.06);
+    --stop-fg:#E08C82; --stop-bg:rgba(224,140,130,0.13);
+    --proof-surround:#0D0C0B; --proof-edge:rgba(255,255,255,0.16);
+    --shade:rgba(0,0,0,0.62); --pop-shadow:0 18px 44px rgba(0,0,0,0.55);
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --canvas:#121110; --surface:#1C1B19; --surface-sunk:#252320;
+  --ink:#F5F3F0; --ink-body:#D6D2CC; --ink-muted:#A29A91; --ink-icon:#6E665E;
+  --line:rgba(255,255,255,0.10); --line-strong:rgba(255,255,255,0.20);
+  --accent:#D08544; --accent-text:#E09A5C; --accent-wash:rgba(208,133,68,0.16);
+  --ok-fg:#86C694; --ok-bg:rgba(134,198,148,0.13);
+  --warn-fg:#DFB25C; --warn-bg:rgba(223,178,92,0.13);
+  --idle-fg:#A29A91; --idle-bg:rgba(255,255,255,0.06);
+  --stop-fg:#E08C82; --stop-bg:rgba(224,140,130,0.13);
+  --proof-surround:#0D0C0B; --proof-edge:rgba(255,255,255,0.16);
+  --shade:rgba(0,0,0,0.62); --pop-shadow:0 18px 44px rgba(0,0,0,0.55);
+  color-scheme:dark;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--canvas);font-family:var(--ui);font-size:14px;line-height:1.5;color:var(--ink-body);-webkit-font-smoothing:antialiased}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:300;background:var(--surface)}
+button{font:inherit;color:inherit;background:none;border:none;cursor:pointer;text-align:left}
+[hidden]{display:none!important}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:3px}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+.num{font-variant-numeric:tabular-nums}
+
+.dochead{position:sticky;top:env(safe-area-inset-top,0px);z-index:200;background:var(--surface);border-bottom:1px solid var(--line);
+  padding-block:var(--s3);padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));
+  display:flex;align-items:center;gap:var(--s4);flex-wrap:wrap}
+.doclogo{font-family:var(--display);font-size:17px;color:var(--ink)}
+.doclogo b{font-weight:500}
+.docver{font-size:10.5px;font-weight:700;letter-spacing:.11em;text-transform:uppercase;color:var(--accent-text);background:var(--accent-wash);padding:3px 9px;border-radius:var(--r-pill)}
+.themeswitch{display:flex;gap:2px;background:var(--surface-sunk);padding:3px;border-radius:var(--r-pill);margin-left:auto}
+.themeswitch button{font-size:11.5px;padding:5px 11px;border-radius:var(--r-pill);color:var(--ink-body)}
+.themeswitch button[aria-pressed="true"]{background:var(--surface);color:var(--ink);font-weight:600;border:1px solid var(--line)}
+.wrap{padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.section{max-width:1180px;margin:0 auto;padding-block:var(--s12) 0}
+.sec-kicker{font-size:10.5px;font-weight:700;letter-spacing:.13em;text-transform:uppercase;color:var(--accent-text)}
+.section h2{font-family:var(--display);font-size:30px;font-weight:400;color:var(--ink);letter-spacing:-.018em;margin:var(--s3) 0 var(--s2);text-wrap:balance}
+.lede{font-size:14px;color:var(--ink-muted);max-width:74ch;margin-bottom:var(--s6)}
+.lede b{color:var(--ink-body)}
+
+/* stage: the panel over a dimmed delivery */
+.stage{border:1px solid var(--line);border-radius:var(--r-xl);overflow:hidden;background:var(--canvas)}
+.backdrop{position:relative;min-height:640px;padding:var(--s6);display:flex;justify-content:flex-end;align-items:flex-end}
+.backdrop .grid{position:absolute;inset:var(--s6);display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:var(--s2);opacity:.55;align-content:start}
+.backdrop .grid i{aspect-ratio:4/5;background:var(--proof-surround);border-radius:var(--r-sm);border:1px solid var(--proof-edge)}
+.rig{display:flex;align-items:center;gap:var(--s2);padding:var(--s3) var(--s5);background:var(--surface);border-top:1px solid var(--line);flex-wrap:wrap;font-size:12px;color:var(--ink-muted)}
+.rig > b{font-size:9.5px;font-weight:700;letter-spacing:.13em;text-transform:uppercase;color:var(--ink-body);margin-right:var(--s2)}
+.rig button{padding:6px var(--s4);border-radius:var(--r-pill);border:1px solid var(--line);background:var(--surface);font-size:12px;color:var(--ink-body)}
+.rig button:hover{border-color:var(--line-strong)}
+.rig button[aria-pressed="true"]{border-color:var(--accent);background:var(--accent-wash);color:var(--accent-text);font-weight:600}
+
+/* ===== THE PANEL ===== */
+.panel{position:relative;width:420px;max-width:100%;background:var(--surface);border:1px solid var(--line);border-radius:var(--r-xl);
+  box-shadow:var(--pop-shadow);overflow:hidden;display:flex;flex-direction:column;max-height:600px}
+.p-top{padding:var(--s5) var(--s5) var(--s4);display:grid;gap:var(--s3)}
+.p-row1{display:flex;align-items:center;gap:var(--s3)}
+.spin{width:18px;height:18px;border-radius:50%;border:2px solid var(--line-strong);border-top-color:var(--accent);animation:spin 1s linear infinite;flex:none}
+.panel[data-state="paused"] .spin{animation-play-state:paused;border-top-color:var(--ink-icon)}
+.panel[data-state="done"] .spin{animation:none;border-color:var(--ok-fg);background:var(--ok-fg);position:relative}
+@keyframes spin{to{transform:rotate(360deg)}}
+.p-title{font-family:var(--display);font-size:20px;color:var(--ink);font-weight:400;letter-spacing:-.01em}
+.p-min{margin-left:auto;font-size:12.5px;color:var(--ink-muted);display:inline-flex;gap:4px;align-items:center;padding:4px 8px;border-radius:var(--r-sm)}
+.p-min:hover{background:var(--surface-sunk)}
+.p-dest{font-size:12px;color:var(--ink-muted);margin-top:-6px}
+.p-dest b{color:var(--ink-body);font-weight:600}
+.p-head{display:flex;align-items:baseline;justify-content:space-between;gap:var(--s3);flex-wrap:wrap}
+.p-count{font-family:var(--display);font-size:26px;color:var(--ink);letter-spacing:-.015em;line-height:1.1}
+.p-count small{font-family:var(--ui);font-size:13px;color:var(--ink-muted);letter-spacing:0;margin-left:4px}
+.p-eta{font-size:13px;color:var(--ink-body);font-weight:500}
+.bar{height:6px;border-radius:3px;background:var(--surface-sunk);overflow:hidden}
+.bar i{display:block;height:100%;background:var(--accent);border-radius:3px;transition:width .4s ease}
+.panel[data-state="paused"] .bar i{background:var(--ink-icon)}
+.panel[data-state="done"] .bar i{background:var(--ok-fg)}
+.stats{display:flex;align-items:center;flex-wrap:wrap;gap:6px var(--s3);font-size:12.5px;color:var(--ink-body)}
+.stats .sep{color:var(--ink-icon)}
+.stats b{color:var(--ink);font-weight:600}
+.speed{display:inline-flex;align-items:center;gap:6px;padding:2px 8px;border-radius:var(--r-pill);background:var(--surface-sunk)}
+/* speed health indicators — tone tokens only, and every variant also carries a word,
+   so colour is never the only signal (colour-blind safe) */
+.health{display:inline-flex;align-items:center;gap:7px;padding:2px 9px 2px 8px;border-radius:var(--r-pill);background:var(--surface-sunk)}
+.health b{color:var(--ink);font-weight:600}
+.health .word{font-weight:600}
+.health[data-h="4"] .word,.health[data-h="3"] .word{color:var(--ok-fg)}
+.health[data-h="2"] .word{color:var(--warn-fg)}
+.health[data-h="1"] .word,.health[data-h="0"] .word{color:var(--stop-fg)}
+.health[data-h="1"],.health[data-h="0"]{background:var(--stop-bg)}
+.health[data-h="2"]{background:var(--warn-bg)}
+/* status dot */
+.hdot{width:8px;height:8px;border-radius:50%;flex:none}
+.health[data-h="4"] .hdot,.health[data-h="3"] .hdot{background:var(--ok-fg)}
+.health[data-h="2"] .hdot{background:var(--warn-fg)}
+.health[data-h="1"] .hdot,.health[data-h="0"] .hdot{background:var(--stop-fg);animation:pulse 1.2s ease-in-out infinite}
+@keyframes pulse{50%{opacity:.3}}
+.bands{width:100%;border-collapse:collapse;font-size:12.5px;margin-top:var(--s4);background:var(--surface);border:1px solid var(--line);border-radius:var(--r-md);overflow:hidden}
+.bands th{text-align:left;font-size:9.5px;letter-spacing:.13em;text-transform:uppercase;color:var(--ink-body);font-weight:700;padding:9px var(--s4);background:var(--surface-sunk);border-bottom:1px solid var(--line)}
+.bands td{padding:9px var(--s4);border-bottom:1px solid var(--line);vertical-align:middle}
+.bands tr:last-child td{border-bottom:none}
+.tblwrap{overflow-x:auto}
+.tblwrap .bands{min-width:560px}
+.slownote{font-size:12px;color:var(--warn-fg);background:var(--warn-bg);border-radius:var(--r-sm);padding:8px var(--s3);line-height:1.45}
+.p-acts{display:flex;justify-content:flex-end;gap:var(--s2)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:7px var(--s4);border-radius:var(--r-pill);font-size:12.5px;font-weight:600;white-space:nowrap;border:1px solid var(--line);background:var(--surface);color:var(--ink-body);transition:.15s}
+.btn:hover{border-color:var(--line-strong)}
+.btn-primary{background:var(--ink);color:var(--canvas);border-color:var(--ink)}
+.btn-danger{color:var(--stop-fg);border-color:var(--stop-fg)}
+.btn-danger-solid{background:var(--stop-fg);color:var(--surface);border-color:var(--stop-fg)}
+.confirm{background:var(--stop-bg);border-radius:var(--r-md);padding:var(--s3) var(--s4);display:grid;gap:var(--s3)}
+.confirm p{font-size:12.5px;color:var(--ink-body);line-height:1.5}
+.confirm p b{color:var(--ink)}
+.confirm .p-acts{justify-content:flex-start}
+.donebox{background:var(--ok-bg);border-radius:var(--r-md);padding:var(--s3) var(--s4);font-size:12.5px;color:var(--ok-fg);line-height:1.5}
+.donebox b{font-weight:600}
+
+.tabs{display:flex;gap:var(--s2);padding:var(--s3) var(--s5);background:var(--surface-sunk);border-top:1px solid var(--line);border-bottom:1px solid var(--line);flex-wrap:wrap}
+.tab{display:inline-flex;align-items:center;gap:7px;font-size:12.5px;padding:5px 12px;border-radius:var(--r-pill);color:var(--ink-muted)}
+.tab em{font-style:normal;font-size:11px;font-weight:600;padding:0 7px;border-radius:var(--r-pill);background:var(--line);color:var(--ink-body);font-variant-numeric:tabular-nums}
+.tab[aria-selected="true"]{background:var(--surface);color:var(--ink);font-weight:600;box-shadow:0 0 0 1px var(--line)}
+.list{overflow-y:auto;min-height:150px;flex:1}
+.item{display:flex;align-items:center;gap:var(--s3);padding:10px var(--s5);border-bottom:1px solid var(--line);position:relative}
+.item .th{width:38px;height:38px;border-radius:var(--r-sm);background:var(--proof-surround);border:1px solid var(--proof-edge);flex:none}
+.item .nm{flex:1;min-width:0}
+.item .nm b{display:block;font-size:13px;color:var(--ink);font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.item .nm span{font-size:11.5px;color:var(--ink-muted);font-variant-numeric:tabular-nums}
+.item .pc{font-size:12.5px;color:var(--ink-body);font-weight:600;font-variant-numeric:tabular-nums;min-width:40px;text-align:right}
+.item .ib{position:absolute;left:var(--s5);right:var(--s5);bottom:-1px;height:2px;background:transparent}
+.item .ib i{display:block;height:100%;background:var(--accent);transition:width .4s}
+.item .retry{font-size:11px;font-weight:600;color:var(--warn-fg);background:var(--warn-bg);padding:1px 7px;border-radius:var(--r-pill)}
+.item .ok{color:var(--ok-fg)}
+.empty{padding:var(--s6) var(--s5);font-size:12.5px;color:var(--ink-muted)}
+.p-foot{padding:var(--s3) var(--s5);font-size:11.5px;color:var(--ink-muted);border-top:1px solid var(--line)}
+
+/* before / after + notes */
+.ba{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:var(--s5);margin-top:var(--s4)}
+.ba > div{border:1px solid var(--line);border-radius:var(--r-lg);background:var(--surface);padding:var(--s5);min-width:0}
+.ba h3{font-size:9.5px;font-weight:700;letter-spacing:.13em;text-transform:uppercase;color:var(--ink-body);margin-bottom:var(--s3)}
+.ba .was h3{color:var(--stop-fg)}
+.ba .now h3{color:var(--ok-fg)}
+.mock{border:1px solid var(--line);border-radius:var(--r-md);padding:var(--s3) var(--s4);font-size:12px;color:var(--ink-muted);display:flex;align-items:center;gap:var(--s3);overflow:hidden}
+.mock .clip{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mock .bt{flex:none;border:1px solid var(--line-strong);border-radius:var(--r-pill);padding:3px 10px;color:var(--ink-body);font-size:11.5px}
+.ba ul{margin-top:var(--s3);display:grid;gap:6px;padding-left:18px;font-size:12.5px;color:var(--ink-body)}
+.rules{display:grid;gap:var(--s2);margin:var(--s4) 0 var(--s16)}
+.rules li{list-style:none;font-size:13.5px;color:var(--ink-body);padding-left:var(--s6);position:relative;line-height:1.6;max-width:86ch}
+.rules li::before{content:"";position:absolute;left:0;top:9px;width:6px;height:6px;border-radius:50%;background:var(--accent)}
+.rules li b{color:var(--ink);font-weight:600}
+code{font-family:ui-monospace,Menlo,monospace;font-size:12px;background:var(--surface-sunk);padding:1px 5px;border-radius:4px;color:var(--ink)}
+@media (max-width:600px){.backdrop{padding:var(--s3);min-height:0}.backdrop .grid{display:none}}
+</style>
+
+<header class="dochead">
+  <div class="doclogo"><b>Quiet</b> — Upload panel</div>
+  <span class="docver">Rev 1 · proposal</span>
+  <div class="themeswitch" role="group" aria-label="Theme">
+    <button data-theme-set="light" aria-pressed="false">Light</button>
+    <button data-theme-set="auto" aria-pressed="true">Auto</button>
+    <button data-theme-set="dark" aria-pressed="false">Dark</button>
+  </div>
+</header>
+
+<main class="wrap">
+<section class="section">
+  <div class="sec-kicker">Delivery · upload panel</div>
+  <h2>The speed gets its own line and stops lying</h2>
+  <p class="lede">A live simulation of 184 photos on a connection like the one we tested (about 0.8 MB/s). Switch states below. The speed is a <b>10-second average of confirmed bytes</b>, so it stays steady and never shows more than the line can carry.</p>
+
+  <div class="stage">
+    <div class="backdrop">
+      <div class="grid" aria-hidden="true" data-grid></div>
+
+      <section class="panel" data-panel data-state="run" aria-label="Uploads">
+        <div class="p-top">
+          <div class="p-row1">
+            <span class="spin" aria-hidden="true"></span>
+            <h3 class="p-title">Uploads</h3>
+            <button class="p-min" type="button"><svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="m4 6.5 4 4 4-4"/></svg>Minimise</button>
+          </div>
+          <div class="p-dest"><b>K+F</b> → Highlights</div>
+
+          <div class="p-head">
+            <div class="p-count num" data-count></div>
+            <div class="p-eta num" data-eta></div>
+          </div>
+          <div class="bar" role="progressbar" aria-label="Upload progress" data-bar aria-valuemin="0" aria-valuemax="100"><i></i></div>
+          <div class="stats num" data-stats aria-live="off"></div>
+          <div class="slownote" data-slownote hidden>Your connection has slowed down. Uploads continue, and nothing is lost if it drops for a moment.</div>
+
+          <div class="p-acts" data-acts>
+            <button class="btn" type="button" data-act="pause">Pause</button>
+            <button class="btn btn-danger" type="button" data-act="cancel">Cancel</button>
+          </div>
+          <div class="confirm" data-confirm hidden>
+            <p data-confirm-text></p>
+            <div class="p-acts">
+              <button class="btn btn-danger-solid" type="button" data-act="stop">Stop uploads</button>
+              <button class="btn" type="button" data-act="keep">Keep uploading</button>
+            </div>
+          </div>
+          <div class="donebox" data-done hidden></div>
+        </div>
+
+        <div class="tabs" role="tablist" aria-label="Files">
+          <button class="tab" role="tab" data-tab="up" aria-selected="true">Uploading <em data-n="up">0</em></button>
+          <button class="tab" role="tab" data-tab="wait" aria-selected="false">Waiting <em data-n="wait">0</em></button>
+          <button class="tab" role="tab" data-tab="done" aria-selected="false">Done <em data-n="done">0</em></button>
+        </div>
+        <div class="list" data-list role="tabpanel"></div>
+        <div class="p-foot">Keep this tab open. Closing it stops the upload.</div>
+      </section>
+    </div>
+    <div class="rig" role="group" aria-label="State">
+      <b>Try</b>
+      <button type="button" data-rig="fast" aria-pressed="false">Office fibre</button>
+      <button type="button" data-rig="run" aria-pressed="true">Mobile, like tonight</button>
+      <button type="button" data-rig="slow" aria-pressed="false">Slow connection</button>
+      <button type="button" data-rig="paused" aria-pressed="false">Paused</button>
+      <button type="button" data-rig="confirm" aria-pressed="false">Cancel pressed</button>
+      <button type="button" data-rig="done" aria-pressed="false">Finished</button>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="sec-kicker">Connection health</div>
+  <h2>A status dot and a word</h2>
+  <p class="lede">The speed pill shows a coloured dot, a word and the speed: <b>● Fair 0.8 MB/s</b>. The word is always shown, at every width, so it still reads for colour-blind photographers and in bright venue light. The dot pulses only when Slow or Stalled. Try "Office fibre", "Mobile, like tonight" and "Slow connection" on the panel above.</p>
+  <div class="tblwrap">
+  <table class="bands">
+    <thead><tr><th>Level</th><th>10 s speed</th><th>Same in Mbps</th><th>What it feels like</th><th>Shown as</th></tr></thead>
+    <tbody data-bands></tbody>
+  </table>
+  </div>
+  <p class="lede" style="margin-top:var(--s4)">The levels are <b>absolute</b>, not relative to the photographer's own best speed. A relative scale would show a 0.8 MB/s mobile connection as "healthy" because it's always that slow, which hides the real problem: a 2,000-photo wedding at 0.8 MB/s takes over 5 hours. Tonight's test lands on <b>Fair</b>, which is honest.</p>
+</section>
+
+<section class="section">
+  <div class="sec-kicker">What changed</div>
+  <h2>Today vs this panel</h2>
+  <div class="ba">
+    <div class="was">
+      <h3>Today</h3>
+      <div class="mock"><span class="clip">162 of 184 · 1084.0 MB of 1338.2 MB · 1.4</span><span class="bt">Pause</span><span class="bt">Cancel</span></div>
+      <ul>
+        <li>Speed shares a row with the buttons and gets cut off</li>
+        <li>Speed jumped from 0.01 to 7.09 MB/s in our test, 9× the real line</li>
+        <li>The time-left estimate is the headline; the count is 11 px grey</li>
+        <li>"Uploading 22" includes files that haven't started</li>
+        <li>Progress went backwards 9 times on retries</li>
+        <li>Cancel sits next to Pause with no safety step</li>
+      </ul>
+    </div>
+    <div class="now">
+      <h3>This panel</h3>
+      <div class="mock"><span class="clip" style="color:var(--ink-body)">1.08 of 1.34 GB · <b style="color:var(--ink)">0.8 MB/s</b> · 4 at a time</span></div>
+      <ul>
+        <li>Stats on their own row; buttons below, so nothing clips</li>
+        <li>Speed is a 10 s average of confirmed bytes, with a status dot and a word (Fast, Good, Fair, Slow, Stalled)</li>
+        <li>"162 of 184 photos" is the headline; time left beside it</li>
+        <li>Uploading / Waiting / Done, and "4 at a time" explains the queue</li>
+        <li>Progress only counts confirmed bytes, so it never moves backwards</li>
+        <li>Cancel asks first, inside the panel, and says what's kept</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="sec-kicker">For the dev team</div>
+  <h2>Rules</h2>
+  <ul class="rules">
+    <li><b>Speed</b> = confirmed bytes over the last 10 s ÷ 10, recomputed every second. Confirmed means the PUT (or multipart part) returned 2xx. Never use raw <code>xhr.upload.onprogress</code> bytes for the speed figure; the browser reports bytes as they enter the socket buffer.</li>
+    <li><b>Per-file bars</b> may still use <code>onprogress</code>, because they're only a sense of motion. The overall bar and the GB figure use confirmed bytes only, so they can't go backwards on a retry.</li>
+    <li><b>Time left</b> = remaining bytes ÷ the 10 s speed, rounded: under 1 min → "less than a minute", under 60 min → "about N min", above → "about N h M min". Hide it for the first 10 s.</li>
+    <li><b>Connection health</b>: status dot + word inside the speed pill, using the levels in the table above. Thresholds live in config. Never show the dot without the word. Accessible name: "Connection Fair, 0.8 megabytes per second".</li>
+    <li><b>"N at a time"</b> shows the uploader's current adaptive concurrency, not a fixed number.</li>
+    <li><b>Slow connection</b>: 10 s speed below 30% of the previous 60 s average for 10 s in a row. Clear it when the speed is back above 60%. Retrying files show a "Retrying" chip, never a reset to 0%.</li>
+    <li><b>Sizes</b>: MB below 1,000 MB with one decimal; GB above with two decimals. Never "1084.0 MB".</li>
+    <li><b>Cancel</b> confirms in the panel: "Stop N remaining uploads? The X already uploaded stay in this set." No browser dialog.</li>
+    <li><b>Tokens</b>: Quiet v1.4 values unmodified.</li>
+  </ul>
+</section>
+</main>
+
+<script>
+(function(){
+'use strict';
+var root=document.documentElement;
+document.querySelectorAll('[data-theme-set]').forEach(function(b){
+  b.addEventListener('click',function(){
+    var t=b.dataset.themeSet; if(t==='auto') root.removeAttribute('data-theme'); else root.setAttribute('data-theme',t);
+    document.querySelectorAll('[data-theme-set]').forEach(function(o){o.setAttribute('aria-pressed',String(o===b));});
+  });
+});
+var g=document.querySelector('[data-grid]'); for(var k=0;k<40;k++) g.appendChild(document.createElement('i'));
+
+var TOTAL=184, panel=document.querySelector('[data-panel]');
+function rnd(a,b){return a+Math.random()*(b-a);}
+var files=[], S;
+function reset(){
+  files=[]; var bytes=0;
+  for(var i=0;i<TOTAL;i++){ var sz=rnd(2.8,12.9); bytes+=sz; files.push({name:'LOG00'+(452+i)+'.jpg',size:sz,sent:0,conf:0,state:'wait',retry:0}); }
+  S={state:'run',line:0.8,conc:4,hist:[],confirmed:0,total:bytes,t:0,slow:false,avg60:[],tab:'up',lastConf:0};
+}
+function fmtMB(mb){return mb>=1000?(mb/1000).toFixed(2)+' GB':mb.toFixed(1)+' MB';}
+function fmtPair(a,b){return b>=1000?(a/1000).toFixed(2)+' of '+(b/1000).toFixed(2)+' GB':a.toFixed(1)+' of '+b.toFixed(1)+' MB';}
+function eta(rem,sp){ if(S.t<10||sp<=0) return 'Working out time left…'; var s=rem/sp;
+  if(s<60) return 'less than a minute left'; var m=Math.round(s/60); if(m<60) return 'about '+m+' min left';
+  return 'about '+Math.floor(m/60)+' h '+(m%60)+' min left'; }
+
+function tick(){
+  if(S.state==='paused'||S.state==='done'||S.state==='stopped'){ render(); return; }
+  S.t++;
+  var line=S.line*rnd(0.85,1.1);
+  var active=files.filter(function(f){return f.state==='up';});
+  while(active.length<S.conc){ var n=files.filter(function(f){return f.state==='wait';})[0]; if(!n)break; n.state='up'; active.push(n); }
+  var per=active.length?line/active.length:0, gained=0;
+  active.forEach(function(f){
+    if(S.slow&&Math.random()<0.03&&f.sent>0.5&&!f.retry){ f.retry=1; f.sent=f.conf; return; }
+    f.sent=Math.min(f.size,f.sent+per);
+    if(f.sent>=f.size){ gained+=f.size-f.conf; f.conf=f.size; f.state='done'; f.retry=0; }
+  });
+  S.confirmed+=gained; S.hist.push(gained); if(S.hist.length>10)S.hist.shift();
+  var sp=S.hist.reduce(function(a,b){return a+b;},0)/S.hist.length;
+  S.speed=sp;
+  S.avg60.push(sp); if(S.avg60.length>60)S.avg60.shift();
+  /* adaptive concurrency, simplified */
+  if(S.t%5===0){ S.conc = S.slow ? Math.max(2,Math.floor(S.conc/2)) : Math.min(S.line>2?10:4, S.conc+ (S.conc<4?1:0)); }
+  if(files.every(function(f){return f.state==='done';})){ S.state='done'; }
+  render();
+}
+
+/* Health levels — absolute MB/s bands. Wedding = 2,000 photos ≈ 16 GB. */
+var LEVELS=[
+  {h:0,word:'Stalled',min:0,   mbps:'0',      feel:'Nothing has moved for 10 s'},
+  {h:1,word:'Slow',   min:0.01,mbps:'under 3',feel:'A wedding takes overnight or longer'},
+  {h:2,word:'Fair',   min:0.4, mbps:'3 – 8',  feel:'A wedding takes about 4.5 – 11 h'},
+  {h:3,word:'Good',   min:1,   mbps:'8 – 24', feel:'A wedding takes about 1.5 – 4.5 h'},
+  {h:4,word:'Fast',   min:3,   mbps:'24 +',   feel:'A wedding in under 1.5 h'}
+];
+function level(sp){ var l=LEVELS[0]; LEVELS.forEach(function(x){ if(sp>=x.min) l=x; }); return l; }
+/* Status dot + word + speed. The word is never dropped. */
+function indicator(lv,sp){
+  return '<span class="hdot" aria-hidden="true"></span><span class="word">'+lv.word+'</span><b>'+sp.toFixed(1)+' MB/s</b>';
+}
+
+function render(){
+  var done=files.filter(function(f){return f.state==='done';}).length;
+  var up=files.filter(function(f){return f.state==='up';}), wait=files.filter(function(f){return f.state==='wait';});
+  var pct=S.confirmed/S.total*100;
+  panel.dataset.state=S.state==='confirm'?'run':S.state;
+  document.querySelector('[data-count]').innerHTML=done+' of '+TOTAL+'<small>photos</small>';
+  var etaEl=document.querySelector('[data-eta]');
+  etaEl.textContent = S.state==='paused'?'Paused':S.state==='done'?'All uploaded':S.state==='stopped'?'Stopped':eta(S.total-S.confirmed,S.speed||0);
+  var bar=document.querySelector('[data-bar]'); bar.firstElementChild.style.width=pct+'%'; bar.setAttribute('aria-valuenow',Math.round(pct));
+  var sp=S.speed||0, lv=level(S.t<3?1:sp);
+  var spTxt = S.state==='paused' ? '<span class="speed"><b>Paused</b></span>'
+    : '<span class="health" data-h="'+lv.h+'" aria-label="Connection '+lv.word+', '+sp.toFixed(1)+' megabytes per second">'+indicator(lv,sp)+'</span>';
+  document.querySelector('[data-stats]').innerHTML = S.state==='done'
+    ? '<span><b>'+fmtMB(S.total)+'</b> uploaded</span>'
+    : '<span>'+fmtPair(S.confirmed,S.total)+'</span><span class="sep">·</span>'+spTxt+'<span class="sep">·</span><span><b>'+S.conc+'</b> at a time</span>';
+  document.querySelector('[data-slownote]').hidden=!(S.slow&&S.state==='run');
+  var acts=document.querySelector('[data-acts]'), conf=document.querySelector('[data-confirm]'), dn=document.querySelector('[data-done]');
+  acts.hidden = S.state==='confirm'||S.state==='done'||S.state==='stopped';
+  conf.hidden = S.state!=='confirm';
+  dn.hidden = !(S.state==='done'||S.state==='stopped');
+  if(S.state==='confirm') document.querySelector('[data-confirm-text]').innerHTML='Stop <b>'+(TOTAL-done)+' remaining uploads?</b> The '+done+' already uploaded stay in Highlights.';
+  if(S.state==='done') dn.innerHTML='<b>All '+TOTAL+' photos uploaded.</b> They\'re in Highlights and visible to your client once you publish.';
+  if(S.state==='stopped') dn.innerHTML='<b>Stopped.</b> '+done+' photos uploaded and kept in Highlights. Add the rest again whenever you\'re ready.';
+  var pb=acts.querySelector('[data-act="pause"]'); pb.textContent=S.state==='paused'?'Resume':'Pause';
+  if(S.state==='paused') pb.classList.add('btn-primary'); else pb.classList.remove('btn-primary');
+  document.querySelector('[data-n="up"]').textContent=up.length;
+  document.querySelector('[data-n="wait"]').textContent=wait.length;
+  document.querySelector('[data-n="done"]').textContent=done;
+  document.querySelectorAll('[data-tab]').forEach(function(t){t.setAttribute('aria-selected',String(t.dataset.tab===S.tab));});
+  var list = S.tab==='up'?up:S.tab==='wait'?wait.slice(0,30):files.filter(function(f){return f.state==='done';}).slice(-30).reverse();
+  var html=list.map(function(f){
+    var p=Math.floor(f.sent/f.size*100);
+    var right = f.state==='done'?'<span class="pc ok">Done</span>'
+      : f.state==='wait'?'<span class="pc" style="color:var(--ink-muted);font-weight:500">Waiting</span>'
+      : (f.retry?'<span class="retry">Retrying</span>':'')+'<span class="pc">'+p+'%</span>';
+    return '<div class="item"><span class="th"></span><span class="nm"><b>'+f.name+'</b><span>'+
+      (f.state==='up'?fmtPair(f.sent,f.size):fmtMB(f.size))+'</span></span>'+right+
+      (f.state==='up'?'<span class="ib"><i style="width:'+p+'%"></i></span>':'')+'</div>';
+  }).join('');
+  if(!list.length) html='<div class="empty">'+(S.tab==='up'?'Nothing uploading right now.':S.tab==='wait'?'Nothing waiting.':'Nothing finished yet.')+'</div>';
+  if(S.tab==='wait'&&wait.length>30) html+='<div class="empty">and '+(wait.length-30)+' more</div>';
+  document.querySelector('[data-list]').innerHTML=html;
+}
+
+/* start mid-upload so the first frame looks like the real screenshot */
+function warm(n){ for(var i=0;i<n;i++) tick(); }
+function setRig(k){
+  document.querySelectorAll('[data-rig]').forEach(function(o){o.setAttribute('aria-pressed',String(o.dataset.rig===k));});
+  if(k==='done'){ reset(); files.forEach(function(f){f.state='done';f.sent=f.conf=f.size;}); S.confirmed=S.total; S.t=999; S.state='done'; render(); return; }
+  reset(); warm(k==='run'?140:120);
+  if(k==='fast'){ reset(); S.line=4.2; S.conc=8; warm(60); }
+  if(k==='slow'){ S.slow=true; S.line=0.18; for(var i=0;i<15;i++) tick(); }
+  if(k==='paused'){ S.state='paused'; }
+  if(k==='confirm'){ S.state='confirm'; }
+  render();
+}
+
+document.querySelector('[data-panel]').addEventListener('click',function(e){
+  var t=e.target.closest('[data-tab]'); if(t){S.tab=t.dataset.tab;render();return;}
+  var b=e.target.closest('[data-act]'); if(!b)return;
+  var a=b.dataset.act;
+  if(a==='pause') S.state = S.state==='paused'?'run':'paused';
+  else if(a==='cancel') S.state='confirm';
+  else if(a==='keep') S.state='run';
+  else if(a==='stop') { S.state='stopped'; files.forEach(function(f){ if(f.state!=='done'){f.state='wait';f.sent=0;} }); }
+  render();
+  var f=panel.querySelector('[data-confirm]:not([hidden]) .btn, [data-acts]:not([hidden]) .btn'); if(f&&a!=='pause')f.focus();
+});
+document.querySelectorAll('[data-rig]').forEach(function(b){ b.addEventListener('click',function(){ setRig(b.dataset.rig); }); });
+
+/* levels table */
+document.querySelector('[data-bands]').innerHTML=LEVELS.slice().reverse().map(function(l,i){
+  var range = l.h===4?'3 MB/s +': l.h===3?'1 – 3 MB/s': l.h===2?'0.4 – 1 MB/s': l.h===1?'under 0.4 MB/s':'0 for 10 s';
+  var sp=[4.2,1.6,0.8,0.18,0][i];
+  return '<tr><td><b style="color:var(--ink)">'+l.word+'</b></td><td class="num">'+range+'</td><td class="num">'+l.mbps+'</td><td>'+l.feel+'</td><td><span class="health" data-h="'+l.h+'">'+indicator(l,sp)+'</span></td></tr>';
+}).join('');
+
+setRig('run');
+setInterval(tick,1000);
+})();
+</script>

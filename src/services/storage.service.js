@@ -2,7 +2,6 @@ import { getFileMime } from '../lib/fileMime';
 import { R2_PUBLIC_URL } from '../lib/r2';
 import {
   apiBase,
-  uploadApiBase,
   ensureFreshAccessToken,
   refreshAccessToken,
 } from '../lib/api/client';
@@ -54,7 +53,7 @@ export function isRateLimitedError(err) {
  * `users/<folder>/…` keys are preserved server-side.
  */
 /** One OPTIONS for the whole batch: path travels in a header, not the query string. */
-async function uploadViaWorkersApi(path, file, contentType, onProgress, abortSignal) {
+async function uploadViaWorkersApi(path, file, contentType, onProgress, abortSignal, options = {}) {
   const sendOnce = (token) =>
     new Promise((resolve, reject) => {
       if (abortSignal?.aborted) {
@@ -66,7 +65,7 @@ async function uploadViaWorkersApi(path, file, contentType, onProgress, abortSig
         return;
       }
       const xhr = new XMLHttpRequest();
-      xhr.open('PUT', `${uploadApiBase()}/v1/r2/upload`, true);
+      xhr.open('PUT', `${apiBase()}/v1/r2/upload`, true);
       xhr.setRequestHeader('Content-Type', contentType);
       xhr.setRequestHeader('X-Object-Key', path);
       xhr.setRequestHeader('Authorization', `Bearer ${token}`);
@@ -86,6 +85,7 @@ async function uploadViaWorkersApi(path, file, contentType, onProgress, abortSig
         cleanup();
         if (xhr.status >= 200 && xhr.status < 300) {
           onProgress?.(100);
+          options?.onConfirmedBytes?.(file.size);
           try {
             const data = JSON.parse(xhr.responseText);
             resolve({ path: data?.path || path, url: storageService.getPublicUrl(data?.path || path) });
@@ -129,6 +129,12 @@ const WORKER_PART_BYTES = 8 * 1024 * 1024;
 const WORKER_PART_PARALLEL = 3;
 const PART_ATTEMPTS = 5;
 
+/** Equal jitter around 1s, 2s, 4s. `attempt` is 0-based. */
+export function retryDelayMs(attempt, { random = Math.random, baseMs = 1000, capMs = 4000 } = {}) {
+  const base = Math.min(capMs, baseMs * 2 ** Math.max(0, attempt));
+  return Math.round(base * (0.5 + random()));
+}
+
 /**
  * Direct-to-R2 availability. `disabledByServer` is permanent (the Worker has
  * no S3 credentials). Anything else is transient: back off for a window and
@@ -147,7 +153,32 @@ export function __directUploadGate({ now = () => Date.now(), backoffMs = 30_000 
 }
 const directGate = __directUploadGate();
 const DIRECT_PUT_ATTEMPTS = 3;
-const DIRECT_PART_PARALLEL = 6;
+/** Enough parallel parts to hide high RTT (e.g. India → R2). */
+export const DIRECT_PART_PARALLEL = 3;
+
+export function resolveUploadStrategy({
+  fileSize,
+  workerProxyMax = WORKER_PROXY_MAX,
+  resumeCheckpoint = null,
+  directAvailable,
+  plan,
+}) {
+  const tooLargeForProxy = fileSize > workerProxyMax;
+  if (resumeCheckpoint?.uploadId && tooLargeForProxy) {
+    return { type: 'worker-parts' };
+  }
+  if (directAvailable && plan?.enabled) {
+    return { type: 'direct', plan };
+  }
+  if (tooLargeForProxy) return { type: 'worker-parts' };
+  return { type: 'worker-put' };
+}
+
+/** After a signed R2 plan exists, retry R2 — do not dump the body through the Worker. */
+export function allowWorkerProxyFallback(hadEnabledDirectPlan) {
+  return hadEnabledDirectPlan !== true;
+}
+
 const presignWaiters = [];
 let presignScheduled = false;
 
@@ -199,7 +230,7 @@ async function xhrPutReliable(url, body, contentType, onProgress, abortSignal, o
       if (abortSignal?.aborted || /cancelled/i.test(err?.message || '')) throw err;
       lastError = err;
       if (!retryablePartError(err) || attempt === DIRECT_PUT_ATTEMPTS - 1) throw err;
-      await waitForRetry(700 * (attempt + 1), abortSignal);
+      await waitForRetry(retryDelayMs(attempt), abortSignal);
     }
   }
   throw lastError || new Error('Network error uploading to storage.');
@@ -323,7 +354,7 @@ async function xhrPartReliable(path, uploadId, partNumber, blob, onProgress, abo
       if (abortSignal?.aborted || /cancelled/i.test(err?.message || '')) throw err;
       lastError = err;
       if (!retryablePartError(err) || attempt === PART_ATTEMPTS - 1) throw err;
-      await waitForRetry(700 * (attempt + 1), abortSignal);
+      await waitForRetry(retryDelayMs(attempt), abortSignal);
     }
   }
   throw lastError || new Error('Network error uploading to storage.');
@@ -391,7 +422,12 @@ async function uploadViaWorkerParts(path, file, contentType, onProgress, abortSi
     const sum = loaded.reduce((acc, n) => acc + n, 0);
     onProgress?.(Math.min(99, Math.round((sum / file.size) * 100)));
   };
+  const reportConfirmed = () => {
+    const confirmed = loaded.reduce((acc, n, i) => acc + (etags[i]?.etag ? n : 0), 0);
+    options.onConfirmedBytes?.(confirmed);
+  };
   report();
+  reportConfirmed();
   onCheckpoint?.(snapshotMultipartCheckpoint(path, uploadId, partSize, etags));
 
   const run = async () => {
@@ -415,6 +451,7 @@ async function uploadViaWorkerParts(path, file, contentType, onProgress, abortSi
       etags[index] = { partNumber: index + 1, etag };
       loaded[index] = end - start;
       report();
+      reportConfirmed();
       onCheckpoint?.(snapshotMultipartCheckpoint(path, uploadId, partSize, etags));
     }
   };
@@ -451,6 +488,7 @@ async function uploadViaWorkerParts(path, file, contentType, onProgress, abortSi
     throw err;
   }
   onProgress?.(100);
+  options.onConfirmedBytes?.(file.size);
   return { path, url: storageService.getPublicUrl(path), size: file.size };
 }
 
@@ -503,9 +541,10 @@ async function flushPresigns() {
   }
 }
 
-async function uploadFromPlan(plan, file, contentType, onProgress, abortSignal) {
+async function uploadFromPlan(plan, file, contentType, onProgress, abortSignal, options = {}) {
   if (plan.mode === 'put' && plan.url) {
     await xhrPutReliable(plan.url, file, contentType, onProgress, abortSignal);
+    options.onConfirmedBytes?.(file.size);
     return { path: plan.path, url: storageService.getPublicUrl(plan.path) };
   }
   const parts = plan.parts || [];
@@ -516,6 +555,13 @@ async function uploadFromPlan(plan, file, contentType, onProgress, abortSignal) 
   const report = () => {
     const sum = loaded.reduce((acc, n) => acc + n, 0);
     onProgress?.(Math.min(99, Math.round((sum / file.size) * 100)));
+  };
+  const reportConfirmed = () => {
+    const confirmed = parts.reduce((acc, part) => {
+      if (!etags[part.partNumber - 1]?.etag) return acc;
+      return acc + (part.end - part.start);
+    }, 0);
+    options.onConfirmedBytes?.(confirmed);
   };
   const run = async () => {
     while (queue.length) {
@@ -536,6 +582,7 @@ async function uploadFromPlan(plan, file, contentType, onProgress, abortSignal) 
       );
       if (!etag) throw new Error('Missing part ETag. R2 bucket CORS must expose ETag.');
       etags[part.partNumber - 1] = { partNumber: part.partNumber, etag };
+      reportConfirmed();
     }
   };
   await Promise.all(Array.from({ length: Math.min(DIRECT_PART_PARALLEL, parts.length) }, () => run()));
@@ -545,6 +592,7 @@ async function uploadFromPlan(plan, file, contentType, onProgress, abortSignal) 
     body: { path: plan.path, uploadId: plan.uploadId, parts: etags.filter(Boolean) },
   });
   onProgress?.(100);
+  options.onConfirmedBytes?.(file.size);
   return { path: plan.path, url: storageService.getPublicUrl(plan.path) };
 }
 
@@ -576,7 +624,7 @@ export async function __existsManyWith(fetchJson, paths, { chunkSize = 200, conc
 export const storageService = {
   /**
    * @param {AbortSignal} [abortSignal]
-   * @param {{ resumeCheckpoint?: object, onCheckpoint?: (cp: object) => void }} [options]
+   * @param {{ resumeCheckpoint?: object, onCheckpoint?: (cp: object) => void, onConfirmedBytes?: (n: number) => void }} [options]
    */
   async upload(path, file, onProgress, abortSignal, options = {}) {
     try {
@@ -590,43 +638,44 @@ export const storageService = {
             });
 
       onProgress?.(2);
-      // Originals and derivatives share one presign batch, then PUT straight
-      // to R2 (multipart, 6 parts at a time). The Worker proxy is only for
-      // files the edge can accept. A multi-GB video must not fall back to it:
-      // the connection is reset and the browser reports a network error.
-      const tooLargeForProxy = body.size > WORKER_PROXY_MAX;
       const partOptions = {
         resumeCheckpoint: options.resumeCheckpoint,
         onCheckpoint: options.onCheckpoint,
+        onConfirmedBytes: options.onConfirmedBytes,
       };
-      // Resume always uses Worker multipart — cannot continue a prior Worker
-      // upload through a fresh direct-presign plan.
-      if (partOptions.resumeCheckpoint?.uploadId && tooLargeForProxy) {
-        return await uploadViaWorkerParts(
-          path,
-          body,
-          contentType,
-          onProgress,
-          abortSignal,
-          partOptions
-        );
-      }
+      let plan = null;
       if (directGate.available()) {
-        const plan = await planFor(path, body, contentType);
-        if (plan?.enabled) {
-          try {
-            const result = await uploadFromPlan(plan, body, contentType, onProgress, abortSignal);
-            directGate.noteSuccess();
-            return result;
-          } catch (err) {
-            if (abortSignal?.aborted || /cancelled/i.test(err?.message || '')) throw err;
-            // This file falls back to the proxy; the next presign batch tries direct again after the backoff.
+        plan = await planFor(path, body, contentType);
+      }
+      const strategy = resolveUploadStrategy({
+        fileSize: body.size,
+        resumeCheckpoint: partOptions.resumeCheckpoint,
+        directAvailable: directGate.available(),
+        plan,
+      });
+
+      if (strategy.type === 'direct') {
+        try {
+          const result = await uploadFromPlan(
+            strategy.plan,
+            body,
+            contentType,
+            onProgress,
+            abortSignal,
+            partOptions
+          );
+          directGate.noteSuccess();
+          return result;
+        } catch (err) {
+          if (abortSignal?.aborted || /cancelled/i.test(err?.message || '')) throw err;
+          if (!allowWorkerProxyFallback(true)) {
             directGate.noteTransientFailure();
-            console.warn('Direct R2 upload failed after retries, using Worker proxy for this file', err);
+            throw err;
           }
         }
       }
-      if (tooLargeForProxy) {
+
+      if (strategy.type === 'worker-parts') {
         return await uploadViaWorkerParts(
           path,
           body,
@@ -636,7 +685,7 @@ export const storageService = {
           partOptions
         );
       }
-      return await uploadViaWorkersApi(path, body, contentType, onProgress, abortSignal);
+      return await uploadViaWorkersApi(path, body, contentType, onProgress, abortSignal, partOptions);
     } catch (error) {
       console.error('R2 Upload Error:', {
         message: error.message,

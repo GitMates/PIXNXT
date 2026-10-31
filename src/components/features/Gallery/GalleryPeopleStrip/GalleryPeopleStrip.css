@@ -160,6 +160,14 @@
   object-fit: cover;
 }
 
+.gallery-people-strip__avatar.cd-person-face-avatar .cd-person-face-avatar__crop-img {
+  position: absolute;
+  width: auto;
+  height: auto;
+  max-width: none;
+  object-fit: cover;
+}
+
 .gallery-people-strip__avatar.cd-person-face-avatar.cd-person-face-avatar--selfie img {
   object-position: center 20%;
 }

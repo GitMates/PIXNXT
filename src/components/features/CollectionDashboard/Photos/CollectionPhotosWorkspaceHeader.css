@@ -367,6 +367,12 @@
   border-bottom: 1px solid #eceae6;
 }
 
+/* Empty delivery: the dashed dropzone is the edge — don't stack a solid rule above it. */
+.cd-main-area:has(.cd-dropzone) .cdpw:not(:has(.cdpw-people)) .cdpw-header {
+  border-bottom: none;
+  padding-bottom: 16px;
+}
+
 .cdpw-people {
   display: flex;
   align-items: center;

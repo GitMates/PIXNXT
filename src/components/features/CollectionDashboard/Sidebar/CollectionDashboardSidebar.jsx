@@ -179,6 +179,7 @@ function NestedTabItem({ active, label, count, onClick }) {
 
 export function CollectionDashboardSidebar({
   coverUrl,
+  coverSource = null,
   collectionId,
   coverFocalX,
   coverFocalY,
@@ -367,6 +368,7 @@ export function CollectionDashboardSidebar({
       <div className="cdsb-cover-wrap">
         <SidebarCoverUpload
           coverUrl={coverUrl}
+          coverSource={coverSource}
           collectionId={collectionId}
           coverFocalX={coverFocalX}
           coverFocalY={coverFocalY}

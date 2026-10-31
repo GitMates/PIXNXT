@@ -45,8 +45,10 @@ import {
     markCollectionDeleteSettled,
     rememberCreatedCollection,
     removeCollectionFromBoard,
+    syncCollectionCoverOnBoard,
     upsertCollectionOnBoard,
 } from '../lib/galleryBoardCache';
+import { deliveryManageNavState, matchingDeliverySeed, shouldBlockDeliveryOpen } from '../lib/deliveryDashboardSeed';
 import { GetDirectLinkModal } from '../components/features/CollectionDashboard/Share/GetDirectLinkModal';
 import { DeliverySharePublishPanel } from '../components/features/CollectionDashboard/Share/DeliverySharePublishPanel';
 import '../components/features/CollectionDashboard/Share/DeliverySharePublishPanel.css';
@@ -109,7 +111,12 @@ import { normalizeGalleryPhotoSort } from '../lib/galleryPhotoSort';
 import { clientGalleryEmailTemplatesService } from '../services/clientGalleryEmailTemplates.service';
 import { MEDIA_FILE_INPUT_ACCEPT, pickMediaFilesOrFallback } from '../lib/mediaFilePicker';
 import { setCoverPhotoDragData, endCoverPhotoDrag, isGalleryImagePhoto } from '../lib/coverPhotoDrag';
-import { buildCoverOnlyDraft, resolveCoverPhotoId } from '../lib/deliveryCoverUpload';
+import {
+  buildCoverOnlyDraft,
+  pickAutoCoverPhoto,
+  resolveCoverPhotoId,
+  shouldApplyAutoCover,
+} from '../lib/deliveryCoverUpload';
 import { DatePicker } from '../components/ui/DatePicker';
 import './CollectionDashboard.css';
 import '../styles/clientGalleryTheme.css';
@@ -149,8 +156,10 @@ import { CollectionGridPhoto } from '../components/features/CollectionDashboard/
 import CollectionPhotoSortableGrid from '../components/features/CollectionDashboard/Media/CollectionPhotoSortableGrid';
 import { RawPhotoPlaceholder } from '../components/features/CollectionDashboard/Media/RawPhotoPlaceholder';
 import {
+    forgetCollectionCover,
     getPhotoFullDisplayUrl,
     getPhotoOriginalFileUrl,
+    rememberCollectionCover,
     getPhotoStreamPhase,
     getPhotoVideoPoster,
     getPhotoVideoSrc,
@@ -186,6 +195,7 @@ const CollectionDashboard = () => {
     const location = useLocation();
     const [searchParams] = useSearchParams();
     const collectionId = searchParams.get('id');
+    const routeSeed = matchingDeliverySeed(location.state?.seed, collectionId);
     const activityTabParam = searchParams.get('tab');
     const activitySubParam = searchParams.get('activity');
     const { user } = useAuth();
@@ -195,8 +205,10 @@ const CollectionDashboard = () => {
     const pendingUploadScrollRef = useRef(false);
 
     const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
-    const [collection, setCollection] = useState(null);
-    const [photos, setPhotos] = useState([]);
+    const [collection, setCollection] = useState(routeSeed);
+    const collectionRef = useRef(collection);
+    collectionRef.current = collection;
+    const [photos, setPhotos] = useState(() => (Array.isArray(routeSeed?.photos) ? routeSeed.photos : []));
     const [profile, setProfile] = useState(null);
     const preparingFilmIds = photos
         .filter((photo) => getPhotoStreamPhase(photo) === 'preparing')
@@ -309,13 +321,13 @@ const CollectionDashboard = () => {
             })
             .catch((error) => console.error('Error fetching watermarks:', error));
     }, [user?.id]);
-    const [loading, setLoading] = useState(true);
+    const [loading, setLoading] = useState(!routeSeed);
     const [error, setError] = useState(null);
     const [saving, setSaving] = useState(false);
     const [showUploadModal, setShowUploadModal] = useState(false);
     const [rawSkippedInfo, setRawSkippedInfo] = useState(null);
     const [activeMediaTab, setActiveMediaTab] = useState('upload');
-    const [status, setStatus] = useState(DELIVERY_STATUS.draft);
+    const [status, setStatus] = useState(() => (routeSeed ? uiDeliveryStatus(routeSeed) : DELIVERY_STATUS.draft));
     const [showStatusMenu, setShowStatusMenu] = useState(false);
     const [statusSaving, setStatusSaving] = useState(false);
     const [showShareDropdown, setShowShareDropdown] = useState(false);
@@ -687,7 +699,7 @@ const CollectionDashboard = () => {
     const skipDeliveryNameCommitRef = useRef(false);
     const [showArchiveConfirmModal, setShowArchiveConfirmModal] = useState(false);
     // SET STATES
-    const [sets, setSets] = useState([]);
+    const [sets, setSets] = useState(() => (Array.isArray(routeSeed?.sets) ? routeSeed.sets : []));
     const [activeSetId, setActiveSetId] = useState(null); // null = Highlights (all photos)
     const [showAddSetModal, setShowAddSetModal] = useState(false);
     const [newSetName, setNewSetName] = useState('');
@@ -947,7 +959,7 @@ const CollectionDashboard = () => {
     const [activeSettingsTab, setActiveSettingsTab] = useState('general'); // general, privacy, download, favorite
 
     // General Settings State
-    const [collectionUrl, setCollectionUrl] = useState('');
+    const [collectionUrl, setCollectionUrl] = useState(() => routeSeed?.slug || '');
     const [categoryTags, setCategoryTags] = useState([]);
     const [categoryTagsSaving, setCategoryTagsSaving] = useState(false);
     const [defaultWatermark, setDefaultWatermark] = useState('No watermark');
@@ -2033,6 +2045,14 @@ const CollectionDashboard = () => {
 
     const applyCoverLocal = (patch, { live = true } = {}) => {
         setCollection((prev) => (prev ? { ...prev, ...patch } : prev));
+        const photographerId = collection?.photographer_id || user?.id;
+        if (photographerId && collectionId) {
+            syncCollectionCoverOnBoard(photographerId, collectionId, patch);
+        }
+        if (collectionId && Object.prototype.hasOwnProperty.call(patch, 'cover_url')) {
+            forgetCollectionCover(collectionId);
+            if (patch.cover_url) rememberCollectionCover(collectionId, patch.cover_url);
+        }
         if (!live) return;
         broadcastGalleryLive({
             type: 'SETTINGS_UPDATED',
@@ -2048,7 +2068,7 @@ const CollectionDashboard = () => {
         });
     };
 
-    const handleCoverPhotoSelect = async (photo) => {
+    const handleCoverPhotoSelect = async (photo, { source = 'manual' } = {}) => {
         const coverUrl = getPhotoFullDisplayUrl(photo) || getPhotoOriginalFileUrl(photo);
         if (!coverUrl || !collectionId) return;
         const defaultFocals = getDefaultCoverFocals();
@@ -2058,6 +2078,7 @@ const CollectionDashboard = () => {
             cover_focals: defaultFocals,
             cover_focal_x: 50,
             cover_focal_y: 50,
+            cover_source: source,
         });
         try {
             setIsCoverUploading(true);
@@ -2065,7 +2086,7 @@ const CollectionDashboard = () => {
                 collectionId,
                 coverUrl,
                 defaultFocals,
-                { cover_photo_id: photo.id }
+                { cover_photo_id: photo.id, cover_source: source }
             );
         } catch (err) {
             console.error('Failed to set cover:', err);
@@ -2089,6 +2110,7 @@ const CollectionDashboard = () => {
             cover_focals: focals,
             cover_focal_x: primary.x,
             cover_focal_y: primary.y,
+            cover_source: 'manual',
         });
         try {
             setIsCoverUploading(true);
@@ -2096,7 +2118,7 @@ const CollectionDashboard = () => {
                 collectionId,
                 coverUrl,
                 focals,
-                { cover_photo_id: nextCoverPhotoId }
+                { cover_photo_id: nextCoverPhotoId, cover_source: 'manual' }
             );
             const savedFocals = updated?.cover_focals;
             const hasSavedFocals =
@@ -2112,6 +2134,7 @@ const CollectionDashboard = () => {
                 cover_focals: hasSavedFocals ? savedFocals : focals,
                 cover_focal_x: updated?.cover_focal_x ?? primary.x,
                 cover_focal_y: updated?.cover_focal_y ?? primary.y,
+                cover_source: updated?.cover_source || 'manual',
             });
             setShowCoverModal(false);
             setCoverModalScope('all');
@@ -2139,6 +2162,7 @@ const CollectionDashboard = () => {
             cover_focals: collection?.cover_focals,
             cover_focal_x: collection?.cover_focal_x,
             cover_focal_y: collection?.cover_focal_y,
+            cover_source: collection?.cover_source,
         };
         coverDraftDirtyRef.current = false;
         setCoverModalPhotoOverride(photo);
@@ -2173,6 +2197,7 @@ const CollectionDashboard = () => {
             cover_focals: collection?.cover_focals,
             cover_focal_x: collection?.cover_focal_x,
             cover_focal_y: collection?.cover_focal_y,
+            cover_source: collection?.cover_source,
         };
 
         try {
@@ -2204,12 +2229,13 @@ const CollectionDashboard = () => {
                 cover_focals: defaultFocals,
                 cover_focal_x: 50,
                 cover_focal_y: 50,
+                cover_source: 'manual',
             });
             await galleryService.saveCollectionCoverFocals(
                 collectionId,
                 coverUrl,
                 defaultFocals,
-                { cover_photo_id: null }
+                { cover_photo_id: null, cover_source: 'manual' }
             );
             setCoverUploadProgress(100);
             coverDraftBackupRef.current = {
@@ -2218,6 +2244,7 @@ const CollectionDashboard = () => {
                 cover_focals: defaultFocals,
                 cover_focal_x: 50,
                 cover_focal_y: 50,
+                cover_source: 'manual',
             };
             coverDraftDirtyRef.current = false;
             return draft;
@@ -2881,6 +2908,18 @@ const CollectionDashboard = () => {
     }, [showWatermarkModal, defaultWatermark]);
 
     // Load delivery data via the Workers API
+    useLayoutEffect(() => {
+        const seed = matchingDeliverySeed(location.state?.seed, collectionId);
+        if (!seed || collection?.id === seed.id) return;
+        setCollection(seed);
+        setPhotos(Array.isArray(seed.photos) ? seed.photos : []);
+        setSets(Array.isArray(seed.sets) ? seed.sets : []);
+        setStatus(uiDeliveryStatus(seed));
+        if (seed.slug) setCollectionUrl(seed.slug);
+        setError(null);
+        setLoading(false);
+    }, [collectionId, collection?.id, location.state?.seed]);
+
     useEffect(() => {
         const fetchCollectionData = async () => {
             if (!collectionId) {
@@ -2888,17 +2927,32 @@ const CollectionDashboard = () => {
                 return;
             }
 
+            const seed = matchingDeliverySeed(location.state?.seed, collectionId);
+            const blockOpen = shouldBlockDeliveryOpen({
+                collectionId,
+                seed,
+                collection: collectionRef.current,
+            });
+
             try {
                 designHydratedRef.current = false;
                 settingsHydratedRef.current = false;
                 autosaveArmedRef.current = false;
                 slideshowColumnReadyRef.current = false;
-                setLoading(true);
+                if (blockOpen) {
+                    setLoading(true);
+                }
                 setError(null);
                 const data = await galleryService.getCollectionDashboardData(collectionId);
                 
                 if (!data) {
-                    setError('Delivery not found');
+                    if (shouldBlockDeliveryOpen({
+                        collectionId,
+                        seed,
+                        collection: collectionRef.current,
+                    })) {
+                        setError('Delivery not found');
+                    }
                     return;
                 }
                 
@@ -3097,14 +3151,20 @@ const CollectionDashboard = () => {
                     .catch((activityErr) => console.warn('Activity counts unavailable:', activityErr));
             } catch (err) {
                 console.error('Error fetching collection:', err);
-                setError(err.message || 'Failed to load delivery');
+                if (shouldBlockDeliveryOpen({
+                    collectionId,
+                    seed,
+                    collection: collectionRef.current,
+                })) {
+                    setError(err.message || 'Failed to load delivery');
+                }
             } finally {
                 setLoading(false);
             }
         };
 
         fetchCollectionData();
-    }, [collectionId, navigate]);
+    }, [collectionId, navigate, location.state?.seed]);
 
     useEffect(() => {
         clearMediaUrlCache();
@@ -3475,6 +3535,7 @@ const CollectionDashboard = () => {
     const peopleLoadingRef = useRef(false);
     const photoAiAutoSyncKeyRef = useRef('');
     const uploadsWereBusyRef = useRef(false);
+    const coverAutoBusyRef = useRef(false);
 
     const loadPhotoAiPeople = useCallback(async (options = {}) => {
         if (!collectionId || photoAiTableMissing) return;
@@ -4020,6 +4081,42 @@ const CollectionDashboard = () => {
         loadPhotoAiPeople,
     ]);
 
+    // Auto-cover waits until the whole upload batch is idle, then picks the
+    // first landscape still. Manual covers are never overwritten.
+    useEffect(() => {
+        if (uploadQueueBusy) {
+            coverAutoBusyRef.current = true;
+            return;
+        }
+        if (!coverAutoBusyRef.current) return;
+        if (!collectionId || isCoverUploading) return;
+        if (!shouldApplyAutoCover({
+            coverUrl: collection?.cover_url,
+            coverPhotoId: collection?.cover_photo_id,
+            coverSource: collection?.cover_source,
+        })) {
+            coverAutoBusyRef.current = false;
+            return;
+        }
+        const photo = pickAutoCoverPhoto(photos);
+        if (!photo) {
+            if (photos.length > 0) coverAutoBusyRef.current = false;
+            return;
+        }
+        const readyUrl = photo.full_url || photo.web_url || photo.thumbnail_url;
+        if (!readyUrl) return;
+        coverAutoBusyRef.current = false;
+        void handleCoverPhotoSelect(photo, { source: 'auto' });
+    }, [
+        uploadQueueBusy,
+        collectionId,
+        collection?.cover_url,
+        collection?.cover_photo_id,
+        collection?.cover_source,
+        photos,
+        isCoverUploading,
+    ]);
+
     useEffect(() => {
         if (!highlightsEnabled && activeSetId == null && sets.length > 0) {
             setActiveSetId(sets[0].id);
@@ -4158,6 +4255,7 @@ const CollectionDashboard = () => {
             cover_focals: collection?.cover_focals,
             cover_focal_x: collection?.cover_focal_x,
             cover_focal_y: collection?.cover_focal_y,
+            cover_source: collection?.cover_source,
         };
         coverDraftDirtyRef.current = false;
         setCoverModalScope(scope);
@@ -4188,6 +4286,7 @@ const CollectionDashboard = () => {
             cover_focals: focals,
             cover_focal_x: primary.x,
             cover_focal_y: primary.y,
+            cover_source: 'manual',
         }, { live: false });
     };
 
@@ -4202,6 +4301,7 @@ const CollectionDashboard = () => {
             cover_focals: defaultFocals,
             cover_focal_x: 50,
             cover_focal_y: 50,
+            cover_source: null,
         });
         try {
             setIsCoverUploading(true);
@@ -4211,6 +4311,7 @@ const CollectionDashboard = () => {
                 cover_focals: defaultFocals,
                 cover_focal_x: 50,
                 cover_focal_y: 50,
+                cover_source: null,
             });
             setShowCoverModal(false);
             setCoverModalScope('all');
@@ -6148,15 +6249,14 @@ const CollectionDashboard = () => {
             <div className="cd-layout-body">
                 <CollectionDashboardSidebar
                     coverUrl={collection?.cover_url}
+                    coverSource={collection?.cover_source}
                     collectionId={collection?.id}
                     coverFocalX={collectionFocals.desktop?.x ?? collectionFocal.x}
                     coverFocalY={collectionFocals.desktop?.y ?? collectionFocal.y}
                     isCoverUploading={isCoverUploading}
                     coverUploadProgress={coverUploadProgress}
                     onCoverPhotoDrop={handleCoverPhotoDropById}
-                    onSelectCoverFromCollection={() =>
-                        openCoverModal('all', collection?.cover_url ? 'edit' : 'pick')
-                    }
+                    onSelectCoverFromCollection={() => openCoverModal('all', 'pick')}
                     onCoverFileSelect={(file) => void handleCoverFileSelect(file)}
                     isCollapsed={isSidebarCollapsed}
                     onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
@@ -7629,7 +7729,9 @@ const CollectionDashboard = () => {
                         const newRow = await galleryService.duplicateCollection(collectionId, photographerId);
                         rememberCreatedCollection(photographerId, newRow);
                         setShowDuplicateModal(false);
-                        navigate(`/deliveries/manage?id=${newRow.id}`);
+                        navigate(`/deliveries/manage?id=${newRow.id}`, {
+                            state: deliveryManageNavState(newRow),
+                        });
                     } catch (err) {
                         console.error('Failed to duplicate:', err);
                         alert(err?.message || 'Failed to duplicate delivery. Please try again.');
@@ -8358,7 +8460,7 @@ const CollectionDashboard = () => {
                             </button>
                         </div>
                         <div className="cd-modal-body">
-                            <p style={{ fontSize: '15px', color: '#444', lineHeight: '1.6', margin: '10px 0' }}>
+                            <p className="cd-modal-text">
                                 Are you sure you want to delete {deleteConfirmCopy.summary}? This action cannot be undone and will remove them from all sets.
                             </p>
                         </div>

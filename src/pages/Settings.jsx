@@ -201,6 +201,7 @@ const Settings = () => {
     return (
         <SidebarLayout>
             <div className="settings-page-wrapper">
+                <div className="settings-page-column">
                 <div className="settings-header-row">
                     <div>
                         <h1 className="settings-main-title">Settings</h1>
@@ -209,7 +210,7 @@ const Settings = () => {
                         </p>
                     </div>
                     <div className="settings-search-wrap">
-                        <svg className="settings-search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8C827A" strokeWidth="2.5">
+                        <svg className="settings-search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                             <circle cx="11" cy="11" r="8" />
                             <line x1="21" y1="21" x2="16.65" y2="16.65" />
                         </svg>
@@ -284,6 +285,7 @@ const Settings = () => {
                     {activeTab === 'access-defaults' && (
                         <AccessDefaultsTab profile={profile} updateProfile={updateProfile} />
                     )}
+                </div>
                 </div>
             </div>
 

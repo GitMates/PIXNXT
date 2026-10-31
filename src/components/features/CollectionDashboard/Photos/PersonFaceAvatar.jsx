@@ -1,8 +1,11 @@
-import React from 'react';
-import { buildFaceAvatarStyle } from '../../../../lib/faceAvatar';
+import React, { useEffect, useMemo, useState } from 'react';
+import { buildFaceAvatarCrop } from '../../../../lib/faceAvatar';
+import { toThumbDerivativeUrl } from '../../../../lib/photoDisplayUrl';
 
 /**
- * Circular face avatar cropped from a photo using Rekognition bounding box (0–1 normalized).
+ * Circular face avatar cropped from a photo using Rekognition bounding box (0–1).
+ * Uses an <img> crop (not CSS background) so the browser downscales the same
+ * sharpened web JPEG the delivery cards use.
  */
 export function PersonFaceAvatar({
   imageUrl,
@@ -16,6 +19,14 @@ export function PersonFaceAvatar({
   const selfieClass = avatarSource === 'guest_selfie' || (!boundingBox?.Width && imageUrl)
     ? ' cd-person-face-avatar--selfie'
     : '';
+  const [src, setSrc] = useState(imageUrl || '');
+  useEffect(() => {
+    setSrc(imageUrl || '');
+  }, [imageUrl]);
+  const crop = useMemo(
+    () => buildFaceAvatarCrop(src, boundingBox, size),
+    [src, boundingBox, size]
+  );
 
   if (!imageUrl) {
     return (
@@ -27,13 +38,18 @@ export function PersonFaceAvatar({
     );
   }
 
+  const handleError = () => {
+    const thumb = toThumbDerivativeUrl(imageUrl);
+    if (thumb && thumb !== src) setSrc(thumb);
+  };
+
   if (!boundingBox?.Width || !boundingBox?.Height) {
     return (
       <span
         className={`cd-person-face-avatar${selfieClass}${variantClass} ${className}`}
         style={{ width: size, height: size }}
       >
-        <img src={imageUrl} alt="" loading="lazy" decoding="async" />
+        <img src={src} alt="" loading="lazy" decoding="async" draggable={false} onError={handleError} />
       </span>
     );
   }
@@ -41,9 +57,20 @@ export function PersonFaceAvatar({
   return (
     <span
       className={`cd-person-face-avatar cd-person-face-avatar--crop${variantClass} ${className}`}
-      style={buildFaceAvatarStyle(imageUrl, boundingBox, size)}
+      style={crop.wrap}
       role="img"
       aria-hidden
-    />
+    >
+      <img
+        className="cd-person-face-avatar__crop-img"
+        src={src}
+        alt=""
+        loading="lazy"
+        decoding="async"
+        draggable={false}
+        style={crop.img || undefined}
+        onError={handleError}
+      />
+    </span>
   );
 }

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   getCollectionCardCoverCandidates,
+  getFaceAvatarDisplayUrl,
   getPhotoDisplayFallbacks,
   getPhotoFullDisplayUrl,
   getPhotoGridDisplayFallbacks,
@@ -96,6 +97,21 @@ describe('grid and card image URL roles', () => {
     expect(thumbIdx).toBeGreaterThanOrEqual(0);
     expect(webIdx).toBeGreaterThanOrEqual(0);
     expect(thumbIdx).toBeLessThan(webIdx);
+  });
+
+  it('prefers sharpened web over thumb for face-crop avatars', () => {
+    const photo = {
+      thumbnail_url: 'https://cdn.example/thumb/a.jpg',
+      web_url: 'https://cdn.example/web/a.jpg',
+      full_url: 'https://cdn.example/original/a.jpg',
+    };
+    expect(getFaceAvatarDisplayUrl(photo)).toBe(photo.web_url);
+  });
+
+  it('rewrites a thumb path string to the web derivative for avatars', () => {
+    expect(getFaceAvatarDisplayUrl('https://cdn.example/thumb/a.jpg')).toBe(
+      'https://cdn.example/web/a.jpg'
+    );
   });
 
   it('maps dedicated /cover/ files to /cover/thumb/ for list cards', () => {

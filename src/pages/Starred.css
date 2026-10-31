@@ -1,4 +1,16 @@
-﻿.st-empty-state {
+﻿.st-subpage-tabs.sb-appearance-track,
+.theme-mono.cg-shell .st-subpage-tabs.sb-appearance-track {
+    display: inline-flex;
+    width: auto;
+    margin: 0;
+}
+
+.theme-mono.cg-shell .st-subpage-tabs .sb-appearance-btn {
+    flex: 0 0 auto;
+    padding: 6px 14px;
+}
+
+.st-empty-state {
     flex: 1;
     display: flex;
     flex-direction: column;

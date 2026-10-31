@@ -17,6 +17,7 @@ import {
   removeCollectionFromBoard,
   upsertCollectionOnBoard,
 } from '@/lib/galleryBoardCache';
+import { deliveryManageNavState } from '@/lib/deliveryDashboardSeed';
 
 export interface CollectionMoreMenuProps {
   collectionId?: string | null;
@@ -664,7 +665,9 @@ export function CollectionMoreMenu({
             const newRow = await galleryService.duplicateCollection(collectionId, photographerId);
             rememberCreatedCollection(photographerId, newRow);
             setDuplicateOpen(false);
-            navigate(`/deliveries/manage?id=${newRow.id}`);
+            navigate(`/deliveries/manage?id=${newRow.id}`, {
+              state: deliveryManageNavState(newRow),
+            });
           } catch (err) {
             console.error(err);
             alert(err?.message || 'Failed to duplicate delivery. Please try again.');

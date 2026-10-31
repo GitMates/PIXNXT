@@ -70,27 +70,36 @@ export function isUnpreviewablePhotoshop(photo) {
 }
 
 /**
- * Browser-paintable URL for face-crop avatars (CSS background / img).
- * Prefer web/thumb derivatives — never pick RAW/HEIC full_url first.
+ * Browser-paintable URL for face-crop avatars.
+ * Prefer the sharpened web derivative (3840) over thumb (1200): a CSS/img crop
+ * of a small face from the thumb magnifies JPEG blocks. Cards look clear because
+ * they show the thumb near 1:1; avatars zoom into it. Never pick RAW/HEIC first.
  */
 export function getFaceAvatarDisplayUrl(photo) {
   if (!photo) return '';
-  if (typeof photo === 'string') return resolveMediaUrl(photo) || '';
+  if (typeof photo === 'string') {
+    const resolved = resolveMediaUrl(photo) || '';
+    if (!resolved) return '';
+    return toWebDerivativeUrl(resolved) || resolved;
+  }
   if (isUnpreviewablePhotoshop(photo)) return '';
-  const prefer = [photo.thumbnail_url, photo.web_url, photo.watermarked_url];
+  const prefer = [photo.watermarked_url, photo.web_url, photo.thumbnail_url];
   for (const raw of prefer) {
     const url = resolveMediaUrl(raw);
-    if (url && isBrowserDisplayableImageUrl(url)) return url;
+    if (url && isBrowserDisplayableImageUrl(url)) {
+      if (raw === photo.watermarked_url) return url;
+      return toWebDerivativeUrl(url) || url;
+    }
   }
   if (!isRawMedia(photo)) {
     const full = resolveMediaUrl(photo.full_url);
-    if (full && isBrowserDisplayableImageUrl(full)) return full;
+    if (full && isBrowserDisplayableImageUrl(full)) return toWebDerivativeUrl(full) || full;
   }
   const rawPreview = getRawPreviewUrl(photo);
-  if (rawPreview) return rawPreview;
+  if (rawPreview) return toWebDerivativeUrl(rawPreview) || rawPreview;
   for (const raw of prefer) {
     const url = resolveMediaUrl(raw);
-    if (url) return url;
+    if (url) return toWebDerivativeUrl(url) || url;
   }
   return '';
 }
@@ -545,6 +554,17 @@ export function rememberCollectionCover(collectionId, url) {
     /* ignore */
   }
   return src;
+}
+
+export function forgetCollectionCover(collectionId) {
+  if (!collectionId) return;
+  coverMemory.delete(String(collectionId));
+  if (typeof window === 'undefined') return;
+  try {
+    sessionStorage.removeItem(`${COVER_CACHE_PREFIX}${collectionId}`);
+  } catch {
+    /* ignore */
+  }
 }
 
 export function readCachedCollectionCover(collectionId) {

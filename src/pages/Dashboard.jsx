@@ -4,7 +4,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { galleryService } from '../services/gallery.service';
 import { loadStudioDashboard } from '../services/studioDashboard.service';
-import { userStorageService } from '../services/userStorage.service';
+import { userStorageService, getStorageLimitBytes } from '../services/userStorage.service';
 import { getThemeMode, setThemeMode, THEME_CHANGE_EVENT } from '../lib/appearanceTheme';
 import { navigateToAccount } from '../lib/accountBackNav';
 import { isHiddenStudioPath, isVisibleModule } from '../lib/releasedModules';
@@ -274,12 +274,7 @@ function heroLines(text) {
 }
 
 function storageLimitBytes(profile) {
-  if (profile?.storage_limit_bytes) return profile.storage_limit_bytes;
-  const tier = String(profile?.plan || '').toLowerCase();
-  if (tier === 'pro') return 100 * 1024 * 1024 * 1024;
-  if (tier === 'premium') return 500 * 1024 * 1024 * 1024;
-  if (tier === 'free') return 5 * 1024 * 1024 * 1024;
-  return 10 * 1024 * 1024 * 1024;
+  return getStorageLimitBytes(profile);
 }
 
 function formatStorageAmount(bytes) {
@@ -697,7 +692,10 @@ const Dashboard = () => {
             </div>
           ) : (
             <div className="sd-recent-empty">
-              <p>{appT.dash.emptyWork}</p>
+              <p>
+                <span className="sd-recent-empty-lead">{appT.dash.emptyWork}</span>
+                <span className="sd-recent-empty-hint">{appT.dash.emptyWorkHint}</span>
+              </p>
               <button type="button" className="sd-new-btn" onClick={() => navigate('/deliveries/create')}>
                 {appT.dash.newBtn} {(appT.dash.newMenu?.['Delivery']?.[0]) || 'delivery'}
               </button>

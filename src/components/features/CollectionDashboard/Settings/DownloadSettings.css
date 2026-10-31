@@ -203,7 +203,7 @@
 }
 
 .cd-dl .cd-toggle-slider {
-  background-color: #d4d0cb;
+  background-color: var(--toggle-track-off);
 }
 
 .cd-dl .cd-toggle-slider::before,
@@ -212,8 +212,8 @@
   width: 18px;
   left: 3px;
   bottom: 3px;
-  background-color: #fff;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.18);
+  background-color: var(--toggle-thumb);
+  box-shadow: var(--toggle-thumb-shadow);
 }
 
 .cd-dl .cd-toggle input:checked + .cd-toggle-slider::before,

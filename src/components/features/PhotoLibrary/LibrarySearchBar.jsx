@@ -1,5 +1,6 @@
 import React, { useEffect, useRef } from 'react';
-import { Search, Calendar, X } from 'lucide-react';
+import { Search, Calendar, Filter, X } from 'lucide-react';
+import { cn } from '../../../lib/utils';
 import { formatFilterDateRangeLabel } from '../../../utils/clientGalleryFilters';
 import { LibraryDateFilter } from './LibraryDateFilter';
 import './LibrarySearchBar.css';
@@ -40,8 +41,8 @@ export function LibrarySearchBar({
     onShowPanelChange?.(false);
   };
 
-  const openSearchPanel = () => {
-    onShowPanelChange?.(true);
+  const toggleFilterPanel = () => {
+    onShowPanelChange?.(!showPanel);
     onShowDatePanelChange?.(false);
   };
 
@@ -51,23 +52,21 @@ export function LibrarySearchBar({
   };
 
   const hasDateFilter = Boolean(dateRange?.start);
-  const isOpen = showPanel || showDatePanel;
+  const filterIsOn = Boolean(showPanel || starredOnly);
 
   return (
-    <div className="pl-search-wrap" ref={rootRef}>
-      <div className={`pl-search-bar neu-inset${isOpen ? ' pl-search-bar--open' : ''}`}>
-        <Search size={16} strokeWidth={1.75} aria-hidden className="pl-search-icon" />
+    <div className="pl-search-wrap dl-toolbar" ref={rootRef}>
+      <div className="dl-search">
+        <Search aria-hidden />
         <input
-          type="text"
+          type="search"
           role="searchbox"
           inputMode="search"
           enterKeyHint="search"
           autoComplete="off"
-          className="pl-search-input"
           value={query}
-          placeholder="Search deliveries or keywords…"
+          placeholder="Search photos or keywords..."
           onChange={(e) => onQueryChange(e.target.value)}
-          onFocus={openSearchPanel}
           aria-label="Search photo library"
         />
         {query ? (
@@ -80,71 +79,85 @@ export function LibrarySearchBar({
             <X size={16} />
           </button>
         ) : null}
-        <div className="pl-search-divider" aria-hidden />
-        <button
-          type="button"
-          className={`pl-calendar-btn${hasDateFilter || showDatePanel ? ' pl-calendar-btn--active' : ''}`}
-          aria-label={hasDateFilter ? `Date filter: ${formatFilterDateRangeLabel(dateRange)}` : 'Filter by date'}
-          aria-expanded={showDatePanel}
-          onClick={toggleDatePanel}
-        >
-          <Calendar size={18} strokeWidth={1.75} />
-        </button>
       </div>
 
-      {showDatePanel && (
-        <div className="pl-date-filter-popover">
-          <LibraryDateFilter
-            dateRange={dateRange}
-            onChange={onDateRangeChange}
-            onClose={() => onShowDatePanelChange?.(false)}
-          />
-        </div>
-      )}
-
-      {showPanel && (
-        <div className="pl-search-panel">
-          <div className="pl-search-section">
-            <p className="pl-search-section-label">Pixnxt</p>
-            <div className="pl-search-chips">
+      <div className="dl-tools">
+        <div className="relative">
+          <button
+            type="button"
+            className={cn('dl-icon-btn', filterIsOn && 'is-on')}
+            aria-label="Show filter"
+            aria-expanded={showPanel}
+            onClick={toggleFilterPanel}
+          >
+            <Filter className="size-4" strokeWidth={1.6} />
+          </button>
+          {showPanel ? (
+            <div className="dl-popover pl-filter-popover" role="menu">
+              <p className="dl-popover__kicker">SHOW</p>
               {PIXNXT_FILTERS.map((chip) => (
                 <button
                   key={chip.id}
                   type="button"
-                  className={`pl-search-chip${starredOnly ? ' pl-search-chip--active' : ''}`}
+                  role="menuitem"
+                  className={cn('dl-popover__item', starredOnly && 'is-on')}
                   onClick={() => onStarredOnlyChange?.(!starredOnly)}
                 >
-                  {chip.label}
+                  <span>{chip.label}</span>
                 </button>
               ))}
-            </div>
-          </div>
 
-          {labelSuggestions.length > 0 && (
-            <div className="pl-search-section">
-              <p className="pl-search-section-label">AI keywords</p>
-              <div className="pl-search-chips">
-                {labelSuggestions.map((label) => {
-                  const text = typeof label === 'string' ? label : String(label?.name ?? label?.Name ?? '');
-                  if (!text) return null;
-                  return (
-                  <button
-                    key={text}
-                    type="button"
-                    className={`pl-search-chip${query.toLowerCase() === text.toLowerCase() ? ' pl-search-chip--active' : ''}`}
-                    onClick={() => handleChipClick(text)}
-                  >
-                    {text}
-                  </button>
-                  );
-                })}
-              </div>
-            </div>
-          )}
+              {labelSuggestions.length > 0 ? (
+                <div className="pl-search-section">
+                  <p className="dl-popover__kicker">AI KEYWORDS</p>
+                  <div className="pl-search-chips">
+                    {labelSuggestions.map((label) => {
+                      const text = typeof label === 'string' ? label : String(label?.name ?? label?.Name ?? '');
+                      if (!text) return null;
+                      return (
+                        <button
+                          key={text}
+                          type="button"
+                          className={cn(
+                            'pl-search-chip',
+                            query.toLowerCase() === text.toLowerCase() && 'pl-search-chip--active',
+                          )}
+                          onClick={() => handleChipClick(text)}
+                        >
+                          {text}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ) : null}
 
-          <p className="pl-search-help">Search across every photo in all of your client gallery deliveries.</p>
+              <p className="pl-search-help">Search across every photo in your deliveries.</p>
+            </div>
+          ) : null}
         </div>
-      )}
+
+        <div className="relative">
+          <button
+            type="button"
+            className={cn('dl-icon-btn', (hasDateFilter || showDatePanel) && 'is-on')}
+            aria-label={hasDateFilter ? `Date filter: ${formatFilterDateRangeLabel(dateRange)}` : 'Filter by date'}
+            aria-expanded={showDatePanel}
+            onClick={toggleDatePanel}
+          >
+            <Calendar className="size-4" strokeWidth={1.6} />
+          </button>
+          {showDatePanel ? (
+            <div className="pl-date-filter-popover">
+              <LibraryDateFilter
+                dateRange={dateRange}
+                onChange={onDateRangeChange}
+                onClose={() => onShowDatePanelChange?.(false)}
+              />
+            </div>
+          ) : null}
+        </div>
+      </div>
     </div>
   );
 }

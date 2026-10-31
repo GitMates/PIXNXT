@@ -144,6 +144,8 @@ export function SmoothMediaImage({
           style={{ objectFit, ...(objectPosition ? { objectPosition } : {}) }}
           decoding="async"
           loading="lazy"
+          draggable={false}
+          onDragStart={(event) => event.preventDefault()}
         />
       )}
 
@@ -167,6 +169,8 @@ export function SmoothMediaImage({
           decoding="async"
           loading={loading}
           fetchPriority={fetchPriority}
+          draggable={false}
+          onDragStart={(event) => event.preventDefault()}
           onLoad={handleLoad}
           onError={handleError}
         />

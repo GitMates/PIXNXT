@@ -4,6 +4,7 @@ import { useAuth } from '../../../hooks/useAuth';
 import { galleryService } from '../../../services/gallery.service';
 import { AppLoader } from '../../ui/AppLoading';
 import '../../../pages/Settings.css';
+import { sanitizePhotographerHtml } from '../../../lib/sanitizePhotographerHtml';
 
 function getFormattedDate() {
     return new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
@@ -28,7 +29,7 @@ function htmlToPlain(html) {
     if (!html) return '';
     try {
         const el = document.createElement('div');
-        el.innerHTML = html;
+        el.innerHTML = sanitizePhotographerHtml(html);
         return (el.textContent || el.innerText || '').trim();
     } catch {
         return String(html).replace(/<[^>]+>/g, '').trim();
@@ -215,7 +216,7 @@ export default function LegalConsentPanel({ showToast, studioName: studioNamePro
         const dateStr = getFormattedDate();
         const iso = new Date().toISOString();
         const ok = await persist(
-            { tos_text: tos, tos_updated_at: iso },
+            { tos_text: sanitizePhotographerHtml(tos), tos_updated_at: iso },
             'Terms of Service saved'
         );
         if (ok) {
@@ -228,7 +229,7 @@ export default function LegalConsentPanel({ showToast, studioName: studioNamePro
         const dateStr = getFormattedDate();
         const iso = new Date().toISOString();
         const ok = await persist(
-            { privacy_policy_text: privacyPolicy, privacy_updated_at: iso },
+            { privacy_policy_text: sanitizePhotographerHtml(privacyPolicy), privacy_updated_at: iso },
             'Privacy Policy saved'
         );
         if (ok) {

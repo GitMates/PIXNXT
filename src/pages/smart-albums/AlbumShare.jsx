@@ -15,6 +15,7 @@ import {
 import RichTextEditor from '../../components/RichTextEditor';
 import { AppLoader } from '../../components/ui/AppLoading';
 import '../CollectionShare.css';
+import { sanitizePhotographerHtml } from '../../lib/sanitizePhotographerHtml';
 
 function htmlToPlainText(html) {
     if (!html) return '';
@@ -563,7 +564,7 @@ const AlbumShare = () => {
                             <div className="cs-email-body-content">
                                 <div
                                     dangerouslySetInnerHTML={{
-                                        __html: body || '<p>Enter your text here...</p>',
+                                        __html: sanitizePhotographerHtml(body || '<p>Enter your text here...</p>'),
                                     }}
                                 />
                                 {(includeAccessPin || includeApprovalPin) && (

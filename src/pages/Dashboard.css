@@ -1044,6 +1044,11 @@
   max-width: 42ch;
 }
 
+.sd-recent-empty-lead,
+.sd-recent-empty-hint {
+  display: block;
+}
+
 /* ── The Studio ── */
 .sd-studio {
   display: grid;
@@ -1059,6 +1064,8 @@
 .sd-studio-cell {
   display: flex;
   flex-direction: column;
+  align-items: center;
+  text-align: center;
   gap: 6px;
   padding: 24px 22px;
 }
@@ -1099,7 +1106,13 @@
   display: grid;
   grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr);
   gap: 24px;
-  align-items: start;
+  align-items: stretch;
+}
+
+.sd-panel {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
 }
 
 .sd-panel-title-wrap {
@@ -1133,6 +1146,10 @@
 
 .sd-needs,
 .sd-week {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
   background: var(--sd-surface);
   border-radius: var(--sd-radius);
   overflow: hidden;
@@ -1237,6 +1254,7 @@
   display: flex;
   align-items: flex-start;
   gap: 8px;
+  margin-top: auto;
   padding: 11px 18px;
   background: var(--sd-sunk);
   border-top: 1px solid var(--sd-line);
@@ -1269,6 +1287,7 @@
 }
 
 .sd-panel-empty {
+  flex: 1;
   padding: 28px 18px;
   color: var(--sd-muted, #8a847e);
   font-size: 0.875rem;
