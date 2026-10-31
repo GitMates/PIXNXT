@@ -727,6 +727,11 @@ export async function getPhotographerProfileByCustomDomain(domain) {
 export async function updatePhotographerProfile(photographerId, updates) {
   void photographerId;
   const data = await apiFetch('/v1/me/profile', { method: 'PATCH', body: updates });
+  // Keep the shared 30s cache current so the dashboard/sidebar see the new
+  // name, studio, or avatar immediately after a save.
+  if (data?.profile) {
+    ownProfileCache = { at: Date.now(), profile: data.profile };
+  }
   return data?.profile;
 }
 

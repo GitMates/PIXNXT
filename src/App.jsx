@@ -24,6 +24,7 @@ import Showcase from './pages/Showcase';
 import Settings from './pages/Settings';
 import AccountSettings from './pages/AccountSettings';
 import AuthPage from './pages/AuthPage';
+import Onboarding from './pages/Onboarding';
 import PresetEditor from './pages/PresetEditor';
 import { ProtectedRoute } from './components/features/Auth';
 import CollectionList from './pages/public/CollectionList';
@@ -176,6 +177,7 @@ function App() {
   const hideLayout =
     location.pathname === '/' ||
     location.pathname === '/auth' ||
+    location.pathname === '/onboarding' ||
     location.pathname === '/auth/google/callback' ||
     location.pathname === '/auth/success' ||
     location.pathname === '/auth/reset' ||
@@ -290,6 +292,10 @@ function App() {
           <Route path="/auth/reset" element={<AuthPage />} />
           <Route path="/login" element={<Navigate to="/auth" replace />} />
           <Route path="/signup" element={<Navigate to="/auth?mode=signup" replace />} />
+          <Route
+            path="/onboarding"
+            element={<ProtectedRoute requireOnboarding={false}><Onboarding /></ProtectedRoute>}
+          />
           <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
           <Route path="/client-gallery" element={<ProtectedRoute><ClientGallery /></ProtectedRoute>} />
           <Route path="/client_gallery" element={<Navigate to="/client-gallery" replace />} />
