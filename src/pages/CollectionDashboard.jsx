@@ -651,7 +651,6 @@ const CollectionDashboard = () => {
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
     const [photosToDelete, setPhotosToDelete] = useState([]);
     const [showSelectionMore, setShowSelectionMore] = useState(false);
-    const [showSelectAllMenu, setShowSelectAllMenu] = useState(false);
     const [showMoveToSetMenu, setShowMoveToSetMenu] = useState(false);
     const [moveMenuPosition, setMoveMenuPosition] = useState(null);
     const [selectionMoreMenuPosition, setSelectionMoreMenuPosition] = useState(null);
@@ -1446,7 +1445,6 @@ const CollectionDashboard = () => {
     const gdPublishWrapRef = useRef(null);
     const selectionMoreRef = useRef(null);
     const selectionMorePortalRef = useRef(null);
-    const selectAllMenuRef = useRef(null);
     const moveToSetRef = useRef(null);
     const moveMenuPortalRef = useRef(null);
     const favoriteActivityMenuRef = useRef(null);
@@ -1733,7 +1731,6 @@ const CollectionDashboard = () => {
         // Select all photos currently visible in the sorted/filtered view
         const visibleIds = sortedPhotos.map(p => p.id);
         setSelectedPhotos(visibleIds);
-        setShowSelectAllMenu(false);
     };
 
     const fetchFavoriteActivity = async () => {
@@ -3292,9 +3289,6 @@ const CollectionDashboard = () => {
             ) {
                 setShowSelectionMore(false);
             }
-            if (showSelectAllMenu && selectAllMenuRef.current && !selectAllMenuRef.current.contains(e.target)) {
-                setShowSelectAllMenu(false);
-            }
             if (
                 showMoveToSetMenu
                 && moveToSetRef.current
@@ -3313,7 +3307,7 @@ const CollectionDashboard = () => {
         };
         document.addEventListener('mousedown', handleClickOutside);
         return () => document.removeEventListener('mousedown', handleClickOutside);
-    }, [activeActivityMenu, favoriteDetailPhotoMenuPhotoId, favoriteActivitySortMenuOpen, showSelectionMore, showSelectAllMenu, showMoveToSetMenu]);
+    }, [activeActivityMenu, favoriteDetailPhotoMenuPhotoId, favoriteActivitySortMenuOpen, showSelectionMore, showMoveToSetMenu]);
 
     // ─── SORT LOGIC ──────────────────────────────────────────
     const sortedPhotos = useMemo(() => {
@@ -5589,7 +5583,6 @@ const CollectionDashboard = () => {
             }
             if (sortRef.current && !sortRef.current.contains(e.target)) setShowSortMenu(false);
             if (selectionMoreRef.current && !selectionMoreRef.current.contains(e.target)) setShowSelectionMore(false);
-            if (selectAllMenuRef.current && !selectAllMenuRef.current.contains(e.target)) setShowSelectAllMenu(false);
             if (
                 moveToSetRef.current
                 && !moveToSetRef.current.contains(e.target)
@@ -6284,18 +6277,12 @@ const CollectionDashboard = () => {
                     {selectedPhotos.length > 0 && activeSidebarTab === 'photos' && (
                         <div className="cd-selection-toolbar" role="toolbar" aria-label="Photo selection">
                             <div className="cd-selection-left">
-                                <div
-                                    className="cd-selection-count-wrapper"
-                                    onClick={() => setShowSelectAllMenu(!showSelectAllMenu)}
-                                    ref={selectAllMenuRef}
-                                >
-                                    <span className="cd-selection-count">{selectedPhotos.length} selected</span>
-                                    {showSelectAllMenu && (
-                                        <div className="cd-selection-menu">
-                                            <div className="cd-ctx-item" onClick={selectAll}>Select All</div>
-                                        </div>
-                                    )}
-                                </div>
+                                <span className="cd-selection-count">{selectedPhotos.length} selected</span>
+                                {sortedPhotos.some((p) => !selectedPhotos.includes(p.id)) && (
+                                    <button type="button" className="cd-sel-action-btn" onClick={selectAll}>
+                                        Select all
+                                    </button>
+                                )}
                             </div>
                             <div className="cd-selection-actions" onClick={(e) => e.stopPropagation()}>
                                 <div className={`cd-selection-move-wrapper${showMoveToSetMenu ? ' is-open' : ''}`} ref={moveToSetRef}>
