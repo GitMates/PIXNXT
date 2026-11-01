@@ -268,12 +268,50 @@ export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
     };
   }, [collectionId, storageKey]);
 
-  const photosForActiveSet = useMemo(() => {
+  const isHighlightsAvailable = useMemo(() => {
+    if (dashboardState?.collection?.highlights_enabled === false) return false;
+    const hasHighlightsPhotos = (gridPhotos || []).some((p: any) => !p.set_id);
+    const sets = dashboardState?.sets || [];
+    if (sets.length > 0 && !hasHighlightsPhotos) return false;
+    return true;
+  }, [dashboardState?.collection?.highlights_enabled, dashboardState?.sets, gridPhotos]);
+
+  const orderedTabs = useMemo(() => {
+    return orderGallerySetTabs({
+      sets: (dashboardState?.sets || []).map((s: any) => ({ id: s.id, name: s.name })),
+      sidebarSetOrder:
+        dashboardState?.sidebarSetOrder ||
+        dashboardState?.collection?.sidebar_set_order ||
+        null,
+      showHighlights: isHighlightsAvailable,
+      highlightsName: dashboardState?.highlightsName || 'Highlights',
+    });
+  }, [
+    dashboardState?.sets,
+    dashboardState?.sidebarSetOrder,
+    dashboardState?.collection?.sidebar_set_order,
+    isHighlightsAvailable,
+    dashboardState?.highlightsName,
+  ]);
+
+  const effectiveSetId = useMemo(() => {
     const activeId = dashboardState?.activeSetId;
-    return activeId
-      ? gridPhotos.filter((p: any) => String(p.set_id) === String(activeId))
+    if (activeId != null) {
+      if ((dashboardState?.sets || []).some((s: any) => String(s.id) === String(activeId))) {
+        return activeId;
+      }
+    }
+    if (isHighlightsAvailable) {
+      return null;
+    }
+    return orderedTabs[0]?.id ?? null;
+  }, [dashboardState?.activeSetId, isHighlightsAvailable, dashboardState?.sets, orderedTabs]);
+
+  const photosForActiveSet = useMemo(() => {
+    return effectiveSetId
+      ? gridPhotos.filter((p: any) => String(p.set_id) === String(effectiveSetId))
       : gridPhotos.filter((p: any) => !p.set_id);
-  }, [gridPhotos, dashboardState?.activeSetId]);
+  }, [gridPhotos, effectiveSetId]);
 
   const {
     people: galleryPeopleList,
@@ -689,9 +727,9 @@ export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
           collectionTitle={collectionTitle}
           photographerName={photographerName}
           sets={(dashboardState?.sets || []).map((s: any) => ({ id: s.id, name: s.name }))}
-          activeSetId={dashboardState?.activeSetId ?? null}
+          activeSetId={effectiveSetId ?? null}
           onSetChange={onSetActiveSet}
-          showHighlightsTab={dashboardState?.collection?.highlights_enabled !== false}
+          showHighlightsTab={isHighlightsAvailable}
           highlightsName={dashboardState?.highlightsName || 'Highlights'}
           sidebarSetOrder={
             dashboardState?.sidebarSetOrder ||

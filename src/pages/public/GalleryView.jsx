@@ -28,6 +28,7 @@ import {
   resolveDownloadContactMode,
 } from '../../lib/downloadAccess';
 import { formatCoverDate } from '../../lib/formatCoverDate.js';
+import { orderGallerySetTabs } from '../../lib/gallerySetOrder';
 import { getCollectionFocal, getCollectionFocals, stripMediaUrlHash } from '../../lib/focalPoint';
 import {
   GalleryStickyNav,
@@ -2238,16 +2239,77 @@ const GalleryView = () => {
     });
   }, [selectedStorePackage]);
 
+  const visibleSets = useMemo(() => {
+    if (!collection?.sets) return [];
+    return filterSetsForViewer(collection.sets, collection, isClientViewer);
+  }, [collection, isClientViewer]);
+
+  const isHighlightsAvailable = useMemo(() => {
+    if (!collection) return false;
+    if (collection.highlights_enabled === false) return false;
+    if (!canViewHighlights(collection, isClientViewer)) return false;
+    const hasHighlightsPhotos = (collection.photos || []).some(
+      (p) => !p.set_id && (isClientViewer || !p.is_private)
+    );
+    if (visibleSets.length > 0 && !hasHighlightsPhotos) {
+      return false;
+    }
+    return true;
+  }, [collection, isClientViewer, visibleSets]);
+
+  const orderedTabs = useMemo(() => {
+    return orderGallerySetTabs({
+      sets: visibleSets.map((s) => ({ id: s.id, name: s.name })),
+      sidebarSetOrder: collection?.sidebar_set_order || null,
+      showHighlights: isHighlightsAvailable,
+      highlightsName: 'Highlights',
+    });
+  }, [visibleSets, collection?.sidebar_set_order, isHighlightsAvailable]);
+
+  const effectiveSetId = useMemo(() => {
+    if (activeSetId !== null) {
+      if (visibleSets.some((s) => String(s.id) === String(activeSetId))) {
+        return activeSetId;
+      }
+    }
+    if (isHighlightsAvailable) {
+      return null;
+    }
+    return orderedTabs[0]?.id ?? null;
+  }, [activeSetId, isHighlightsAvailable, visibleSets, orderedTabs]);
+
+  useEffect(() => {
+    if (effectiveSetId !== activeSetId) {
+      setActiveSetId(effectiveSetId);
+    }
+  }, [effectiveSetId, activeSetId]);
+
+  const hasSetQueryInitializedRef = useRef(false);
+  useEffect(() => {
+    if (hasSetQueryInitializedRef.current || !collection) return;
+    const requestedSet = searchParams.get('set');
+    if (!requestedSet) return;
+    hasSetQueryInitializedRef.current = true;
+    const match = visibleSets.find(
+      (s) => String(s.id) === String(requestedSet) || String(s.name).toLowerCase() === String(requestedSet).toLowerCase()
+    );
+    if (match) {
+      setActiveSetId(match.id);
+    } else if (requestedSet.toLowerCase() === 'highlights' && isHighlightsAvailable) {
+      setActiveSetId(null);
+    }
+  }, [searchParams, collection, visibleSets, isHighlightsAvailable]);
+
   /** Base list for the active tab — must NOT get a new array reference when only `favoritedPhotos` changes
    *  (otherwise MasonryGrid + framer-motion `whileInView` can re-run and leave tiles stuck at opacity 0). */
   const photosForActiveSet = useMemo(() => {
     if (!collection) return [];
     if (isFavoriteListMode) return favoriteListPhotos || [];
     const source = (collection.photos || []).filter((p) => isClientViewer || !p.is_private);
-    return activeSetId
-      ? source.filter((p) => String(p.set_id) === String(activeSetId))
+    return effectiveSetId
+      ? source.filter((p) => String(p.set_id) === String(effectiveSetId))
       : source.filter((p) => !p.set_id);
-  }, [collection, activeSetId, isFavoriteListMode, favoriteListPhotos, isClientViewer]);
+  }, [collection, effectiveSetId, isFavoriteListMode, favoriteListPhotos, isClientViewer]);
 
   /** People strip for the active set only (Highlights / named tab) — same as Preview. */
   const peopleForGalleryStrip = useMemo(() => {
@@ -2263,12 +2325,7 @@ const GalleryView = () => {
 
   useEffect(() => {
     galleryPeople.clearFilter();
-  }, [activeSetId]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  const visibleSets = useMemo(() => {
-    if (!collection?.sets) return [];
-    return filterSetsForViewer(collection.sets, collection, isClientViewer);
-  }, [collection, isClientViewer]);
+  }, [effectiveSetId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const downloadablePhotos = useMemo(() => {
     if (!collection) return [];
@@ -2310,7 +2367,7 @@ const GalleryView = () => {
       const ids = fromQuery.split(',').map((id) => id.trim()).filter(Boolean);
       if (ids.length) return ids;
     }
-    const setKey = activeSetId || 'highlights';
+    const setKey = effectiveSetId || 'highlights';
     const saved = collection?.design_options?.photo_order?.[setKey];
     if (gallerySortKey === 'custom' && Array.isArray(saved) && saved.length) return saved;
     return null;
@@ -2327,7 +2384,7 @@ const GalleryView = () => {
         base,
         collection,
         isClientViewer,
-        activeSetId,
+        effectiveSetId,
         collection.sets || []
       );
     }
@@ -2562,21 +2619,16 @@ const GalleryView = () => {
     }
   }, [collection, activeSetId]);
 
-  useEffect(() => {
-    if (!collection || !isClientExclusiveEnabled(collection)) return;
-    if (!canViewHighlights(collection, isClientViewer) && !activeSetId && visibleSets.length > 0) {
-      setActiveSetId(visibleSets[0].id);
-    }
-  }, [collection, isClientViewer, activeSetId, visibleSets]);
+  // activeSetId sync is handled by effectiveSetId
 
   /** Storytelling copy for the active tab (Highlights → collection.description; other sets → set.description). */
   const setDescriptionText = useMemo(() => {
     if (!collection) return '';
-    const raw = activeSetId
-      ? collection.sets?.find((s) => s.id === activeSetId)?.description
+    const raw = effectiveSetId
+      ? collection.sets?.find((s) => s.id === effectiveSetId)?.description
       : (collection.description || collection.sets?.[0]?.description);
     return typeof raw === 'string' ? raw.trim() : '';
-  }, [collection, activeSetId]);
+  }, [collection, effectiveSetId]);
 
   const photoUrls = useMemo(
     () => filteredPhotos.map((p) => getPhotoFullDisplayUrl(p)),
@@ -3158,9 +3210,9 @@ const GalleryView = () => {
             collectionTitle={collection.name}
             photographerName={photographer?.business_name || photographer?.display_name}
             sets={visibleSets.map((set) => ({ id: set.id, name: set.name }))}
-            showHighlightsTab={canViewHighlights(collection, isClientViewer)}
+            showHighlightsTab={isHighlightsAvailable}
             sidebarSetOrder={collection?.sidebar_set_order || null}
-            activeSetId={activeSetId}
+            activeSetId={effectiveSetId}
             onSetChange={setActiveSetId}
             showFavorites={collection?.favorites_enabled !== false}
             showDownload={showGalleryDownload}
@@ -3253,7 +3305,7 @@ const GalleryView = () => {
           {showEmptyPlaceholderGrid ? (
             <GalleryEmptyGrid className="mt-2" />
           ) : (() => {
-            const baseKey = `${activeSetId ?? 'highlights'}-${effectiveSettings.grid_style}-${effectiveSettings.thumbnail_size}-${effectiveSettings.grid_spacing}`;
+            const baseKey = `${effectiveSetId ?? 'highlights'}-${effectiveSettings.grid_style}-${effectiveSettings.thumbnail_size}-${effectiveSettings.grid_spacing}`;
             const gridProps = {
               isMobileViewport,
               isHorizontal: effectiveSettings.grid_style?.toLowerCase() === 'horizontal',

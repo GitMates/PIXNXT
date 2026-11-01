@@ -4195,6 +4195,11 @@ const CollectionDashboard = () => {
             .filter((photo) => photo?.id && !photo._uploadPending)
             .map((photo) => photo.id);
         if (orderIds.length) query.order = orderIds.join(',');
+        if (activeSetId) {
+            query.set = activeSetId;
+        } else if (!highlightsEnabled && sets.length > 0) {
+            query.set = sets[0].id;
+        }
         // Studio preview stays on the platform host (PIXNXT loader); client share links keep custom domain.
         const galleryUrl = getStudioPreviewGalleryUrl(collectionUrl, collectionId, query);
         window.open(galleryUrl, '_blank', 'noopener,noreferrer');
@@ -4212,6 +4217,9 @@ const CollectionDashboard = () => {
         sortedPhotos,
         collectionUrl,
         collectionId,
+        activeSetId,
+        highlightsEnabled,
+        sets,
     ]);
 
     useEffect(() => {
