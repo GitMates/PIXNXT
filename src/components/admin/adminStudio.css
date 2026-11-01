@@ -1,7 +1,8 @@
 /* PIXNXT Admin studio. Tokens alias shared themeTokens.css (:root + body.dark-theme). */
 
 .admin-shell,
-.admin-studio {
+.admin-studio,
+.admin-modal-root {
   --ad-bg: var(--canvas);
   --ad-card: var(--surface);
   --ad-sunk: var(--surface-sunk);
@@ -253,11 +254,13 @@
 .ad-btn-primary:hover {
   background: color-mix(in srgb, var(--ad-ink) 88%, black);
 }
-body.dark-theme .admin-shell .ad-btn-primary {
+body.dark-theme .admin-shell .ad-btn-primary,
+body.dark-theme .admin-modal-root .ad-btn-primary {
   background: var(--ad-accent);
   color: #fff;
 }
-body.dark-theme .admin-shell .ad-btn-primary:hover {
+body.dark-theme .admin-shell .ad-btn-primary:hover,
+body.dark-theme .admin-modal-root .ad-btn-primary:hover {
   background: var(--ad-accent-hover);
 }
 .ad-btn-secondary {
@@ -266,15 +269,49 @@ body.dark-theme .admin-shell .ad-btn-primary:hover {
   border: 1px solid var(--ad-line);
   border-radius: 0.75rem;
   font-weight: 500;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
 }
 .ad-btn-secondary:hover {
   background: var(--ad-sunk);
+}
+.ad-btn-danger {
+  background: #dc2626;
+  color: #ffffff;
+  border: 1px solid transparent;
+  border-radius: 0.75rem;
+  font-weight: 600;
+  transition: opacity 0.15s ease, background-color 0.15s ease;
+}
+.ad-btn-danger:hover:not(:disabled) {
+  background: #b91c1c;
+}
+.ad-btn-danger:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+.ad-input {
+  background: var(--ad-card);
+  border: 1px solid var(--ad-line);
+  color: var(--ad-ink);
+  border-radius: 0.75rem;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.ad-input:focus {
+  border-color: var(--ad-accent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--ad-accent) 20%, transparent);
+}
+body.dark-theme .admin-shell .ad-input,
+body.dark-theme .admin-modal-root .ad-input {
+  background: var(--bg-surface-hover);
+  border-color: var(--border-color);
+  color: var(--text-heading);
 }
 
 /* Dark: restore token surfaces (light hex above does not apply under body.dark-theme) */
 body.dark-theme .admin-shell,
 body.dark-theme .admin-studio,
-body.dark-theme .admin-login {
+body.dark-theme .admin-login,
+body.dark-theme .admin-modal-root {
   background: var(--ad-bg);
   color: var(--ad-body);
 }
@@ -489,10 +526,21 @@ a.ad-stat:hover .ad-stat-arrow {
   to { opacity: 1; transform: translateY(0) scale(1); }
 }
 .ad-modal-backdrop {
+  background-color: rgba(0, 0, 0, 0.65);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
   animation: ad-backdrop-in 0.18s ease both;
 }
 .ad-modal-card {
+  background: var(--ad-card);
+  border: 1px solid var(--ad-line);
+  color: var(--ad-body);
   animation: ad-card-in 0.22s cubic-bezier(0.22, 0.9, 0.3, 1.05) both;
+}
+body.dark-theme .ad-modal-card {
+  background: #18181b;
+  border-color: #27272a;
+  color: var(--text-body);
 }
 @media (prefers-reduced-motion: reduce) {
   .ad-modal-backdrop,

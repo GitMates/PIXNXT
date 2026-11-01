@@ -3,6 +3,7 @@ import {
   Search,
   User,
   AlertCircle,
+  AlertTriangle,
   X,
   Mail,
   Ban,
@@ -15,6 +16,8 @@ import {
   Eye,
   EyeOff,
   IdCard,
+  Trash2,
+  ShieldCheck,
 } from 'lucide-react';
 import { AppLoader, AppSpinner } from '../../components/ui/AppLoading';
 import { apiFetch } from '../../lib/api/client';
@@ -97,8 +100,12 @@ const AdminUserManagement = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [sortBy, setSortBy] = useState('newest');
-  const [confirmDisableId, setConfirmDisableId] = useState(null);
+  const [confirmDisableTarget, setConfirmDisableTarget] = useState(null);
+  const [confirmEnableTarget, setConfirmEnableTarget] = useState(null);
+  const [confirmDeleteTarget, setConfirmDeleteTarget] = useState(null);
+  const [deleteConfirmText, setDeleteConfirmText] = useState('');
   const [actionBusyId, setActionBusyId] = useState(null);
+  const [deleteBusyId, setDeleteBusyId] = useState(null);
   const [emailTarget, setEmailTarget] = useState(null);
   const [emailSubject, setEmailSubject] = useState('');
   const [emailMessage, setEmailMessage] = useState('');
@@ -160,28 +167,59 @@ const AdminUserManagement = () => {
     setEmailTarget(null);
   };
 
-  const toggleDisabled = async (user) => {
-    if (confirmDisableId !== user.id) {
-      setConfirmDisableId(user.id);
-      setTimeout(() => setConfirmDisableId((prev) => (prev === user.id ? null : prev)), 4000);
-      return;
-    }
-    setConfirmDisableId(null);
+  const disableAccount = async (user) => {
     setActionBusyId(user.id);
     try {
       const res = await apiFetch(`/v1/admin/photographers/${user.id}`, {
         method: 'PATCH',
-        body: { is_disabled: !user.isDisabled },
+        body: { is_disabled: true },
       });
       if (Array.isArray(res?.warnings) && res.warnings.length) {
         alert(`Saved with warnings:\n${res.warnings.join('\n')}`);
       }
+      setConfirmDisableTarget(null);
       fetchUsers();
       broadcastPhotographerLimitsChanged(user.id);
     } catch (err) {
-      alert(err.message || 'Failed to update account status.');
+      alert(err.message || 'Failed to disable account.');
     } finally {
       setActionBusyId(null);
+    }
+  };
+
+  const enableAccount = async (user) => {
+    setActionBusyId(user.id);
+    try {
+      const res = await apiFetch(`/v1/admin/photographers/${user.id}`, {
+        method: 'PATCH',
+        body: { is_disabled: false },
+      });
+      if (Array.isArray(res?.warnings) && res.warnings.length) {
+        alert(`Saved with warnings:\n${res.warnings.join('\n')}`);
+      }
+      setConfirmEnableTarget(null);
+      fetchUsers();
+      broadcastPhotographerLimitsChanged(user.id);
+    } catch (err) {
+      alert(err.message || 'Failed to enable account.');
+    } finally {
+      setActionBusyId(null);
+    }
+  };
+
+  const deleteAccount = async (user) => {
+    setDeleteBusyId(user.id);
+    try {
+      await apiFetch(`/v1/admin/photographers/${user.id}`, {
+        method: 'DELETE',
+      });
+      setConfirmDeleteTarget(null);
+      setDeleteConfirmText('');
+      fetchUsers();
+    } catch (err) {
+      alert(err.message || 'Failed to delete account.');
+    } finally {
+      setDeleteBusyId(null);
     }
   };
 
@@ -398,7 +436,6 @@ const AdminUserManagement = () => {
                 ) : (
                   sortedUsers.map((user) => {
                     const lastLogin = formatLastLogin(user.lastLoginAt);
-                    const confirming = confirmDisableId === user.id;
                     const busy = actionBusyId === user.id;
                     return (
                       <tr key={user.id} className="ad-row transition-colors align-top">
@@ -482,28 +519,38 @@ const AdminUserManagement = () => {
                             >
                               <Mail className="w-3.5 h-3.5" />
                             </button>
+                            {user.isDisabled ? (
+                              <button
+                                type="button"
+                                disabled={busy}
+                                onClick={() => setConfirmEnableTarget(user)}
+                                title={`Re-enable ${user.name}'s account`}
+                                aria-label={`Re-enable ${user.name}`}
+                                className="ad-action-btn ad-btn-primary inline-flex items-center justify-center gap-1 px-2.5 py-1.5 text-xs font-semibold rounded-lg whitespace-nowrap transition-colors disabled:opacity-60"
+                              >
+                                {busy ? <AppSpinner size="xs" /> : <ShieldCheck className="w-3.5 h-3.5" />}
+                              </button>
+                            ) : (
+                              <button
+                                type="button"
+                                disabled={busy}
+                                onClick={() => setConfirmDisableTarget(user)}
+                                title={`Disable ${user.name}'s account`}
+                                aria-label={`Disable ${user.name}`}
+                                className="ad-action-btn ad-btn-secondary inline-flex items-center justify-center gap-1 px-2.5 py-1.5 text-xs font-semibold rounded-lg whitespace-nowrap transition-colors disabled:opacity-60"
+                              >
+                                {busy ? <AppSpinner size="xs" /> : <Ban className="w-3.5 h-3.5" />}
+                              </button>
+                            )}
                             <button
                               type="button"
-                              disabled={busy}
-                              onClick={() => toggleDisabled(user)}
-                              title={user.isDisabled ? 'Re-enable this account' : 'Disable this account'}
-                              aria-label={user.isDisabled ? `Re-enable ${user.name}` : `Disable ${user.name}`}
-                              className={`ad-action-btn inline-flex items-center justify-center gap-1 px-2.5 py-1.5 text-xs font-semibold rounded-lg whitespace-nowrap transition-colors disabled:opacity-60 ${
-                                confirming
-                                  ? 'bg-[var(--ad-bad)] text-white hover:opacity-90'
-                                  : user.isDisabled
-                                    ? 'ad-btn-primary'
-                                    : 'ad-btn-secondary'
-                              }`}
+                              disabled={deleteBusyId === user.id}
+                              onClick={() => { setConfirmDeleteTarget(user); setDeleteConfirmText(''); }}
+                              title={`Delete ${user.name}'s account`}
+                              aria-label={`Delete ${user.name}`}
+                              className="ad-action-btn ad-btn-secondary inline-flex items-center justify-center gap-1 px-2.5 py-1.5 text-xs font-semibold rounded-lg whitespace-nowrap transition-colors disabled:opacity-60 hover:bg-[color-mix(in_srgb,var(--ad-bad)_12%,transparent)] hover:text-[var(--ad-bad)] hover:border-[color-mix(in_srgb,var(--ad-bad)_30%,transparent)]"
                             >
-                              {busy ? (
-                                <AppSpinner size="xs" />
-                              ) : user.isDisabled ? (
-                                <CheckCircle2 className="w-3.5 h-3.5" />
-                              ) : (
-                                <Ban className="w-3.5 h-3.5" />
-                              )}
-                              {confirming ? 'Confirm?' : null}
+                              {deleteBusyId === user.id ? <AppSpinner size="xs" /> : <Trash2 className="w-3.5 h-3.5" />}
                             </button>
                           </div>
                         </td>
@@ -674,6 +721,168 @@ const AdminUserManagement = () => {
           <p className="text-[11px] ad-faint-text">
             These details are read from the photographer&apos;s profile row in Cloudflare D1.
           </p>
+        </AdminModal>
+      )}
+
+      {/* ── Disable account confirmation dialog ── */}
+      {confirmDisableTarget && (
+        <AdminModal
+          open
+          onClose={() => setConfirmDisableTarget(null)}
+          title="Disable account"
+          subtitle={`${confirmDisableTarget.name} · ${confirmDisableTarget.email}`}
+          avatar={(confirmDisableTarget.name || 'U').charAt(0).toUpperCase()}
+          size="sm"
+          footer={(
+            <>
+              <button
+                type="button"
+                onClick={() => setConfirmDisableTarget(null)}
+                className="ad-btn-secondary px-4 py-2 text-sm"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={actionBusyId === confirmDisableTarget.id}
+                onClick={() => disableAccount(confirmDisableTarget)}
+                className="ad-btn-danger inline-flex items-center gap-2 px-5 py-2 text-sm font-semibold"
+              >
+                {actionBusyId === confirmDisableTarget.id ? (
+                  <AppSpinner size="xs" />
+                ) : (
+                  <Ban className="w-4 h-4" />
+                )}
+                Disable account
+              </button>
+            </>
+          )}
+        >
+          <div className="rounded-xl border border-[color-mix(in_srgb,var(--ad-warn)_35%,var(--ad-line))] bg-[var(--ad-warn-bg)] p-3.5 flex items-start gap-3">
+            <AlertTriangle className="w-5 h-5 text-[var(--ad-warn)] mt-0.5 shrink-0" />
+            <div className="text-sm text-[var(--ad-warn)]">
+              <p className="font-semibold">This will prevent the photographer from logging in.</p>
+              <p className="mt-1 opacity-90">Their galleries, albums, and deliveries will become inaccessible to clients until the account is re-enabled.</p>
+            </div>
+          </div>
+          <div className="text-sm ad-muted-text space-y-1.5 p-3 rounded-xl bg-[var(--ad-sunk)] border border-[var(--ad-line)]">
+            <p><span className="font-semibold ad-ink">Photographer:</span> {confirmDisableTarget.name}</p>
+            <p><span className="font-semibold ad-ink">Email:</span> {confirmDisableTarget.email}</p>
+            <p><span className="font-semibold ad-ink">Content:</span> {confirmDisableTarget.deliveryCount} deliveries · {confirmDisableTarget.albumCount} albums · {formatBytes(confirmDisableTarget.storageUsedBytes)}</p>
+          </div>
+        </AdminModal>
+      )}
+
+      {/* ── Enable account confirmation dialog ── */}
+      {confirmEnableTarget && (
+        <AdminModal
+          open
+          onClose={() => setConfirmEnableTarget(null)}
+          title="Enable account"
+          subtitle={`${confirmEnableTarget.name} · ${confirmEnableTarget.email}`}
+          avatar={(confirmEnableTarget.name || 'U').charAt(0).toUpperCase()}
+          size="sm"
+          footer={(
+            <>
+              <button
+                type="button"
+                onClick={() => setConfirmEnableTarget(null)}
+                className="ad-btn-secondary px-4 py-2 text-sm"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={actionBusyId === confirmEnableTarget.id}
+                onClick={() => enableAccount(confirmEnableTarget)}
+                className="ad-btn-primary inline-flex items-center gap-2 px-5 py-2 text-sm font-semibold disabled:opacity-50"
+              >
+                {actionBusyId === confirmEnableTarget.id ? (
+                  <AppSpinner size="xs" />
+                ) : (
+                  <ShieldCheck className="w-4 h-4" />
+                )}
+                Enable account
+              </button>
+            </>
+          )}
+        >
+          <div className="rounded-xl border border-[color-mix(in_srgb,var(--ad-ok)_35%,var(--ad-line))] bg-[color-mix(in_srgb,var(--ad-ok)_8%,var(--ad-card))] p-3.5 flex items-start gap-3">
+            <ShieldCheck className="w-5 h-5 text-[var(--ad-ok)] mt-0.5 shrink-0" />
+            <div className="text-sm text-[var(--ad-ok)]">
+              <p className="font-semibold">This will restore the photographer&apos;s access.</p>
+              <p className="mt-1 opacity-90">They will be able to log in again and their galleries, albums, and deliveries will become accessible to clients.</p>
+            </div>
+          </div>
+          <div className="text-sm ad-muted-text space-y-1.5 p-3 rounded-xl bg-[var(--ad-sunk)] border border-[var(--ad-line)]">
+            <p><span className="font-semibold ad-ink">Photographer:</span> {confirmEnableTarget.name}</p>
+            <p><span className="font-semibold ad-ink">Email:</span> {confirmEnableTarget.email}</p>
+          </div>
+        </AdminModal>
+      )}
+
+      {/* ── Delete account confirmation dialog ── */}
+      {confirmDeleteTarget && (
+        <AdminModal
+          open
+          onClose={() => { setConfirmDeleteTarget(null); setDeleteConfirmText(''); }}
+          title="Delete account permanently"
+          subtitle={`${confirmDeleteTarget.name} · ${confirmDeleteTarget.email}`}
+          avatar={(confirmDeleteTarget.name || 'U').charAt(0).toUpperCase()}
+          size="sm"
+          footer={(
+            <>
+              <button
+                type="button"
+                onClick={() => { setConfirmDeleteTarget(null); setDeleteConfirmText(''); }}
+                className="ad-btn-secondary px-4 py-2 text-sm"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={deleteConfirmText.trim().toLowerCase() !== confirmDeleteTarget.name.trim().toLowerCase() || deleteBusyId === confirmDeleteTarget.id}
+                onClick={() => deleteAccount(confirmDeleteTarget)}
+                className="ad-btn-danger inline-flex items-center gap-2 px-5 py-2 text-sm font-semibold"
+              >
+                {deleteBusyId === confirmDeleteTarget.id ? (
+                  <AppSpinner size="xs" />
+                ) : (
+                  <Trash2 className="w-4 h-4" />
+                )}
+                Delete permanently
+              </button>
+            </>
+          )}
+        >
+          <div className="rounded-xl border border-[color-mix(in_srgb,var(--ad-bad)_30%,var(--ad-line))] bg-[color-mix(in_srgb,var(--ad-bad)_10%,var(--ad-card))] p-3.5 flex items-start gap-3">
+            <AlertTriangle className="w-5 h-5 text-[var(--ad-bad)] mt-0.5 shrink-0" />
+            <div className="text-sm text-[var(--ad-bad)]">
+              <p className="font-semibold">This action cannot be undone.</p>
+              <p className="mt-1 opacity-90">The photographer&apos;s account, profile, galleries, albums, deliveries, and all associated data will be permanently deleted.</p>
+            </div>
+          </div>
+          <div className="text-sm ad-muted-text space-y-1.5 p-3 rounded-xl bg-[var(--ad-sunk)] border border-[var(--ad-line)]">
+            <p><span className="font-semibold ad-ink">Photographer:</span> {confirmDeleteTarget.name}</p>
+            <p><span className="font-semibold ad-ink">Email:</span> {confirmDeleteTarget.email}</p>
+            <p><span className="font-semibold ad-ink">Content:</span> {confirmDeleteTarget.deliveryCount} deliveries · {confirmDeleteTarget.albumCount} albums · {formatBytes(confirmDeleteTarget.storageUsedBytes)}</p>
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-[var(--ad-muted)] uppercase tracking-wider mb-2">
+              Type <span className="normal-case font-bold text-[var(--ad-ink)] select-all px-1.5 py-0.5 rounded bg-[var(--ad-sunk)] border border-[var(--ad-line)]">{confirmDeleteTarget.name}</span> to confirm:
+            </label>
+            <input
+              type="text"
+              value={deleteConfirmText}
+              onChange={(e) => setDeleteConfirmText(e.target.value)}
+              placeholder={`Type "${confirmDeleteTarget.name}"`}
+              autoComplete="off"
+              autoCorrect="off"
+              spellCheck="false"
+              autoFocus
+              className="ad-input w-full px-3.5 py-2.5 border border-[var(--ad-line)] bg-[var(--ad-sunk)] text-[var(--ad-ink)] rounded-xl text-sm outline-none focus:border-[var(--ad-bad)] focus:ring-1 focus:ring-[var(--ad-bad)] transition-all placeholder:text-[var(--ad-faint)]"
+            />
+          </div>
         </AdminModal>
       )}
     </div>

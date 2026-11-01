@@ -1,4 +1,5 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { ArrowUpRight, X } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { AppSpinner } from '../ui/AppLoading';
@@ -203,11 +204,16 @@ export function AdminModal({
   footer,
   size = 'md', // sm | md | lg
 }) {
+  const onCloseRef = useRef(onClose);
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  });
+
   useEffect(() => {
     if (!open) return undefined;
-    // Clear any leftover text selection from the trigger click (blue highlight on titles).
+    // Clear any leftover text selection only once upon open.
     try { window.getSelection()?.removeAllRanges(); } catch { /* ignore */ }
-    const onKey = (e) => { if (e.key === 'Escape') onClose?.(); };
+    const onKey = (e) => { if (e.key === 'Escape') onCloseRef.current?.(); };
     document.addEventListener('keydown', onKey);
     const prev = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
@@ -215,33 +221,33 @@ export function AdminModal({
       document.removeEventListener('keydown', onKey);
       document.body.style.overflow = prev;
     };
-  }, [open, onClose]);
+  }, [open]);
 
-  if (!open) return null;
+  if (!open || typeof document === 'undefined') return null;
 
   const maxW = size === 'xl' ? 'sm:max-w-4xl' : size === 'lg' ? 'sm:max-w-2xl' : size === 'sm' ? 'sm:max-w-md' : 'sm:max-w-xl';
 
-  return (
+  const modalNode = (
     <div
-      className="fixed inset-0 z-[80] flex items-end sm:items-center justify-center p-0 sm:p-6"
+      className="admin-shell admin-studio admin-modal-root fixed inset-0 z-[9999] flex items-end sm:items-center justify-center p-0 sm:p-6"
       role="dialog"
       aria-modal="true"
       aria-labelledby="admin-modal-title"
     >
       <button
         type="button"
-        className="ad-modal-backdrop absolute inset-0 bg-[color-mix(in_srgb,var(--ad-ink)_45%,transparent)] backdrop-blur-[2px] select-none"
+        className="ad-modal-backdrop absolute inset-0 bg-black/65 backdrop-blur-sm select-none"
         aria-label="Close dialog"
         onMouseDown={(e) => e.preventDefault()}
         onClick={onClose}
       />
       <div
-        className={`ad-modal-card relative w-full ${maxW} max-h-[92vh] flex flex-col rounded-t-3xl sm:rounded-3xl bg-[var(--ad-card)] border border-[var(--ad-line)] shadow-2xl overflow-hidden`}
+        className={`ad-modal-card relative w-full ${maxW} max-h-[92vh] flex flex-col rounded-2xl bg-[var(--ad-card)] border border-[var(--ad-line)] shadow-2xl overflow-hidden`}
         onMouseDown={(e) => e.stopPropagation()}
       >
         <div className="shrink-0 flex items-start gap-3 px-5 py-4 border-b border-[var(--ad-line)] bg-[var(--ad-card)] select-none">
           {avatar ? (
-            <div className="size-11 rounded-full bg-[var(--ad-ink)] text-[var(--ad-card)] flex items-center justify-center text-base font-semibold shrink-0">
+            <div className="size-11 rounded-full bg-[var(--ad-sunk)] border border-[var(--ad-line)] text-[var(--ad-ink)] flex items-center justify-center text-base font-semibold shrink-0">
               {avatar}
             </div>
           ) : null}
@@ -275,6 +281,8 @@ export function AdminModal({
       </div>
     </div>
   );
+
+  return createPortal(modalNode, document.body);
 }
 
 export function AdminModalSection({ title, children }) {
