@@ -178,19 +178,35 @@ export function CollectionPhotosWorkspaceHeader({
               menuClassName="cdpw-dropdown__menu--sort"
             >
               <p className="cdpw-menu-section">Sort photos by</p>
+              <SortRadio
+                checked={manualOrder}
+                label="Custom order"
+                onSelect={() => {
+                  onSortFieldChange('custom');
+                  setSortOpen(false);
+                }}
+              />
+              <div className="cdpw-menu-divider" />
               {PHOTO_SORT_FIELDS.map((option) => (
                 <SortRadio
                   key={option.id}
                   checked={!manualOrder && sortField === option.id}
                   label={option.label}
-                  onSelect={() => onSortFieldChange(option.id)}
+                  onSelect={() => {
+                    onSortFieldChange(option.id);
+                    setSortOpen(false);
+                  }}
                 />
               ))}
               <div className="cdpw-menu-divider" />
               <button
                 type="button"
-                className={cn('cdpw-sort-reverse', sortReverse && 'cdpw-sort-reverse--active')}
-                onClick={() => onSortReverseChange(!sortReverse)}
+                disabled={manualOrder}
+                className={cn('cdpw-sort-reverse', sortReverse && 'cdpw-sort-reverse--active', manualOrder && 'cdpw-sort-reverse--disabled')}
+                onClick={() => {
+                  onSortReverseChange(!sortReverse);
+                  setSortOpen(false);
+                }}
               >
                 Reverse order
               </button>

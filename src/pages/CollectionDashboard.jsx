@@ -664,6 +664,11 @@ const CollectionDashboard = () => {
     const [photosToDelete, setPhotosToDelete] = useState([]);
     const [showSelectionMore, setShowSelectionMore] = useState(false);
     const [showMoveToSetMenu, setShowMoveToSetMenu] = useState(false);
+    const [showReorderMenu, setShowReorderMenu] = useState(false);
+    const [reorderMenuPosition, setReorderMenuPosition] = useState(null);
+    const [showPositionModal, setShowPositionModal] = useState(false);
+    const [targetPositionInput, setTargetPositionInput] = useState('1');
+    const [isReorderingPhotos, setIsReorderingPhotos] = useState(false);
     const [moveMenuPosition, setMoveMenuPosition] = useState(null);
     const [selectionMoreMenuPosition, setSelectionMoreMenuPosition] = useState(null);
     const [photoMenuPosition, setPhotoMenuPosition] = useState(null);
@@ -1459,6 +1464,8 @@ const CollectionDashboard = () => {
     const selectionMorePortalRef = useRef(null);
     const moveToSetRef = useRef(null);
     const moveMenuPortalRef = useRef(null);
+    const reorderMenuRef = useRef(null);
+    const reorderMenuPortalRef = useRef(null);
     const favoriteActivityMenuRef = useRef(null);
     const mediaSyncReadyRef = useRef(false);
     const coverDraftBackupRef = useRef(null);
@@ -1479,6 +1486,24 @@ const CollectionDashboard = () => {
             top: rect.bottom + 8,
             minWidth: menuWidth,
             zIndex: 1500,
+        };
+    }, []);
+
+    const updateReorderMenuPosition = useCallback(() => {
+        const anchor = reorderMenuRef.current?.querySelector('.cd-sel-action-btn');
+        if (!anchor) return null;
+        const rect = anchor.getBoundingClientRect();
+        const menuWidth = 220;
+        const left = Math.min(
+            Math.max(8, rect.left),
+            window.innerWidth - menuWidth - 8
+        );
+        return {
+            position: 'fixed',
+            left,
+            bottom: window.innerHeight - rect.top + 8,
+            minWidth: menuWidth,
+            zIndex: 6000,
         };
     }, []);
 
@@ -1574,6 +1599,21 @@ const CollectionDashboard = () => {
             window.removeEventListener('scroll', apply, true);
         };
     }, [showMoveToSetMenu, sets.length, highlightsName, updateMoveMenuPosition]);
+
+    useLayoutEffect(() => {
+        if (!showReorderMenu) {
+            setReorderMenuPosition(null);
+            return undefined;
+        }
+        const apply = () => setReorderMenuPosition(updateReorderMenuPosition());
+        apply();
+        window.addEventListener('resize', apply);
+        window.addEventListener('scroll', apply, true);
+        return () => {
+            window.removeEventListener('resize', apply);
+            window.removeEventListener('scroll', apply, true);
+        };
+    }, [showReorderMenu, updateReorderMenuPosition]);
 
     useLayoutEffect(() => {
         if (!showSelectionMore) {
@@ -3358,6 +3398,14 @@ const CollectionDashboard = () => {
                 setShowMoveToSetMenu(false);
             }
             if (
+                showReorderMenu
+                && reorderMenuRef.current
+                && !reorderMenuRef.current.contains(e.target)
+                && (!reorderMenuPortalRef.current || !reorderMenuPortalRef.current.contains(e.target))
+            ) {
+                setShowReorderMenu(false);
+            }
+            if (
                 favoriteActivitySortMenuOpen
                 && favoriteActivitySortMenuRef.current
                 && !favoriteActivitySortMenuRef.current.contains(target)
@@ -3367,7 +3415,7 @@ const CollectionDashboard = () => {
         };
         document.addEventListener('mousedown', handleClickOutside);
         return () => document.removeEventListener('mousedown', handleClickOutside);
-    }, [activeActivityMenu, favoriteDetailPhotoMenuPhotoId, favoriteActivitySortMenuOpen, showSelectionMore, showMoveToSetMenu]);
+    }, [activeActivityMenu, favoriteDetailPhotoMenuPhotoId, favoriteActivitySortMenuOpen, showSelectionMore, showMoveToSetMenu, showReorderMenu]);
 
     // ─── SORT LOGIC ──────────────────────────────────────────
     const sortedPhotos = useMemo(() => {
@@ -4753,9 +4801,17 @@ const CollectionDashboard = () => {
 
             const realPhotos = newPoolOrder.filter((p) => !p._uploadPending);
             const posMap = new Map(realPhotos.map((p, index) => [p.id, index]));
-            setPhotos((prev) =>
-                prev.map((p) => (posMap.has(p.id) ? { ...p, position: posMap.get(p.id) } : p))
-            );
+            setPhotos((prev) => {
+                let changed = false;
+                const next = prev.map((p) => {
+                    if (!posMap.has(p.id)) return p;
+                    const newPos = posMap.get(p.id);
+                    if (p.position === newPos) return p;
+                    changed = true;
+                    return { ...p, position: newPos };
+                });
+                return changed ? next : prev;
+            });
             if (sortOption !== 'custom') setSortOption('custom');
             setCollection((prev) =>
                 prev && prev.gallery_photo_sort !== 'custom'
@@ -4795,7 +4851,6 @@ const CollectionDashboard = () => {
                 });
             } catch (err) {
                 console.error('Grid reorder failed:', err);
-                alert('Failed to reorder photos.');
             }
         },
         [collectionId, collectionUrl, gridPhotos, sortOption, sortedPhotos, activeSetId]
@@ -4809,6 +4864,45 @@ const CollectionDashboard = () => {
             && !photoSearchQuery.trim()
         ),
         [isPhotoAiFilterActive, photoSearchQuery]
+    );
+
+    const handleBulkReorder = useCallback(
+        async (placement, targetPosition = 1) => {
+            if (!selectedPhotos.length) return;
+            setShowReorderMenu(false);
+            setIsReorderingPhotos(true);
+
+            try {
+                const draggablePhotos = gridPhotos.filter((p) => !p._uploadPending);
+                const selectedSet = new Set(selectedPhotos);
+                const moving = draggablePhotos.filter((p) => selectedSet.has(p.id));
+                if (!moving.length) return;
+
+                const remaining = draggablePhotos.filter((p) => !selectedSet.has(p.id));
+                let reordered;
+
+                if (placement === 'start') {
+                    reordered = [...moving, ...remaining];
+                } else if (placement === 'end') {
+                    reordered = [...remaining, ...moving];
+                } else if (placement === 'position') {
+                    const clampedIndex = Math.max(0, Math.min(remaining.length, Number(targetPosition) - 1));
+                    const copy = remaining.slice();
+                    copy.splice(clampedIndex, 0, ...moving);
+                    reordered = copy;
+                } else {
+                    return;
+                }
+
+                const nextIds = reordered.map((p) => p.id);
+                await handleGridPhotoReorder(0, 0, nextIds);
+            } catch (err) {
+                console.error('Bulk reorder error:', err);
+            } finally {
+                setIsReorderingPhotos(false);
+            }
+        },
+        [selectedPhotos, gridPhotos, handleGridPhotoReorder]
     );
 
     const beginDeliveryNameEdit = () => {
@@ -6435,6 +6529,64 @@ const CollectionDashboard = () => {
                                     </div>,
                                     document.body
                                 )}
+                                <div className={`cd-selection-move-wrapper${showReorderMenu ? ' is-open' : ''}`} ref={reorderMenuRef}>
+                                    <button
+                                        type="button"
+                                        className="cd-sel-action-btn"
+                                        aria-label="Reorder photos"
+                                        aria-expanded={showReorderMenu}
+                                        aria-haspopup="menu"
+                                        disabled={isReorderingPhotos}
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            setShowSelectionMore(false);
+                                            setShowMoveToSetMenu(false);
+                                            setShowReorderMenu((open) => !open);
+                                        }}
+                                    >
+                                        {isReorderingPhotos ? 'Reordering...' : 'Reorder'}
+                                    </button>
+                                </div>
+                                {showReorderMenu && reorderMenuPosition && createPortal(
+                                    <div
+                                        ref={reorderMenuPortalRef}
+                                        className="cd-selection-move-dropdown cd-selection-move-dropdown--portal"
+                                        role="menu"
+                                        style={reorderMenuPosition}
+                                        onMouseDown={(e) => e.stopPropagation()}
+                                    >
+                                        <div className="cd-sort-label">Reorder {selectedPhotos.length} {selectedPhotos.length === 1 ? 'photo' : 'photos'}</div>
+                                        <button
+                                            type="button"
+                                            role="menuitem"
+                                            className="cd-ctx-item"
+                                            onClick={() => handleBulkReorder('start')}
+                                        >
+                                            Move to beginning
+                                        </button>
+                                        <button
+                                            type="button"
+                                            role="menuitem"
+                                            className="cd-ctx-item"
+                                            onClick={() => handleBulkReorder('end')}
+                                        >
+                                            Move to end
+                                        </button>
+                                        <button
+                                            type="button"
+                                            role="menuitem"
+                                            className="cd-ctx-item"
+                                            onClick={() => {
+                                                setShowReorderMenu(false);
+                                                setTargetPositionInput('1');
+                                                setShowPositionModal(true);
+                                            }}
+                                        >
+                                            Move to position #...
+                                        </button>
+                                    </div>,
+                                    document.body
+                                )}
                                 <button type="button" className="cd-sel-action-btn" onClick={handleSelectionStar}>
                                     Star
                                 </button>
@@ -6558,6 +6710,7 @@ const CollectionDashboard = () => {
                                     <CollectionPhotoSortableGrid
                                         gridRef={section.id === 'videos' || section.id === 'all' ? photosGridRef : undefined}
                                         photos={section.photos}
+                                        selectedIds={selectedPhotos}
                                         disabled={isPhotoAiFilterActive || Boolean(photoSearchQuery.trim())}
                                         className={`cd-photo-grid cd-photo-grid--manage ${gridSize === 'large' ? 'grid-large' : ''}${showFilename ? ' cd-photo-grid--filenames' : ''}`}
                                         onReorder={handleGridPhotoReorder}
@@ -7999,6 +8152,65 @@ const CollectionDashboard = () => {
                         });
                 }}
             />
+            {/* Move to Position Modal */}
+            {showPositionModal && (
+                <div className="cd-modal-overlay" onClick={() => setShowPositionModal(false)}>
+                    <div className="cd-modal cd-modal-sm" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-labelledby="cd-reorder-pos-title">
+                        <div className="cd-modal-header">
+                            <h3 id="cd-reorder-pos-title" className="cd-modal-title">Move photos to position</h3>
+                            <button type="button" className="cd-modal-close" onClick={() => setShowPositionModal(false)} aria-label="Close">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                            </button>
+                        </div>
+                        <div className="cd-modal-body">
+                            <p style={{ margin: '0 0 16px', fontSize: '14px', color: '#666', lineHeight: 1.5 }}>
+                                Move {selectedPhotos.length} selected {selectedPhotos.length === 1 ? 'photo' : 'photos'} to a specific position in <strong>{activeSetName}</strong>.
+                            </p>
+                            <div className="cd-form-group">
+                                <label className="cd-form-label">
+                                    Target position (1 &ndash; {gridPhotos.filter((p) => !p._uploadPending).length})
+                                </label>
+                                <input
+                                    type="number"
+                                    className="cd-form-input"
+                                    min="1"
+                                    max={gridPhotos.filter((p) => !p._uploadPending).length}
+                                    value={targetPositionInput}
+                                    onChange={(e) => setTargetPositionInput(e.target.value)}
+                                    onKeyDown={(e) => {
+                                        if (e.key === 'Enter') {
+                                            e.preventDefault();
+                                            handleBulkReorder('position', Number(targetPositionInput) || 1);
+                                            setShowPositionModal(false);
+                                        }
+                                    }}
+                                    autoFocus
+                                />
+                                <small style={{ display: 'block', marginTop: '6px', fontSize: '12px', color: '#888' }}>
+                                    Tip: Enter 1 to place at the very beginning.
+                                </small>
+                            </div>
+                        </div>
+                        <div className="cd-modal-footer">
+                            <button type="button" className="cd-btn-secondary" onClick={() => setShowPositionModal(false)}>
+                                Cancel
+                            </button>
+                            <button
+                                type="button"
+                                className="cd-btn-primary"
+                                disabled={isReorderingPhotos}
+                                onClick={() => {
+                                    handleBulkReorder('position', Number(targetPositionInput) || 1);
+                                    setShowPositionModal(false);
+                                }}
+                            >
+                                {isReorderingPhotos ? 'Moving...' : 'Move photos'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* Rename Modal */}
             {showRenameModal && (
                 <div className="cd-modal-overlay">

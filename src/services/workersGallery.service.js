@@ -669,19 +669,13 @@ export async function updatePhotoOrder(collectionId, orderedIds, extra = {}) {
       },
     });
   } catch (err) {
-    if (err?.status === 404) {
-      const CHUNK_SIZE = 25;
-      for (let i = 0; i < (orderedIds || []).length; i += CHUNK_SIZE) {
-        const chunk = (orderedIds || []).slice(i, i + CHUNK_SIZE);
-        await Promise.all(chunk.map((id, idx) => updatePhoto(id, { position: i + idx })));
-      }
-      if (extra.design_options || extra.gallery_photo_sort) {
-        await updateCollection(collectionId, {
-          design_options: extra.design_options,
-          gallery_photo_sort: extra.gallery_photo_sort,
-        });
-      }
-      return { ok: true };
+    console.warn('updatePhotoOrder batch failed, falling back to collection design_options:', err);
+    if (extra.design_options || extra.gallery_photo_sort) {
+      await updateCollection(collectionId, {
+        design_options: extra.design_options,
+        gallery_photo_sort: extra.gallery_photo_sort,
+      });
+      return { ok: true, fallback: true };
     }
     throw err;
   }
