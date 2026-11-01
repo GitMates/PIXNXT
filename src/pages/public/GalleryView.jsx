@@ -2371,7 +2371,7 @@ const GalleryView = () => {
     const saved = collection?.design_options?.photo_order?.[setKey];
     if (gallerySortKey === 'custom' && Array.isArray(saved) && saved.length) return saved;
     return null;
-  }, [searchParams, activeSetId, collection?.design_options?.photo_order, gallerySortKey]);
+  }, [searchParams, effectiveSetId, collection?.design_options?.photo_order, gallerySortKey]);
 
   const filteredPhotosBase = useMemo(() => {
     let base = photosForActiveSet;

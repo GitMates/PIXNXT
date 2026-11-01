@@ -342,12 +342,15 @@ export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
   );
 
   const photosSortedForGrid = useMemo(() => {
-    const savedOrder = dashboardState?.photoOrderIds;
-    if (Array.isArray(savedOrder) && savedOrder.length) {
+    const setKey = effectiveSetId || 'highlights';
+    const savedOrder =
+      dashboardState?.photoOrderIds ??
+      dashboardState?.collection?.design_options?.photo_order?.[setKey];
+    if (gallerySortKey === 'custom' && Array.isArray(savedOrder) && savedOrder.length) {
       return orderPhotosByIds(photosForActiveSet, savedOrder as (string | number)[]);
     }
     return sortPhotosForGallery(photosForActiveSet, gallerySortKey);
-  }, [photosForActiveSet, gallerySortKey, dashboardState?.photoOrderIds]);
+  }, [photosForActiveSet, gallerySortKey, dashboardState?.photoOrderIds, dashboardState?.collection?.design_options?.photo_order, effectiveSetId]);
 
   const activePersonInSet = useMemo(
     () => peopleForActiveSet.find((person) => person.id === galleryActivePersonId) || null,

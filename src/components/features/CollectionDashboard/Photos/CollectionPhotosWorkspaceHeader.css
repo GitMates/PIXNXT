@@ -310,6 +310,12 @@
   font-weight: 600;
 }
 
+.cdpw-sort-reverse--disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
 .cdpw-dropdown__item {
   display: block;
   width: 100%;

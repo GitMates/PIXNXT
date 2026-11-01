@@ -8,6 +8,7 @@ import { defineConfig } from 'vitest/config';
 export default defineConfig({
   test: {
     include: [
+      'src/utils/**/*.test.{js,ts}',
       'src/contexts/**/*.test.{js,ts}',
       'src/services/**/*.test.{js,ts}',
       'src/printstore/printstoreCartBeta.test.js',

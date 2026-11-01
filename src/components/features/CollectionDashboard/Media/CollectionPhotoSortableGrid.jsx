@@ -136,13 +136,11 @@ export default function CollectionPhotoSortableGrid({
         onReorderRef.current = onReorder;
     }, [onReorder]);
 
+    // Clear temporary drag optimistic state whenever parent photos or disabled state changes
+    // (e.g. user selected another sort order, switched sets, or applied search).
     useEffect(() => {
-        if (!optimisticIds) return;
-        const currentIds = photos.map((photo) => photo.id).join('|');
-        if (currentIds === optimisticIds.join('|')) {
-            setOptimisticIds(null);
-        }
-    }, [photos, optimisticIds]);
+        setOptimisticIds(null);
+    }, [photos, disabled]);
 
     const displayPhotos = useMemo(() => {
         if (!optimisticIds) return photos;

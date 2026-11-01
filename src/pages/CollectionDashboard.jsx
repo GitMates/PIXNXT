@@ -107,7 +107,7 @@ import {
   optionToSortUi,
   sortFieldToOption,
 } from '../lib/dashboardPhotoSortUi';
-import { normalizeGalleryPhotoSort } from '../lib/galleryPhotoSort';
+import { normalizeGalleryPhotoSort, orderPhotosByIds } from '../lib/galleryPhotoSort';
 import { clientGalleryEmailTemplatesService } from '../services/clientGalleryEmailTemplates.service';
 import { MEDIA_FILE_INPUT_ACCEPT, pickMediaFilesOrFallback } from '../lib/mediaFilePicker';
 import { setCoverPhotoDragData, endCoverPhotoDrag, isGalleryImagePhoto } from '../lib/coverPhotoDrag';
@@ -3419,15 +3419,24 @@ const CollectionDashboard = () => {
 
     // ─── SORT LOGIC ──────────────────────────────────────────
     const sortedPhotos = useMemo(() => {
+        const targetSetId = highlightsEnabled ? activeSetId : (activeSetId ?? sets[0]?.id ?? null);
         let filtered = photos;
-        if (activeSetId) {
-            filtered = photos.filter((p) => String(p.set_id) === String(activeSetId));
+        if (targetSetId) {
+            filtered = photos.filter((p) => String(p.set_id) === String(targetSetId));
         } else {
             filtered = photos.filter((p) => !p.set_id);
         }
 
+        if (sortOption === 'custom') {
+            const setKey = targetSetId || 'highlights';
+            const savedCustomOrder = collection?.design_options?.photo_order?.[setKey];
+            if (Array.isArray(savedCustomOrder) && savedCustomOrder.length > 0) {
+                return orderPhotosByIds(filtered, savedCustomOrder);
+            }
+        }
+
         return sortDashboardPhotos(filtered, sortOption);
-    }, [photos, activeSetId, sortOption]);
+    }, [photos, highlightsEnabled, activeSetId, sets, sortOption, collection?.design_options?.photo_order]);
 
     const peopleForActiveSet = useMemo(() => {
         const scoped = filterPeopleForPhotos(photoAiPeople, sortedPhotos);
@@ -3978,15 +3987,72 @@ const CollectionDashboard = () => {
     const sharingOverlaysEnabled = status === DELIVERY_STATUS.published;
 
     const handlePhotoSortFieldChange = useCallback((field) => {
+        if (field === 'custom') {
+            setSortOption('custom');
+            const design_options = {
+                ...(collectionDesignRef.current && typeof collectionDesignRef.current === 'object' ? collectionDesignRef.current : {}),
+                gallery_photo_sort: 'custom',
+            };
+            collectionDesignRef.current = design_options;
+            setCollection((prev) => (prev ? { ...prev, gallery_photo_sort: 'custom', design_options } : prev));
+            broadcastGalleryLive({
+                type: 'SETTINGS_UPDATED',
+                collectionId,
+                slug: collectionUrl,
+                settings: { gallery_photo_sort: 'custom', design_options },
+            });
+            galleryService.updateCollection(collectionId, {
+                gallery_photo_sort: 'custom',
+                design_options,
+            }).catch((err) => console.error('Failed to save sort option:', err));
+            return;
+        }
+
         setPhotoSortField(field);
         setPhotoSortReverse(false);
-        setSortOption(sortFieldToOption(field, false));
-    }, []);
+        const newOption = sortFieldToOption(field, false);
+        setSortOption(newOption);
+
+        const design_options = {
+            ...(collectionDesignRef.current && typeof collectionDesignRef.current === 'object' ? collectionDesignRef.current : {}),
+            gallery_photo_sort: newOption,
+        };
+        collectionDesignRef.current = design_options;
+        setCollection((prev) => (prev ? { ...prev, gallery_photo_sort: newOption, design_options } : prev));
+        broadcastGalleryLive({
+            type: 'SETTINGS_UPDATED',
+            collectionId,
+            slug: collectionUrl,
+            settings: { gallery_photo_sort: newOption, design_options },
+        });
+        galleryService.updateCollection(collectionId, {
+            gallery_photo_sort: newOption,
+            design_options,
+        }).catch((err) => console.error('Failed to save sort option:', err));
+    }, [collectionId, collectionUrl]);
 
     const handlePhotoSortReverseChange = useCallback((reverse) => {
         setPhotoSortReverse(reverse);
-        setSortOption(sortFieldToOption(photoSortField, reverse));
-    }, [photoSortField]);
+        const newOption = sortFieldToOption(photoSortField, reverse);
+        setSortOption(newOption);
+
+        const design_options = {
+            ...(collectionDesignRef.current && typeof collectionDesignRef.current === 'object' ? collectionDesignRef.current : {}),
+            gallery_photo_sort: newOption,
+        };
+        collectionDesignRef.current = design_options;
+        setCollection((prev) => (prev ? { ...prev, gallery_photo_sort: newOption, design_options } : prev));
+        broadcastGalleryLive({
+            type: 'SETTINGS_UPDATED',
+            collectionId,
+            slug: collectionUrl,
+            settings: { gallery_photo_sort: newOption, design_options },
+        });
+        galleryService.updateCollection(collectionId, {
+            gallery_photo_sort: newOption,
+            design_options,
+        }).catch((err) => console.error('Failed to save sort reverse option:', err));
+    }, [photoSortField, collectionId, collectionUrl]);
 
     useEffect(() => {
         if (!collectionId || !sharingOverlaysEnabled) {
@@ -4801,6 +4867,28 @@ const CollectionDashboard = () => {
 
             const realPhotos = newPoolOrder.filter((p) => !p._uploadPending);
             const posMap = new Map(realPhotos.map((p, index) => [p.id, index]));
+            const targetSetId = highlightsEnabled ? activeSetId : (activeSetId ?? sets[0]?.id ?? null);
+            const setKey = targetSetId || 'highlights';
+            const orderedIds = realPhotos.map((photo) => photo.id);
+
+            const currentDesign = collectionDesignRef.current && typeof collectionDesignRef.current === 'object'
+                ? collectionDesignRef.current
+                : {};
+            const design_options = {
+                ...currentDesign,
+                gallery_photo_sort: 'custom',
+                photo_order: {
+                    ...(currentDesign.photo_order || {}),
+                    [setKey]: orderedIds,
+                },
+            };
+            collectionDesignRef.current = design_options;
+
+            // Apply custom order synchronously to local state so UI never flickers or reverts
+            setSortOption('custom');
+            setCollection((prev) => (
+                prev ? { ...prev, gallery_photo_sort: 'custom', design_options } : prev
+            ));
             setPhotos((prev) => {
                 let changed = false;
                 const next = prev.map((p) => {
@@ -4812,32 +4900,12 @@ const CollectionDashboard = () => {
                 });
                 return changed ? next : prev;
             });
-            if (sortOption !== 'custom') setSortOption('custom');
-            setCollection((prev) =>
-                prev && prev.gallery_photo_sort !== 'custom'
-                    ? { ...prev, gallery_photo_sort: 'custom' }
-                    : prev
-            );
 
             try {
-                const setKey = activeSetId || 'highlights';
-                const orderedIds = realPhotos.map((photo) => photo.id);
-                const design_options = {
-                    ...(collectionDesignRef.current && typeof collectionDesignRef.current === 'object' ? collectionDesignRef.current : {}),
-                    gallery_photo_sort: 'custom',
-                    photo_order: {
-                        ...((collectionDesignRef.current && collectionDesignRef.current.photo_order) || {}),
-                        [setKey]: orderedIds,
-                    },
-                };
                 await galleryService.updatePhotoOrder(collectionId, orderedIds, {
                     design_options,
                     gallery_photo_sort: 'custom',
                 });
-                setCollection((prev) => (
-                    prev ? { ...prev, gallery_photo_sort: 'custom', design_options } : prev
-                ));
-                collectionDesignRef.current = design_options;
                 broadcastGalleryLive({
                     type: 'SETTINGS_UPDATED',
                     collectionId,
@@ -5697,31 +5765,40 @@ const CollectionDashboard = () => {
     // Highlights sort is what Preview and the share link must follow.
     useEffect(() => {
         if (loading || !collectionId || !designHydratedRef.current || !autosaveArmedRef.current) return undefined;
-        const sort = sortOption;
+        // Never overwrite photo_order unless currently in custom manual sort mode
+        if (sortOption !== 'custom') return undefined;
+
         const timer = setTimeout(() => {
             const setKey = activeSetId || 'highlights';
             const orderedIds = sortedPhotos
                 .filter((photo) => photo?.id && !photo._uploadPending)
                 .map((photo) => photo.id);
+            if (!orderedIds.length) return;
+
+            const existingOrder = collectionDesignRef.current?.photo_order?.[setKey];
+            if (existingOrder && existingOrder.join('|') === orderedIds.join('|')) {
+                return;
+            }
+
             const design_options = {
                 ...(collectionDesignRef.current && typeof collectionDesignRef.current === 'object' ? collectionDesignRef.current : {}),
-                gallery_photo_sort: sort,
+                gallery_photo_sort: 'custom',
                 photo_order: {
                     ...((collectionDesignRef.current && collectionDesignRef.current.photo_order) || {}),
-                    ...(orderedIds.length ? { [setKey]: orderedIds } : {}),
+                    [setKey]: orderedIds,
                 },
             };
             collectionDesignRef.current = design_options;
-            setCollection((prev) => (prev ? { ...prev, gallery_photo_sort: sort, design_options } : prev));
+            setCollection((prev) => (prev ? { ...prev, gallery_photo_sort: 'custom', design_options } : prev));
             broadcastGalleryLive({
                 type: 'SETTINGS_UPDATED',
                 collectionId,
                 slug: collectionUrl,
-                settings: { gallery_photo_sort: sort, design_options },
+                settings: { gallery_photo_sort: 'custom', design_options },
             });
-            galleryService.updateCollection(collectionId, {
-                gallery_photo_sort: sort,
+            galleryService.updatePhotoOrder(collectionId, orderedIds, {
                 design_options,
+                gallery_photo_sort: 'custom',
             }).catch((err) => {
                 console.error('Failed to save gallery photo order:', err);
             });

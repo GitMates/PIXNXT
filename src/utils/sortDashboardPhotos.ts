@@ -28,13 +28,39 @@ export const DASHBOARD_PHOTO_SORT_OPTIONS: {
   { value: "custom", label: "Custom" },
 ];
 
+function parseSafeDate(raw: unknown): number {
+  if (!raw) return 0;
+  if (typeof raw === "number" && Number.isFinite(raw)) return raw;
+  if (raw instanceof Date) return isNaN(raw.getTime()) ? 0 : raw.getTime();
+  const str = String(raw).trim();
+  if (!str) return 0;
+  // Handle EXIF format: "YYYY:MM:DD HH:MM:SS" -> "YYYY-MM-DDTHH:MM:SSZ"
+  const exifMatch = str.match(/^(\d{4}):(\d{2}):(\d{2})[T\s](\d{2}):(\d{2}):(\d{2})(?:\.\d+)?(?:Z|[+-]\d{2}:?\d{2})?$/);
+  if (exifMatch) {
+    const isoStr = `${exifMatch[1]}-${exifMatch[2]}-${exifMatch[3]}T${exifMatch[4]}:${exifMatch[5]}:${exifMatch[6]}Z`;
+    const t = new Date(isoStr).getTime();
+    if (Number.isFinite(t)) return t;
+  }
+  const t = new Date(str).getTime();
+  if (Number.isFinite(t)) return t;
+  // Try replacing space with 'T' for SQLite "YYYY-MM-DD HH:MM:SS"
+  const withT = new Date(str.replace(" ", "T") + "Z").getTime();
+  if (Number.isFinite(withT)) return withT;
+  return 0;
+}
+
 function takenDate(p: Photo): number {
-  const raw = p.exif_taken_at || p.created_at;
-  return new Date(raw).getTime();
+  const raw = p.exif_taken_at || (p as { exifTakenAt?: unknown }).exifTakenAt || p.created_at || (p as { createdAt?: unknown }).createdAt;
+  return parseSafeDate(raw);
 }
 
 function uploadDate(p: Photo): number {
-  return new Date(p.created_at).getTime();
+  const raw = p.created_at || (p as { createdAt?: unknown }).createdAt;
+  return parseSafeDate(raw);
+}
+
+function photoFilename(p: Photo): string {
+  return String(p.filename || (p as { name?: unknown }).name || "").trim();
 }
 
 /** Fisher–Yates shuffle (mutates copy only). */
@@ -46,7 +72,7 @@ function shuffleInPlace<T>(arr: T[]): void {
 }
 
 function cameraName(p: Photo): string {
-  return (p.exif_camera || p.exifCamera || "").trim().toLowerCase();
+  return (p.exif_camera || p.exifCamera || (p as { camera?: string }).camera || "").trim().toLowerCase();
 }
 
 function photoPosition(p: Photo): number {
@@ -58,7 +84,9 @@ function photoPosition(p: Photo): number {
 }
 
 function starredRank(p: Photo): number {
-  return p.is_starred ? 1 : 0;
+  const val = p.is_starred as unknown;
+  const alt = (p as { isStarred?: unknown }).isStarred;
+  return val === true || val === 1 || val === "1" || alt === true || alt === 1 || alt === "1" ? 1 : 0;
 }
 
 export function sortDashboardPhotos(
@@ -81,14 +109,16 @@ export function sortDashboardPhotos(
       break;
     case "name-az":
       sorted.sort((a, b) =>
-        (a.filename || "").localeCompare(b.filename || "", undefined, {
+        photoFilename(a).localeCompare(photoFilename(b), undefined, {
+          numeric: true,
           sensitivity: "base",
         }) || photoPosition(a) - photoPosition(b) || (a.id || "").localeCompare(b.id || "")
       );
       break;
     case "name-za":
       sorted.sort((a, b) =>
-        (b.filename || "").localeCompare(a.filename || "", undefined, {
+        photoFilename(b).localeCompare(photoFilename(a), undefined, {
+          numeric: true,
           sensitivity: "base",
         }) || photoPosition(a) - photoPosition(b) || (a.id || "").localeCompare(b.id || "")
       );
