@@ -4756,9 +4756,6 @@ const CollectionDashboard = () => {
             );
 
             try {
-                await Promise.all(
-                    realPhotos.map((p, index) => galleryService.updatePhoto(p.id, { position: index }))
-                );
                 const setKey = activeSetId || 'highlights';
                 const orderedIds = realPhotos.map((photo) => photo.id);
                 const design_options = {
@@ -4769,9 +4766,9 @@ const CollectionDashboard = () => {
                         [setKey]: orderedIds,
                     },
                 };
-                await galleryService.updateCollection(collectionId, {
-                    gallery_photo_sort: 'custom',
+                await galleryService.updatePhotoOrder(collectionId, orderedIds, {
                     design_options,
+                    gallery_photo_sort: 'custom',
                 });
                 setCollection((prev) => (
                     prev ? { ...prev, gallery_photo_sort: 'custom', design_options } : prev
@@ -5647,15 +5644,11 @@ const CollectionDashboard = () => {
     }, [editingDeliveryName]);
     const collectionDate = collection?.event_date
         ? formatSidebarDeliveryDate(collection.event_date)
-        : collection?.created_at
-            ? formatSidebarDeliveryDate(collection.created_at)
-            : '...';
+        : '';
     const lastSavedTime = formatLastSavedTime(collection?.updated_at || collection?.created_at);
     const coverDisplayDate = collection?.event_date
         ? formatCoverDate(collection.event_date)
-        : collection?.created_at
-            ? formatCoverDate(collection.created_at)
-            : '';
+        : '';
 
     // Close dropdowns when clicking outside
     useEffect(() => {
@@ -5922,7 +5915,7 @@ const CollectionDashboard = () => {
                                 {collectionName}
                             </button>
                         )}
-                        <p className="cd-shell-brand__date">{collectionDate}</p>
+                        {collectionDate ? <p className="cd-shell-brand__date">{collectionDate}</p> : null}
                     </div>
                 </div>
 

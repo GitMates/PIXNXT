@@ -25,19 +25,19 @@ export function formatCoverDate(dateStr) {
 
 /** Dashboard header subtitle — "May 18, 2026" */
 export function formatCollectionHeaderDate(dateStr) {
-  if (!dateStr) return '...';
+  if (!dateStr) return '';
   try {
     const date = new Date(dateStr);
     if (Number.isNaN(date.getTime())) return '...';
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
   } catch {
-    return '...';
+    return '';
   }
 }
 
 /** Sidebar delivery date — "12 August 2026" */
 export function formatSidebarDeliveryDate(dateStr) {
-  if (!dateStr) return '...';
+  if (!dateStr) return '';
   try {
     const date = new Date(dateStr);
     if (Number.isNaN(date.getTime())) return '...';
@@ -46,7 +46,7 @@ export function formatSidebarDeliveryDate(dateStr) {
     const year = date.getFullYear();
     return `${day} ${month} ${year}`;
   } catch {
-    return '...';
+    return '';
   }
 }
 

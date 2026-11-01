@@ -90,7 +90,7 @@ function sortByPreference(list, collectionSort, orderIds) {
 function collectionMetaLine(col) {
   const tags = categoryTagsFromCollection(col);
   const place = tags[0] || '';
-  const date = formatEventShort(col.event_date) || formatEventShort(col.created_at);
+  const date = col.event_date ? formatEventShort(col.event_date) : '';
   const parts = [place, date].filter(Boolean);
   return parts.join(' · ');
 }

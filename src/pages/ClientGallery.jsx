@@ -106,7 +106,7 @@ function filmLabel(n) {
 }
 
 function deliveryDateValue(collection) {
-    return collection?.event_date || collection?.created_at;
+    return collection?.event_date || '';
 }
 
 function DeliveryStarButton({ collection, className, iconClass, onToggle }) {
@@ -427,7 +427,7 @@ const ClientGallery = () => {
     }, []);
 
     const formatFolderDate = (folder) => {
-        const raw = folder?.event_date || folder?.created_at;
+        const raw = folder?.event_date || '';
         if (!raw) return '';
         return new Date(raw).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
     };

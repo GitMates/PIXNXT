@@ -1584,6 +1584,10 @@ export const galleryService = {
   /**
    * Update photo metadata (filename, set_id, etc.)
    */
+  async updatePhotoOrder(collectionId, orderedIds, extra = {}) {
+    return (await workersGallery()).updatePhotoOrder(collectionId, orderedIds, extra);
+  },
+
   async updatePhoto(id, updateData) {
     return (await workersGallery()).updatePhoto(id, updateData);
   },

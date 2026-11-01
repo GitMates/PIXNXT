@@ -3007,7 +3007,7 @@ const GalleryView = () => {
             title: collection.name,
             subtitle: photographer?.business_name || photographer?.display_name || '',
             coverLogoUrl: photographer?.cover_logo_url || '',
-            date: formatCoverDate(collection.event_date || collection.created_at),
+            date: collection.event_date ? formatCoverDate(collection.event_date) : '',
             photoUrl: activePhotoUrl,
             focalX,
             focalY,

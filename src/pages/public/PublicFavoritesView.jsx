@@ -388,7 +388,7 @@ export default function PublicFavoritesView() {
     title: collection?.name || list?.collectionName || 'COLLECTION',
     subtitle: photographerName,
     coverLogoUrl: photographer?.cover_logo_url || '',
-    date: formatCoverDate(collection?.event_date || collection?.created_at),
+    date: collection?.event_date ? formatCoverDate(collection.event_date) : '',
     photoUrl: activeCoverPhotoUrl,
     focalX,
     focalY,

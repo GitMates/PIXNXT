@@ -658,6 +658,35 @@ export async function duplicateSet({ collectionId, photographerId, name, descrip
 
 // ---------- photos (metadata; bytes via storageService) ----------
 
+export async function updatePhotoOrder(collectionId, orderedIds, extra = {}) {
+  try {
+    return await apiFetch(`/v1/galleries/${collectionId}/photos/order`, {
+      method: 'POST',
+      body: {
+        orderedIds: orderedIds || [],
+        design_options: extra.design_options,
+        gallery_photo_sort: extra.gallery_photo_sort,
+      },
+    });
+  } catch (err) {
+    if (err?.status === 404) {
+      const CHUNK_SIZE = 25;
+      for (let i = 0; i < (orderedIds || []).length; i += CHUNK_SIZE) {
+        const chunk = (orderedIds || []).slice(i, i + CHUNK_SIZE);
+        await Promise.all(chunk.map((id, idx) => updatePhoto(id, { position: i + idx })));
+      }
+      if (extra.design_options || extra.gallery_photo_sort) {
+        await updateCollection(collectionId, {
+          design_options: extra.design_options,
+          gallery_photo_sort: extra.gallery_photo_sort,
+        });
+      }
+      return { ok: true };
+    }
+    throw err;
+  }
+}
+
 export async function updatePhoto(id, updateData) {
   const data = await apiFetch(`/v1/galleries/photos/${id}`, { method: 'PATCH', body: updateData });
   return data?.photo;
