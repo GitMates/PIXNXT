@@ -91,22 +91,35 @@
 
 @media screen and (max-width: 768px) {
   .pl-filter-popover {
-    position: fixed;
-    top: auto;
-    right: 16px;
-    left: 16px;
-    bottom: 16px;
-    max-height: min(70vh, 520px);
-    overflow-y: auto;
+    position: fixed !important;
+    inset: auto 12px max(12px, env(safe-area-inset-bottom, 0px)) !important;
+    width: auto !important;
+    min-width: 0 !important;
+    max-width: none !important;
+    max-height: min(72vh, 520px) !important;
+    max-height: min(72dvh, 520px) !important;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    box-sizing: border-box !important;
+    z-index: 1200 !important;
   }
 
   .pl-date-filter-popover {
-    position: fixed;
-    top: auto;
-    left: 16px;
-    right: 16px;
-    bottom: 16px;
-    max-height: min(80vh, 560px);
-    overflow-y: auto;
+    position: fixed !important;
+    inset: auto 12px max(12px, env(safe-area-inset-bottom, 0px)) !important;
+    width: auto !important;
+    max-width: none !important;
+    max-height: min(86vh, 680px) !important;
+    max-height: min(86dvh, 680px) !important;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    box-sizing: border-box !important;
+    z-index: 1200 !important;
+  }
+
+  .pl-date-filter {
+    width: 100% !important;
+    max-height: inherit;
+    box-sizing: border-box;
   }
 }
