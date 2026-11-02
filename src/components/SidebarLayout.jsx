@@ -33,6 +33,7 @@ import { StudioAvatar } from './ui/StudioAvatar';
 import { useAppLanguage } from '../context/AppLanguageContext';
 import { getThemeMode, setThemeMode, THEME_CHANGE_EVENT } from '../lib/appearanceTheme';
 import { syncUploadDefaultsToLocalStorage } from '../lib/uploadDefaults';
+import MobileMenuButton from './ui/MobileMenuButton';
 import { navigateToAccount } from '../lib/accountBackNav';
 import brandPng from '../assets/icons/client gallery.png';
 import smartAlbumPng from '../assets/icons/smart album.png';
@@ -310,6 +311,7 @@ const SidebarLayout = ({
         };
         const handleEscape = (e) => {
             if (e.key === 'Escape') {
+                setIsMobileMenuOpen(false);
                 setShowAppDropdown(false);
                 setShowContextDropdown(false);
                 setShowProfileDropdown(false);
@@ -321,6 +323,24 @@ const SidebarLayout = ({
             document.removeEventListener('mousedown', handleClickOutside);
             document.removeEventListener('keydown', handleEscape);
         };
+    }, []);
+
+    useEffect(() => {
+        if (!isMobileMenuOpen) return undefined;
+        const previousOverflow = document.body.style.overflow;
+        document.body.style.overflow = 'hidden';
+        return () => {
+            document.body.style.overflow = previousOverflow;
+        };
+    }, [isMobileMenuOpen]);
+
+    useEffect(() => {
+        const desktop = window.matchMedia('(min-width: 768px)');
+        const closeOnDesktop = () => {
+            if (desktop.matches) setIsMobileMenuOpen(false);
+        };
+        desktop.addEventListener('change', closeOnDesktop);
+        return () => desktop.removeEventListener('change', closeOnDesktop);
     }, []);
 
     const renderProductIcon = (product, active) => {
@@ -599,23 +619,36 @@ const SidebarLayout = ({
             'theme-mono cg-shell flex flex-col md:flex-row min-h-screen md:h-screen w-full max-w-[100vw] overflow-x-hidden md:overflow-hidden',
             shellClassName,
         )}>
-            <button
-                type="button"
-                className="fixed top-4 right-4 z-[1100] neu-circle size-10 items-center justify-center text-[#1A1A1A] cursor-pointer flex md:hidden"
-                onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-                aria-label="Toggle menu"
-            >
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="3" y1="12" x2="21" y2="12" /><line x1="3" y1="6" x2="21" y2="6" /><line x1="3" y1="18" x2="21" y2="18" /></svg>
-            </button>
+            {!isMobileMenuOpen && (
+                <MobileMenuButton
+                    className="mobile-menu-button--floating"
+                    onClick={() => setIsMobileMenuOpen(true)}
+                    controls="mobile-studio-sidebar"
+                    label="studio navigation menu"
+                />
+            )}
 
             {isMobileMenuOpen && (
-                <div className="fixed inset-0 bg-black/20 backdrop-blur-sm z-[900] md:hidden" onClick={() => setIsMobileMenuOpen(false)} aria-hidden />
+                <div
+                    className="sb-mobile-scrim fixed inset-0 z-[900] md:hidden"
+                    onClick={() => setIsMobileMenuOpen(false)}
+                    aria-hidden="true"
+                />
             )}
 
             <aside className={cn(
                 'sb-aside fixed md:static top-0 h-screen shrink-0 flex-col justify-between z-[1000] md:z-10 transition-[left] duration-300 overflow-visible',
                 isMobileMenuOpen ? 'left-0 flex shadow-2xl' : '-left-60 hidden md:flex',
-            )}>
+            )} id="mobile-studio-sidebar" aria-label="Studio navigation">
+                {isMobileMenuOpen && (
+                    <MobileMenuButton
+                        className="mobile-menu-button--drawer"
+                        isOpen
+                        onClick={() => setIsMobileMenuOpen(false)}
+                        controls="mobile-studio-sidebar"
+                        label="studio navigation menu"
+                    />
+                )}
                 <div className="flex flex-1 flex-col min-h-0">
                     <div className="sb-aside__header relative z-20 shrink-0 overflow-visible flex items-center justify-between gap-2">
                         <div className="sb-brand min-w-0">

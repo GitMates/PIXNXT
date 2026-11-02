@@ -1,0 +1,70 @@
+.mobile-menu-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  padding: 0;
+  border: 1px solid var(--border-color, #e5e2dc);
+  border-radius: 999px;
+  background: var(--bg-surface, #fff);
+  color: var(--text-primary, #1c1917);
+  box-shadow: 0 3px 12px rgba(0, 0, 0, 0.12);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: background-color 150ms ease, border-color 150ms ease, color 150ms ease,
+    transform 150ms ease;
+}
+
+.mobile-menu-button:hover {
+  background: var(--bg-surface-hover, #f4f2ed);
+}
+
+.mobile-menu-button:active {
+  transform: scale(0.96);
+}
+
+.mobile-menu-button:focus-visible {
+  outline: 2px solid var(--accent-primary, #c46a3a);
+  outline-offset: 3px;
+}
+
+.mobile-menu-button--floating {
+  display: none;
+  position: fixed;
+  top: calc(env(safe-area-inset-top, 0px) + 12px);
+  left: calc(env(safe-area-inset-left, 0px) + 12px);
+  z-index: 1100;
+}
+
+.mobile-menu-button--drawer {
+  display: none;
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  z-index: 1101;
+}
+
+body.dark-theme .mobile-menu-button {
+  border-color: var(--border-color, #3b3b3b);
+  background: var(--bg-surface, #1e1e1e);
+  color: var(--text-primary, #f1f1f1);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.36);
+}
+
+body.dark-theme .mobile-menu-button:hover {
+  background: var(--bg-surface-hover, #292929);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mobile-menu-button {
+    transition: none;
+  }
+}
+
+@media (max-width: 767px) {
+  .mobile-menu-button--floating,
+  .mobile-menu-button--drawer {
+    display: inline-flex;
+  }
+}

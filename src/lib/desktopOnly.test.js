@@ -35,6 +35,8 @@ describe('shouldRequireDesktop', () => {
     expect(shouldRequireDesktop('/auth/google/callback')).toBe(false);
     expect(shouldRequireDesktop('/login')).toBe(false);
     expect(shouldRequireDesktop('/signup')).toBe(false);
+    expect(shouldRequireDesktop('/client-gallery')).toBe(false);
+    expect(shouldRequireDesktop('/client_gallery')).toBe(false);
     expect(shouldRequireDesktop('/dashboard')).toBe(true);
   });
 

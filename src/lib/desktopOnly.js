@@ -31,10 +31,16 @@ export function shouldRequireDesktop(pathname) {
     || path.startsWith('/auth/')
     || path === '/login'
     || path === '/signup';
+  const isResponsiveClientGalleryPath = path === '/client-gallery'
+    || path === '/client_gallery'
+    || path === '/clientgallery';
 
-  // The beta home and authentication flows are responsive. Keep unfinished
-  // studio routes gated until each route has its own responsive pass.
-  return path !== '/' && !isAuthPath && !isPublicClientPath(path);
+  // The beta home, authentication flows, and deliveries board are responsive.
+  // Keep unfinished studio routes gated until each route has its own pass.
+  return path !== '/'
+    && !isAuthPath
+    && !isResponsiveClientGalleryPath
+    && !isPublicClientPath(path);
 }
 
 export function isDesktopViewport(width) {
