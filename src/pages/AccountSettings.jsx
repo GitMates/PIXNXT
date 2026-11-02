@@ -8,6 +8,7 @@ import { APP_LANGUAGE_IDS, appLanguageLabel } from '../lib/app-languages';
 import { getUserDisplayLabel, getUserInitial } from '../lib/userInitials';
 import { apiFetch } from '../lib/api/client';
 import AccountTopbarIcons from '../components/account/AccountTopbarIcons';
+import MobileMenuButton from '../components/ui/MobileMenuButton';
 import { AppLoader } from '../components/ui/AppLoading';
 import { ClientGallerySubpageTabs } from '../components/features/ClientGallery/ClientGalleryPageShell';
 import StudioIdentityPanel from '../components/features/Settings/StudioIdentityPanel';
@@ -66,6 +67,7 @@ export default function AccountSettings() {
     const activeTab = tab || 'account';
     const useStudioShell = STUDIO_SHELL_TABS.has(activeTab);
     const [showDropdown, setShowDropdown] = useState(false);
+    const [isStudioNavOpen, setIsStudioNavOpen] = useState(false);
     const dropdownRef = useRef(null);
     const [toastMessage, setToastMessage] = useState('');
     const [studioProfile, setStudioProfile] = useState(() => {
@@ -169,6 +171,24 @@ export default function AccountSettings() {
     }, []);
 
     useEffect(() => {
+        setIsStudioNavOpen(false);
+    }, [activeTab]);
+
+    useEffect(() => {
+        if (!isStudioNavOpen) return undefined;
+        const previousOverflow = document.body.style.overflow;
+        const handleKeyDown = (event) => {
+            if (event.key === 'Escape') setIsStudioNavOpen(false);
+        };
+        document.body.style.overflow = 'hidden';
+        window.addEventListener('keydown', handleKeyDown);
+        return () => {
+            document.body.style.overflow = previousOverflow;
+            window.removeEventListener('keydown', handleKeyDown);
+        };
+    }, [isStudioNavOpen]);
+
+    useEffect(() => {
         const onTheme = () => setThemeModeState(getThemeMode());
         window.addEventListener(THEME_CHANGE_EVENT, onTheme);
         return () => window.removeEventListener(THEME_CHANGE_EVENT, onTheme);
@@ -226,7 +246,34 @@ export default function AccountSettings() {
 
         return (
             <div className={`theme-mono cg-shell studio-shell${activeTab === 'billing' ? ' studio-shell--billing' : ''}`}>
-                <aside className="studio-shell__aside">
+                {!isStudioNavOpen ? (
+                    <MobileMenuButton
+                        className="mobile-menu-button--floating studio-shell__mobile-menu"
+                        onClick={() => setIsStudioNavOpen(true)}
+                        controls="account-studio-navigation"
+                        label="account navigation menu"
+                    />
+                ) : null}
+                {isStudioNavOpen ? (
+                    <button
+                        type="button"
+                        className="studio-shell__mobile-scrim"
+                        aria-label="Close account navigation"
+                        onClick={() => setIsStudioNavOpen(false)}
+                    />
+                ) : null}
+                <aside
+                    className={`studio-shell__aside${isStudioNavOpen ? ' is-mobile-open' : ''}`}
+                    id="account-studio-navigation"
+                    aria-label="Studio account navigation"
+                >
+                    <MobileMenuButton
+                        className="mobile-menu-button--drawer studio-shell__drawer-close"
+                        isOpen
+                        onClick={() => setIsStudioNavOpen(false)}
+                        controls="account-studio-navigation"
+                        label="account navigation menu"
+                    />
                     <button
                         type="button"
                         className="studio-shell__back"
@@ -258,7 +305,10 @@ export default function AccountSettings() {
                                     key={item.id}
                                     type="button"
                                     className={cn('studio-shell__nav-item', active && 'active')}
-                                    onClick={() => navigate(`/account/${item.id}`)}
+                                    onClick={() => {
+                                        setIsStudioNavOpen(false);
+                                        navigate(`/account/${item.id}`);
+                                    }}
                                 >
                                     <Icon size={17} strokeWidth={1.75} className="studio-shell__nav-icon" />
                                     <span>{appT.account.tabs[item.label] || item.label}</span>
@@ -275,7 +325,10 @@ export default function AccountSettings() {
                                     key={item.id}
                                     type="button"
                                     className={cn('studio-shell__nav-item', active && 'active')}
-                                    onClick={() => navigate(`/account/${item.id}`)}
+                                    onClick={() => {
+                                        setIsStudioNavOpen(false);
+                                        navigate(`/account/${item.id}`);
+                                    }}
                                 >
                                     <Icon size={17} strokeWidth={1.75} className="studio-shell__nav-icon" />
                                     <span>{appT.account.tabs[item.label] || item.label}</span>

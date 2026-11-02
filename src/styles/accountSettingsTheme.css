@@ -838,3 +838,209 @@
     padding: 28px 20px 64px;
   }
 }
+
+@media (max-width: 767px) {
+  .theme-mono.cg-shell.studio-shell {
+    position: relative;
+    display: flex;
+    flex-direction: row;
+    min-height: 100vh;
+    min-height: 100dvh;
+    overflow-x: hidden;
+  }
+
+  .studio-shell__mobile-menu {
+    display: inline-flex;
+  }
+
+  .studio-shell__mobile-scrim {
+    position: fixed;
+    inset: 0;
+    z-index: 1200;
+    border: 0;
+    background: rgba(18, 17, 16, 0.48);
+    backdrop-filter: blur(2px);
+    -webkit-backdrop-filter: blur(2px);
+  }
+
+  .studio-shell__aside {
+    position: fixed;
+    inset: 0 auto 0 0;
+    z-index: 1201;
+    width: min(300px, calc(100vw - 52px));
+    height: 100vh;
+    height: 100dvh;
+    min-height: 0;
+    overflow-x: hidden;
+    overflow-y: auto;
+    padding: calc(64px + env(safe-area-inset-top, 0px)) 14px calc(16px + env(safe-area-inset-bottom, 0px));
+    border-right: 1px solid var(--border, #e5e2dc);
+    border-bottom: 0;
+    box-shadow: 18px 0 44px rgba(0, 0, 0, 0.18);
+    transform: translateX(-105%);
+    visibility: hidden;
+    transition: transform 200ms ease, visibility 200ms ease;
+  }
+
+  .studio-shell__aside.is-mobile-open {
+    transform: translateX(0);
+    visibility: visible;
+  }
+
+  .studio-shell__drawer-close {
+    display: inline-flex;
+  }
+
+  .studio-shell__brand {
+    padding-bottom: 16px;
+  }
+
+  .studio-shell__nav {
+    flex: 1 0 auto;
+    overflow: visible;
+  }
+
+  .studio-shell__main {
+    width: 100%;
+    min-width: 0;
+    overflow: visible;
+    padding: calc(68px + env(safe-area-inset-top, 0px)) 16px calc(40px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .studio-shell__content {
+    width: 100%;
+    max-width: 680px;
+    margin-inline: auto;
+  }
+
+  .studio-shell .si-panel {
+    gap: 1.5rem;
+  }
+
+  .studio-shell .si-page-title,
+  .studio-shell .pb-page-title,
+  .studio-shell .lc-page-title {
+    font-size: clamp(1.75rem, 7vw, 2.25rem);
+    line-height: 1.12;
+  }
+
+  .studio-shell .si-info-banner,
+  .studio-shell .pb-info-banner,
+  .studio-shell .lc-info-banner {
+    margin-bottom: 24px;
+    padding: 14px;
+  }
+
+  .studio-shell .si-address-card,
+  .studio-shell .pb-plan-card,
+  .studio-shell .pb-pay-card {
+    min-width: 0;
+  }
+
+  .studio-shell .si-address-card {
+    align-items: flex-start;
+    flex-wrap: wrap;
+    padding: 14px;
+  }
+
+  .studio-shell .si-address-card > * {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
+  .studio-shell .si-mark-row {
+    display: grid;
+    grid-template-columns: 88px minmax(0, 1fr);
+    align-items: start;
+    gap: 12px;
+  }
+
+  .studio-shell .si-mark-thumb {
+    width: 88px;
+    max-width: 100%;
+    height: 52px;
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .studio-shell .si-mark-thumb--icon {
+    width: 52px;
+  }
+
+  .studio-shell .si-mark-info {
+    grid-column: 2;
+    grid-row: 1;
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
+  .studio-shell .si-mark-desc,
+  .studio-shell .si-mark-meta {
+    overflow-wrap: anywhere;
+    word-break: normal;
+  }
+
+  .studio-shell .si-mark-actions {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+  }
+
+  .studio-shell .si-mark-actions .si-btn {
+    min-height: 38px;
+  }
+
+  .studio-shell .si-branding-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 46px;
+    align-items: start;
+    gap: 12px;
+  }
+
+  .studio-shell .si-branding-text {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
+  .studio-shell .si-toggle {
+    grid-column: 2;
+    grid-row: 1;
+    width: 46px;
+    min-width: 46px;
+    flex: none;
+    justify-self: end;
+    margin-top: 2px;
+  }
+
+  .studio-shell .lc-doc-action-row,
+  .studio-shell .lc-toggle-row-wrap {
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
+  .studio-shell .lc-radio-cards {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .studio-shell .lc-radio-card {
+    min-width: 0;
+  }
+
+  .studio-shell .pb-table-wrap {
+    max-width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .studio-shell .pb-table {
+    min-width: 560px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .studio-shell__aside {
+    transition: none;
+  }
+}

@@ -37,6 +37,12 @@ export function shouldRequireDesktop(pathname) {
   const isResponsiveDashboardPath = path === '/dashboard';
   const isResponsiveShowcasePath = path === '/showcase';
   const isResponsiveSettingsPath = path === '/settings' || path.startsWith('/settings/');
+  const isResponsiveAccountPath = [
+    '/account/account',
+    '/account/studio-identity',
+    '/account/legal-consent',
+    '/account/billing',
+  ].includes(path);
 
   // Studio routes are enabled individually after their responsive pass.
   const isResponsiveDeliveryManagerPath = path === '/deliveries/manage';
@@ -51,6 +57,7 @@ export function shouldRequireDesktop(pathname) {
     && !isResponsiveStarredPath
     && !isResponsiveShowcasePath
     && !isResponsiveSettingsPath
+    && !isResponsiveAccountPath
     && !isPublicClientPath(path);
 }
 
