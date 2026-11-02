@@ -27,8 +27,9 @@ describe('isPublicClientPath', () => {
 });
 
 describe('shouldRequireDesktop', () => {
-  it('requires a desktop for the beta home and studio app', () => {
-    expect(shouldRequireDesktop('/')).toBe(true);
+  it('allows the responsive beta home and requires desktop for the studio app', () => {
+    expect(shouldRequireDesktop('/')).toBe(false);
+    expect(shouldRequireDesktop('/?from=invite')).toBe(false);
     expect(shouldRequireDesktop('/auth')).toBe(true);
     expect(shouldRequireDesktop('/dashboard')).toBe(true);
   });
