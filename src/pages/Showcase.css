@@ -2303,3 +2303,103 @@ body.dark-theme .sc-setting-block .cg-select-trigger.neu-inset {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* Keep the management page usable below tablet widths, including with the
+   shared mobile sidebar header taking space above the main pane. */
+@media (max-width: 640px) {
+  .sc-page {
+    min-height: 100%;
+    padding: 18px 14px calc(32px + env(safe-area-inset-bottom, 0px));
+    overflow-x: clip;
+  }
+
+  .sc-page > *:not(.sc-toast) {
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .sc-hero {
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+
+  .sc-hero__actions {
+    width: 100%;
+  }
+
+  .sc-hero__actions .sc-btn {
+    flex: 1 1 auto;
+  }
+
+  .sc-card {
+    min-width: 0;
+    padding: 14px;
+  }
+
+  .sc-card__body,
+  .sc-card__title,
+  .sc-card__desc {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
+  .sc-card__actions {
+    flex-wrap: wrap;
+  }
+
+  .sc-settings__head {
+    gap: 10px;
+    align-items: flex-start;
+  }
+
+  .sc-settings__collapse {
+    flex: 0 0 auto;
+  }
+
+  .sc-onpage__head {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .sc-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .sc-tile__title,
+  .sc-tile__sub {
+    overflow-wrap: anywhere;
+  }
+
+  .sc-modal-backdrop {
+    padding: 12px;
+    padding-bottom: max(12px, env(safe-area-inset-bottom, 0px));
+  }
+
+  .sc-modal {
+    width: 100%;
+    max-width: 100%;
+    max-height: min(90vh, 90dvh);
+    overflow-y: auto;
+  }
+
+  .sc-photo-toolbar {
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  .sc-photo-toolbar__actions {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+}
+
+@media (max-width: 360px) {
+  .sc-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .sc-hero__actions .sc-btn {
+    flex-basis: 100%;
+  }
+}

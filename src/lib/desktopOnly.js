@@ -35,9 +35,10 @@ export function shouldRequireDesktop(pathname) {
     || path === '/client_gallery'
     || path === '/clientgallery';
   const isResponsiveDashboardPath = path === '/dashboard';
+  const isResponsiveShowcasePath = path === '/showcase';
+  const isResponsiveSettingsPath = path === '/settings' || path.startsWith('/settings/');
 
-  // The beta home, authentication, studio dashboard, and delivery manager are responsive.
-  // Keep unfinished studio routes gated until each route has its own pass.
+  // Studio routes are enabled individually after their responsive pass.
   const isResponsiveDeliveryManagerPath = path === '/deliveries/manage';
   const isResponsiveLibraryPath = path === '/photos';
   const isResponsiveStarredPath = path === '/starred' || path.startsWith('/starred/');
@@ -48,6 +49,8 @@ export function shouldRequireDesktop(pathname) {
     && !isResponsiveDeliveryManagerPath
     && !isResponsiveLibraryPath
     && !isResponsiveStarredPath
+    && !isResponsiveShowcasePath
+    && !isResponsiveSettingsPath
     && !isPublicClientPath(path);
 }
 
