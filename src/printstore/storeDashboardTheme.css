@@ -169,3 +169,181 @@
 .store-dashboard-main .order-details-wrapper {
   border-bottom-color: var(--border-card);
 }
+
+@media (max-width: 767px) {
+  .store-dashboard-main {
+    min-width: 0;
+    padding: calc(16px + env(safe-area-inset-top, 0px)) 14px calc(36px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .store-dashboard-content {
+    min-width: 0;
+  }
+
+  .store-dashboard-header-row {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 20px;
+  }
+
+  .store-dashboard-header-row > * {
+    max-width: 100%;
+    min-width: 0;
+  }
+
+  .store-dashboard-header-row .results-count-label {
+    white-space: normal;
+  }
+
+  .store-dashboard-main .store-dashboard-table-container {
+    max-width: 100%;
+    overflow-x: auto;
+    overscroll-behavior-inline: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .store-dashboard-main .store-dashboard-table {
+    min-width: 1000px;
+  }
+
+  .store-dashboard-main .store-price-toolbar {
+    align-items: stretch !important;
+    gap: 12px !important;
+  }
+
+  .store-price-toolbar > div:first-child {
+    max-width: none !important;
+    flex: 1 1 100%;
+  }
+
+  .store-dashboard-main .store-price-toolbar-actions {
+    width: 100%;
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px !important;
+  }
+
+  .store-price-toolbar-actions select {
+    grid-column: 1 / -1;
+    appearance: auto !important;
+    -webkit-appearance: menulist !important;
+    background-image: none !important;
+    padding-right: 14px !important;
+  }
+
+  .store-price-toolbar-actions select,
+  .store-price-toolbar-actions button {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+
+  .store-price-select-all {
+    align-items: flex-start !important;
+    flex-wrap: wrap;
+    padding: 12px !important;
+  }
+
+  .store-price-select-all > div:first-child {
+    min-width: 0;
+    flex-wrap: wrap;
+    gap: 8px !important;
+  }
+
+  .store-price-select-all > button {
+    width: 100%;
+  }
+
+  .store-price-product-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 12px !important;
+  }
+
+  .store-digital-settings-card {
+    padding: 18px !important;
+    gap: 18px !important;
+    min-width: 0;
+  }
+
+  .store-digital-settings-card > div {
+    min-width: 0;
+  }
+
+  .store-digital-pricing-table {
+    max-width: 100%;
+    overflow-x: auto;
+    overscroll-behavior-inline: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .store-products-toolbar {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr);
+    align-items: stretch !important;
+    gap: 10px !important;
+  }
+
+  .store-products-toolbar > div:first-child {
+    width: 100% !important;
+    max-width: none !important;
+  }
+
+  .store-products-status-filter {
+    width: 100%;
+    min-width: 0;
+    min-height: 42px;
+    box-sizing: border-box;
+    appearance: auto !important;
+    -webkit-appearance: menulist !important;
+    background-image: none !important;
+    padding-right: 14px !important;
+  }
+
+  .store-products-summary {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px !important;
+  }
+
+  .store-products-summary > div {
+    min-width: 0;
+    padding: 12px 14px !important;
+  }
+
+  .store-products-summary > div:last-child {
+    grid-column: 1 / -1;
+  }
+
+  .store-products-item {
+    gap: 12px;
+    padding: 12px !important;
+  }
+
+  .store-products-item > div:first-child {
+    min-width: 0;
+  }
+
+  .store-products-item > button {
+    width: 50px !important;
+    min-width: 50px;
+    min-height: 42px;
+    align-self: center;
+  }
+}
+
+@media (max-width: 380px) {
+  .store-dashboard-main {
+    padding-right: 12px;
+    padding-left: 12px;
+  }
+
+  .store-dashboard-main .store-price-product-grid {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  .store-dashboard-main .store-price-toolbar-actions {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}

@@ -1993,7 +1993,7 @@ export default function StoreDashboard() {
               </div>
 
               {/* Glassy Search and Filters Bar */}
-              <div style={{
+              <div className="store-price-toolbar" style={{
                 display: 'flex',
                 justifyContent: 'space-between',
                 alignItems: 'center',
@@ -2027,7 +2027,7 @@ export default function StoreDashboard() {
                 </div>
 
                 {/* Bulk Update and Select controls */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                <div className="store-price-toolbar-actions" style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
                   <select
                     value={categoryFilter}
                     onChange={(e) => setCategoryFilter(e.target.value)}
@@ -2146,7 +2146,7 @@ export default function StoreDashboard() {
               </div>
 
               {/* Glassy Select All Bar */}
-              <div style={{
+              <div className="store-price-select-all" style={{
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'space-between',
@@ -2191,7 +2191,7 @@ export default function StoreDashboard() {
               </div>
 
               {/* Product Cards Grid */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(210px, 1fr))', gap: '20px' }}>
+              <div className="store-price-product-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(210px, 1fr))', gap: '20px' }}>
                 {loadingProducts ? (
                   <div style={{ gridColumn: '1 / -1', padding: '60px', textAlign: 'center', color: '#64748b', fontSize: '14px' }}>Loading products...</div>
                 ) : filteredProducts.length === 0 ? (
@@ -2662,6 +2662,7 @@ export default function StoreDashboard() {
               {/* Global Settings Card */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
                 <div
+                  className="store-digital-settings-card"
                   style={{
                     backgroundColor: 'rgba(255, 255, 255, 0.55)',
                     backdropFilter: 'blur(12px)',
@@ -2737,7 +2738,7 @@ export default function StoreDashboard() {
                           Loading package prices…
                         </div>
                       ) : (
-                        <div style={{
+                        <div className="store-digital-pricing-table" style={{
                           border: '1px solid rgba(0,0,0,0.06)',
                           borderRadius: '12px',
                           overflow: 'auto',
@@ -2867,7 +2868,7 @@ export default function StoreDashboard() {
               </div>
 
               {/* Product search & status filter */}
-              <div style={{
+              <div className="store-products-toolbar" style={{
                 display: 'flex',
                 alignItems: 'center',
                 gap: '12px',
@@ -2900,7 +2901,7 @@ export default function StoreDashboard() {
                 <select
                   value={productStatusFilter}
                   onChange={(e) => setProductStatusFilter(e.target.value)}
-                  className="neu-inset"
+                  className="neu-inset store-products-status-filter"
                   style={{
                     padding: '10px 32px 10px 14px',
                     fontSize: '13px',
@@ -2925,7 +2926,7 @@ export default function StoreDashboard() {
               </div>
 
               {/* Summary stats bar */}
-              <div style={{
+              <div className="store-products-summary" style={{
                 display: 'flex', gap: '16px', marginBottom: '24px', flexWrap: 'wrap'
               }}>
                 <div style={{
@@ -2967,7 +2968,7 @@ export default function StoreDashboard() {
               </div>
 
               {/* Products list */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <div className="store-products-list" style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                 {loadingProducts ? (
                   <div style={{ padding: '60px', textAlign: 'center', color: '#64748b', fontSize: '14px' }}>Loading products...</div>
                 ) : shopProductsForManager.filter(p => {
@@ -2993,6 +2994,7 @@ export default function StoreDashboard() {
                 }).map(p => (
                   <div
                     key={p.id}
+                    className="store-products-item"
                     style={{
                       display: 'flex',
                       alignItems: 'center',

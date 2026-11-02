@@ -43,6 +43,12 @@ export function shouldRequireDesktop(pathname) {
     '/account/legal-consent',
     '/account/billing',
   ].includes(path);
+  const isResponsivePrintLabPath = [
+    '/store/orders',
+    '/store/pricing',
+    '/store/products',
+    '/store/digital',
+  ].includes(path);
 
   // Studio routes are enabled individually after their responsive pass.
   const isResponsiveDeliveryManagerPath = path === '/deliveries/manage';
@@ -58,6 +64,7 @@ export function shouldRequireDesktop(pathname) {
     && !isResponsiveShowcasePath
     && !isResponsiveSettingsPath
     && !isResponsiveAccountPath
+    && !isResponsivePrintLabPath
     && !isPublicClientPath(path);
 }
 
