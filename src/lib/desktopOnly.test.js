@@ -27,10 +27,14 @@ describe('isPublicClientPath', () => {
 });
 
 describe('shouldRequireDesktop', () => {
-  it('allows the responsive beta home and requires desktop for the studio app', () => {
+  it('allows responsive entry routes and requires desktop for the studio app', () => {
     expect(shouldRequireDesktop('/')).toBe(false);
     expect(shouldRequireDesktop('/?from=invite')).toBe(false);
-    expect(shouldRequireDesktop('/auth')).toBe(true);
+    expect(shouldRequireDesktop('/auth')).toBe(false);
+    expect(shouldRequireDesktop('/auth/reset')).toBe(false);
+    expect(shouldRequireDesktop('/auth/google/callback')).toBe(false);
+    expect(shouldRequireDesktop('/login')).toBe(false);
+    expect(shouldRequireDesktop('/signup')).toBe(false);
     expect(shouldRequireDesktop('/dashboard')).toBe(true);
   });
 

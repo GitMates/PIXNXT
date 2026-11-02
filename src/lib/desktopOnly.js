@@ -27,9 +27,14 @@ export function isPublicClientPath(pathname) {
 
 export function shouldRequireDesktop(pathname) {
   const path = normalizePath(pathname);
-  // The temporary beta landing page is responsive and can be opened on phones.
-  // Keep the gate on studio routes until each route has its own responsive pass.
-  return path !== '/' && !isPublicClientPath(path);
+  const isAuthPath = path === '/auth'
+    || path.startsWith('/auth/')
+    || path === '/login'
+    || path === '/signup';
+
+  // The beta home and authentication flows are responsive. Keep unfinished
+  // studio routes gated until each route has its own responsive pass.
+  return path !== '/' && !isAuthPath && !isPublicClientPath(path);
 }
 
 export function isDesktopViewport(width) {
