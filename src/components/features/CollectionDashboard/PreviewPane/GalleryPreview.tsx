@@ -12,6 +12,7 @@ import { downloadSinglePhotoFile } from '../../../../lib/downloadPhoto';
 import { DownloadModal } from '../../Gallery/DownloadModal/DownloadModal';
 import { galleryService } from '../../../../services/gallery.service';
 import { sortPhotosForGallery, normalizeGalleryPhotoSort, orderPhotosByIds } from '../../../../lib/galleryPhotoSort';
+import { orderGallerySetTabs } from '../../../../lib/gallerySetOrder';
 import {
   isCollectionFeatureEnabled,
   isSlideshowEnabledForCollection,

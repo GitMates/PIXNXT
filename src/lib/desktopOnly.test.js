@@ -38,6 +38,8 @@ describe('shouldRequireDesktop', () => {
     expect(shouldRequireDesktop('/client-gallery')).toBe(false);
     expect(shouldRequireDesktop('/client_gallery')).toBe(false);
     expect(shouldRequireDesktop('/dashboard')).toBe(false);
+    expect(shouldRequireDesktop('/deliveries/manage?id=delivery-123')).toBe(false);
+    expect(shouldRequireDesktop('/deliveries/manage/share?id=delivery-123')).toBe(true);
   });
 
   it('does not block public client routes on a phone', () => {

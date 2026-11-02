@@ -1,4 +1,4 @@
-/** Studio chrome is desktop-only until the product is made responsive. */
+/** Keep unfinished studio routes desktop-only until their responsive pass is complete. */
 
 export const DESKTOP_MIN_WIDTH = 1024;
 
@@ -36,12 +36,14 @@ export function shouldRequireDesktop(pathname) {
     || path === '/clientgallery';
   const isResponsiveDashboardPath = path === '/dashboard';
 
-  // The beta home, authentication, deliveries board, and studio dashboard are responsive.
+  // The beta home, authentication, studio dashboard, and delivery manager are responsive.
   // Keep unfinished studio routes gated until each route has its own pass.
+  const isResponsiveDeliveryManagerPath = path === '/deliveries/manage';
   return path !== '/'
     && !isAuthPath
     && !isResponsiveClientGalleryPath
     && !isResponsiveDashboardPath
+    && !isResponsiveDeliveryManagerPath
     && !isPublicClientPath(path);
 }
 

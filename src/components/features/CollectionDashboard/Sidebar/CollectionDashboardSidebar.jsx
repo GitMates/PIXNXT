@@ -189,6 +189,7 @@ export function CollectionDashboardSidebar({
   onSelectCoverFromCollection,
   onCoverFileSelect,
   isCollapsed,
+  mobileOpen = false,
   onToggleCollapse,
   activeSidebarTab,
   onSidebarTabChange,
@@ -364,7 +365,11 @@ export function CollectionDashboardSidebar({
   const settingsActive = activeSidebarTab === 'settings';
 
   return (
-    <aside className={cn('cdsb', isCollapsed && 'cdsb--collapsed')}>
+    <aside
+      id="delivery-navigation"
+      aria-label="Delivery navigation"
+      className={cn('cdsb', isCollapsed && 'cdsb--collapsed', mobileOpen && 'cdsb--mobile-open')}
+    >
       <div className="cdsb-cover-wrap">
         <SidebarCoverUpload
           coverUrl={coverUrl}

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { PreviewPaneProps } from './PreviewPane.types';
 import { GalleryPreview } from './GalleryPreview';
 import { cn } from '../../../../lib/utils';
@@ -19,10 +19,34 @@ function PreviewFrame({
   browserUrl?: string;
   children: React.ReactNode;
 }) {
+  const mobileFrameRef = useRef<HTMLDivElement>(null);
+  const [mobileScale, setMobileScale] = useState(0.21);
+
+  useEffect(() => {
+    if (!isMobile || !mobileFrameRef.current) return undefined;
+
+    const frame = mobileFrameRef.current;
+    const updateScale = () => {
+      const frameWidth = frame.getBoundingClientRect().width;
+      if (Number.isFinite(frameWidth) && frameWidth >= 1) {
+        setMobileScale(frameWidth / 393);
+      }
+    };
+
+    updateScale();
+    if (typeof ResizeObserver === 'undefined') {
+      window.addEventListener('resize', updateScale);
+      return () => window.removeEventListener('resize', updateScale);
+    }
+    const observer = new ResizeObserver(updateScale);
+    observer.observe(frame);
+    return () => observer.disconnect();
+  }, [isMobile]);
+
   if (isMobile) {
     return (
-      <div className={cn('cd-design-frame', className)}>
-        <div className="cd-design-frame__mobile-scaler">
+      <div className={cn('cd-design-frame', className)} ref={mobileFrameRef}>
+        <div className="cd-design-frame__mobile-scaler" style={{ transform: `scale(${mobileScale})` }}>
           <div className="cd-phone-shell">
             <span className="cd-phone-btn cd-phone-btn--action" aria-hidden="true" />
             <span className="cd-phone-btn cd-phone-btn--vol-up" aria-hidden="true" />

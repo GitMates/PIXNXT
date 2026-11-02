@@ -48,6 +48,7 @@ export function DeliverySharePublishPanel({
   onShareByEmail,
   showToast,
   deliveryTitle,
+  mobilePopoverPosition,
 }) {
   const published = hasBeenPublished({ status, published_at: collection?.published_at });
   const [showLive, setShowLive] = useState(published);
@@ -224,7 +225,15 @@ export function DeliverySharePublishPanel({
   );
 
   return (
-    <div className="cd-delivery-share-wrap">
+    <div
+      className="cd-delivery-share-wrap"
+      style={mobilePopoverPosition ? {
+        '--cd-mobile-popover-left': mobilePopoverPosition.left,
+        '--cd-mobile-popover-top': mobilePopoverPosition.top,
+        '--cd-mobile-popover-width': mobilePopoverPosition.width,
+        '--cd-mobile-popover-max-height': mobilePopoverPosition.maxHeight,
+      } : undefined}
+    >
       <div
         className={`cd-delivery-share-panel${showLive ? '' : ' cd-delivery-share-panel--intro'}`}
         role="dialog"

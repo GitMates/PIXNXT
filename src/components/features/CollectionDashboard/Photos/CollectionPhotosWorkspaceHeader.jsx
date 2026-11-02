@@ -10,6 +10,7 @@ import './CollectionPhotosWorkspaceHeader.css';
 
 function HeaderDropdown({ label, open, onToggle, children, menuClassName }) {
   const ref = useRef(null);
+  const [mobileMenuStyle, setMobileMenuStyle] = useState(null);
 
   useEffect(() => {
     if (!open) return undefined;
@@ -20,6 +21,48 @@ function HeaderDropdown({ label, open, onToggle, children, menuClassName }) {
     return () => document.removeEventListener('mousedown', handleClick);
   }, [open, onToggle]);
 
+  useEffect(() => {
+    if (!open) return undefined;
+
+    const updatePosition = () => {
+      if (window.innerWidth > 768) {
+        setMobileMenuStyle(null);
+        return;
+      }
+
+      const trigger = ref.current?.querySelector('button');
+      if (!trigger) return;
+      const rect = trigger.getBoundingClientRect();
+      const preferredWidth = menuClassName?.includes('view') ? 268 : 248;
+      const width = Math.min(preferredWidth, Math.max(0, window.innerWidth - 24));
+      const left = Math.max(12, Math.min(rect.right - width, window.innerWidth - width - 12));
+      const top = rect.bottom + 8;
+
+      setMobileMenuStyle({
+        position: 'fixed',
+        top,
+        left,
+        right: 'auto',
+        width,
+        minWidth: 0,
+        maxWidth: 'calc(100vw - 24px)',
+        maxHeight: `calc(100dvh - ${top + 12}px)`,
+        overflowX: 'hidden',
+        overflowY: 'auto',
+        boxSizing: 'border-box',
+        zIndex: 10000,
+      });
+    };
+
+    updatePosition();
+    window.addEventListener('resize', updatePosition);
+    document.addEventListener('scroll', updatePosition, true);
+    return () => {
+      window.removeEventListener('resize', updatePosition);
+      document.removeEventListener('scroll', updatePosition, true);
+    };
+  }, [open, menuClassName]);
+
   return (
     <div className={cn('cdpw-dropdown', open && 'cdpw-dropdown--open')} ref={ref}>
       <button type="button" className="cdpw-pill-btn" onClick={() => onToggle(!open)}>
@@ -27,7 +70,7 @@ function HeaderDropdown({ label, open, onToggle, children, menuClassName }) {
         <ChevronDown size={14} aria-hidden />
       </button>
       {open ? (
-        <div className={cn('cdpw-dropdown__menu', menuClassName)}>{children}</div>
+        <div className={cn('cdpw-dropdown__menu', menuClassName)} style={mobileMenuStyle || undefined}>{children}</div>
       ) : null}
     </div>
   );

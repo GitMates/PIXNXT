@@ -53,6 +53,7 @@ import { GetDirectLinkModal } from '../components/features/CollectionDashboard/S
 import { DeliverySharePublishPanel } from '../components/features/CollectionDashboard/Share/DeliverySharePublishPanel';
 import '../components/features/CollectionDashboard/Share/DeliverySharePublishPanel.css';
 import { CollectionDashboardSidebar } from '../components/features/CollectionDashboard/Sidebar/CollectionDashboardSidebar';
+import MobileMenuButton from '../components/ui/MobileMenuButton';
 import { SetOptionsMenu } from '../components/features/CollectionDashboard/Sidebar/SetOptionsMenu';
 import { NewSelectionModal } from '../components/features/CollectionDashboard/Modals/NewSelectionModal';
 import { getClientFacingOrigin } from '../lib/publicSiteUrl';
@@ -205,11 +206,32 @@ const CollectionDashboard = () => {
     const pendingUploadScrollRef = useRef(false);
 
     const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+    const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
     const [collection, setCollection] = useState(routeSeed);
     const collectionRef = useRef(collection);
     collectionRef.current = collection;
     const [photos, setPhotos] = useState(() => (Array.isArray(routeSeed?.photos) ? routeSeed.photos : []));
     const [profile, setProfile] = useState(null);
+
+    useEffect(() => {
+        if (!isMobileSidebarOpen) return undefined;
+        const previousOverflow = document.body.style.overflow;
+        document.body.style.overflow = 'hidden';
+        const closeOnEscape = (event) => {
+            if (event.key === 'Escape') setIsMobileSidebarOpen(false);
+        };
+        const desktopQuery = window.matchMedia('(min-width: 769px)');
+        const closeOnDesktop = () => {
+            if (desktopQuery.matches) setIsMobileSidebarOpen(false);
+        };
+        document.addEventListener('keydown', closeOnEscape);
+        desktopQuery.addEventListener('change', closeOnDesktop);
+        return () => {
+            document.body.style.overflow = previousOverflow;
+            document.removeEventListener('keydown', closeOnEscape);
+            desktopQuery.removeEventListener('change', closeOnDesktop);
+        };
+    }, [isMobileSidebarOpen]);
     const preparingFilmIds = photos
         .filter((photo) => getPhotoStreamPhase(photo) === 'preparing')
         .map((photo) => photo.id)
@@ -331,6 +353,7 @@ const CollectionDashboard = () => {
     const [showStatusMenu, setShowStatusMenu] = useState(false);
     const [statusSaving, setStatusSaving] = useState(false);
     const [showShareDropdown, setShowShareDropdown] = useState(false);
+    const [sharePopoverPosition, setSharePopoverPosition] = useState(null);
     const [isDraggingModal, setIsDraggingModal] = useState(false);
     const [isDraggingDropzone, setIsDraggingDropzone] = useState(false);
     const [activePhotoMenu, setActivePhotoMenu] = useState(null);
@@ -395,6 +418,7 @@ const CollectionDashboard = () => {
     const [clientFavoritedPhotoIds, setClientFavoritedPhotoIds] = useState(() => new Set());
     const [selectionListPhotoIds, setSelectionListPhotoIds] = useState(() => new Set());
     const [showMoreDropdown, setShowMoreDropdown] = useState(false);
+    const [morePopoverPosition, setMorePopoverPosition] = useState(null);
     const [deliveryDownload, setDeliveryDownload] = useState(null);
     const { startDownload } = useDeliveryDownload();
     const [showFaceRecogniseModal, setShowFaceRecogniseModal] = useState(false);
@@ -1466,6 +1490,42 @@ const CollectionDashboard = () => {
     const moveMenuPortalRef = useRef(null);
     const reorderMenuRef = useRef(null);
     const reorderMenuPortalRef = useRef(null);
+
+    const getMobilePopoverPosition = (trigger, preferredWidth) => {
+        if (window.innerWidth > 768) return null;
+        const rect = trigger.getBoundingClientRect();
+        const width = Math.min(preferredWidth, Math.max(0, window.innerWidth - 24));
+        const left = Math.max(12, Math.min(rect.right - width, window.innerWidth - width - 12));
+        const top = Math.min(rect.bottom + 8, Math.max(12, window.innerHeight - 120));
+        return {
+            left: `${left}px`,
+            top: `${top}px`,
+            width: `${width}px`,
+            maxHeight: `calc(100dvh - ${top + 12}px)`,
+        };
+    };
+
+    useEffect(() => {
+        if (!showMoreDropdown && !showShareDropdown) return undefined;
+
+        const repositionOpenMenus = () => {
+            if (showMoreDropdown) {
+                const trigger = moreRef.current?.querySelector('button');
+                if (trigger) setMorePopoverPosition(getMobilePopoverPosition(trigger, 260));
+            }
+            if (showShareDropdown) {
+                const trigger = shareRef.current?.querySelector('button');
+                if (trigger) setSharePopoverPosition(getMobilePopoverPosition(trigger, 360));
+            }
+        };
+
+        window.addEventListener('resize', repositionOpenMenus);
+        document.addEventListener('scroll', repositionOpenMenus, true);
+        return () => {
+            window.removeEventListener('resize', repositionOpenMenus);
+            document.removeEventListener('scroll', repositionOpenMenus, true);
+        };
+    }, [showMoreDropdown, showShareDropdown]);
     const favoriteActivityMenuRef = useRef(null);
     const mediaSyncReadyRef = useRef(false);
     const coverDraftBackupRef = useRef(null);
@@ -6050,6 +6110,13 @@ const CollectionDashboard = () => {
 
             <div className="cd-shell-header">
                 <div className="cd-shell-brand">
+                    <MobileMenuButton
+                        className="cd-delivery-mobile-menu"
+                        isOpen={isMobileSidebarOpen}
+                        onClick={() => setIsMobileSidebarOpen((open) => !open)}
+                        controls="delivery-navigation"
+                        label="delivery navigation"
+                    />
                     <Link
                         to={backTo}
                         className="cd-shell-brand__back"
@@ -6196,13 +6263,22 @@ const CollectionDashboard = () => {
                         <span>{w.findPeople}</span>
                     </button>
                     )}
-                    <div className="cd-more-wrapper" ref={moreRef}>
+                    <div
+                        className="cd-more-wrapper"
+                        ref={moreRef}
+                        style={morePopoverPosition ? {
+                            '--cd-mobile-popover-left': morePopoverPosition.left,
+                            '--cd-mobile-popover-top': morePopoverPosition.top,
+                            '--cd-mobile-popover-width': morePopoverPosition.width,
+                            '--cd-mobile-popover-max-height': morePopoverPosition.maxHeight,
+                        } : undefined}
+                    >
                         <button
                             type="button"
                             className="cd-topbar-btn"
                             aria-expanded={showMoreDropdown}
                             aria-haspopup="menu"
-                            onClick={() => {
+                            onClick={(event) => {
                                 setShowShareDropdown(false);
                                 setShowStatusMenu(false);
                                 setShowGdPublishedPopup(false);
@@ -6210,6 +6286,7 @@ const CollectionDashboard = () => {
                                     setShowMoreDropdown(false);
                                     setShowPresetsSubmenu(false);
                                 } else {
+                                    setMorePopoverPosition(getMobilePopoverPosition(event.currentTarget, 260));
                                     setShowMoreDropdown(true);
                                 }
                             }}
@@ -6343,18 +6420,31 @@ const CollectionDashboard = () => {
                     >
                         {w.preview}
                     </button>
-                    <div className="cd-share-wrapper" ref={shareRef}>
+                    <div
+                        className="cd-share-wrapper"
+                        ref={shareRef}
+                        style={sharePopoverPosition ? {
+                            '--cd-mobile-popover-left': sharePopoverPosition.left,
+                            '--cd-mobile-popover-top': sharePopoverPosition.top,
+                            '--cd-mobile-popover-width': sharePopoverPosition.width,
+                            '--cd-mobile-popover-max-height': sharePopoverPosition.maxHeight,
+                        } : undefined}
+                    >
                         <button
                             type="button"
                             className="cd-topbar-btn"
                             aria-expanded={showShareDropdown}
                             aria-haspopup="menu"
-                            onClick={() => {
+                            onClick={(event) => {
                                 setShowMoreDropdown(false);
                                 setShowPresetsSubmenu(false);
                                 setShowStatusMenu(false);
                                 setShowGdPublishedPopup(false);
-                                setShowShareDropdown(!showShareDropdown);
+                                const nextOpen = !showShareDropdown;
+                                if (nextOpen) {
+                                    setSharePopoverPosition(getMobilePopoverPosition(event.currentTarget, 360));
+                                }
+                                setShowShareDropdown(nextOpen);
                             }}
                         >
                             {w.share} <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
@@ -6381,6 +6471,7 @@ const CollectionDashboard = () => {
                                 }}
                                 showToast={showToast}
                                 deliveryTitle={collection?.name}
+                                mobilePopoverPosition={sharePopoverPosition}
                             />
                         )}
                     </div>
@@ -6419,6 +6510,14 @@ const CollectionDashboard = () => {
             </div>
 
             <div className="cd-layout-body">
+                {isMobileSidebarOpen ? (
+                    <button
+                        type="button"
+                        className="cd-mobile-nav-backdrop"
+                        aria-label="Close delivery navigation"
+                        onClick={() => setIsMobileSidebarOpen(false)}
+                    />
+                ) : null}
                 <CollectionDashboardSidebar
                     coverUrl={collection?.cover_url}
                     coverSource={collection?.cover_source}
@@ -6431,14 +6530,21 @@ const CollectionDashboard = () => {
                     onSelectCoverFromCollection={() => openCoverModal('all', 'pick')}
                     onCoverFileSelect={(file) => void handleCoverFileSelect(file)}
                     isCollapsed={isSidebarCollapsed}
+                    mobileOpen={isMobileSidebarOpen}
                     onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
                     activeSidebarTab={activeSidebarTab}
-                    onSidebarTabChange={setActiveSidebarTab}
+                    onSidebarTabChange={(tab) => {
+                        setActiveSidebarTab(tab);
+                        setIsMobileSidebarOpen(false);
+                    }}
                     sortedSidebarSets={sortedSidebarSets.map((s) => (
                         s.isHighlights ? { ...s, isPrivate: clientOnlyHighlights === true } : s
                     ))}
                     activeSetId={activeSetId}
-                    onSetSelect={handleSetSelect}
+                    onSetSelect={(...args) => {
+                        handleSetSelect(...args);
+                        setIsMobileSidebarOpen(false);
+                    }}
                     onAddSet={() => setShowAddSetModal(true)}
                     draggedSetIndex={draggedSetIndex}
                     dragOverSetIndex={dragOverSetIndex}
@@ -6530,7 +6636,10 @@ const CollectionDashboard = () => {
                     activeDesignTab={activeDesignTab}
                     onDesignTabChange={setActiveDesignTab}
                     activeSettingsTab={activeSettingsTab}
-                    onSettingsTabChange={setActiveSettingsTab}
+                    onSettingsTabChange={(tab) => {
+                        setActiveSettingsTab(tab);
+                        setIsMobileSidebarOpen(false);
+                    }}
                     activeActivitySubTab={activeActivitySubTab}
                     onActivitySubTabChange={setActiveActivitySubTab}
                     photoCount={deliveryMediaCounts.photos}
