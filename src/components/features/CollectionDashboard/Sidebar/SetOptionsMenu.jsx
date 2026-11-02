@@ -9,6 +9,7 @@ export function SetOptionsMenu({
   otherSets = [],
   hidden = false,
   inApp = true,
+  showMobileApp = false,
   sizeLabel = '—',
   anchorEl,
   onRename,
@@ -160,24 +161,28 @@ export function SetOptionsMenu({
         <span className="cd-set-options__meta">{sizeLabel}</span>
       </button>
 
-      <div className="cd-set-options__rule" />
+      {showMobileApp ? (
+        <>
+          <div className="cd-set-options__rule" />
 
-      <p className="cd-set-options__kicker">Mobile app</p>
-      <label className="cd-set-options__check">
-        <input
-          type="checkbox"
-          checked={inApp}
-          onChange={(e) => onToggleInApp?.(e.target.checked)}
-        />
-        <span className="cd-set-options__box" aria-hidden />
-        <span className="cd-set-options__check-copy">
-          <span className="cd-set-options__check-label">In the app</span>
-          <span className="cd-set-options__hint">
-            Downloaded to the phone and viewable with no signal. Turning this off removes it from
-            every phone at the next sync.
-          </span>
-        </span>
-      </label>
+          <p className="cd-set-options__kicker">Mobile app</p>
+          <label className="cd-set-options__check">
+            <input
+              type="checkbox"
+              checked={inApp}
+              onChange={(e) => onToggleInApp?.(e.target.checked)}
+            />
+            <span className="cd-set-options__box" aria-hidden />
+            <span className="cd-set-options__check-copy">
+              <span className="cd-set-options__check-label">In the app</span>
+              <span className="cd-set-options__hint">
+                Downloaded to the phone and viewable with no signal. Turning this off removes it from
+                every phone at the next sync.
+              </span>
+            </span>
+          </label>
+        </>
+      ) : null}
 
       {onDelete ? (
         <>
