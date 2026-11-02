@@ -34,12 +34,14 @@ export function shouldRequireDesktop(pathname) {
   const isResponsiveClientGalleryPath = path === '/client-gallery'
     || path === '/client_gallery'
     || path === '/clientgallery';
+  const isResponsiveDashboardPath = path === '/dashboard';
 
-  // The beta home, authentication flows, and deliveries board are responsive.
+  // The beta home, authentication, deliveries board, and studio dashboard are responsive.
   // Keep unfinished studio routes gated until each route has its own pass.
   return path !== '/'
     && !isAuthPath
     && !isResponsiveClientGalleryPath
+    && !isResponsiveDashboardPath
     && !isPublicClientPath(path);
 }
 

@@ -37,7 +37,7 @@ describe('shouldRequireDesktop', () => {
     expect(shouldRequireDesktop('/signup')).toBe(false);
     expect(shouldRequireDesktop('/client-gallery')).toBe(false);
     expect(shouldRequireDesktop('/client_gallery')).toBe(false);
-    expect(shouldRequireDesktop('/dashboard')).toBe(true);
+    expect(shouldRequireDesktop('/dashboard')).toBe(false);
   });
 
   it('does not block public client routes on a phone', () => {
