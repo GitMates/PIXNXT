@@ -7,7 +7,7 @@ import {
 } from './lib/appearanceTheme';
 import Header from './components/Header';
 import Footer from './components/Footer';
-import DesktopRequiredGate from './components/DesktopRequiredGate';
+import MobileExperienceNotice from './components/MobileExperienceNotice';
 import Home from './pages/Home';
 import Dashboard from './pages/Dashboard';
 import ClientGallery from './pages/ClientGallery';
@@ -280,8 +280,8 @@ function App() {
     <UploadQueueProvider>
       <DeliveryDownloadProvider>
       <UploadQueueRouteSync />
-      <DesktopRequiredGate>
       <div className="app">
+        <MobileExperienceNotice />
         {!hideLayout && <Header />}
 
         <Routes location={location} key={location.pathname}>
@@ -394,7 +394,6 @@ function App() {
         <GlobalUploadShell />
         <GlobalDeliveryDownloadShell />
       </div>
-      </DesktopRequiredGate>
       </DeliveryDownloadProvider>
     </UploadQueueProvider>
   );
