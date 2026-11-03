@@ -244,6 +244,31 @@
   line-height: 1.5;
 }
 
+@media (max-width: 640px) {
+  .rek-test-page {
+    padding: 20px 16px 40px;
+  }
+
+  .rek-test-header {
+    flex-direction: column;
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+
+  .rek-test-title {
+    font-size: clamp(1.6rem, 8vw, 2rem);
+  }
+
+  .rek-test-card {
+    padding: 18px 16px;
+  }
+
+  .rek-test-code,
+  .rek-test-sub code {
+    overflow-wrap: anywhere;
+  }
+}
+
 .rek-test-face-list {
   list-style: none;
   margin: 0;

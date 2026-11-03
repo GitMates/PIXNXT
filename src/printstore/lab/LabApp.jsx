@@ -164,7 +164,7 @@ const LabApp = () => {
 
     return (
         <LabAuthContext.Provider value={authContextValue}>
-            <div className="theme-mono lab-shell" style={{ minHeight: '100%' }}>
+            <div className="theme-mono lab-shell lab-app-shell" style={{ minHeight: '100%' }}>
                 <Routes>
                     <Route path="auth" element={
                         labUser ? <Navigate to="/lab/dashboard" replace /> : <LabAuth />

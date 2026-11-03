@@ -42,21 +42,32 @@ export function shouldRequireDesktop(pathname) {
   const isResponsiveShowcasePath = path === '/showcase';
   const isResponsiveSettingsPath = path === '/settings' || path.startsWith('/settings/');
   const isResponsiveAccountPath = [
+    '/account',
     '/account/profile',
     '/account/account',
     '/account/studio-identity',
     '/account/legal-consent',
     '/account/billing',
   ].includes(path);
-  const isResponsivePrintLabPath = [
-    '/store/orders',
-    '/store/pricing',
-    '/store/products',
-    '/store/digital',
-  ].includes(path);
+  const isResponsiveStorePath = path === '/store' || path.startsWith('/store/');
+  const isResponsivePrintstorePath = path === '/printstore';
+  const isResponsiveLabPath = path === '/lab' || path.startsWith('/lab/');
+  const isResponsivePhotographerPath = path === '/photographer';
+  const isResponsiveOnboardingPath = path === '/onboarding';
+  const isResponsiveAdminPath = path === '/admin' || path.startsWith('/admin/');
+  const isResponsiveRekognitionPath = path === '/dev/rekognition';
+  const isResponsiveRedirectPath = [
+    '/portal',
+    '/guest-delivery',
+    '/mobile-gallery',
+    '/collections',
+  ].some((prefix) => path === prefix || path.startsWith(`${prefix}/`));
 
   // Studio routes are enabled individually after their responsive pass.
   const isResponsiveDeliveryManagerPath = path === '/deliveries/manage';
+  const isResponsiveDeliverySharePath = path === '/deliveries/manage/share';
+  const isResponsiveDeliveryCreatePath = path === '/deliveries/create';
+  const isResponsiveFolderPath = path === '/folders/create' || /^\/folders\/[^/]+$/.test(path);
   const isResponsiveLibraryPath = path === '/photos';
   const isResponsiveStarredPath = path === '/starred' || path.startsWith('/starred/');
   return path !== '/'
@@ -65,12 +76,22 @@ export function shouldRequireDesktop(pathname) {
     && !isResponsiveAlbumProoferPath
     && !isResponsiveDashboardPath
     && !isResponsiveDeliveryManagerPath
+    && !isResponsiveDeliverySharePath
+    && !isResponsiveDeliveryCreatePath
+    && !isResponsiveFolderPath
     && !isResponsiveLibraryPath
     && !isResponsiveStarredPath
     && !isResponsiveShowcasePath
     && !isResponsiveSettingsPath
     && !isResponsiveAccountPath
-    && !isResponsivePrintLabPath
+    && !isResponsiveStorePath
+    && !isResponsivePrintstorePath
+    && !isResponsiveLabPath
+    && !isResponsivePhotographerPath
+    && !isResponsiveOnboardingPath
+    && !isResponsiveAdminPath
+    && !isResponsiveRekognitionPath
+    && !isResponsiveRedirectPath
     && !isPublicClientPath(path);
 }
 

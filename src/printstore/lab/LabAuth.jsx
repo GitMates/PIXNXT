@@ -129,7 +129,7 @@ export default function LabAuth() {
   };
 
   return (
-    <div className="theme-mono lab-shell" style={{
+      <div className="theme-mono lab-shell lab-auth-page" style={{
       display: 'flex',
       minHeight: '100vh',
       width: '100%',
@@ -140,7 +140,7 @@ export default function LabAuth() {
       padding: '20px',
       fontFamily: "var(--font-sans)"
     }}>
-      <div style={{
+      <div className="lab-auth-card" style={{
         width: '100%',
         maxWidth: '420px',
         backgroundColor: '#FFFFFF',

@@ -8,6 +8,7 @@ import {
   LayoutDashboard, DollarSign, Settings, X
 } from 'lucide-react';
 import { getShortId } from '../utils/idFormat';
+import './photographer.css';
 
 const THEME_COLOR = '#005c5a'; // Noida Hub teal
 const THEME_BG = '#eefaf9';
@@ -139,7 +140,7 @@ export default function PhotographerApp() {
 
   if (!session) {
     return (
-      <div style={{
+      <div className="photographer-auth-page" style={{
         display: 'flex',
         minHeight: '100vh',
         width: '100%',
@@ -150,7 +151,7 @@ export default function PhotographerApp() {
         padding: '20px',
         fontFamily: "'europa', var(--font-sans)"
       }}>
-        <div style={{
+        <div className="photographer-auth-card" style={{
           width: '100%',
           maxWidth: '400px',
           backgroundColor: '#ffffff',
@@ -794,7 +795,7 @@ function PhotographerPricingDashboard({ onLogout, photographerEmail }) {
   ];
 
   return (
-    <div style={{
+    <div className="photographer-dashboard-shell" style={{
       display: 'flex',
       minHeight: '100vh',
       backgroundColor: '#fcfbf9',
@@ -804,7 +805,7 @@ function PhotographerPricingDashboard({ onLogout, photographerEmail }) {
     }}>
 
       {/* Sidebar */}
-      <div style={{
+      <div className="photographer-sidebar" style={{
         width: '220px',
         minHeight: '100vh',
         backgroundColor: '#ffffff',
@@ -841,7 +842,7 @@ function PhotographerPricingDashboard({ onLogout, photographerEmail }) {
         </div>
 
         {/* Nav Items */}
-        <div style={{ flex: 1, padding: '12px 8px', display: 'flex', flexDirection: 'column', gap: '2px' }}>
+        <div className="photographer-sidebar-nav" style={{ flex: 1, padding: '12px 8px', display: 'flex', flexDirection: 'column', gap: '2px' }}>
           {sidebarItems.map(item => (
             <div
               key={item.id}
@@ -869,7 +870,7 @@ function PhotographerPricingDashboard({ onLogout, photographerEmail }) {
         </div>
 
         {/* Logout at Bottom */}
-        <div style={{ padding: '12px 8px', borderTop: '1px solid #f2ede4' }}>
+        <div className="photographer-sidebar-footer" style={{ padding: '12px 8px', borderTop: '1px solid #f2ede4' }}>
           <div
             onClick={onLogout}
             style={{
@@ -893,7 +894,7 @@ function PhotographerPricingDashboard({ onLogout, photographerEmail }) {
       </div>
 
       {/* Main Content */}
-      <div style={{ flex: 1, padding: '28px 32px', overflowY: 'auto' }}>
+      <div className="photographer-main" style={{ flex: 1, padding: '28px 32px', overflowY: 'auto' }}>
 
         {notification && (
           <div style={{
@@ -971,14 +972,14 @@ function PhotographerPricingDashboard({ onLogout, photographerEmail }) {
         {activeTab === 'pricing' && (
           <div>
             {/* Header */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+            <div className="photographer-pricing-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
               <div>
                 <h1 style={{ fontFamily: "'EB Garamond', serif", fontSize: '24px', color: THEME_COLOR, margin: '0 0 4px 0', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                   Alter Price
                 </h1>
                 <span style={{ fontSize: '13px', color: '#64748b' }}>Manage selling prices for all frame products</span>
               </div>
-              <div style={{ display: 'flex', gap: '10px' }}>
+              <div className="photographer-pricing-actions" style={{ display: 'flex', gap: '10px' }}>
                 <button onClick={() => setShowHistoryModal(true)} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '7px 14px', border: '1px solid #cbd5e1', borderRadius: '3px', backgroundColor: '#ffffff', color: '#334155', fontWeight: 600, fontSize: '12px', cursor: 'pointer' }}>
                   <History size={14} /> History
                 </button>
@@ -993,7 +994,7 @@ function PhotographerPricingDashboard({ onLogout, photographerEmail }) {
             </div>
 
             {/* Filter Row + Bulk Update Button */}
-            <div style={{ display: 'flex', gap: '12px', alignItems: 'center', marginBottom: '16px' }}>
+            <div className="photographer-pricing-filters" style={{ display: 'flex', gap: '12px', alignItems: 'center', marginBottom: '16px' }}>
               <div style={{ position: 'relative', flex: 1, minWidth: '240px' }}>
                 <Search size={15} color="#94a3b8" style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)' }} />
                 <input

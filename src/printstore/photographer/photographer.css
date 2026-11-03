@@ -1,0 +1,132 @@
+.photographer-auth-page {
+  box-sizing: border-box;
+  min-height: 100svh !important;
+}
+
+.photographer-auth-card {
+  box-sizing: border-box;
+}
+
+.photographer-dashboard-shell {
+  width: 100%;
+  min-width: 0;
+  overflow-x: hidden;
+}
+
+.photographer-main {
+  min-width: 0;
+}
+
+@media (max-width: 1023px) {
+  .photographer-auth-card {
+    padding: 36px 24px !important;
+  }
+
+  .photographer-dashboard-shell {
+    flex-direction: column;
+    min-height: 100svh;
+  }
+
+  .photographer-sidebar {
+    width: 100% !important;
+    min-height: 0 !important;
+    flex: none !important;
+    border-right: 0 !important;
+    border-bottom: 1px solid #f2ede4;
+  }
+
+  .photographer-sidebar-nav {
+    flex: none !important;
+    flex-direction: row !important;
+    justify-content: space-around;
+    flex-wrap: wrap;
+    gap: 4px !important;
+    padding: 6px 8px !important;
+  }
+
+  .photographer-sidebar-nav > div {
+    min-height: 44px;
+    flex: 1 1 100px;
+    justify-content: center;
+    padding: 10px 8px !important;
+  }
+
+  .photographer-sidebar-footer {
+    padding: 6px 8px !important;
+    border-top: 0 !important;
+  }
+
+  .photographer-sidebar-footer > div {
+    min-height: 44px;
+    justify-content: center;
+  }
+
+  .photographer-main {
+    width: 100%;
+    padding: 20px 16px !important;
+    box-sizing: border-box;
+    overflow: visible !important;
+  }
+
+  .photographer-pricing-header {
+    align-items: flex-start !important;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .photographer-pricing-actions {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+
+  .photographer-pricing-actions button {
+    min-height: 44px;
+    flex: 1 1 auto;
+    justify-content: center;
+  }
+
+  .photographer-pricing-filters {
+    align-items: stretch !important;
+    flex-wrap: wrap;
+  }
+
+  .photographer-pricing-filters > div,
+  .photographer-pricing-filters > select,
+  .photographer-pricing-filters > button {
+    min-width: 0 !important;
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  .photographer-main [style*="grid-template-columns: repeat(3, 1fr)"] {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  .photographer-main [style*="overflow-x: auto"] {
+    max-width: 100%;
+    overscroll-behavior-inline: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .photographer-main [style*="max-height: 90vh"],
+  .photographer-main [style*="max-height: 85vh"] {
+    max-height: calc(100dvh - 24px) !important;
+    overflow-y: auto;
+    padding: 24px !important;
+  }
+}
+
+@media (max-width: 380px) {
+  .photographer-auth-card {
+    padding: 30px 20px !important;
+  }
+
+  .photographer-main {
+    padding-right: 12px !important;
+    padding-left: 12px !important;
+  }
+
+  .photographer-main [style*="grid-template-columns: repeat(3, 1fr)"] {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+}
