@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Outlet, NavLink, useNavigate } from 'react-router-dom';
+import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { LayoutDashboard, Users, LogOut, ChevronDown, AlertTriangle, Layers, Gauge } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { signOut } from '../../services/auth.service';
@@ -8,11 +8,14 @@ import { getThemeMode, setThemeMode, THEME_CHANGE_EVENT } from '../../lib/appear
 import { StudioAvatar } from '../ui/StudioAvatar';
 import { galleryService } from '../../services/gallery.service';
 import { syncProfileIconCacheFromProfile } from '../../lib/profileIcon';
+import MobileMenuButton from '../ui/MobileMenuButton';
 import './adminStudio.css';
 
 const AdminLayout = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [showProfileDropdown, setShowProfileDropdown] = useState(false);
   const profileDropdownRef = useRef(null);
   const [themeMode, setThemeModeState] = useState(() => getThemeMode());
@@ -77,6 +80,19 @@ const AdminLayout = () => {
     };
   }, []);
 
+  useEffect(() => {
+    setIsMobileMenuOpen(false);
+  }, [location.pathname]);
+
+  useEffect(() => {
+    if (!isMobileMenuOpen) return undefined;
+    const handleEscape = (e) => {
+      if (e.key === 'Escape') setIsMobileMenuOpen(false);
+    };
+    document.addEventListener('keydown', handleEscape);
+    return () => document.removeEventListener('keydown', handleEscape);
+  }, [isMobileMenuOpen]);
+
   const navItems = [
     { name: 'Dashboard', path: '/admin/dashboard', icon: LayoutDashboard },
     { name: 'User Management', path: '/admin/users', icon: Users },
@@ -87,7 +103,38 @@ const AdminLayout = () => {
 
   return (
     <div className="admin-shell flex h-screen overflow-hidden">
-      <aside className="admin-shell__aside w-60 flex flex-col hidden md:flex shrink-0">
+      {!isMobileMenuOpen && (
+        <MobileMenuButton
+          className="mobile-menu-button--floating"
+          onClick={() => setIsMobileMenuOpen(true)}
+          controls="admin-mobile-sidebar"
+          label="admin navigation menu"
+        />
+      )}
+
+      {isMobileMenuOpen && (
+        <button
+          type="button"
+          className="admin-shell__scrim fixed inset-0 z-[900] md:hidden"
+          onClick={() => setIsMobileMenuOpen(false)}
+          aria-label="Close admin navigation"
+        />
+      )}
+
+      <aside
+        id="admin-mobile-sidebar"
+        aria-label="Admin navigation"
+        className={`admin-shell__aside admin-shell__drawer w-60 flex flex-col shrink-0 ${isMobileMenuOpen ? 'is-open' : ''}`}
+      >
+        {isMobileMenuOpen && (
+          <MobileMenuButton
+            isOpen
+            className="mobile-menu-button--drawer"
+            onClick={() => setIsMobileMenuOpen(false)}
+            controls="admin-mobile-sidebar"
+            label="admin navigation menu"
+          />
+        )}
         <div className="admin-shell__brand h-16 flex items-center px-5">
           <div className="admin-shell__brand-mark">
             <img src="/Logo_Final-01.png" alt="Pixnxt" />
@@ -106,6 +153,7 @@ const AdminLayout = () => {
               className={({ isActive }) =>
                 `admin-shell__nav-link ${isActive ? 'is-active' : ''}`
               }
+              onClick={() => setIsMobileMenuOpen(false)}
             >
               <item.icon className="w-[18px] h-[18px] shrink-0" strokeWidth={1.75} />
               {item.name}
@@ -188,35 +236,14 @@ const AdminLayout = () => {
 
       <main className="flex-1 flex flex-col h-full overflow-hidden relative min-w-0">
         <header className="md:hidden admin-shell__aside z-10 border-b border-[var(--ad-line)]">
-          <div className="h-14 flex items-center justify-between px-4">
+          <div className="admin-shell__mobile-header h-14 flex items-center justify-between px-4">
             <div className="flex items-center gap-2">
               <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 bg-[var(--ad-card)] border border-[var(--ad-line)]">
                 <img src="/Logo_Final-01.png" alt="Pixnxt" className="w-4 h-4 object-contain" />
               </div>
               <span className="font-semibold text-sm tracking-wide text-[var(--ad-ink)]">Admin</span>
             </div>
-            <button
-              type="button"
-              onClick={handleLogout}
-              className="p-2 rounded-lg text-[var(--ad-sidebar-text)] hover:bg-[var(--bg-surface-hover)] hover:text-[var(--ad-sidebar-text-active)]"
-            >
-              <LogOut className="w-5 h-5" />
-            </button>
           </div>
-          <nav className="ad-mnav flex gap-1.5 overflow-x-auto px-3 pb-3">
-            {navItems.map((item) => (
-              <NavLink
-                key={item.name}
-                to={item.path}
-                className={({ isActive }) =>
-                  `admin-shell__nav-link shrink-0 rounded-full px-3 py-1.5 text-xs ${isActive ? 'is-active' : ''}`
-                }
-              >
-                <item.icon className="w-3.5 h-3.5 shrink-0" />
-                {item.name}
-              </NavLink>
-            ))}
-          </nav>
         </header>
 
         <div className="admin-studio flex-1 overflow-auto">
