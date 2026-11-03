@@ -64,7 +64,7 @@
     position: relative;
     display: inline-block;
     width: 44px;
-    height: 24px;
+    height: 44px;
 }
 
 .cf-toggle input {
@@ -76,7 +76,7 @@
 .cf-toggle-slider {
     position: absolute;
     cursor: pointer;
-    inset: 0;
+    inset: 10px 0;
     background-color: var(--toggle-track-off);
     border-radius: 24px;
     transition: background-color 0.2s;

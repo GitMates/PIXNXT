@@ -195,5 +195,107 @@
   padding-bottom: 32px;
 }
 
+@media (max-width: 767px) {
+  .fv-main {
+    height: auto;
+    min-height: calc(100svh - 3.5rem);
+    overflow: visible;
+  }
+
+  .fv-topbar {
+    align-items: center;
+    gap: 10px;
+    padding: 16px;
+  }
+
+  .fv-title-block,
+  .fv-title-row,
+  .fv-title-row > div {
+    min-width: 0;
+  }
+
+  .fv-folder-name {
+    font-size: 20px;
+    overflow-wrap: anywhere;
+  }
+
+  .fv-folder-date {
+    font-size: 14px;
+  }
+
+  .fv-actions {
+    width: 100%;
+    margin-left: 0;
+  }
+
+  .fv-share-wrap,
+  .fv-btn-secondary,
+  .fv-new-collection-solo {
+    flex: 1 1 0;
+    justify-content: center;
+    min-width: 0;
+    min-height: 44px;
+  }
+
+  .fv-dropdown {
+    left: 0;
+    right: auto;
+    min-width: min(220px, calc(100vw - 32px));
+  }
+
+  .fv-toolbar {
+    padding: 12px 16px;
+  }
+
+  .fv-toolbar .cg-view-icon-btn,
+  .fv-toolbar .cg-style-72 {
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  .fv-grid {
+    padding: 8px 16px 28px;
+  }
+
+  .fv-list {
+    padding: 0 16px 28px;
+  }
+
+  .fv-empty-title {
+    font-size: 24px;
+  }
+
+  .fv-empty-desc {
+    font-size: 15px;
+  }
+
+  .fv-main .cg-style-39 {
+    width: 36px;
+    height: 36px;
+    opacity: 1;
+  }
+
+  .fv-main .cg-style-76 {
+    width: 36px;
+    height: 36px;
+    padding: 7px;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.28);
+    opacity: 1;
+  }
+}
+
+@media (max-width: 380px) {
+  .fv-actions {
+    gap: 8px;
+  }
+
+  .fv-btn-secondary,
+  .fv-new-collection-solo {
+    padding-inline: 10px;
+    font-size: 14px;
+  }
+}
+
 
 

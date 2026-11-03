@@ -775,3 +775,55 @@ body.dark-theme .nd-page .nd-date .dp-icon {
     flex-basis: auto;
   }
 }
+
+@media (max-width: 767px) {
+  /* Let the mobile shell own page scrolling instead of creating a nested scroller. */
+  .nd-page {
+    flex: 0 0 auto;
+    min-height: 0;
+    overflow: visible;
+  }
+
+  .nd-head > div {
+    min-width: 0;
+  }
+
+  .nd-where {
+    overflow-wrap: anywhere;
+  }
+
+  .nd-back {
+    width: 44px;
+    height: 44px;
+  }
+
+  .nd-switch {
+    width: 44px;
+    height: 44px;
+    background: transparent;
+  }
+
+  .nd-switch::before {
+    content: '';
+    position: absolute;
+    top: 12px;
+    left: 4px;
+    width: 36px;
+    height: 20px;
+    border-radius: 999px;
+    background: var(--nd-line-strong);
+  }
+
+  .nd-switch::after {
+    top: 14px;
+    left: 6px;
+  }
+
+  .nd-switch[aria-checked="true"] {
+    background: transparent;
+  }
+
+  .nd-switch[aria-checked="true"]::before {
+    background: var(--nd-accent);
+  }
+}
