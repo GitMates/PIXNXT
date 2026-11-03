@@ -686,10 +686,9 @@ const AdminQuotas = () => {
       )}
 
       {!error && !loading && (
-        <div className="ad-panel ad-card overflow-hidden">
-          {/* No horizontal scroll: grouped columns fit the container */}
-          <div className="overflow-hidden">
-            <table className="w-full text-left text-sm" style={{ tableLayout: 'fixed' }}>
+        <div className="admin-quotas-table-panel ad-panel ad-card overflow-hidden">
+          <div className="admin-quotas-table-wrap overflow-hidden">
+            <table className="admin-quotas-table w-full text-left text-sm" style={{ tableLayout: 'fixed' }}>
               <thead className="bg-[var(--ad-sunk)] border-b border-[var(--ad-line)]">
                 <tr>
                   <th className="px-5 py-3.5 font-semibold ad-muted-text text-xs uppercase tracking-wider" style={{ width: '26%' }}>Photographer</th>
@@ -724,7 +723,7 @@ const AdminQuotas = () => {
                 ) : (
                   filteredUsers.map((user) => (
                     <tr key={user.id} className="ad-row transition-colors align-top">
-                      <td className="px-5 py-4 min-w-0">
+                      <td data-label="Photographer" className="px-5 py-4 min-w-0">
                         <div className="flex items-center gap-3 min-w-0">
                           <div className="ad-avatar w-9 h-9 rounded-full flex items-center justify-center bg-[var(--ad-ink)] text-[var(--ad-card)] shrink-0">
                             <User className="w-4 h-4" />
@@ -744,13 +743,13 @@ const AdminQuotas = () => {
                           </div>
                         </div>
                       </td>
-                      <td className="px-4 py-4 min-w-0">
+                      <td data-label="Storage" className="px-4 py-4 min-w-0">
                         <p className="text-[13px] font-semibold ad-ink">{formatStorageShort(user.usedStorage, user.totalStorage)}</p>
                         <div className="mt-1.5 max-w-[160px]">
                           <MiniBar used={user.rawUsedBytes} limit={user.rawLimitBytes} />
                         </div>
                       </td>
-                      <td className="px-4 py-4 min-w-0">
+                      <td data-label="Face images" className="px-4 py-4 min-w-0">
                         <div className="space-y-2">
                           <div className="flex items-center justify-between gap-2">
                             <span className="inline-flex items-center gap-1 text-[11px] font-medium ad-muted-text w-14 shrink-0">
@@ -776,7 +775,7 @@ const AdminQuotas = () => {
                           <MiniBar used={user.guestImageUsed} limit={user.guestFeature !== false ? user.guestImageLimit : -1} />
                         </div>
                       </td>
-                      <td className="px-4 py-4 min-w-0">
+                      <td data-label="Deliveries" className="px-4 py-4 min-w-0">
                         <div className="space-y-2">
                           <div className="flex items-center justify-between gap-2">
                             <span className="inline-flex items-center gap-1 text-[11px] font-medium ad-muted-text w-14 shrink-0">
@@ -802,7 +801,7 @@ const AdminQuotas = () => {
                           <MiniBar used={user.guestFaceUsed} limit={user.guestFeature !== false ? user.guestFaceLimit : -1} />
                         </div>
                       </td>
-                      <td className="px-4 py-4 text-right">
+                      <td data-label="Actions" className="px-4 py-4 text-right">
                         <button
                           onClick={() => openLimitsEditor(user)}
                           className="ad-action-btn ad-btn-primary inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold transition-colors"

@@ -497,9 +497,9 @@ const AdminUsageManagement = () => {
       {!error && loading && <AppLoader label="Loading usage" variant="page-short" />}
 
       {!error && !loading && (
-        <div className="ad-panel ad-card overflow-hidden">
-          <div className="overflow-hidden">
-            <table className="w-full text-left text-sm" style={{ tableLayout: 'fixed' }}>
+        <div className="admin-usage-table-panel ad-panel ad-card overflow-hidden">
+          <div className="admin-usage-table-wrap overflow-hidden">
+            <table className="admin-usage-table w-full text-left text-sm" style={{ tableLayout: 'fixed' }}>
               <thead className="bg-[var(--ad-sunk)] border-b border-[var(--ad-line)]">
                 <tr>
                   <th className="px-5 py-3.5 font-semibold ad-muted-text text-xs uppercase tracking-wider" style={{ width: '34%' }}>Photographer</th>
@@ -532,8 +532,8 @@ const AdminUsageManagement = () => {
                     const detail = detailsByUser[u.id] || {};
                     return (
                       <React.Fragment key={u.id}>
-                      <tr className={`ad-row transition-colors align-top ${expanded ? 'bg-[var(--ad-sunk)]' : ''}`}>
-                      <td className="px-5 py-4 min-w-0">
+                      <tr className={`admin-usage-summary-row ad-row transition-colors align-top ${expanded ? 'is-expanded' : ''}`}>
+                      <td data-label="Photographer" className="px-5 py-4 min-w-0">
                         <div className="flex items-center gap-3 min-w-0">
                           <div className="ad-avatar w-9 h-9 rounded-full flex items-center justify-center bg-[var(--ad-ink)] text-[var(--ad-card)] shrink-0">
                             <User className="w-4 h-4" />
@@ -545,21 +545,21 @@ const AdminUsageManagement = () => {
                           </div>
                         </div>
                       </td>
-                      <td className="px-4 py-4 min-w-0">
+                      <td data-label="Albums" className="px-4 py-4 min-w-0">
                         <div className="flex items-center justify-between gap-2 mb-1.5">
                           <span className="text-[11px] font-medium ad-muted-text">Albums</span>
                           <QuotaPill used={u.albumUsed} limit={u.albumLimit} />
                         </div>
                         <MiniBar used={u.albumUsed} limit={u.albumLimit} />
                       </td>
-                      <td className="px-4 py-4 min-w-0">
+                      <td data-label="Deliveries" className="px-4 py-4 min-w-0">
                         <div className="flex items-center justify-between gap-2 mb-1.5">
                           <span className="text-[11px] font-medium ad-muted-text">Deliveries</span>
                           <QuotaPill used={u.deliveryUsed} limit={u.deliveryLimit} />
                         </div>
                         <MiniBar used={u.deliveryUsed} limit={u.deliveryLimit} />
                       </td>
-                      <td className="px-4 py-4">
+                      <td data-label="Actions" className="px-4 py-4">
                         <div className="flex items-center justify-end gap-1.5">
                           <button
                             type="button"
@@ -577,7 +577,7 @@ const AdminUsageManagement = () => {
                       </td>
                       </tr>
                       {expanded && (
-                        <tr className="bg-[color-mix(in_srgb,var(--ad-sunk)_55%,var(--ad-card))]">
+                        <tr className="admin-usage-detail-row bg-[color-mix(in_srgb,var(--ad-sunk)_55%,var(--ad-card))]">
                           <td colSpan="4" className="px-5 pb-5 pt-1">
                             {detail.loading ? (
                               <div className="flex items-center gap-2 py-4 text-sm ad-muted-text">
