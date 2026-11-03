@@ -89,6 +89,10 @@
   margin-bottom: 28px;
 }
 
+.theme-mono .sa-proofer-albums__toolbar-controls {
+  display: contents;
+}
+
 .theme-mono .sa-proofer-albums__search {
   flex: 1;
   display: flex;
@@ -359,6 +363,91 @@
 }
 
 @media (max-width: 720px) {
+  .theme-mono .sa-proofer-albums {
+    padding: 68px 16px 32px;
+  }
+
+  .theme-mono .sa-proofer-albums__hero {
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 18px;
+  }
+
+  .theme-mono .sa-proofer-albums__title {
+    font-size: clamp(30px, 8vw, 40px) !important;
+  }
+
+  .theme-mono .sa-proofer-albums__subtitle {
+    font-size: 13px;
+  }
+
+  .theme-mono .sa-proofer-albums__new-btn {
+    height: 38px;
+    padding: 0 13px;
+    white-space: nowrap;
+  }
+
+  .theme-mono .sa-proofer-albums__toolbar {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+    margin-bottom: 20px;
+  }
+
+  .theme-mono .sa-proofer-albums__search {
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+  }
+
+  .theme-mono .sa-proofer-albums__toolbar-controls {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    min-width: 0;
+    overflow: visible;
+  }
+
+  .theme-mono .sa-proofer-albums__filter-anchor,
+  .theme-mono .sa-proofer-albums__sort,
+  .theme-mono .sa-proofer-albums__view-toggle {
+    flex: 0 0 auto;
+  }
+
+  .theme-mono .sa-proofer-albums__view-toggle {
+    margin-left: 0;
+  }
+
+  .theme-mono .sa-proofer-albums__chip-btn {
+    height: 40px;
+    padding: 0 12px;
+  }
+
+  .theme-mono .sa-proofer-albums__view-toggle {
+    height: 40px;
+  }
+
+  .theme-mono .sa-proofer-albums__view-btn {
+    width: 36px;
+    height: 34px;
+  }
+
+  .theme-mono .sa-proofer-albums__sort-menu {
+    left: 0;
+    right: auto;
+    min-width: min(180px, calc(100vw - 24px));
+    max-width: calc(100vw - 24px);
+    box-sizing: border-box;
+  }
+
+  .theme-mono .sa-proofer-albums__grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 22px;
+  }
+
   .theme-mono .sa-proofer-albums__grid--list .sa-proofer-album-card,
   .theme-mono .sa-proofer-album-card--list {
     flex-wrap: wrap;
@@ -374,6 +463,23 @@
     margin-left: 0;
     justify-content: flex-end;
     gap: 16px;
+  }
+}
+
+@media (max-width: 380px) {
+  .theme-mono .sa-proofer-albums {
+    padding-right: 12px;
+    padding-left: 12px;
+  }
+
+  .theme-mono .sa-proofer-albums__hero {
+    align-items: flex-start;
+  }
+
+  .theme-mono .sa-proofer-albums__new-btn {
+    height: 36px;
+    padding: 0 10px;
+    font-size: 12px;
   }
 }
 

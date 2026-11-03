@@ -679,6 +679,7 @@ const AlbumsList = ({ starredOnly = false, proofFilter = 'all' }) => {
                         aria-label="Search albums"
                     />
                 </label>
+                <div className="sa-proofer-albums__toolbar-controls">
                 {proofFilter === 'all' && (
                     <div className="sa-proofer-albums__filter-anchor">
                         <button
@@ -789,6 +790,7 @@ const AlbumsList = ({ starredOnly = false, proofFilter = 'all' }) => {
                             <line x1="3" y1="18" x2="3.01" y2="18" />
                         </svg>
                     </button>
+                </div>
                 </div>
             </div>
                 </>

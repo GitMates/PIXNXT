@@ -34,10 +34,15 @@ export function shouldRequireDesktop(pathname) {
   const isResponsiveClientGalleryPath = path === '/client-gallery'
     || path === '/client_gallery'
     || path === '/clientgallery';
+  const isResponsiveAlbumProoferPath = path === '/album-proofer'
+    || path.startsWith('/album-proofer/')
+    || path === '/smart-albums'
+    || path.startsWith('/smart-albums/');
   const isResponsiveDashboardPath = path === '/dashboard';
   const isResponsiveShowcasePath = path === '/showcase';
   const isResponsiveSettingsPath = path === '/settings' || path.startsWith('/settings/');
   const isResponsiveAccountPath = [
+    '/account/profile',
     '/account/account',
     '/account/studio-identity',
     '/account/legal-consent',
@@ -57,6 +62,7 @@ export function shouldRequireDesktop(pathname) {
   return path !== '/'
     && !isAuthPath
     && !isResponsiveClientGalleryPath
+    && !isResponsiveAlbumProoferPath
     && !isResponsiveDashboardPath
     && !isResponsiveDeliveryManagerPath
     && !isResponsiveLibraryPath

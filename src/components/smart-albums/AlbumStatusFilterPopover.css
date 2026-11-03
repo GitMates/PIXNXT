@@ -62,6 +62,16 @@
   color: var(--sa-proofer-ink, var(--ink));
 }
 
+@media (max-width: 720px) {
+  .theme-mono .sa-status-filter {
+    left: 0;
+    right: auto;
+    min-width: min(200px, calc(100vw - 24px));
+    max-width: calc(100vw - 24px);
+    box-sizing: border-box;
+  }
+}
+
 .theme-mono .sa-proofer-albums__icon-btn--filtered {
   color: var(--ink);
 }
