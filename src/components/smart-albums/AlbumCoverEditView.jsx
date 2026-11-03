@@ -24,7 +24,6 @@ import { getCoverLeatherSurfaceStyle } from './coverLeatherSurface';
 import { albumShowsLeatherCover } from './albumSpreadUtils';
 import './AlbumCoverEditView.css';
 
-const PAGE_HEIGHT_MIN = 300;
 const PAGE_HEIGHT_MAX = 520;
 const PAGE_HEIGHT_SCALE = 0.93;
 const STAGE_MIN_PX = 80;
@@ -35,8 +34,10 @@ function computeWrapDimensions(stageWidth, stageHeight, wrapAspect) {
     const maxWrapWidth = stageWidth * 0.96;
     const maxWrapHeight = stageHeight * PAGE_HEIGHT_SCALE;
     const heightFromWidth = Math.floor(maxWrapWidth / wrapAspect);
-    const height = Math.floor(Math.min(maxWrapHeight, heightFromWidth));
-    const clampedHeight = Math.max(PAGE_HEIGHT_MIN, Math.min(PAGE_HEIGHT_MAX, height));
+    const height = Math.floor(
+        Math.min(maxWrapHeight, heightFromWidth, PAGE_HEIGHT_MAX)
+    );
+    const clampedHeight = Math.max(1, height);
     return {
         width: Math.round(clampedHeight * wrapAspect),
         height: clampedHeight,

@@ -97,6 +97,8 @@ function CoverSpineToggle({ on, onChange, label }) {
 export default function AlbumEditorSidebar({
     activePanel,
     onPanelChange,
+    isMobilePanelOpen = false,
+    onMobilePanelClose,
     album,
     totalPages,
     onUploadForCurrentSpread,
@@ -647,7 +649,19 @@ export default function AlbumEditorSidebar({
     };
 
     return (
-        <aside className="ae-sidebar">
+        <>
+            {isMobilePanelOpen ? (
+                <button
+                    type="button"
+                    className="ae-mobile-panel-backdrop"
+                    onClick={onMobilePanelClose}
+                    aria-label="Close album tools"
+                />
+            ) : null}
+            <aside
+                id="album-editor-sidebar"
+                className={`ae-sidebar${isMobilePanelOpen ? ' ae-sidebar--mobile-open' : ''}`}
+            >
             <nav className="ae-nav-rail ae-nav-rail--tabs" aria-label="Editor tools">
                 {navItems.map(({ id, label }) => {
                     const active = activePanel === id;
@@ -984,6 +998,7 @@ export default function AlbumEditorSidebar({
                     </>
                 )}
             </div>
-        </aside>
+            </aside>
+        </>
     );
 }

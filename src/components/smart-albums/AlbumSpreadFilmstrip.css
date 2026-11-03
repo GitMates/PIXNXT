@@ -250,7 +250,11 @@
   }
 
   .ae-spread-filmstrip__thumb {
-    height: 68px;
+    height: 52px;
+  }
+
+  .ae-spread-filmstrip__track {
+    gap: 9px;
   }
 }
 

@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Menu, RotateCw, Share2, X } from 'lucide-react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import AlbumBook from '../../components/smart-albums/AlbumBook';
 import AlbumCoverEditView from '../../components/smart-albums/AlbumCoverEditView';
@@ -350,7 +351,46 @@ export default function AlbumEditor({
         }
         return 'pin';
     });
+    const [isMobilePanelOpen, setIsMobilePanelOpen] = useState(false);
+    const [landscapeActive, setLandscapeActive] = useState(false);
     const { toast, showToast, clearToast } = useAppToast(4000);
+
+    useEffect(() => {
+        const syncFullscreenState = () => {
+            setLandscapeActive(Boolean(document.fullscreenElement));
+        };
+        document.addEventListener('fullscreenchange', syncFullscreenState);
+        return () => document.removeEventListener('fullscreenchange', syncFullscreenState);
+    }, []);
+
+    const handleLandscapeToggle = useCallback(async () => {
+        if (document.fullscreenElement) {
+            window.screen?.orientation?.unlock?.();
+            await document.exitFullscreen?.().catch(() => {});
+            setLandscapeActive(false);
+            return;
+        }
+
+        const editor = document.querySelector('.ae-page');
+        const orientation = window.screen?.orientation;
+        if (!editor?.requestFullscreen || !orientation?.lock) {
+            showToast('Turn your phone sideways to view the full album spread.');
+            return;
+        }
+
+        try {
+            await editor.requestFullscreen();
+            await orientation.lock('landscape');
+            setLandscapeActive(true);
+        } catch {
+            if (document.fullscreenElement) {
+                await document.exitFullscreen?.().catch(() => {});
+            }
+            window.screen?.orientation?.unlock?.();
+            setLandscapeActive(false);
+            showToast('Turn your phone sideways to view the full album spread.');
+        }
+    }, [showToast]);
     const [spreadCommentsBySpread, setSpreadCommentsBySpread] = useState({});
     const [uploading, setUploading] = useState(false);
     const [bookPage, setBookPage] = useState(initialPage);
@@ -2846,7 +2886,9 @@ export default function AlbumEditor({
                             }${shareMode === 'live' ? ' ae-btn-share--primary' : ''}`}
                             onClick={() => setShowShareMenu((v) => !v)}
                             aria-expanded={showShareMenu}
+                            aria-label="Share album"
                         >
+                            <Share2 className="ae-btn-share-icon" size={17} aria-hidden="true" />
                             Share
                             <svg
                                 className={`ae-btn-share-chevron${
@@ -2935,6 +2977,28 @@ export default function AlbumEditor({
                             <div className="ae-canvas-stage-loading" aria-busy="true" />
                         )}
                     </div>
+                    <div className="ae-mobile-view-actions" aria-label="Album viewer controls">
+                        <button
+                            type="button"
+                            className="ae-mobile-panel-toggle"
+                            onClick={() => setIsMobilePanelOpen((open) => !open)}
+                            aria-label={isMobilePanelOpen ? 'Close album tools' : 'Open album tools'}
+                            aria-expanded={isMobilePanelOpen}
+                            aria-controls="album-editor-sidebar"
+                        >
+                            {isMobilePanelOpen ? <X size={17} aria-hidden="true" /> : <Menu size={17} aria-hidden="true" />}
+                            <span>{isMobilePanelOpen ? 'Close' : 'Tools'}</span>
+                        </button>
+                        <button
+                            type="button"
+                            className="ae-landscape-toggle"
+                            onClick={handleLandscapeToggle}
+                            aria-label={landscapeActive ? 'Exit landscape view' : 'View album in landscape'}
+                        >
+                            <RotateCw size={16} aria-hidden="true" />
+                            <span>{landscapeActive ? 'Exit' : 'Landscape'}</span>
+                        </button>
+                    </div>
                     {!coverEditMode ? (
                         <AlbumSpreadFilmstrip
                             album={albumForBook}
@@ -2960,6 +3024,8 @@ export default function AlbumEditor({
 
                 <AlbumEditorSidebar
                     activePanel={activePanel}
+                    isMobilePanelOpen={isMobilePanelOpen}
+                    onMobilePanelClose={() => setIsMobilePanelOpen(false)}
                     onPanelChange={handlePanelChange}
                     commentSettings={
                         user?.id ? (

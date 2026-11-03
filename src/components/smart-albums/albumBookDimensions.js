@@ -24,8 +24,8 @@ export function computeBookDimensions(w, h, gridSize = 'square', gridLayout = 't
     // Two-page albums (kavi) keep the 520px cap. Whole-spread albums fill the
     // stage so a single landscape photo does not sit in a smaller frame.
     const pageHeight = isWholeSpreadLayout(gridLayout)
-        ? Math.max(BOOK_PAGE_HEIGHT_MIN, Math.min(naturalHeight, chromeRoom))
-        : Math.max(BOOK_PAGE_HEIGHT_MIN, Math.min(BOOK_PAGE_HEIGHT_MAX, naturalHeight));
+        ? Math.min(naturalHeight, Math.max(BOOK_PAGE_HEIGHT_MIN, chromeRoom))
+        : Math.min(naturalHeight, BOOK_PAGE_HEIGHT_MAX);
 
     return {
         width: Math.round(pageHeight * aspect),
