@@ -94,6 +94,8 @@ function buildNextIds(display, lockedIndices, fromIndex, overIndex, movingIds = 
 
 const INTERACTIVE_SELECTOR =
     '.cd-photo-more-btn, .cd-photo-star, .cd-photo-check, .cd-photo-hover-tools, .cd-photo-menu, .cd-ctx-item, button, a, input, label';
+const TOUCH_DRAG_HOLD_MS = 1000;
+const TOUCH_SCROLL_CANCEL_PX = 8;
 
 function getScrollParent(gridEl) {
     return gridEl?.closest('.cd-main-area') || gridEl?.closest('.cd-main-wrapper') || null;
@@ -123,6 +125,7 @@ export default function CollectionPhotoSortableGrid({
     const onReorderRef = useRef(onReorder);
     const dragMovedRef = useRef(false);
     const suppressClickUntilRef = useRef(0);
+    const touchHoldTimerRef = useRef(null);
     const [dragState, setDragState] = useState(null);
     const [optimisticIds, setOptimisticIds] = useState(null);
 
@@ -222,6 +225,10 @@ export default function CollectionPhotoSortableGrid({
             if (!drag || e.pointerId !== drag.pointerId) return;
 
             stopAutoScroll();
+            if (touchHoldTimerRef.current != null) {
+                clearTimeout(touchHoldTimerRef.current);
+                touchHoldTimerRef.current = null;
+            }
             document.body.style.userSelect = '';
 
             const wrapEl = wrapRefs.current[drag.fromIndex];
@@ -275,7 +282,18 @@ export default function CollectionPhotoSortableGrid({
             const deltaX = e.clientX - drag.startX;
             const deltaY = e.clientY - drag.startY;
 
-            if (!drag.activated && (Math.abs(deltaX) > 4 || Math.abs(deltaY) > 4)) {
+            if (!drag.activated && drag.pointerType === 'touch') {
+                if (Math.abs(deltaX) > TOUCH_SCROLL_CANCEL_PX || Math.abs(deltaY) > TOUCH_SCROLL_CANCEL_PX) {
+                    if (touchHoldTimerRef.current != null) {
+                        clearTimeout(touchHoldTimerRef.current);
+                        touchHoldTimerRef.current = null;
+                    }
+                    dragRef.current = null;
+                    return;
+                }
+            }
+
+            if (!drag.activated && drag.pointerType !== 'touch' && (Math.abs(deltaX) > 4 || Math.abs(deltaY) > 4)) {
                 drag.activated = true;
                 dragMovedRef.current = true;
                 document.body.style.userSelect = 'none';
@@ -362,10 +380,33 @@ export default function CollectionPhotoSortableGrid({
                 startX: e.clientX,
                 startY: e.clientY,
                 pointerId: e.pointerId,
+                pointerType: e.pointerType,
                 activated: false,
                 isMulti,
                 movingIds,
             };
+
+            if (e.pointerType === 'touch') {
+                const pointerId = e.pointerId;
+                touchHoldTimerRef.current = setTimeout(() => {
+                    touchHoldTimerRef.current = null;
+                    const drag = dragRef.current;
+                    if (!drag || drag.pointerId !== pointerId || drag.activated) return;
+                    drag.activated = true;
+                    document.body.style.userSelect = 'none';
+                    try {
+                        wrap.setPointerCapture(pointerId);
+                    } catch {
+                        /* ignore */
+                    }
+                    setDragState({
+                        fromIndex: drag.fromIndex,
+                        overIndex: drag.fromIndex,
+                        isMulti: drag.isMulti,
+                        movingIds: drag.movingIds,
+                    });
+                }, TOUCH_DRAG_HOLD_MS);
+            }
         },
         [disabled, displayPhotos, isDraggable]
     );

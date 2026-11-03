@@ -7985,8 +7985,34 @@
         position: sticky !important;
         top: 0 !important;
         z-index: 20 !important;
-        flex-wrap: wrap !important;
+        flex-wrap: nowrap !important;
         gap: 8px !important;
+        overflow: hidden !important;
+    }
+
+    .cd-selection-left {
+        flex: 0 0 auto !important;
+        white-space: nowrap !important;
+    }
+
+    .cd-selection-actions {
+        flex: 1 1 auto !important;
+        min-width: 0 !important;
+        flex-wrap: nowrap !important;
+        justify-content: flex-start !important;
+        overflow-x: auto !important;
+        overflow-y: hidden !important;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+        white-space: nowrap !important;
+    }
+
+    .cd-selection-actions::-webkit-scrollbar {
+        display: none;
+    }
+
+    .cd-selection-actions > * {
+        flex: 0 0 auto !important;
     }
 
     .cd-mobile-nav-backdrop {
