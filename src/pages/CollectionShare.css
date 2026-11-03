@@ -555,6 +555,7 @@
     }
     .cs-composer-pane {
         width: 100%;
+        min-width: 0;
         max-width: none;
         height: auto;
         border-right: none;
@@ -567,6 +568,104 @@
     }
     .cs-preview-email-frame {
         padding: 20px;
+    }
+    .cs-share-shell {
+        height: auto;
+        min-height: 100dvh;
+        overflow: visible;
+    }
+    .cs-share-container {
+        min-height: 0;
+        flex: 1 0 auto;
+        overflow: visible;
+    }
+    .cs-form {
+        overflow: visible;
+    }
+    .cs-preview-pane {
+        min-height: 0;
+    }
+    .cs-preview-email-frame {
+        overflow: visible;
+    }
+    .cs-composer-footer-row {
+        align-items: flex-start;
+        flex-wrap: wrap;
+        gap: 16px;
+    }
+    .cs-checkbox-list {
+        flex-wrap: wrap;
+    }
+    .cs-send-btn-wrapper {
+        margin-left: auto;
+    }
+    .cs-send-btn,
+    .cs-send-dropdown-arrow {
+        min-height: 44px;
+    }
+}
+
+@media (max-width: 640px) {
+    .cs-top-bar {
+        height: auto;
+        min-height: 56px;
+        flex-wrap: wrap;
+        gap: 4px 8px;
+        padding: 8px 12px;
+    }
+
+    .cs-top-bar-left {
+        min-width: 0;
+        gap: 8px;
+    }
+
+    .cs-top-bar-right {
+        flex-wrap: wrap;
+        justify-content: flex-end;
+        gap: 4px;
+        margin-left: auto;
+    }
+
+    .cs-top-link {
+        min-height: 44px;
+        padding: 6px 8px;
+        font-size: 13px;
+    }
+
+    .cs-form {
+        padding: 20px 16px;
+    }
+
+    .cs-preview-email-frame {
+        padding: 16px 12px;
+    }
+
+    .cs-modal-overlay {
+        align-items: flex-start;
+        overflow-y: auto;
+        padding: 12px;
+    }
+
+    .cs-modal-card {
+        max-height: calc(100dvh - 24px);
+        overflow-y: auto;
+    }
+
+    .cs-modal-header {
+        padding: 18px 20px 12px;
+    }
+
+    .cs-modal-body {
+        padding: 0 20px 20px;
+    }
+
+    .cs-schedule-fields-row {
+        flex-direction: column;
+        gap: 16px;
+    }
+
+    .cs-history-table {
+        min-width: 560px;
     }
 }
 

@@ -601,6 +601,40 @@ body.dark-theme .ad-modal-card {
   background: var(--ad-bad-bg);
 }
 
+@media (max-width: 767px) {
+  .admin-shell {
+    min-width: 0;
+  }
+
+  .admin-studio {
+    min-width: 0;
+    overscroll-behavior: contain;
+  }
+
+  .admin-studio .overflow-x-auto {
+    max-width: 100%;
+    overscroll-behavior-inline: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .admin-shell__mnav a {
+    min-height: 40px;
+  }
+
+  .ad-modal-backdrop {
+    align-items: flex-start;
+    overflow-y: auto;
+    padding: 12px;
+  }
+
+  .ad-modal-card {
+    width: 100%;
+    max-width: calc(100vw - 24px);
+    max-height: calc(100dvh - 24px);
+    overflow-y: auto;
+  }
+}
+
 /* ---- mobile admin nav ---- */
 .ad-mnav {
   scrollbar-width: none;
