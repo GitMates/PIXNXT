@@ -794,19 +794,48 @@ export default function AlbumPreview({
                         )}
                     </div>
                     {showLandscapeSuggestion && (
-                        <div className="av-landscape-suggestion" role="status">
-                            <Smartphone className="av-landscape-suggestion__icon" size={19} aria-hidden="true" />
-                            <span>Turn your phone sideways for a bigger album view.</span>
-                            <button
-                                type="button"
-                                onClick={() => {
-                                    setLandscapeSuggestionDismissed(true);
-                                    setShowLandscapeSuggestion(false);
-                                }}
-                                aria-label="Dismiss landscape suggestion"
+                        <div
+                            className="av-landscape-prompt-backdrop"
+                            role="presentation"
+                            onClick={() => setShowLandscapeSuggestion(false)}
+                        >
+                            <section
+                                className="av-landscape-prompt"
+                                role="dialog"
+                                aria-modal="true"
+                                aria-labelledby="av-landscape-prompt-title"
+                                onClick={(event) => event.stopPropagation()}
                             >
-                                <X size={16} aria-hidden="true" />
-                            </button>
+                                <div className="av-landscape-prompt__icon">
+                                    <Smartphone size={22} aria-hidden="true" />
+                                </div>
+                                <h2 id="av-landscape-prompt-title">Enjoy your album full screen</h2>
+                                <p>
+                                    Tap the expand <span aria-label="fullscreen">⛶</span> button below the spread,
+                                    then turn your phone sideways for the best view.
+                                </p>
+                                <button
+                                    type="button"
+                                    className="av-landscape-prompt__button"
+                                    onClick={() => {
+                                        setLandscapeSuggestionDismissed(true);
+                                        setShowLandscapeSuggestion(false);
+                                    }}
+                                >
+                                    Continue to album
+                                </button>
+                                <button
+                                    type="button"
+                                    className="av-landscape-prompt__close"
+                                    aria-label="Dismiss album viewing tip"
+                                    onClick={() => {
+                                        setLandscapeSuggestionDismissed(true);
+                                        setShowLandscapeSuggestion(false);
+                                    }}
+                                >
+                                    <X size={18} aria-hidden="true" />
+                                </button>
+                            </section>
                         </div>
                     )}
                 </div>

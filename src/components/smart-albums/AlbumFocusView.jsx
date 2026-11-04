@@ -29,9 +29,8 @@ function getFocusBookDimensions(gridSize = 'square') {
     const w = window.innerWidth;
     const h = window.innerHeight;
     const aspect = parseGridSizeAspect(gridSize);
-    const navInset = 56;
-    const verticalInset = 20;
-    const availW = Math.max(320, w - navInset * 2);
+    const verticalInset = 16;
+    const availW = Math.max(320, w);
     const availH = Math.max(240, h - verticalInset * 2);
     const spreadAspect = aspect * 2;
 
@@ -48,6 +47,22 @@ function getFocusBookDimensions(gridSize = 'square') {
         width: Math.max(160, pageWidth),
         height: Math.max(200, pageHeight),
     };
+}
+
+async function lockLandscapeOrientation() {
+    try {
+        await window.screen?.orientation?.lock?.('landscape');
+    } catch {
+        // Orientation locking is unavailable or denied in some mobile browsers.
+    }
+}
+
+function unlockScreenOrientation() {
+    try {
+        window.screen?.orientation?.unlock?.();
+    } catch {
+        // Ignore browsers that do not expose screen orientation controls.
+    }
 }
 
 export default function AlbumFocusView({
@@ -113,6 +128,7 @@ export default function AlbumFocusView({
     }, []);
 
     const handleClose = useCallback(() => {
+        unlockScreenOrientation();
         void exitDocumentFullscreen();
         onClose?.();
     }, [onClose]);
@@ -127,6 +143,7 @@ export default function AlbumFocusView({
 
         const onFsChange = () => {
             if (!getFullscreenElement()) {
+                unlockScreenOrientation();
                 onClose?.();
                 return;
             }
@@ -137,13 +154,17 @@ export default function AlbumFocusView({
             });
         };
 
-        void requestElementFullscreen(root).then(() => {
+        void requestElementFullscreen(root).then(async (enteredFullscreen) => {
+            if (enteredFullscreen) await lockLandscapeOrientation();
             refreshDims();
             focusRoot();
         });
 
         const removeListener = onFullscreenChange(onFsChange);
-        return removeListener;
+        return () => {
+            removeListener();
+            unlockScreenOrientation();
+        };
     }, [focusRoot, onClose, refreshDims]);
 
     const getPageFlipApi = useCallback(() => {

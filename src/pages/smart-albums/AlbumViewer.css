@@ -334,44 +334,93 @@
   cursor: pointer;
 }
 
-.av-landscape-suggestion {
-  position: absolute;
-  z-index: 75;
-  left: 50%;
-  bottom: max(14px, env(safe-area-inset-bottom));
-  transform: translateX(-50%);
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  width: max-content;
-  max-width: calc(100% - 28px);
-  padding: 11px 12px;
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  border-radius: 999px;
-  background: rgba(24, 24, 24, 0.92);
+.av-landscape-prompt-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  display: grid;
+  place-items: center;
+  padding: max(20px, env(safe-area-inset-top)) 20px max(20px, env(safe-area-inset-bottom));
+  box-sizing: border-box;
+  background: rgba(18, 20, 24, 0.48);
+  -webkit-backdrop-filter: blur(3px);
+  backdrop-filter: blur(3px);
+}
+
+.av-landscape-prompt {
+  position: relative;
+  width: min(100%, 380px);
+  box-sizing: border-box;
+  padding: 28px 24px 22px;
+  border: 1px solid rgba(255, 255, 255, 0.7);
+  border-radius: 18px;
+  background: #fff;
+  color: #222;
+  box-shadow: 0 20px 70px rgba(0, 0, 0, 0.24);
+  text-align: center;
+  font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+}
+
+.av-landscape-prompt__icon {
+  width: 48px;
+  height: 48px;
+  margin: 0 auto 14px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: #f7f3eb;
+  color: #aa7a22;
+}
+
+.av-landscape-prompt h2 {
+  margin: 0 28px 9px;
+  font-size: 18px;
+  line-height: 1.3;
+  font-weight: 650;
+}
+
+.av-landscape-prompt p {
+  margin: 0 0 20px;
+  color: #64666b;
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.av-landscape-prompt p span {
+  display: inline-block;
+  min-width: 23px;
+  font-size: 20px;
+  line-height: 1;
+  vertical-align: -2px;
+  color: #25282d;
+}
+
+.av-landscape-prompt__button {
+  width: 100%;
+  min-height: 46px;
+  padding: 10px 16px;
+  border: 0;
+  border-radius: 10px;
+  background: #171b24;
   color: #fff;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
-  font: 500 13px/1.35 system-ui, -apple-system, 'Segoe UI', sans-serif;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
 }
 
-.av-landscape-suggestion__icon {
-  flex: 0 0 auto;
-  transform: rotate(90deg);
-  color: #e9b85d;
-}
-
-.av-landscape-suggestion button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex: 0 0 28px;
-  width: 28px;
-  height: 28px;
-  padding: 0;
+.av-landscape-prompt__close {
+  position: absolute;
+  top: 9px;
+  right: 9px;
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
   border: 0;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.12);
-  color: #fff;
+  background: transparent;
+  color: #777;
   cursor: pointer;
 }
 
@@ -902,9 +951,6 @@
     display: inline-flex;
   }
 
-  .av-landscape-suggestion {
-    display: none;
-  }
 }
 
 @media (max-width: 720px) {
@@ -2367,4 +2413,19 @@
   margin: 0;
   text-align: left;
   cursor: pointer;
+}
+
+@media (max-width: 900px) {
+  .av-page--gallery-proof .av-preview-book-section {
+    padding: 0;
+    gap: 0;
+  }
+
+  .av-page--gallery-proof .av-viewer-body--preview-book {
+    max-width: none;
+  }
+
+  .av-page--gallery-proof .ab-root--preview {
+    padding: 4px 0 40px;
+  }
 }
