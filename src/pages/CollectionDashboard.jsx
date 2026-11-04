@@ -6901,7 +6901,7 @@ const CollectionDashboard = () => {
                                         className={`cd-photo-grid cd-photo-grid--manage ${gridSize === 'large' ? 'grid-large' : ''}${showFilename ? ' cd-photo-grid--filenames' : ''}`}
                                         onReorder={handleGridPhotoReorder}
                                         isDraggable={isGridPhotoDraggable}
-                                        renderPhoto={(photo, index, { isDragging, consumeClick }) => {
+                                        renderPhoto={(photo, index, { isDragging, draggable, consumeClick }) => {
                                             const cols = gridSize === 'large' ? 4 : 6;
                                             const menuAlignLeft = index % cols >= Math.ceil(cols / 2);
                                             const isPending = Boolean(photo._uploadPending);
@@ -6922,6 +6922,20 @@ const CollectionDashboard = () => {
                                                             index={index}
                                                             containInCell
                                                         />
+                                                        {draggable && !isPending ? (
+                                                            <button
+                                                                type="button"
+                                                                className="cd-photo-drag-handle"
+                                                                data-photo-drag-handle
+                                                                aria-label="Hold and drag to reorder photo"
+                                                                onClick={(e) => {
+                                                                    e.preventDefault();
+                                                                    e.stopPropagation();
+                                                                }}
+                                                            >
+                                                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="9" cy="5" r="1.5"/><circle cx="15" cy="5" r="1.5"/><circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/><circle cx="9" cy="19" r="1.5"/><circle cx="15" cy="19" r="1.5"/></svg>
+                                                            </button>
+                                                        ) : null}
                                                         {showCameraBadges && cameraLabel ? (
                                                             <span className="cd-photo-overlay-badge cd-photo-overlay-badge--camera">
                                                                 {cameraLabel}

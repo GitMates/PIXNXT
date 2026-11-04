@@ -353,7 +353,9 @@ export default function CollectionPhotoSortableGrid({
             if (disabled) return;
             if (!isDraggable?.(index, displayPhotos[index])) return;
             if (e.button !== 0) return;
-            if (e.target.closest(INTERACTIVE_SELECTOR)) return;
+            const dragHandle = e.target.closest('[data-photo-drag-handle]');
+            if (e.pointerType === 'touch' && !dragHandle) return;
+            if (!dragHandle && e.target.closest(INTERACTIVE_SELECTOR)) return;
             e.stopPropagation();
 
             const wrap = wrapRefs.current[index];
