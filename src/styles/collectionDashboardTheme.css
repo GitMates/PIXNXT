@@ -952,6 +952,28 @@ body.dark-theme .theme-mono.cd-dashboard-shell {
   --cd-line: var(--border-card);
 }
 
+/* Selection menus render in a body portal, outside the dashboard theme scope. */
+body.dark-theme .cd-selection-move-dropdown--portal {
+  background-color: var(--bg-modal) !important;
+  border-color: var(--border-card) !important;
+  color: var(--text-primary) !important;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45) !important;
+}
+
+body.dark-theme .cd-selection-move-dropdown--portal .cd-sort-label {
+  color: var(--text-secondary) !important;
+  border-color: var(--border-card) !important;
+}
+
+body.dark-theme .cd-selection-move-dropdown--portal .cd-ctx-item {
+  color: var(--text-primary) !important;
+}
+
+body.dark-theme .cd-selection-move-dropdown--portal .cd-ctx-item:hover:not(.disabled) {
+  background-color: var(--bg-surface-hover) !important;
+  color: var(--text-primary) !important;
+}
+
 body.dark-theme .theme-mono.cd-dashboard-shell .cd-modal,
 body.dark-theme .theme-mono.cd-dashboard-shell .cd-modal-header,
 body.dark-theme .theme-mono.cd-dashboard-shell .cd-modal-body,

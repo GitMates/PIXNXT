@@ -1760,7 +1760,6 @@ const CollectionDashboard = () => {
 
     const clearSelection = () => {
         setSelectedPhotos([]);
-        setShowSelectAllMenu(false);
         setShowSelectionMore(false);
         setShowMoveToSetMenu(false);
     };
@@ -4755,7 +4754,6 @@ const CollectionDashboard = () => {
 
     const closeSelectionChrome = () => {
         setShowSelectionMore(false);
-        setShowSelectAllMenu(false);
         setShowMoveToSetMenu(false);
     };
 
