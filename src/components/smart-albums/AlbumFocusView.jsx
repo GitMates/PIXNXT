@@ -25,31 +25,20 @@ import { parseGridSizeAspect } from './albumGridSize';
 const FLIP_TIME_MS = 900;
 const FLIP_CORNER = 'bottom';
 
-function getFocusBookDimensions(gridSize = 'square') {
-    const w = window.innerWidth;
-    const h = window.innerHeight;
-    const aspect = parseGridSizeAspect(gridSize);
-    const verticalInset = 16;
-    const availW = Math.max(320, w);
-    const availH = Math.max(240, h - verticalInset * 2);
-    const spreadAspect = aspect * 2;
+function getFocusBookDimensions(gridSize = 'square', width = window.innerWidth, height = window.innerHeight) {
+    const safeWidth = Math.max(1, width);
+    const safeHeight = Math.max(1, height);
+    const aspect = Math.max(0.1, parseGridSizeAspect(gridSize) || 1);
+    const pageWidth = Math.floor(Math.min(safeWidth / 2, safeHeight * aspect));
 
-    let spreadH = availH;
-    let spreadW = spreadH * spreadAspect;
-    if (spreadW > availW) {
-        spreadW = availW;
-        spreadH = spreadW / spreadAspect;
-    }
-
-    const pageHeight = Math.floor(spreadH);
-    const pageWidth = Math.floor(pageHeight * aspect);
     return {
-        width: Math.max(160, pageWidth),
-        height: Math.max(200, pageHeight),
+        width: Math.max(1, pageWidth),
+        height: Math.max(1, Math.floor(pageWidth / aspect)),
     };
 }
 
 async function lockLandscapeOrientation() {
+    if (!window.matchMedia?.('(max-width: 900px)').matches) return;
     try {
         await window.screen?.orientation?.lock?.('landscape');
     } catch {
@@ -78,6 +67,7 @@ export default function AlbumFocusView({
 }) {
     const bookRef = useRef(null);
     const rootRef = useRef(null);
+    const stageRef = useRef(null);
     const prevNavRef = useRef(null);
     const nextNavRef = useRef(null);
     const isFlippingRef = useRef(false);
@@ -86,7 +76,6 @@ export default function AlbumFocusView({
     const [dims, setDims] = useState(() => getFocusBookDimensions(album?.grid_size));
     const spreadOpts = getAlbumSpreadOptions(album);
     const normalizedStartPage = normalizeStoragePageIndex(startPage, totalPages, spreadOpts);
-    const flipStartPage = storagePageToFlipbookIndex(normalizedStartPage, totalPages, spreadOpts);
     const [pageIndex, setPageIndex] = useState(normalizedStartPage);
 
     useEffect(() => {
@@ -97,17 +86,36 @@ export default function AlbumFocusView({
     const totalSpreads = getTotalSpreads(totalPages, spreadOpts);
     const spreadIndex = pageToSpreadIndex(pageIndex, spreadCtx);
     const currentFlipIndex = storagePageToFlipbookIndex(pageIndex, totalPages, spreadOpts);
+    const flipStartPage = currentFlipIndex;
     const atStart = currentFlipIndex <= 0;
     const atEnd = spreadIndex >= totalSpreads - 1;
 
     const refreshDims = useCallback(() => {
-        setDims(getFocusBookDimensions(album?.grid_size));
+        const stage = stageRef.current;
+        const next = getFocusBookDimensions(
+            album?.grid_size,
+            stage?.clientWidth || window.innerWidth,
+            stage?.clientHeight || window.innerHeight
+        );
+        setDims((previous) =>
+            previous?.width === next.width && previous?.height === next.height ? previous : next
+        );
     }, [album?.grid_size]);
 
     useEffect(() => {
         refreshDims();
+        const stage = stageRef.current;
+        const observer = typeof ResizeObserver === 'function' && stage
+            ? new ResizeObserver(refreshDims)
+            : null;
+        observer?.observe(stage);
         window.addEventListener('resize', refreshDims);
-        return () => window.removeEventListener('resize', refreshDims);
+        window.visualViewport?.addEventListener('resize', refreshDims);
+        return () => {
+            observer?.disconnect();
+            window.removeEventListener('resize', refreshDims);
+            window.visualViewport?.removeEventListener('resize', refreshDims);
+        };
     }, [refreshDims]);
 
     useEffect(() => {
@@ -308,7 +316,7 @@ export default function AlbumFocusView({
                 </svg>
             </button>
 
-            <div className="ab-focus-stage" onClick={(e) => e.stopPropagation()}>
+            <div ref={stageRef} className="ab-focus-stage" onClick={(e) => e.stopPropagation()}>
                 <button
                     type="button"
                     ref={prevNavRef}
@@ -338,7 +346,7 @@ export default function AlbumFocusView({
                         style={{ width: dims.width * 2, height: dims.height }}
                     >
                         <SafeHtmlFlipBook
-                            key={`focus-${album?.id}-${totalPages}-${flipStartPage}`}
+                            key={`focus-${album?.id}-${totalPages}-${dims.width}x${dims.height}`}
                             ref={bookRef}
                             className="ab-html-flipbook ab-html-flipbook--focus"
                             style={{

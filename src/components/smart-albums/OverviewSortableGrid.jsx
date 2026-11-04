@@ -127,12 +127,9 @@ export default function OverviewSortableGrid({
         (e, index) => {
             if (e.button !== 0) return;
 
-            // Preview and locked thumbs (cover, back) are not draggable.
-            // A click still opens that spread. `disabled` only turns dragging off.
-            if (disabled || !isDraggable?.(index)) {
-                onItemActivate?.(index);
-                return;
-            }
+            // Let the browser decide whether a static thumb gesture is a tap or
+            // a vertical scroll. Activation is handled by the resulting click.
+            if (disabled || !isDraggable?.(index)) return;
 
             const wrap = wrapRefs.current[index];
             if (!wrap) return;
@@ -266,6 +263,11 @@ export default function OverviewSortableGrid({
                         }`}
                         style={transform ? { transform } : undefined}
                         onPointerDown={(e) => handlePointerDown(e, index)}
+                        onClick={() => {
+                            if (disabled || !isDraggable?.(index)) {
+                                onItemActivate?.(index);
+                            }
+                        }}
                     >
                         {renderItem(index, {
                             isDragging,
