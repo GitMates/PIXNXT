@@ -258,7 +258,7 @@ export default function AlbumSpreadComments({
                         eventType: 'comment',
                         eventLabel: spreadLabel,
                         eventDetail: trimmed,
-                        comments: [{ spread_index: spreadIndex, body: trimmed, author_name: guest.name }],
+                        comments: [{ spread_index: spreadIndex, body: trimmed, author_name: authorName }],
                     });
                 }
             } catch (e) {

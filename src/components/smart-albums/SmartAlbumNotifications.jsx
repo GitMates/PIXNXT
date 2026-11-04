@@ -25,7 +25,6 @@ import { getCommentAttachmentType } from './albumCommentAttachments';
 import '../../pages/smart-albums/SmartAlbums.css';
 import '../../pages/smart-albums/AlbumEditor.css';
 
-const PURPLE = '#9b59b6';
 const PANEL_WIDTH = 380;
 const PANEL_GAP = 10;
 const VIEWPORT_PAD = 12;
@@ -430,7 +429,6 @@ export default function SmartAlbumNotifications({ userId, variant = 'default' })
                 {unreadCount > 0 && (
                     <span
                         className={`sa-notifications-badge${isSidebar ? ' sa-notifications-badge--dot' : ''}`}
-                        style={isSidebar ? undefined : { background: PURPLE }}
                     >
                         {isSidebar ? '' : badgeLabel}
                     </span>

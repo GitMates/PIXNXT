@@ -355,12 +355,12 @@
   padding: 0;
   border: none;
   background: transparent;
-  color: #222;
+  color: var(--text-secondary);
   cursor: pointer;
 }
 
 .sa-notifications-trigger:hover {
-  color: #111;
+  color: var(--text-primary);
 }
 
 .sa-notifications-badge {
@@ -375,8 +375,21 @@
   font-weight: 700;
   line-height: 16px;
   text-align: center;
-  color: #fff;
+  color: var(--text-heading);
+  background: var(--accent-primary);
   pointer-events: none;
+}
+
+.sa-notifications-badge--dot {
+  top: 6px;
+  right: 6px;
+  min-width: 6px;
+  width: 6px;
+  height: 6px;
+  padding: 0;
+  font-size: 0;
+  background: var(--accent-primary);
+  box-shadow: 0 0 0 2px var(--bg-app);
 }
 
 .sa-notifications-panel {
@@ -601,7 +614,9 @@
   max-width: calc(100vw - 24px);
   max-height: 520px;
   border-radius: 16px;
-  border: 1px solid #e4e4e7;
+  border: 1px solid var(--border-card);
+  background: var(--bg-surface);
+  color: var(--text-primary);
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
 }
 
@@ -697,6 +712,135 @@
 
 .sa-notifications-panel--activity .ae-notifications-item-content {
   min-width: 0;
+}
+
+/* The activity panel is portaled to body, so scope its dark palette there. */
+body.dark-theme .sa-notifications-panel--activity {
+  background: var(--bg-surface);
+  border-color: var(--border-card);
+  color: var(--text-primary);
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.55);
+}
+
+body.dark-theme .sa-notifications-panel--activity .ae-notifications-header,
+body.dark-theme .sa-notifications-panel--activity .ae-notifications-filters,
+body.dark-theme .sa-notifications-panel--activity .ae-notifications-item,
+body.dark-theme .sa-notifications-panel--activity .sa-notifications-dismiss--activity {
+  background: var(--bg-surface);
+  border-color: var(--border-card);
+  color: var(--text-primary);
+}
+
+body.dark-theme .sa-notifications-panel--activity .ae-notifications-title,
+body.dark-theme .sa-notifications-panel--activity .ae-notifications-item-title,
+body.dark-theme .sa-notifications-panel--activity .ae-notifications-item-album {
+  color: var(--text-primary);
+}
+
+body.dark-theme .sa-notifications-panel--activity .ae-notifications-unread-badge {
+  background: var(--accent-subtle);
+  color: var(--accent-primary);
+}
+
+body.dark-theme .sa-notifications-panel--activity .ae-notifications-mark-read,
+body.dark-theme .sa-notifications-panel--activity .sa-notifications-clear-btn--activity {
+  color: var(--accent-primary);
+}
+
+body.dark-theme .sa-notifications-panel--activity .ae-notifications-mark-read:hover,
+body.dark-theme .sa-notifications-panel--activity .sa-notifications-clear-btn--activity:hover {
+  color: var(--accent-secondary);
+}
+
+body.dark-theme .sa-notifications-panel--activity .ae-notifications-filter-btn {
+  color: var(--text-secondary);
+}
+
+body.dark-theme .sa-notifications-panel--activity .ae-notifications-filter-btn:hover {
+  background: var(--bg-surface-hover);
+  color: var(--text-primary);
+}
+
+body.dark-theme .sa-notifications-panel--activity .ae-notifications-filter-btn--active {
+  background: var(--accent-subtle) !important;
+  color: var(--accent-primary) !important;
+}
+
+body.dark-theme .sa-notifications-panel--activity .ae-notifications-section-title {
+  background: var(--bg-sidebar);
+  border-color: var(--border-card);
+  color: var(--text-secondary);
+}
+
+body.dark-theme .sa-notifications-panel--activity .ae-notifications-item,
+body.dark-theme .sa-notifications-panel--activity .ae-notifications-item--unread {
+  background: var(--bg-surface);
+  border-color: var(--border-card);
+}
+
+body.dark-theme .sa-notifications-panel--activity .ae-notifications-item:hover,
+body.dark-theme .sa-notifications-panel--activity .sa-notifications-dismiss--activity:hover {
+  background: var(--bg-surface-hover);
+  color: var(--text-primary);
+}
+
+body.dark-theme .sa-notifications-panel--activity .ae-notifications-item--approved,
+body.dark-theme .sa-notifications-panel--activity .ae-notifications-item--approved:hover {
+  background: var(--accent-subtle);
+}
+
+body.dark-theme .sa-notifications-panel--activity .ae-notifications-item-preview {
+  color: var(--text-body);
+}
+
+body.dark-theme .sa-notifications-panel--activity .ae-notifications-item--done .ae-notifications-item-preview,
+body.dark-theme .sa-notifications-panel--activity .ae-notifications-item-time,
+body.dark-theme .sa-notifications-panel--activity .ae-notifications-item-tag {
+  color: var(--text-secondary);
+}
+
+body.dark-theme .sa-notifications-panel--activity .ae-notifications-item-status,
+body.dark-theme .sa-notifications-panel--activity .ae-notifications-item-done-mark,
+body.dark-theme .sa-notifications-panel--activity .ae-notifications-item-icon-container--tick {
+  color: var(--ok-fg);
+}
+
+body.dark-theme .sa-notifications-panel--activity .ae-notifications-item-unread-dot {
+  background: var(--accent-primary);
+}
+
+body.dark-theme .sa-notifications-panel--activity .ae-notifications-item-tag {
+  background: var(--bg-sidebar);
+}
+
+body.dark-theme .sa-notifications-panel--activity .ae-notifications-item-done-mark {
+  background: var(--bg-surface-hover);
+  color: var(--ok-fg);
+}
+
+body.dark-theme .sa-notifications-panel--activity .ae-notifications-item-icon-container--approved {
+  background: var(--accent-primary);
+  color: var(--text-heading);
+}
+
+body.dark-theme .sa-notifications-panel--activity .ae-notifications-item-icon-container--tick {
+  background: var(--bg-surface-hover);
+}
+
+body.dark-theme .sa-notifications-panel--activity .ae-notifications-item-icon-container--swap,
+body.dark-theme .sa-notifications-panel--activity .ae-notifications-item-icon-container--comment,
+body.dark-theme .sa-notifications-panel--activity .ae-notifications-item-icon-container--image {
+  background: var(--accent-subtle);
+  color: var(--accent-primary);
+}
+
+body.dark-theme .sa-notifications-panel--activity .ae-notifications-item-icon-container--audio {
+  background: var(--bg-surface-hover);
+  color: var(--accent-secondary);
+}
+
+body.dark-theme .sa-notifications-panel--activity .ae-notifications-empty {
+  color: var(--text-secondary);
 }
 
 /* Six filter tabs fit the 380px panel without squeezing. */
