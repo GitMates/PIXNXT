@@ -324,7 +324,7 @@ const AlbumShare = () => {
     const coverUrl = album?.cover_image_url || album?.cover_url || '';
 
     return (
-        <div className="cs-share-shell">
+        <div className="cs-share-shell cs-share-shell--album">
             <div className="cs-top-bar">
                 <div className="cs-top-bar-left">
                     <button type="button" className="cs-close-btn" onClick={() => navigate(editorPath)}>

@@ -1356,4 +1356,106 @@
     z-index: 2;
 }
 
+/* Album proof share page: keep the email preview and composer inside narrow viewports. */
+.cs-share-shell--album {
+    width: 100%;
+    height: 100dvh;
+    min-width: 0;
+}
+
+.cs-share-shell--album .cs-share-container,
+.cs-share-shell--album .cs-composer-pane,
+.cs-share-shell--album .cs-preview-pane,
+.cs-share-shell--album .cs-preview-email-frame {
+    min-width: 0;
+    box-sizing: border-box;
+}
+
+.cs-share-shell--album .cs-email-card {
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.cs-share-shell--album .cs-email-cover {
+    display: block;
+    max-width: 100%;
+}
+
+@media (max-width: 900px) {
+    .cs-share-shell--album {
+        height: auto;
+        min-height: 100dvh;
+    }
+
+    .cs-share-shell--album .cs-share-container {
+        width: 100%;
+        min-height: 0;
+    }
+
+    .cs-share-shell--album .cs-composer-pane {
+        flex: 0 0 auto;
+    }
+
+    .cs-share-shell--album .cs-composer-pane .set-rte-box {
+        min-width: 0;
+        max-width: 100%;
+    }
+
+    .cs-share-shell--album .cs-composer-pane .set-rte-toolbar {
+        max-width: calc(100vw - 32px);
+        overflow-x: auto;
+    }
+
+    .cs-share-shell--album .cs-preview-pane {
+        flex: 0 0 auto;
+        padding-bottom: max(24px, env(safe-area-inset-bottom));
+    }
+
+    .cs-share-shell--album .cs-preview-email-frame {
+        width: 100%;
+        align-items: flex-start;
+    }
+
+    .cs-share-shell--album .cs-email-card {
+        flex: 0 1 580px;
+    }
+}
+
+@media (max-width: 640px) {
+    .cs-share-shell--album .cs-top-bar {
+        min-width: 0;
+    }
+
+    .cs-share-shell--album .cs-top-bar-right {
+        min-width: 0;
+    }
+
+    .cs-share-shell--album .cs-subject-input {
+        font-size: 18px;
+    }
+
+    .cs-share-shell--album .cs-email-brand-header {
+        padding: 28px 16px 16px;
+    }
+
+    .cs-share-shell--album .cs-email-collection-title {
+        font-size: clamp(20px, 7vw, 30px);
+        overflow-wrap: anywhere;
+    }
+
+    .cs-share-shell--album .cs-email-body-content {
+        padding: 28px 22px;
+    }
+
+    .cs-share-shell--album .cs-email-action-row {
+        padding: 0 22px 32px;
+    }
+
+    .cs-share-shell--album .cs-email-button {
+        max-width: 100%;
+        padding: 14px 24px;
+        overflow-wrap: anywhere;
+    }
+}
+
 
