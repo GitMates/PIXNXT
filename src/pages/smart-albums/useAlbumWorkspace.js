@@ -18,6 +18,8 @@ import {
     restorePreBackPlacement,
     removeCollectionItemsOnDeletedSpread,
     unlinkSharedCoverAndInnerPlacement,
+    migrateEndHalfSpreadToLeftPage,
+    migratePreBackHalfSpreadToLeftPage,
     reconcileCoverWrapPlacements,
     syncCoverWrapRoleFromSpread,
 } from '../../components/smart-albums/albumPagePhotos';

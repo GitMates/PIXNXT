@@ -846,7 +846,7 @@ export function MasonryGrid({
                 maxWidth: '100%',
               }}
             >
-              {photo.filename || `photo-${index + 1}.jpg`}
+              {photo.filename || `photo-${originalIndex + 1}.jpg`}
             </div>
           )}
 
