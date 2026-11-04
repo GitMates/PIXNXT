@@ -1,4 +1,5 @@
 import React, { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
+import { MessageCircle, Smartphone, X } from 'lucide-react';
 import AlbumBook from '../../components/smart-albums/AlbumBook';
 import AlbumHybrid3DPreview from '../../components/smart-albums/3d/AlbumHybrid3DPreview';
 import { useAlbumWrapAspect, withAlbumWrapAspect } from '../../components/smart-albums/useAlbumWrapAspect';
@@ -113,6 +114,38 @@ export default function AlbumPreview({
     const { user } = useAuth();
     const { toast, showToast, clearToast } = useAppToast(4500);
     const [bookPage, setBookPage] = useState(initialPage);
+    const [mobileFeedbackOpen, setMobileFeedbackOpen] = useState(false);
+    const [showLandscapeSuggestion, setShowLandscapeSuggestion] = useState(false);
+    const [landscapeSuggestionDismissed, setLandscapeSuggestionDismissed] = useState(false);
+
+    useEffect(() => {
+        if (!clientPreview || typeof window.matchMedia !== 'function') return undefined;
+        const mobileQuery = window.matchMedia('(max-width: 900px)');
+        const portraitQuery = window.matchMedia('(orientation: portrait)');
+        const updateOrientation = () => {
+            const isMobilePortrait = mobileQuery.matches && portraitQuery.matches;
+            setShowLandscapeSuggestion(isMobilePortrait && !landscapeSuggestionDismissed);
+            if (!portraitQuery.matches && mobileQuery.matches) {
+                setLandscapeSuggestionDismissed(true);
+            }
+        };
+        updateOrientation();
+        mobileQuery.addEventListener?.('change', updateOrientation);
+        portraitQuery.addEventListener?.('change', updateOrientation);
+        return () => {
+            mobileQuery.removeEventListener?.('change', updateOrientation);
+            portraitQuery.removeEventListener?.('change', updateOrientation);
+        };
+    }, [clientPreview, landscapeSuggestionDismissed]);
+
+    useEffect(() => {
+        if (!mobileFeedbackOpen) return undefined;
+        const onKeyDown = (event) => {
+            if (event.key === 'Escape') setMobileFeedbackOpen(false);
+        };
+        window.addEventListener('keydown', onKeyDown);
+        return () => window.removeEventListener('keydown', onKeyDown);
+    }, [mobileFeedbackOpen]);
 
     useEffect(() => {
         if (!album?.photographer_id) return undefined;
@@ -695,14 +728,27 @@ export default function AlbumPreview({
                     <h1 className="av-preview-header-title">{album?.name || 'Album'}</h1>
                 </div>
                 {clientPreview ? (
-                    <AlbumPreviewProofActions
-                        albumId={albumId}
-                        albumName={album?.name}
-                        album={album}
-                        onToast={(message, variant = 'info') =>
-                            showToast(message, { variant, duration: 4500 })
-                        }
-                    />
+                    <>
+                        {commentsEnabled && (
+                            <button
+                                type="button"
+                                className="av-preview-comments-trigger"
+                                onClick={() => setMobileFeedbackOpen(true)}
+                                aria-label="Open comments"
+                                aria-expanded={mobileFeedbackOpen}
+                            >
+                                <MessageCircle size={20} aria-hidden="true" />
+                            </button>
+                        )}
+                        <AlbumPreviewProofActions
+                            albumId={albumId}
+                            albumName={album?.name}
+                            album={album}
+                            onToast={(message, variant = 'info') =>
+                                showToast(message, { variant, duration: 4500 })
+                            }
+                        />
+                    </>
                 ) : (
                     <span className="av-preview-header-spacer" aria-hidden />
                 )}
@@ -747,8 +793,31 @@ export default function AlbumPreview({
                             />
                         )}
                     </div>
+                    {showLandscapeSuggestion && (
+                        <div className="av-landscape-suggestion" role="status">
+                            <Smartphone className="av-landscape-suggestion__icon" size={19} aria-hidden="true" />
+                            <span>Turn your phone sideways for a bigger album view.</span>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setLandscapeSuggestionDismissed(true);
+                                    setShowLandscapeSuggestion(false);
+                                }}
+                                aria-label="Dismiss landscape suggestion"
+                            >
+                                <X size={16} aria-hidden="true" />
+                            </button>
+                        </div>
+                    )}
                 </div>
 
+                    <div
+                        className={`av-feedback-mobile-layer${mobileFeedbackOpen ? ' is-open' : ''}`}
+                        role={mobileFeedbackOpen ? 'dialog' : undefined}
+                        aria-modal={mobileFeedbackOpen ? 'true' : undefined}
+                        aria-label={mobileFeedbackOpen ? 'Comments' : undefined}
+                        onClick={() => setMobileFeedbackOpen(false)}
+                    >
                     <AlbumPreviewFeedbackSidebar
                         albumId={albumId}
                         album={album}
@@ -842,7 +911,9 @@ export default function AlbumPreview({
                         onBlocked={clientPreview ? handleProoferBlocked : undefined}
                         onNotify={(message) => showToast(message, { variant: 'info', duration: 3500 })}
                         onCommentsChanged={loadSpreadComments}
+                        onClose={() => setMobileFeedbackOpen(false)}
                     />
+                    </div>
                 </div>
             </div>
             <AlbumPreviewGuestNamePrompt

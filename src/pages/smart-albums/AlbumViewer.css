@@ -320,6 +320,61 @@
   cursor: default;
 }
 
+.av-preview-comments-trigger {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 1px solid #e8e8e8;
+  border-radius: 50%;
+  background: #fff;
+  color: #333;
+  cursor: pointer;
+}
+
+.av-landscape-suggestion {
+  position: absolute;
+  z-index: 75;
+  left: 50%;
+  bottom: max(14px, env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: max-content;
+  max-width: calc(100% - 28px);
+  padding: 11px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 999px;
+  background: rgba(24, 24, 24, 0.92);
+  color: #fff;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+  font: 500 13px/1.35 system-ui, -apple-system, 'Segoe UI', sans-serif;
+}
+
+.av-landscape-suggestion__icon {
+  flex: 0 0 auto;
+  transform: rotate(90deg);
+  color: #e9b85d;
+}
+
+.av-landscape-suggestion button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 28px;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+  cursor: pointer;
+}
+
 /* Access / paused gate screens */
 .av-access-gate {
   display: flex;
@@ -640,6 +695,54 @@
   }
 }
 
+@media (max-width: 900px) {
+  .av-preview-header {
+    grid-template-columns: minmax(40px, auto) minmax(0, 1fr) auto auto;
+    grid-template-rows: 1fr;
+    min-height: 48px;
+    padding: 4px 10px;
+    gap: 6px;
+  }
+
+  .av-preview-header-brand {
+    grid-column: 1;
+    grid-row: 1;
+    min-width: 0;
+    padding: 0;
+  }
+
+  .av-preview-header-title-wrap {
+    grid-column: 2;
+    grid-row: 1;
+    min-width: 0;
+  }
+
+  .av-preview-header-title {
+    grid-column: auto;
+    grid-row: auto;
+    font-size: 10px;
+  }
+
+  .av-preview-comments-trigger {
+    grid-column: 3;
+    grid-row: 1;
+    width: 36px;
+    height: 36px;
+  }
+
+  .av-preview-header-actions {
+    grid-column: 4;
+    grid-row: 1;
+    flex-wrap: nowrap;
+  }
+
+  .av-preview-header-action {
+    min-height: 32px;
+    padding: 0 8px;
+    font-size: 9px;
+  }
+}
+
 .av-preview-notifications {
   position: relative;
   display: flex;
@@ -750,6 +853,65 @@
 }
 
 /* Preview: book fills middle, comments pinned in footer */
+.av-feedback-mobile-layer {
+  display: contents;
+}
+
+.av-feedback-sidebar__close {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+@media (max-width: 900px) {
+  .av-preview-comments-trigger {
+    display: inline-flex;
+  }
+
+  .av-feedback-mobile-layer {
+    display: none;
+  }
+
+  .av-feedback-mobile-layer.is-open {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    display: flex;
+    justify-content: flex-end;
+    background: rgba(0, 0, 0, 0.42);
+  }
+
+  .av-feedback-mobile-layer .av-feedback-sidebar {
+    flex: 0 1 min(420px, 90vw);
+    width: min(420px, 90vw);
+    height: 100%;
+    max-height: 100%;
+    box-shadow: -12px 0 32px rgba(0, 0, 0, 0.16);
+    animation: av-feedback-drawer-in 180ms ease-out;
+  }
+
+  .av-feedback-mobile-layer .av-feedback-sidebar__close {
+    display: inline-flex;
+  }
+
+  .av-landscape-suggestion {
+    display: none;
+  }
+}
+
+@keyframes av-feedback-drawer-in {
+  from { transform: translateX(20px); opacity: 0.75; }
+  to { transform: translateX(0); opacity: 1; }
+}
+
 .av-preview-shell {
   flex: 1;
   min-height: 0;
@@ -766,6 +928,7 @@
 }
 
 .av-preview-book-section {
+  position: relative;
   flex: 1;
   min-height: 0;
   display: flex;
@@ -779,6 +942,33 @@
   overflow-x: visible;
   overflow-y: hidden;
   gap: 12px;
+}
+
+@media (max-width: 900px) and (orientation: landscape) {
+  .av-preview-header {
+    grid-template-columns: minmax(48px, auto) minmax(0, 1fr) auto auto;
+    grid-template-rows: 1fr;
+    min-height: 42px;
+    padding: 2px 10px;
+    gap: 8px;
+  }
+
+  .av-preview-header-brand,
+  .av-preview-header-title-wrap,
+  .av-preview-comments-trigger,
+  .av-preview-header-actions {
+    grid-row: 1;
+  }
+
+  .av-preview-header-brand { grid-column: 1; }
+  .av-preview-header-title-wrap { grid-column: 2; }
+  .av-preview-comments-trigger { grid-column: 3; }
+  .av-preview-header-actions { grid-column: 4; }
+
+  .av-preview-book-section {
+    padding: 4px;
+    gap: 2px;
+  }
 }
 
 .av-page--gallery-proof .av-preview-book-section {

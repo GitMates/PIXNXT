@@ -29,6 +29,10 @@
   gap: 12px;
 }
 
+.av-feedback-sidebar__close {
+  margin: -6px -8px -6px 0;
+}
+
 .av-feedback-sidebar__title {
   margin: 0;
   font-family: inherit;

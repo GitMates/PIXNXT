@@ -524,6 +524,7 @@ export default function AlbumPreviewFeedbackSidebar({
     onBlocked,
     onNotify,
     onCommentsChanged,
+    onClose = null,
     photoPins = [],
     imageReplacements = [],
 }) {
@@ -541,11 +542,25 @@ export default function AlbumPreviewFeedbackSidebar({
     const hasFeed = visibleSpreadFeed.length > 0;
 
     return (
-        <aside className="av-feedback-sidebar" aria-label="Feedback">
+        <aside
+            className="av-feedback-sidebar"
+            aria-label="Feedback"
+            onClick={(event) => event.stopPropagation()}
+        >
             <header className="av-feedback-sidebar__header">
                 <div className="av-feedback-sidebar__header-row">
                     <h2 className="av-feedback-sidebar__title">Comment</h2>
                     <span className="av-feedback-sidebar__spread">{spreadLabel}</span>
+                    {onClose && (
+                        <button
+                            type="button"
+                            className="av-feedback-sidebar__close"
+                            onClick={onClose}
+                            aria-label="Close comments"
+                        >
+                            <X size={18} aria-hidden="true" />
+                        </button>
+                    )}
                 </div>
             </header>
 

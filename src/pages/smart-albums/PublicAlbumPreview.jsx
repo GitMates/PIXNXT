@@ -196,7 +196,9 @@ export default function PublicAlbumPreview() {
         let cancelled = false;
         (async () => {
             try {
-                await loadAlbumAssetsFromCloud(album.id, album.photographer_id);
+                await loadAlbumAssetsFromCloud(album.id, album.photographer_id, {
+                    fetchStudioSnapshot: false,
+                });
                 if (cancelled) return;
                 // loadAlbumAssetsFromCloud may have hydrated a fresher remote
                 // snapshot — re-assert it authoritatively before reading.

@@ -730,7 +730,11 @@ export function patchCollectionItemStoragePath(albumId, itemId, storagePath) {
  * Load collection + page layout from the Workers snapshot, then R2 if needed.
  * Call when opening an album on a new device / Vercel host.
  */
-export async function loadAlbumAssetsFromCloud(albumId, photographerId) {
+export async function loadAlbumAssetsFromCloud(
+    albumId,
+    photographerId,
+    { fetchStudioSnapshot = true } = {}
+) {
     if (!albumId || !photographerId) {
         return { collection: [], loaded: false };
     }
@@ -738,24 +742,16 @@ export async function loadAlbumAssetsFromCloud(albumId, photographerId) {
     let previewData = getRemotePreviewData(albumId) || null;
     let repairedFromServer = false;
 
-    try {
-        let data = null;
-        let error = null;
+    if (fetchStudioSnapshot) {
         try {
             const { apiFetch } = await import('../../lib/api/client');
             const res = await apiFetch(`/v1/proofer/studio/albums/${albumId}`);
-            data = res?.album?.photographer_id === photographerId
-                ? { preview_data: res.album.preview_data, cover_image_url: res.album.cover_image_url }
-                : null;
-        } catch (err) {
-            error = err;
+            if (res?.album?.photographer_id === photographerId && res.album.preview_data) {
+                previewData = res.album.preview_data;
+            }
+        } catch (error) {
+            console.warn('Could not load studio album preview_data:', error?.message || error);
         }
-
-        if (!error && data?.preview_data) {
-            previewData = data.preview_data;
-        }
-    } catch (error) {
-        console.warn('Could not load album preview_data:', error?.message || error);
     }
 
     // Server-side R2 rebuild (no browser CORS). Fixes wiped collection catalogs permanently.
