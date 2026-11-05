@@ -16,6 +16,7 @@ export function PhotoOptionsMenu({
   onToggleHidden,
   onDownloadOriginal,
   onShowDetails,
+  onViewFullScreen,
   onOpen,
   onWhoIsInThis,
   onRemove,
@@ -50,6 +51,11 @@ export function PhotoOptionsMenu({
         {isVideo ? (
           <button type="button" className="cd-pom-item" role="menuitem" onClick={() => onOpen?.(photo)}>
             Open
+          </button>
+        ) : null}
+        {!isVideo ? (
+          <button type="button" className="cd-pom-item" role="menuitem" onClick={() => onViewFullScreen?.(photo)}>
+            Full screen
           </button>
         ) : null}
         {!isVideo ? (

@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { ChevronDown, Search } from 'lucide-react';
+import { ChevronDown, Maximize2, Minimize2, Search } from 'lucide-react';
 import { cn } from '../../../../lib/utils';
 import {
   PHOTO_SORT_FIELDS,
@@ -139,6 +139,8 @@ export function CollectionPhotosWorkspaceHeader({
   onRenamePerson,
   onDeletePerson,
   showPeopleField = false,
+  fullScreen = false,
+  onToggleFullScreen,
 }) {
   const [viewOpen, setViewOpen] = useState(false);
   const [sortOpen, setSortOpen] = useState(false);
@@ -254,6 +256,18 @@ export function CollectionPhotosWorkspaceHeader({
                 Reverse order
               </button>
             </HeaderDropdown>
+
+            <button
+              type="button"
+              className="cdpw-fullscreen-btn"
+              onClick={onToggleFullScreen}
+              aria-pressed={fullScreen}
+              aria-label={fullScreen ? 'Exit full screen grid' : 'Show full screen grid'}
+              title={fullScreen ? 'Exit full screen' : 'Full screen'}
+            >
+              {fullScreen ? <Minimize2 size={15} aria-hidden /> : <Maximize2 size={15} aria-hidden />}
+              <span>{fullScreen ? 'Exit full screen' : 'Full screen'}</span>
+            </button>
 
             <button type="button" className="cdpw-add-media" onClick={onAddMedia}>
               <span className="cdpw-add-media__plus" aria-hidden>

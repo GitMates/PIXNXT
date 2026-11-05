@@ -205,6 +205,21 @@ export function getPhotoFullDisplayUrl(photo) {
   return resolveMediaUrl(photo.web_url || photo.full_url || photo.thumbnail_url || '');
 }
 
+/** Large still-image view — prefer the web derivative and only fall back to thumb when needed. */
+export function getPhotoWebDisplayUrl(photo) {
+  if (!photo || isUnpreviewablePhotoshop(photo)) return '';
+  if (isVideoMedia(photo)) return getPhotoVideoSrc(photo);
+  if (isRawMedia(photo)) {
+    const preview = getRawPreviewUrl(photo);
+    return toWebDerivativeUrl(preview) || preview;
+  }
+
+  const candidate = photo.web_url || photo.watermarked_url || photo.full_url || photo.thumbnail_url;
+  if (!candidate) return '';
+  const resolved = resolveMediaUrl(candidate);
+  return toWebDerivativeUrl(resolved) || resolved;
+}
+
 /** Original file URL (RAW on R2) — used when full-resolution original is required. */
 export function getPhotoOriginalFileUrl(photo) {
   if (!photo) return '';

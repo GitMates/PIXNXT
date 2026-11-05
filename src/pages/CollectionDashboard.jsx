@@ -159,6 +159,7 @@ import { RawPhotoPlaceholder } from '../components/features/CollectionDashboard/
 import {
     forgetCollectionCover,
     getPhotoFullDisplayUrl,
+    getPhotoWebDisplayUrl,
     getPhotoOriginalFileUrl,
     rememberCollectionCover,
     getPhotoStreamPhase,
@@ -358,6 +359,22 @@ const CollectionDashboard = () => {
     const [isDraggingDropzone, setIsDraggingDropzone] = useState(false);
     const [activePhotoMenu, setActivePhotoMenu] = useState(null);
     const [showGridSettings, setShowGridSettings] = useState(false);
+    const [isPhotoGridFullScreen, setIsPhotoGridFullScreen] = useState(false);
+    useEffect(() => {
+        if (!isPhotoGridFullScreen) return undefined;
+        const previousOverflow = document.body.style.overflow;
+        document.body.style.overflow = 'hidden';
+        const handleKeyDown = (event) => {
+            if (event.key === 'Escape' && !document.querySelector('.cd-lightbox')) {
+                setIsPhotoGridFullScreen(false);
+            }
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => {
+            document.body.style.overflow = previousOverflow;
+            window.removeEventListener('keydown', handleKeyDown);
+        };
+    }, [isPhotoGridFullScreen]);
     const [gridSize, setGridSize] = useState('small');
     const [showFilename, setShowFilename] = useState(
         () => localStorage.getItem('cd_show_filenames') === '1'
@@ -433,6 +450,7 @@ const CollectionDashboard = () => {
     const [editingPhoto, setEditingPhoto] = useState(null);
     const [lightboxOpenIndex, setLightboxOpenIndex] = useState(-1); // -1 = closed
     const [lightboxImgFailed, setLightboxImgFailed] = useState(false);
+    const lightboxPreloadsRef = useRef(new Map());
     const [newPhotoName, setNewPhotoName] = useState('');
     const [targetSetId, setTargetSetId] = useState(null);
     const [moveMode, setMoveMode] = useState('move'); // 'move' or 'copy'
@@ -1563,7 +1581,7 @@ const CollectionDashboard = () => {
             left,
             bottom: window.innerHeight - rect.top + 8,
             minWidth: menuWidth,
-            zIndex: 6000,
+            zIndex: 1500,
         };
     }, []);
 
@@ -1608,7 +1626,7 @@ const CollectionDashboard = () => {
             minWidth: menuWidth,
             maxHeight: needsScroll ? maxFit : undefined,
             overflowY: needsScroll ? 'auto' : 'visible',
-            zIndex: 6000,
+            zIndex: 11000,
         };
     }, []);
 
@@ -3367,6 +3385,15 @@ const CollectionDashboard = () => {
         setLightboxImgFailed(false);
     }, [lightboxOpenIndex]);
 
+    useEffect(() => {
+        if (lightboxOpenIndex < 0) return undefined;
+        const closeLightboxOnEscape = (event) => {
+            if (event.key === 'Escape') setLightboxOpenIndex(-1);
+        };
+        window.addEventListener('keydown', closeLightboxOnEscape);
+        return () => window.removeEventListener('keydown', closeLightboxOnEscape);
+    }, [lightboxOpenIndex]);
+
     const rawPreviewRepairRef = useRef(new Set());
 
     /** Backfill / re-bake JPEG previews for RAW (missing preview or wrong orientation). */
@@ -3496,6 +3523,28 @@ const CollectionDashboard = () => {
 
         return sortDashboardPhotos(filtered, sortOption);
     }, [photos, highlightsEnabled, activeSetId, sets, sortOption, collection?.design_options?.photo_order]);
+
+    // Keep this effect below sortedPhotos: hook dependency arrays are evaluated during render.
+    useEffect(() => {
+        if (lightboxOpenIndex < 0) return undefined;
+        const preload = (photo) => {
+            if (!photo || isVideoMedia(photo)) return;
+            const src = getPhotoWebDisplayUrl(photo);
+            if (!src || lightboxPreloadsRef.current.has(src)) return;
+            const image = new Image();
+            image.decoding = 'async';
+            image.fetchPriority = 'low';
+            lightboxPreloadsRef.current.set(src, image);
+            image.src = src;
+        };
+
+        [-1, 1].forEach((offset) => preload(sortedPhotos[lightboxOpenIndex + offset]));
+        while (lightboxPreloadsRef.current.size > 4) {
+            const oldestSrc = lightboxPreloadsRef.current.keys().next().value;
+            lightboxPreloadsRef.current.delete(oldestSrc);
+        }
+        return undefined;
+    }, [lightboxOpenIndex, sortedPhotos]);
 
     const peopleForActiveSet = useMemo(() => {
         const scoped = filterPeopleForPhotos(photoAiPeople, sortedPhotos);
@@ -6796,7 +6845,7 @@ const CollectionDashboard = () => {
                             </div>
                         </div>
                     )}
-                    <main className={`cd-main-area${activeSidebarTab === 'photos' ? ' cd-main-area--photos' : ''}${activeSidebarTab === 'design' ? ' cd-main-area--design' : ''}${activeSidebarTab === 'guests' ? ' cd-main-area--guests' : ''}${activeSidebarTab === 'activity' ? ' cd-main-area--activity' : ''}${activeSidebarTab === 'settings' ? ' cd-main-area--settings' : ''}`}>
+                    <main className={`cd-main-area${activeSidebarTab === 'photos' ? ' cd-main-area--photos' : ''}${activeSidebarTab === 'design' ? ' cd-main-area--design' : ''}${activeSidebarTab === 'guests' ? ' cd-main-area--guests' : ''}${activeSidebarTab === 'activity' ? ' cd-main-area--activity' : ''}${activeSidebarTab === 'settings' ? ' cd-main-area--settings' : ''}${isPhotoGridFullScreen ? ' cd-main-area--photos-fullscreen' : ''}`}>
                         {activeSidebarTab === 'photos' && (
                             <>
                                 <CollectionPhotosWorkspaceHeader
@@ -6863,6 +6912,8 @@ const CollectionDashboard = () => {
                                     onRenamePerson={handleRenamePerson}
                                     onDeletePerson={(personId) => handleTogglePersonHidden(personId, true)}
                                     showPeopleField={showPeoplePanel}
+                                    fullScreen={isPhotoGridFullScreen}
+                                    onToggleFullScreen={() => setIsPhotoGridFullScreen((current) => !current)}
                                 />
 
                                 {gridPhotos.length > 0 ? (
@@ -7490,6 +7541,12 @@ const CollectionDashboard = () => {
                                     onShowDetails={(p) => {
                                         closePhotoMenu();
                                         setDetailsPhoto(p);
+                                    }}
+                                    onViewFullScreen={(p) => {
+                                        closePhotoMenu();
+                                        setLightboxImgFailed(false);
+                                        const idx = sortedPhotos.findIndex((item) => item.id === p.id);
+                                        setLightboxOpenIndex(idx >= 0 ? idx : 0);
                                     }}
                                     onOpen={(p) => {
                                         closePhotoMenu();
@@ -8629,6 +8686,9 @@ const CollectionDashboard = () => {
                         {lightboxOpenIndex > 0 && (
                             <button
                                 className="cd-lightbox-nav prev"
+                                type="button"
+                                aria-label="Previous image"
+                                title="Previous image"
                                 onClick={(e) => { e.stopPropagation(); setLightboxOpenIndex(i => i - 1); }}
                             >
                                 <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
@@ -8657,7 +8717,7 @@ const CollectionDashboard = () => {
                             </div>
                             )
                         ) : (() => {
-                            const lbSrc = getPhotoFullDisplayUrl(lbPhoto);
+                            const lbSrc = getPhotoWebDisplayUrl(lbPhoto);
                             if (lbSrc && !lightboxImgFailed) {
                                 return (
                                     <img
@@ -8701,15 +8761,13 @@ const CollectionDashboard = () => {
                             );
                         })()}
 
-                        {/* Caption */}
-                        <div className="cd-lightbox-caption">
-                            {lbPhoto.filename} &nbsp;·&nbsp; {lightboxOpenIndex + 1} / {lbPhotos.length}
-                        </div>
-
                         {/* Next */}
                         {lightboxOpenIndex < lbPhotos.length - 1 && (
                             <button
                                 className="cd-lightbox-nav next"
+                                type="button"
+                                aria-label="Next image"
+                                title="Next image"
                                 onClick={(e) => { e.stopPropagation(); setLightboxOpenIndex(i => i + 1); }}
                             >
                                 <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
