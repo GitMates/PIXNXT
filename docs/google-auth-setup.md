@@ -23,7 +23,10 @@ That way Google shows **your domain** (`www.pixnxt.in`) on the account chooser.
      - `http://localhost:5173`
      - `https://www.pixnxt.in`
      - `https://pixnxt.in`
-   - **Authorized redirect URIs** (studio login — **pixnxt.in**, not Supabase):
+   - **Authorized redirect URIs** (backend Google login):
+     - `https://www.pixnxt.in/v1/auth/google/callback`
+     - `https://pixnxt.in/v1/auth/google/callback` (only if using the apex domain)
+   - **Authorized redirect URIs** (legacy studio login, if still used):
      - `http://localhost:5173/auth/google/callback`
      - `https://www.pixnxt.in/auth/google/callback`
      - `https://pixnxt.in/auth/google/callback`
@@ -92,7 +95,7 @@ Project: `oibvtecxxoqhvyejovsy`
 | Symptom | Fix |
 |--------|-----|
 | Still shows `*.supabase.co` | Set `VITE_GOOGLE_CLIENT_ID` in `.env` / Vercel and redeploy. Without it, the app falls back to Supabase OAuth. |
-| `redirect_uri_mismatch` | Add exact callback URL (`…/auth/google/callback`) in Google Cloud **Authorized redirect URIs**. |
+| `redirect_uri_mismatch` | For the backend login, add `https://www.pixnxt.in/v1/auth/google/callback` exactly in Google Cloud **Authorized redirect URIs**. The `/v1` path is required. |
 | `Google OAuth is not configured on the server` | Add `GOOGLE_CLIENT_SECRET` to Vercel (and local `.env`). |
 | `access_denied` / 403 | Add your email under OAuth **Test users**, or publish the app. |
 | Sign-in succeeds but no Supabase session | Enable Google provider in Supabase with the **same** Client ID + secret. |

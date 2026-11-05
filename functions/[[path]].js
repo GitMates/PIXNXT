@@ -13,7 +13,9 @@ const DEFAULT_API = "https://pixnxt-api.pixnxt.workers.dev";
 const CRAWLER_RE = /whatsapp|facebookexternalhit|twitterbot|linkedinbot|telegrambot|discordbot|slackbot|pinterest|googlebot|bingbot/i;
 
 function apiOrigin(env) {
-  const raw = String(env.API_ORIGIN || env.VITE_API_URL || DEFAULT_API).trim();
+  // This is a server-side destination. Keep it separate from the browser's
+  // VITE_API_URL, which points back to this Pages origin for cookie affinity.
+  const raw = String(env.API_ORIGIN || DEFAULT_API).trim();
   return raw.replace(/\/+$/, "");
 }
 
@@ -34,6 +36,13 @@ export async function onRequest(context) {
   const url = new URL(request.url);
   const path = url.pathname;
   const api = apiOrigin(env);
+
+  // Keep authenticated API requests on the site origin. The browser then
+  // returns the refresh cookie set by the OAuth callback instead of treating
+  // the Workers API host as a third-party cookie origin.
+  if (path === "/v1" || path.startsWith("/v1/")) {
+    return forward(api, path, request);
+  }
 
   if (path === "/api/crash-report") {
     const crash = String(env.CRASH_WORKER_URL || env.VITE_CRASH_WORKER_URL || "").trim().replace(/\/+$/, "");
