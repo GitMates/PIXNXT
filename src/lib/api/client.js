@@ -7,6 +7,12 @@
 export const USE_WORKERS_AUTH = true;
 
 export function apiBase() {
+  // Production auth cookies are issued by the OAuth callback on www.pixnxt.in.
+  // Keep every browser API call on that host so the Pages Function can proxy
+  // /v1/* to the Worker while preserving the same cookie host. Do not let a
+  // stale Pages VITE_API_URL setting send requests back to workers.dev.
+  if (import.meta.env.PROD) return 'https://www.pixnxt.in';
+
   const base = String(import.meta.env.VITE_API_URL || '').trim().replace(/\/+$/, '');
   if (!base) throw new Error('VITE_API_URL is not configured');
   return base;
