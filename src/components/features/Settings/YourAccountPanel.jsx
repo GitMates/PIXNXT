@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { galleryService } from '../../../services/gallery.service';
 import { storageService } from '../../../services/storage.service';
-import { signOut, changePassword, updatePassword, listAuthSessions, revokeAuthSession, sendPasswordResetSelf, startTwoFactorEnable, confirmTwoFactorEnable, disableTwoFactor } from '../../../services/auth.service';
+import { signOut, changePassword, setPassword, getPasswordStatus, listAuthSessions, revokeAuthSession, sendPasswordResetSelf, startTwoFactorEnable, confirmTwoFactorEnable, disableTwoFactor } from '../../../services/auth.service';
 import { getUserDisplayLabel, getUserInitial } from '../../../lib/userInitials';
 import { isReservedPlatformSubdomain } from '../../../lib/customDomain';
 import {
@@ -145,7 +145,7 @@ export default function YourAccountPanel({ user, showToast }) {
     const [stateProvince, setStateProvince] = useState('');
     const [handle, setHandle] = useState('');
     const [twoFactor, setTwoFactor] = useState(false);
-    const [loginPasswordSet, setLoginPasswordSet] = useState(false);
+    const [loginPasswordSet, setLoginPasswordSet] = useState(null);
     const [passwordChangedAt, setPasswordChangedAt] = useState('');
     const [notifications, setNotifications] = useState(DEFAULT_NOTIFICATIONS);
     const [sessions, setSessions] = useState([]);
@@ -217,7 +217,10 @@ export default function YourAccountPanel({ user, showToast }) {
 
         (async () => {
             try {
-                const data = await galleryService.getPhotographerProfile(user.id);
+                const [data, passwordStatus] = await Promise.all([
+                    galleryService.getPhotographerProfile(user.id),
+                    getPasswordStatus().catch(() => null),
+                ]);
                 if (cancelled) return;
 
                 const resolvedName =
@@ -250,7 +253,13 @@ export default function YourAccountPanel({ user, showToast }) {
                 setHandle(resolvedHandle);
                 setHandleDraft(resolvedHandle);
                 setTwoFactor(Boolean(data?.two_factor_enabled));
-                setLoginPasswordSet(Boolean(data?.login_password_set));
+                setLoginPasswordSet(
+                    typeof passwordStatus?.hasPassword === 'boolean'
+                        ? passwordStatus.hasPassword
+                        : (typeof data?.login_password_set === 'boolean'
+                            ? data.login_password_set
+                            : null),
+                );
                 setPasswordChangedAt(data?.password_changed_at || '');
                 let storedNotifications = data?.account_notifications || null;
                 if (!storedNotifications) {
@@ -569,14 +578,12 @@ export default function YourAccountPanel({ user, showToast }) {
         }
         setPasswordSaving(true);
         try {
-            // The current-password field is only shown when
-            // the account already has a password — match it: changePassword
-            // when the current password is available, updatePassword
-            // otherwise (both via auth.service → Workers).
+            // Existing passwords require the current password. OAuth-only
+            // accounts use the signed-in first-password endpoint.
             if (hasPassword) {
                 await changePassword(passwordForm.current, passwordForm.next);
             } else {
-                await updatePassword(passwordForm.next);
+                await setPassword(passwordForm.next);
             }
             const now = new Date().toISOString();
             setPasswordChangedAt(now);

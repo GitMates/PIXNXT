@@ -127,8 +127,8 @@ export function mergeStoredSessions(stored, currentRows) {
   return [...currentRows, ...others];
 }
 
-export function userHasPasswordIdentity(user, loginPasswordSet = false) {
-  if (loginPasswordSet) return true;
+export function userHasPasswordIdentity(user, loginPasswordSet = null) {
+  if (typeof loginPasswordSet === 'boolean') return loginPasswordSet;
   const identities = user?.identities;
   if (Array.isArray(identities)) {
     return identities.some((identity) => identity.provider === 'email');

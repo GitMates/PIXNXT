@@ -136,6 +136,11 @@ export async function updatePassword(password) {
   return (await workers()).updatePassword(password);
 }
 
+/** Sets the first password for a signed-in OAuth account. */
+export async function setPassword(newPassword) {
+  return (await workers()).setPassword(newPassword);
+}
+
 /**
  * Signed-in password change (current password required in Workers mode).
  */
@@ -161,6 +166,10 @@ export async function disableTwoFactor(opts) {
 
 export async function sendPasswordResetSelf() {
   return (await workers()).sendPasswordResetSelf();
+}
+
+export async function getPasswordStatus() {
+  return (await workers()).getPasswordStatus();
 }
 
 export async function listAuthSessions() {

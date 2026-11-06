@@ -151,6 +151,11 @@ export async function sendPasswordResetSelf() {
   return apiFetch('/v1/auth/password-reset/send-self', { method: 'POST', body: {} });
 }
 
+/** Reads actual password credential state for the signed-in account. */
+export async function getPasswordStatus() {
+  return apiFetch('/v1/auth/password-status');
+}
+
 /** Workers reset uses the ?token= link — no recovery session to wait for. */
 export async function updatePassword(password) {  const token = readWorkersResetToken();
   if (!token) {
@@ -159,6 +164,15 @@ export async function updatePassword(password) {  const token = readWorkersReset
     throw err;
   }
   await apiFetch('/v1/auth/password-reset/confirm', { method: 'POST', auth: false, body: { token, newPassword: password } });
+  return {};
+}
+
+/** Sets the first password for a signed-in OAuth account. */
+export async function setPassword(newPassword) {
+  await apiFetch('/v1/auth/set-password', {
+    method: 'POST',
+    body: { newPassword },
+  });
   return {};
 }
 
