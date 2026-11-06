@@ -3995,12 +3995,12 @@ const GalleryView = () => {
 
       {/* 6) Paid Digital Download Modals */}
       {showDigitalDownloadModal && digitalDownloadPhoto && (
-        <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', backgroundColor: 'rgba(0,0,0,0.65)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10010, padding: '20px', boxSizing: 'border-box', backdropFilter: 'blur(6px)' }}>
+        <div className="digital-download-overlay" style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', backgroundColor: 'rgba(0,0,0,0.65)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10010, padding: '20px', boxSizing: 'border-box', backdropFilter: 'blur(6px)' }}>
           {!showDigitalPurchaseDetail ? (
             /* Modal 1: Choice screen */
-            <div style={{ backgroundColor: '#ffffff', borderRadius: '0px', width: '100%', maxWidth: '820px', height: 'min(520px, calc(100dvh - 40px))', maxHeight: 'calc(100dvh - 40px)', display: 'flex', overflow: 'hidden', boxShadow: '0 20px 60px rgba(0,0,0,0.15)', color: '#1a1a1a', fontFamily: "'europa', sans-serif" }}>
+            <div className="digital-download-modal digital-download-choice" style={{ backgroundColor: '#ffffff', borderRadius: '0px', width: '100%', maxWidth: '820px', height: 'min(520px, calc(100dvh - 40px))', maxHeight: 'calc(100dvh - 40px)', display: 'flex', overflow: 'hidden', boxShadow: '0 20px 60px rgba(0,0,0,0.15)', color: '#1a1a1a', fontFamily: "'europa', sans-serif" }}>
               {/* Left Photo / Collage View */}
-              <div style={{
+              <div className="digital-download-photo-panel" style={{
                 width: '40%',
                 height: '100%',
                 background: '#f8fafc',
@@ -4010,7 +4010,7 @@ const GalleryView = () => {
                 overflow: 'hidden',
                 borderRight: '1px solid #e2e8f0',
               }}>
-                <div style={{
+                <div className="digital-download-photo-content" style={{
                   flex: 1,
                   minHeight: 0,
                   overflowY: (isPurchaseAllDefault || !digitalPricing?.packageEligible) ? 'auto' : 'hidden',
@@ -4103,17 +4103,16 @@ const GalleryView = () => {
                 </div>
               </div>
               {/* Right Options Details */}
-              <div style={{ width: '60%', height: '100%', minHeight: 0, overflowY: 'auto', padding: '40px', boxSizing: 'border-box', display: 'flex', flexDirection: 'column', position: 'relative' }}>
-                <button onClick={() => setShowDigitalDownloadModal(false)} style={{ position: 'absolute', top: '16px', right: '16px', border: 'none', background: 'none', cursor: 'pointer', padding: '4px' }}>
-                  <X size={22} color="#111" />
-                </button>
-
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #e2e8f0', paddingBottom: '16px', marginBottom: '24px' }}>
-                  <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 700, letterSpacing: '0.04em', textTransform: 'uppercase', color: '#111' }}>
+              <div className="digital-download-options" style={{ width: '60%', height: '100%', minHeight: 0, overflowY: 'auto', padding: '40px', boxSizing: 'border-box', display: 'flex', flexDirection: 'column', position: 'relative' }}>
+                <div className="digital-download-options-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #e2e8f0', paddingBottom: '16px', marginBottom: '24px' }}>
+                  <h3 className="digital-download-options-title" style={{ margin: 0, fontSize: '16px', fontWeight: 700, letterSpacing: '0.04em', textTransform: 'uppercase', color: '#111' }}>
                     {isPurchaseAllDefault ? 'Buy Digital Downloads' : 'Buy This Photo'}
                   </h3>
-                  <button onClick={() => { setShowDigitalDownloadModal(false); handleShopClick(digitalDownloadPhoto); }} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, fontSize: '11px', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 600 }} className="hover:text-black">
+                  <button onClick={() => { setShowDigitalDownloadModal(false); handleShopClick(digitalDownloadPhoto); }} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, fontSize: '11px', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 600 }} className="digital-download-visit-store hover:text-black">
                     Visit Store &gt;
+                  </button>
+                  <button type="button" onClick={() => setShowDigitalDownloadModal(false)} className="digital-download-close" aria-label="Close download options">
+                    <X size={20} color="#111" />
                   </button>
                 </div>
 
@@ -4248,7 +4247,7 @@ const GalleryView = () => {
             </div>
           ) : (
             /* Modal 2: Product purchasing detail screen */
-            <div style={{ backgroundColor: '#ffffff', borderRadius: '0px', width: '100%', maxWidth: '820px', display: 'flex', flexDirection: 'column', height: 'min(520px, calc(100dvh - 40px))', maxHeight: 'calc(100dvh - 40px)', overflow: 'hidden', boxShadow: '0 20px 60px rgba(0,0,0,0.15)', color: '#1a1a1a', fontFamily: "'europa', sans-serif" }}>
+            <div className="digital-download-modal digital-download-detail" style={{ backgroundColor: '#ffffff', borderRadius: '0px', width: '100%', maxWidth: '820px', display: 'flex', flexDirection: 'column', height: 'min(520px, calc(100dvh - 40px))', maxHeight: 'calc(100dvh - 40px)', overflow: 'hidden', boxShadow: '0 20px 60px rgba(0,0,0,0.15)', color: '#1a1a1a', fontFamily: "'europa', sans-serif" }}>
               {/* Top Header Bar */}
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 24px', borderBottom: '1px solid #e2e8f0', boxSizing: 'border-box' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
@@ -4429,9 +4428,9 @@ const GalleryView = () => {
               </div>
 
               {/* Detail Content View (Scrollable left column if all) */}
-              <div style={{ display: 'flex', flex: 1, minHeight: 0, height: 'calc(100% - 60px)' }}>
+              <div className="digital-download-detail-content" style={{ display: 'flex', flex: 1, minHeight: 0, height: 'calc(100% - 60px)' }}>
                 {/* Left side Image / Grid */}
-                <div style={{ width: '50%', height: '100%', background: '#f8fafc', display: 'flex', flexDirection: 'column', padding: '24px', boxSizing: 'border-box', position: 'relative', overflowY: (selectedDownloadType === 'all' || selectedDownloadType === 'package') ? 'auto' : 'hidden', justifyContent: (selectedDownloadType === 'all' || selectedDownloadType === 'package') ? 'flex-start' : 'center', alignItems: 'center' }}>
+                <div className="digital-download-detail-photo" style={{ width: '50%', height: '100%', background: '#f8fafc', display: 'flex', flexDirection: 'column', padding: '24px', boxSizing: 'border-box', position: 'relative', overflowY: (selectedDownloadType === 'all' || selectedDownloadType === 'package') ? 'auto' : 'hidden', justifyContent: (selectedDownloadType === 'all' || selectedDownloadType === 'package') ? 'flex-start' : 'center', alignItems: 'center' }}>
                   {(selectedDownloadType === 'all' || selectedDownloadType === 'package') ? (
                     <div style={{ width: '100%' }}>
                       {selectedDownloadType === 'package' && selectedStorePackage && (
@@ -4452,7 +4451,7 @@ const GalleryView = () => {
                   )}
                 </div>
                 {/* Right side details info */}
-                <div style={{ width: '50%', height: '100%', minHeight: 0, overflowY: 'auto', padding: '40px 32px', boxSizing: 'border-box', display: 'flex', flexDirection: 'column', gap: '20px', borderLeft: '1px solid #e2e8f0', backgroundColor: '#ffffff' }}>
+                <div className="digital-download-detail-info" style={{ width: '50%', height: '100%', minHeight: 0, overflowY: 'auto', padding: '40px 32px', boxSizing: 'border-box', display: 'flex', flexDirection: 'column', gap: '20px', borderLeft: '1px solid #e2e8f0', backgroundColor: '#ffffff' }}>
                   <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
                     <Download size={20} color="#64748b" style={{ flexShrink: 0, marginTop: '2px' }} />
                     <div>

@@ -576,3 +576,127 @@
   border: 0;
 }
 
+/* Paid download chooser: switch from a cramped split panel to a stacked phone layout. */
+.digital-download-options-header {
+  gap: 12px;
+}
+
+.digital-download-options-title {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.digital-download-visit-store {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+.digital-download-close {
+  display: inline-flex;
+  width: 32px;
+  height: 32px;
+  flex: 0 0 32px;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+@media (max-width: 680px) {
+  .digital-download-overlay {
+    align-items: center !important;
+    padding: 8px !important;
+  }
+
+  .digital-download-modal {
+    width: 100% !important;
+    max-width: 480px !important;
+    height: min(92dvh, 780px) !important;
+    max-height: 92dvh !important;
+    border-radius: 12px !important;
+  }
+
+  .digital-download-choice {
+    flex-direction: column !important;
+  }
+
+  .digital-download-photo-panel {
+    width: 100% !important;
+    height: 30% !important;
+    min-height: 140px;
+    max-height: 230px;
+    flex: 0 0 30%;
+    border-right: 0 !important;
+    border-bottom: 1px solid #e2e8f0;
+  }
+
+  .digital-download-photo-content {
+    padding: 10px !important;
+  }
+
+  .digital-download-options {
+    width: 100% !important;
+    height: auto !important;
+    flex: 1 1 0;
+    padding: 20px 18px !important;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .digital-download-options-header {
+    gap: 8px;
+    margin-bottom: 18px !important;
+    padding-bottom: 12px !important;
+  }
+
+  .digital-download-options-title {
+    font-size: 14px !important;
+    letter-spacing: 0.02em !important;
+  }
+
+  .digital-download-visit-store {
+    font-size: 9px !important;
+    letter-spacing: 0.04em !important;
+  }
+
+  .digital-download-detail {
+    flex-direction: column !important;
+  }
+
+  .digital-download-detail > div:first-child {
+    flex: 0 0 auto;
+    padding: 12px 14px !important;
+  }
+
+  .digital-download-detail-content {
+    height: auto !important;
+    min-height: 0;
+    flex: 1 1 0 !important;
+    flex-direction: column !important;
+    overflow: hidden;
+  }
+
+  .digital-download-detail-photo {
+    width: 100% !important;
+    height: 30% !important;
+    min-height: 120px;
+    max-height: 210px;
+    flex: 0 0 30%;
+    padding: 10px !important;
+    border-bottom: 1px solid #e2e8f0;
+  }
+
+  .digital-download-detail-info {
+    width: 100% !important;
+    height: auto !important;
+    flex: 1 1 0;
+    padding: 16px 18px !important;
+    gap: 12px !important;
+    border-left: 0 !important;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
