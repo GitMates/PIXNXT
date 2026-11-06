@@ -114,6 +114,11 @@
 
 .photo-lightbox-hover-icon-btn {
   pointer-events: auto;
+  display: inline-flex;
+  min-width: 44px;
+  min-height: 44px;
+  align-items: center;
+  justify-content: center;
   color: #fff;
   filter: drop-shadow(0 1px 5px rgb(0 0 0 / 0.9));
   transition: opacity 0.15s ease;
@@ -121,6 +126,11 @@
 
 .photo-lightbox-hover-icon-btn:hover {
   opacity: 0.8;
+}
+
+/* The paid badge's currency glyph renders as a black square in some fonts. */
+.photo-lightbox-hover-icon-btn .relative > span {
+  display: none;
 }
 
 @media (hover: hover) and (pointer: fine) {
@@ -131,6 +141,23 @@
 
   .photo-lightbox-media-wrap:hover .photo-lightbox-hover-actions {
     pointer-events: auto;
+  }
+}
+
+/* Touch screens have no hover event to reveal the full-screen photo actions. */
+@media (hover: none), (pointer: coarse) {
+  .photo-lightbox-hover-gradient,
+  .photo-lightbox-hover-actions {
+    opacity: 1;
+  }
+
+  .photo-lightbox-hover-actions {
+    pointer-events: auto;
+    padding: 0.5rem;
+  }
+
+  .photo-lightbox-hover-icons {
+    gap: 0.25rem;
   }
 }
 

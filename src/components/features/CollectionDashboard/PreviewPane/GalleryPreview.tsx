@@ -614,10 +614,16 @@ export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
                 : 'full';
 
           // Use the same download engine as the live gallery so size choices are respected.
-          await downloadSinglePhotoFile(photo, {
-            resolution,
-            videoResolution: dashboardState?.videoDownloadResolution ?? dashboardState?.collection?.video_download_resolution,
-          });
+          try {
+            await downloadSinglePhotoFile(photo, {
+              resolution,
+              videoResolution: dashboardState?.videoDownloadResolution ?? dashboardState?.collection?.video_download_resolution,
+            });
+          } catch (error: any) {
+            setDownloadBlockedMessage(error?.message || 'Could not download this image. Please try again.');
+            window.setTimeout(() => setDownloadBlockedMessage(null), 5000);
+            return;
+          }
 
         // Log activity for direct download
         if (collectionId) {
@@ -957,7 +963,6 @@ export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
         showFavorite={favFeatureOn}
         showShare={isCollectionFeatureEnabled(dashboardState?.socialSharing)}
         showShop={dashboardState?.collection?.store_enabled !== false}
-        favoriteCount={favFeatureOn ? favoritedPhotos.length : undefined}
         isFavorited={(() => {
           const id = normalizeFavoritePhotoId(filteredPhotos[lightboxIndex]?.id);
           return !!id && favoritedPhotos.includes(id);

@@ -116,6 +116,10 @@
   background: #ffffff;
 }
 
+.gallery-masonry-action-btn .relative > span {
+  display: none;
+}
+
 .gallery-masonry-action-btn svg {
   width: 13px;
   height: 13px;

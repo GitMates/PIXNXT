@@ -891,17 +891,6 @@ const GalleryView = () => {
     activeFavoriteList?.id || pickListParam || getPickListId() || listId || null;
   const favoritesLocked =
     Boolean(activeFavoriteList?.submitted_at) && collection?.selection_lock_on_submit !== false;
-  const favoriteLightboxLabel = useMemo(() => {
-    if (!sessionId) return null;
-    const name = activeFavoriteList?.name || 'My Favorites';
-    const max =
-      activeFavoriteList?.max_selection != null && Number(activeFavoriteList.max_selection) > 0
-        ? Number(activeFavoriteList.max_selection)
-        : null;
-    if (max != null) return `${name} (${favoritedPhotos.length}/${max})`;
-    return `${name} (${favoritedPhotos.length})`;
-  }, [sessionId, activeFavoriteList, favoritedPhotos.length]);
-
   const handleEmailGateSubmit = async ({ email: nextEmail, name, phone }) => {
     if (!collection?.id) return;
     const trimmedEmail = String(nextEmail || '').trim();
@@ -1617,11 +1606,17 @@ const GalleryView = () => {
             : offered.includes('original')
               ? 'original'
               : 'full';
-        await downloadSinglePhotoFile(photo, {
-          resolution,
-          videoResolution: collection?.video_download_resolution,
-          watermarkOptions,
-        });
+        try {
+          await downloadSinglePhotoFile(photo, {
+            resolution,
+            videoResolution: collection?.video_download_resolution,
+            watermarkOptions,
+          });
+        } catch (error) {
+          setDownloadBlockedToast(error?.message || 'Could not download this image. Please try again.');
+          window.setTimeout(() => setDownloadBlockedToast(null), 5000);
+          return;
+        }
         // Resolution selection applies to photographs; videos use `video_download_resolution`.
 
         // Log activity for direct download
@@ -3320,10 +3315,10 @@ const GalleryView = () => {
               showDownload: showSinglePhotoDownload,
               isPaidDownload: isPaidDigitalDownloadOn,
               showFavorite: collection?.favorites_enabled !== false,
-              showNoteButton: clientOverlaysActive && notesAllowed,
+              showNoteButton: false,
               notedPhotoIds: Object.keys(photoNotes),
               onNoteClick: (photo, anchor) => openNotePopup(photo, anchor),
-              showClientShareButton: clientOverlaysActive,
+              showClientShareButton: false,
               onShareClick: (photo, anchor) => openShareMenu(photo, anchor),
               showShare: showGalleryShare,
               showShop: collection?.store_enabled === true,
@@ -3523,7 +3518,6 @@ const GalleryView = () => {
           const id = normalizeFavoritePhotoId(filteredPhotos[lightboxIndex]?.id);
           return !!id && favoritedPhotos.includes(id);
         })()}
-        favoriteOverlayLabel={favoriteLightboxLabel || undefined}
         filmPlayback={collection?.film_playback === 'highest' ? 'highest' : 'adapt'}
         themeClassName={cn(
           `theme-${effectiveSettings.color_palette}`,
@@ -4001,10 +3995,10 @@ const GalleryView = () => {
 
       {/* 6) Paid Digital Download Modals */}
       {showDigitalDownloadModal && digitalDownloadPhoto && (
-        <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', backgroundColor: 'rgba(0,0,0,0.65)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2000, padding: '20px', boxSizing: 'border-box', backdropFilter: 'blur(6px)' }}>
+        <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', backgroundColor: 'rgba(0,0,0,0.65)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10010, padding: '20px', boxSizing: 'border-box', backdropFilter: 'blur(6px)' }}>
           {!showDigitalPurchaseDetail ? (
             /* Modal 1: Choice screen */
-            <div style={{ backgroundColor: '#ffffff', borderRadius: '0px', width: '100%', maxWidth: '820px', display: 'flex', height: '520px', overflow: 'hidden', boxShadow: '0 20px 60px rgba(0,0,0,0.15)', color: '#1a1a1a', fontFamily: "'europa', sans-serif" }}>
+            <div style={{ backgroundColor: '#ffffff', borderRadius: '0px', width: '100%', maxWidth: '820px', height: 'min(520px, calc(100dvh - 40px))', maxHeight: 'calc(100dvh - 40px)', display: 'flex', overflow: 'hidden', boxShadow: '0 20px 60px rgba(0,0,0,0.15)', color: '#1a1a1a', fontFamily: "'europa', sans-serif" }}>
               {/* Left Photo / Collage View */}
               <div style={{
                 width: '40%',
@@ -4109,7 +4103,7 @@ const GalleryView = () => {
                 </div>
               </div>
               {/* Right Options Details */}
-              <div style={{ width: '60%', height: '100%', padding: '40px', boxSizing: 'border-box', display: 'flex', flexDirection: 'column', position: 'relative' }}>
+              <div style={{ width: '60%', height: '100%', minHeight: 0, overflowY: 'auto', padding: '40px', boxSizing: 'border-box', display: 'flex', flexDirection: 'column', position: 'relative' }}>
                 <button onClick={() => setShowDigitalDownloadModal(false)} style={{ position: 'absolute', top: '16px', right: '16px', border: 'none', background: 'none', cursor: 'pointer', padding: '4px' }}>
                   <X size={22} color="#111" />
                 </button>
@@ -4254,7 +4248,7 @@ const GalleryView = () => {
             </div>
           ) : (
             /* Modal 2: Product purchasing detail screen */
-            <div style={{ backgroundColor: '#ffffff', borderRadius: '0px', width: '100%', maxWidth: '820px', display: 'flex', flexDirection: 'column', height: '520px', overflow: 'hidden', boxShadow: '0 20px 60px rgba(0,0,0,0.15)', color: '#1a1a1a', fontFamily: "'europa', sans-serif" }}>
+            <div style={{ backgroundColor: '#ffffff', borderRadius: '0px', width: '100%', maxWidth: '820px', display: 'flex', flexDirection: 'column', height: 'min(520px, calc(100dvh - 40px))', maxHeight: 'calc(100dvh - 40px)', overflow: 'hidden', boxShadow: '0 20px 60px rgba(0,0,0,0.15)', color: '#1a1a1a', fontFamily: "'europa', sans-serif" }}>
               {/* Top Header Bar */}
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 24px', borderBottom: '1px solid #e2e8f0', boxSizing: 'border-box' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
@@ -4435,7 +4429,7 @@ const GalleryView = () => {
               </div>
 
               {/* Detail Content View (Scrollable left column if all) */}
-              <div style={{ display: 'flex', flex: 1, height: 'calc(100% - 60px)' }}>
+              <div style={{ display: 'flex', flex: 1, minHeight: 0, height: 'calc(100% - 60px)' }}>
                 {/* Left side Image / Grid */}
                 <div style={{ width: '50%', height: '100%', background: '#f8fafc', display: 'flex', flexDirection: 'column', padding: '24px', boxSizing: 'border-box', position: 'relative', overflowY: (selectedDownloadType === 'all' || selectedDownloadType === 'package') ? 'auto' : 'hidden', justifyContent: (selectedDownloadType === 'all' || selectedDownloadType === 'package') ? 'flex-start' : 'center', alignItems: 'center' }}>
                   {(selectedDownloadType === 'all' || selectedDownloadType === 'package') ? (
@@ -4458,7 +4452,7 @@ const GalleryView = () => {
                   )}
                 </div>
                 {/* Right side details info */}
-                <div style={{ width: '50%', height: '100%', padding: '40px 32px', boxSizing: 'border-box', display: 'flex', flexDirection: 'column', gap: '20px', borderLeft: '1px solid #e2e8f0', backgroundColor: '#ffffff' }}>
+                <div style={{ width: '50%', height: '100%', minHeight: 0, overflowY: 'auto', padding: '40px 32px', boxSizing: 'border-box', display: 'flex', flexDirection: 'column', gap: '20px', borderLeft: '1px solid #e2e8f0', backgroundColor: '#ffffff' }}>
                   <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
                     <Download size={20} color="#64748b" style={{ flexShrink: 0, marginTop: '2px' }} />
                     <div>
