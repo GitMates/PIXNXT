@@ -203,6 +203,7 @@ export default function StoreHeader({
             >
               <button
                 className={`store-nav-btn ${activeTab === 'shop' ? 'active' : ''}`}
+                onFocus={() => setIsShopDropdownOpen(true)}
                 onClick={() => onNavigateToShop ? onNavigateToShop() : setActiveTab('shop')}
               >
                 Shop

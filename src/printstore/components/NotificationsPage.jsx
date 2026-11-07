@@ -865,8 +865,8 @@ export default function NotificationsPage({ sessionId, photographer, onBack }) {
   }
 
   return (
-    <div className="cart-page-container" style={{ minHeight: '80vh', padding: '40px 0', backgroundColor: '#ffffff' }}>
-      <div style={{ maxWidth: '1200px', margin: '0 auto', width: '100%', padding: '0 20px', boxSizing: 'border-box' }}>
+    <div className="cart-page-container notifications-page" style={{ minHeight: '80vh', padding: '40px 0', backgroundColor: '#ffffff' }}>
+      <div className="notifications-page-content" style={{ maxWidth: '1200px', margin: '0 auto', width: '100%', padding: '0 20px', boxSizing: 'border-box' }}>
         <div style={{ height: '24px' }} />
 
         {loading ? (
@@ -884,7 +884,8 @@ export default function NotificationsPage({ sessionId, photographer, onBack }) {
             {notifications.map((notif) => {
               const nItem = notif.orderItem;
               return (
-                <div 
+                <div
+                  className="notification-card"
                   key={notif.id}
                   style={{
                     background: 'white', border: '1px solid #eaeaea', borderRadius: '12px',
